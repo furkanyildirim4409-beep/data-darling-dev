@@ -373,17 +373,19 @@ export default function Settings() {
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {subscriptionPlans.map((plan) => (
+                {subscriptionPlans.map((plan) => {
+                    const isCurrent = plan.name === currentTier;
+                    return (
                     <div
                       key={plan.name}
                       className={cn(
                         "relative p-6 rounded-xl border transition-all",
-                        plan.current
+                        isCurrent
                           ? "border-primary bg-primary/5 glow-lime"
                           : "border-border bg-card hover:bg-muted/30"
                       )}
                     >
-                      {plan.current && (
+                      {isCurrent && (
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                           <span className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                             Mevcut Plan
@@ -410,17 +412,18 @@ export default function Settings() {
                       <Button
                         className={cn(
                           "w-full",
-                          plan.current
+                          isCurrent
                             ? "bg-muted text-muted-foreground cursor-not-allowed"
                             : "bg-primary text-primary-foreground hover:bg-primary/90"
                         )}
-                        disabled={plan.current}
+                        disabled={isCurrent}
                         onClick={() => handleUpgradeSubscription(plan.name)}
                       >
-                        {plan.current ? "Aktif Plan" : "Yükselt"}
+                        {isCurrent ? "Aktif Plan" : "Yükselt"}
                       </Button>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             </div>
