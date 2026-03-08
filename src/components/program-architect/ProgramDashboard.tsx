@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,12 @@ import {
   Copy,
   Users,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ProgramData {
   id: string;
@@ -41,70 +44,9 @@ export interface ProgramData {
   assignedCount: number;
   createdAt: Date;
   blockType?: "hypertrophy" | "strength" | "endurance";
+  difficulty?: string;
+  targetGoal?: string;
 }
-
-const mockExercisePrograms: ProgramData[] = [
-  {
-    id: "prog-1",
-    name: "Hipertrofi Bloğu A",
-    type: "exercise",
-    description: "Kas hacmi artırma odaklı 4 haftalık program",
-    duration: "4 Hafta",
-    assignedCount: 8,
-    createdAt: new Date("2025-12-01"),
-    blockType: "hypertrophy",
-  },
-  {
-    id: "prog-2",
-    name: "Güç Bloğu Pro",
-    type: "exercise",
-    description: "Maksimum güç gelişimi için periodizasyon",
-    duration: "6 Hafta",
-    assignedCount: 5,
-    createdAt: new Date("2025-11-15"),
-    blockType: "strength",
-  },
-  {
-    id: "prog-3",
-    name: "PPL Split Program",
-    type: "exercise",
-    description: "İt/Çek/Bacak bölünmesi ile tam vücut",
-    duration: "8 Hafta",
-    assignedCount: 12,
-    createdAt: new Date("2026-01-10"),
-    blockType: "hypertrophy",
-  },
-];
-
-const mockNutritionPrograms: ProgramData[] = [
-  {
-    id: "nut-prog-1",
-    name: "Bulk Diyeti 3500 kcal",
-    type: "nutrition",
-    description: "Kas kütlesi artışı için yüksek kalori planı",
-    duration: "12 Hafta",
-    assignedCount: 6,
-    createdAt: new Date("2025-12-20"),
-  },
-  {
-    id: "nut-prog-2",
-    name: "Cut Diyeti 2200 kcal",
-    type: "nutrition",
-    description: "Yağ yakımı için kalori açığı planı",
-    duration: "8 Hafta",
-    assignedCount: 4,
-    createdAt: new Date("2026-01-05"),
-  },
-  {
-    id: "nut-prog-3",
-    name: "Keto Planı",
-    type: "nutrition",
-    description: "Düşük karbonhidrat, yüksek yağ beslenme",
-    duration: "6 Hafta",
-    assignedCount: 3,
-    createdAt: new Date("2026-01-15"),
-  },
-];
 
 interface ProgramDashboardProps {
   onCreateProgram: (type: "exercise" | "nutrition") => void;
@@ -112,69 +54,120 @@ interface ProgramDashboardProps {
 }
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDashboardProps) {
-  const { toast } = useToast();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
-  const [programs, setPrograms] = useState({
-    exercise: mockExercisePrograms,
-    nutrition: mockNutritionPrograms,
-  });
+  const [programs, setPrograms] = useState<ProgramData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
     open: false,
     program: null,
   });
 
-  const currentPrograms = viewMode === "exercise" ? programs.exercise : programs.nutrition;
+  const fetchPrograms = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("programs")
+      .select("*")
+      .eq("coach_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Programlar yüklenemedi");
+      setLoading(false);
+      return;
+    }
+
+    const mapped: ProgramData[] = (data ?? []).map((p) => ({
+      id: p.id,
+      name: p.title,
+      type: "exercise" as const,
+      description: p.description ?? "",
+      duration: "",
+      assignedCount: 0,
+      createdAt: new Date(p.created_at ?? Date.now()),
+      difficulty: p.difficulty ?? undefined,
+      targetGoal: p.target_goal ?? undefined,
+      blockType: p.target_goal === "hypertrophy"
+        ? "hypertrophy"
+        : p.target_goal === "strength"
+          ? "strength"
+          : p.target_goal === "endurance"
+            ? "endurance"
+            : undefined,
+    }));
+    setPrograms(mapped);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchPrograms();
+  }, [fetchPrograms]);
+
+  const currentPrograms = programs.filter((p) => p.type === viewMode || viewMode === "exercise");
 
   const handleDelete = (program: ProgramData) => {
     setDeleteDialog({ open: true, program });
   };
 
-  const confirmDelete = () => {
-    if (deleteDialog.program) {
-      if (viewMode === "exercise") {
-        setPrograms((prev) => ({
-          ...prev,
-          exercise: prev.exercise.filter((p) => p.id !== deleteDialog.program!.id),
-        }));
-      } else {
-        setPrograms((prev) => ({
-          ...prev,
-          nutrition: prev.nutrition.filter((p) => p.id !== deleteDialog.program!.id),
-        }));
-      }
-      toast({
-        title: "Program Silindi",
-        description: `"${deleteDialog.program.name}" başarıyla silindi.`,
-      });
+  const confirmDelete = async () => {
+    if (!deleteDialog.program) return;
+    const id = deleteDialog.program.id;
+    // Delete exercises first, then program
+    await supabase.from("exercises").delete().eq("program_id", id);
+    const { error } = await supabase.from("programs").delete().eq("id", id);
+    if (error) {
+      toast.error("Program silinemedi");
+    } else {
+      toast.success(`"${deleteDialog.program.name}" silindi`);
+      setPrograms((prev) => prev.filter((p) => p.id !== id));
     }
     setDeleteDialog({ open: false, program: null });
   };
 
-  const handleDuplicate = (program: ProgramData) => {
-    const newProgram: ProgramData = {
-      ...program,
-      id: `${program.id}-copy-${Date.now()}`,
-      name: `${program.name} (Kopya)`,
-      assignedCount: 0,
-      createdAt: new Date(),
-    };
+  const handleDuplicate = async (program: ProgramData) => {
+    if (!user) return;
+    // Insert new program
+    const { data: newProg, error: progErr } = await supabase
+      .from("programs")
+      .insert({
+        title: `${program.name} (Kopya)`,
+        description: program.description,
+        difficulty: program.difficulty,
+        target_goal: program.targetGoal,
+        coach_id: user.id,
+      })
+      .select()
+      .single();
 
-    if (viewMode === "exercise") {
-      setPrograms((prev) => ({
-        ...prev,
-        exercise: [...prev.exercise, newProgram],
-      }));
-    } else {
-      setPrograms((prev) => ({
-        ...prev,
-        nutrition: [...prev.nutrition, newProgram],
-      }));
+    if (progErr || !newProg) {
+      toast.error("Program kopyalanamadı");
+      return;
     }
 
-    toast({
-      title: "Program Kopyalandı",
-      description: `"${program.name}" başarıyla kopyalandı.`,
-    });
+    // Copy exercises
+    const { data: exercises } = await supabase
+      .from("exercises")
+      .select("*")
+      .eq("program_id", program.id);
+
+    if (exercises && exercises.length > 0) {
+      await supabase.from("exercises").insert(
+        exercises.map((ex) => ({
+          program_id: newProg.id,
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest_time: ex.rest_time,
+          notes: ex.notes,
+          order_index: ex.order_index,
+          video_url: ex.video_url,
+        }))
+      );
+    }
+
+    toast.success(`"${program.name}" kopyalandı`);
+    fetchPrograms();
   };
 
   const getBlockColor = (type?: string) => {
@@ -202,7 +195,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Mode Toggle */}
           <div className="glass rounded-lg px-4 py-2 border border-border flex items-center gap-3">
             <div
               className={`flex items-center gap-2 cursor-pointer ${viewMode === "exercise" ? "text-primary" : "text-muted-foreground"}`}
@@ -224,7 +216,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
             </div>
           </div>
 
-          {/* Create Button */}
           <Button
             onClick={() => onCreateProgram(viewMode)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
@@ -235,117 +226,125 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
         </div>
       </div>
 
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* Programs Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {currentPrograms.map((program) => (
-          <Card
-            key={program.id}
-            className="glass border-border group hover:border-primary/50 transition-all cursor-pointer"
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "p-2 rounded-lg",
-                      program.type === "exercise" ? "bg-primary/20" : "bg-success/20"
-                    )}
-                  >
-                    {program.type === "exercise" ? (
-                      <Dumbbell className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Apple className="w-5 h-5 text-success" />
-                    )}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {currentPrograms.map((program) => (
+            <Card
+              key={program.id}
+              className="glass border-border group hover:border-primary/50 transition-all cursor-pointer"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg",
+                        program.type === "exercise" ? "bg-primary/20" : "bg-success/20"
+                      )}
+                    >
+                      {program.type === "exercise" ? (
+                        <Dumbbell className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Apple className="w-5 h-5 text-success" />
+                      )}
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold">{program.name}</CardTitle>
+                      {program.blockType && (
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px] mt-1", getBlockColor(program.blockType))}
+                        >
+                          {program.blockType === "hypertrophy"
+                            ? "Hipertrofi"
+                            : program.blockType === "strength"
+                              ? "Güç"
+                              : "Dayanıklılık"}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-base font-semibold">{program.name}</CardTitle>
-                    {program.blockType && (
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[10px] mt-1", getBlockColor(program.blockType))}
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        {program.blockType === "hypertrophy"
-                          ? "Hipertrofi"
-                          : program.blockType === "strength"
-                            ? "Güç"
-                            : "Dayanıklılık"}
-                      </Badge>
-                    )}
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-card border-border">
+                      <DropdownMenuItem onClick={() => onEditProgram(program)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Düzenle
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicate(program)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Kopyala
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(program)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Sil
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                  {program.description}
+                </p>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {program.createdAt.toLocaleDateString("tr-TR")}
                   </div>
+                  {program.difficulty && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {program.difficulty === "beginner" ? "Başlangıç" : program.difficulty === "intermediate" ? "Orta" : "İleri"}
+                    </Badge>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+          ))}
 
-                {/* Actions Menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-card border-border">
-                    <DropdownMenuItem onClick={() => onEditProgram(program)}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Düzenle
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDuplicate(program)}>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Kopyala
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDelete(program)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Sil
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          {currentPrograms.length === 0 && (
+            <div className="col-span-full glass rounded-xl border border-border p-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                {viewMode === "exercise" ? (
+                  <Dumbbell className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <Apple className="w-8 h-8 text-muted-foreground" />
+                )}
               </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                {program.description}
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Henüz {viewMode === "exercise" ? "antrenman" : "beslenme"} programı yok
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                İlk programınızı oluşturmak için aşağıdaki butona tıklayın
               </p>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {program.duration}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" />
-                  {program.assignedCount} Sporcu
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {/* Empty State */}
-        {currentPrograms.length === 0 && (
-          <div className="col-span-full glass rounded-xl border border-border p-12 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              {viewMode === "exercise" ? (
-                <Dumbbell className="w-8 h-8 text-muted-foreground" />
-              ) : (
-                <Apple className="w-8 h-8 text-muted-foreground" />
-              )}
+              <Button onClick={() => onCreateProgram(viewMode)}>
+                <Plus className="w-4 h-4 mr-1.5" />
+                Program Oluştur
+              </Button>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              Henüz {viewMode === "exercise" ? "antrenman" : "beslenme"} programı yok
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              İlk programınızı oluşturmak için aşağıdaki butona tıklayın
-            </p>
-            <Button onClick={() => onCreateProgram(viewMode)}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              Program Oluştur
-            </Button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, program: null })}>
