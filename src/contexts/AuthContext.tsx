@@ -20,6 +20,11 @@ export interface Profile {
     push: boolean;
     alerts: boolean;
   } | null;
+  notification_settings: {
+    email: boolean;
+    push: boolean;
+    alerts: boolean;
+  } | null;
 }
 
 interface AuthContextType {
