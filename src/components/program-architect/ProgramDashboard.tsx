@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { AssignProgramDialog } from "./AssignProgramDialog";
 
 export interface ProgramData {
   id: string;
@@ -59,6 +60,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
   const [programs, setPrograms] = useState<ProgramData[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
+    open: false,
+    program: null,
+  });
+  const [assignDialog, setAssignDialog] = useState<{ open: boolean; program: ProgramData | null }>({
     open: false,
     program: null,
   });
@@ -288,6 +293,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
                         <Edit className="w-4 h-4 mr-2" />
                         Düzenle
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program })}>
+                        <Users className="w-4 h-4 mr-2" />
+                        Sporculara Ata
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDuplicate(program)}>
                         <Copy className="w-4 h-4 mr-2" />
                         Kopyala
@@ -366,6 +375,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Program Dialog */}
+      {assignDialog.program && (
+        <AssignProgramDialog
+          open={assignDialog.open}
+          onOpenChange={(open) => setAssignDialog({ open, program: open ? assignDialog.program : null })}
+          programId={assignDialog.program.id}
+          programName={assignDialog.program.name}
+        />
+      )}
     </div>
   );
 }
