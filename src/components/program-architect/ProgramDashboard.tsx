@@ -375,6 +375,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Program Dialog */}
+      {assignDialog.program && (
+        <AssignProgramDialog
+          open={assignDialog.open}
+          onOpenChange={(open) => setAssignDialog({ open, program: open ? assignDialog.program : null })}
+          programId={assignDialog.program.id}
+          programName={assignDialog.program.name}
+        />
+      )}
     </div>
   );
 }
