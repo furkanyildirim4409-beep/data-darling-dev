@@ -92,6 +92,7 @@ export function useActionStream() {
     for (const w of workoutsRes.data ?? []) {
       const name = nameMap.get(w.user_id) ?? "Sporcu";
       const tonnageStr = w.tonnage && Number(w.tonnage) > 0 ? ` → ${Number(w.tonnage).toLocaleString("tr-TR")}kg tonaj` : "";
+      const coinsStr = w.bio_coins_earned && Number(w.bio_coins_earned) > 0 ? ` → +${w.bio_coins_earned} 🪙` : "";
       items.push({
         id: `workout-${w.id}`,
         type: w.tonnage && Number(w.tonnage) > 0 ? "pr" : "session",
