@@ -31,7 +31,7 @@ export default function CommandCenter() {
     { title: "Toplam Sporcu", value: stats.totalAthletes, icon: Users, variant: "default" as const, onClick: () => navigate("/athletes") },
     { title: "Ort. Hazırlık", value: avgReadiness, icon: TrendingUp, variant: "success" as const, onClick: () => navigate("/performance") },
     { title: "Bugünkü Seanslar", value: stats.todaySessions, icon: Calendar, variant: "default" as const, onClick: () => setSessionsDialogOpen(true) },
-    { title: "Kritik Uyarılar", value: stats.criticalAlerts, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
+    { title: "Kritik Uyarılar", value: alertCriticalCount, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
   ];
 
   return (
