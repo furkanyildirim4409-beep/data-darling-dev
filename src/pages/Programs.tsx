@@ -41,10 +41,39 @@ export default function Programs() {
     setViewMode("builder");
   }, []);
 
-  const handleEditProgram = useCallback((program: ProgramData) => {
+  const handleEditProgram = useCallback(async (program: ProgramData) => {
     setBuilderMode(program.type);
     setEditingProgram(program);
     setViewMode("builder");
+
+    // Fetch existing exercises from Supabase
+    const { data: exercises, error } = await supabase
+      .from("exercises")
+      .select("*")
+      .eq("program_id", program.id)
+      .order("order_index", { ascending: true });
+
+    if (error) {
+      toast.error("Egzersizler yüklenemedi: " + error.message);
+      return;
+    }
+
+    if (exercises && exercises.length > 0) {
+      const mapped: BuilderExercise[] = exercises.map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        category: "",
+        type: "exercise",
+        sets: ex.sets ?? 3,
+        reps: parseInt(ex.reps ?? "10", 10),
+        rpe: 7,
+        notes: ex.notes ?? undefined,
+      }));
+      setSelectedExercises(mapped);
+    } else {
+      setSelectedExercises([]);
+    }
+
     toast.info(`"${program.name}" düzenleme modunda açıldı.`);
   }, []);
 
