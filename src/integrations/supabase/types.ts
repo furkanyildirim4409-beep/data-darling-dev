@@ -14,6 +14,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      assigned_workouts: {
+        Row: {
+          athlete_id: string | null
+          coach_id: string | null
+          created_at: string | null
+          id: string
+          program_id: string | null
+          scheduled_date: string | null
+          status: string | null
+        }
+        Insert: {
+          athlete_id?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          id?: string
+          program_id?: string | null
+          scheduled_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          athlete_id?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          id?: string
+          program_id?: string | null
+          scheduled_date?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_workouts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_workouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_workouts_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_invites: {
         Row: {
           coach_id: string
@@ -76,6 +128,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      exercises: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          order_index: number | null
+          program_id: string | null
+          reps: string | null
+          rest_time: string | null
+          sets: number | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          order_index?: number | null
+          program_id?: string | null
+          reps?: string | null
+          rest_time?: string | null
+          sets?: number | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          order_index?: number | null
+          program_id?: string | null
+          reps?: string | null
+          rest_time?: string | null
+          sets?: number | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nutrition_logs: {
         Row: {
@@ -163,6 +262,44 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      programs: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          id: string
+          target_goal: string | null
+          title: string
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          target_goal?: string | null
+          title: string
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          target_goal?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
