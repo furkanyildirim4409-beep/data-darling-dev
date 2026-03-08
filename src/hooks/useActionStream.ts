@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -26,6 +26,8 @@ export function useActionStream() {
   const { user } = useAuth();
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const athleteMapRef = useRef<Map<string, string>>(new Map());
+  const athleteIdsRef = useRef<Set<string>>(new Set());
 
   const fetchActions = useCallback(async () => {
     if (!user) {
@@ -36,7 +38,6 @@ export function useActionStream() {
     const coachId = user.id;
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Get coach's athletes first
     const { data: athletes } = await supabase
       .from("profiles")
       .select("id, full_name")
@@ -52,8 +53,9 @@ export function useActionStream() {
 
     const athleteIds = athleteList.map((a) => a.id);
     const nameMap = new Map(athleteList.map((a) => [a.id, a.full_name || "İsimsiz"]));
+    athleteMapRef.current = nameMap;
+    athleteIdsRef.current = new Set(athleteIds);
 
-    // Parallel fetch recent activity
     const [workoutsRes, checkinsRes, nutritionRes, weightRes] = await Promise.all([
       supabase
         .from("workout_logs")
@@ -87,10 +89,9 @@ export function useActionStream() {
 
     const items: ActionItem[] = [];
 
-    // Workout logs
     for (const w of workoutsRes.data ?? []) {
       const name = nameMap.get(w.user_id) ?? "Sporcu";
-      const tonnageStr = w.tonnage ? ` → ${Number(w.tonnage).toLocaleString("tr-TR")}kg tonaj` : "";
+      const tonnageStr = w.tonnage && Number(w.tonnage) > 0 ? ` → ${Number(w.tonnage).toLocaleString("tr-TR")}kg tonaj` : "";
       items.push({
         id: `workout-${w.id}`,
         type: w.tonnage && Number(w.tonnage) > 0 ? "pr" : "session",
@@ -100,7 +101,6 @@ export function useActionStream() {
       });
     }
 
-    // Check-ins
     for (const c of checkinsRes.data ?? []) {
       const name = nameMap.get(c.user_id) ?? "Sporcu";
       const moodEmoji = c.mood && c.mood >= 4 ? "😊" : c.mood && c.mood <= 2 ? "😔" : "📋";
@@ -113,7 +113,6 @@ export function useActionStream() {
       });
     }
 
-    // Nutrition logs
     for (const n of nutritionRes.data ?? []) {
       const name = nameMap.get(n.user_id) ?? "Sporcu";
       const calStr = n.total_calories ? ` (${n.total_calories} kcal)` : "";
@@ -126,7 +125,6 @@ export function useActionStream() {
       });
     }
 
-    // Weight logs
     for (const w of weightRes.data ?? []) {
       const name = nameMap.get(w.user_id) ?? "Sporcu";
       items.push({
@@ -138,17 +136,82 @@ export function useActionStream() {
       });
     }
 
-    // Sort by time descending, take top 15
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
   }, [user]);
 
+  // Realtime subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("action-stream-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "workout_logs" },
+        (payload) => {
+          const row = payload.new as any;
+          if (!athleteIdsRef.current.has(row.user_id)) return;
+          const name = athleteMapRef.current.get(row.user_id) ?? "Sporcu";
+          const tonnageStr = row.tonnage && Number(row.tonnage) > 0 ? ` → ${Number(row.tonnage).toLocaleString("tr-TR")}kg tonaj` : "";
+          const newItem: ActionItem = {
+            id: `workout-${row.id}`,
+            type: row.tonnage && Number(row.tonnage) > 0 ? "pr" : "session",
+            message: `${name} "${row.workout_name}" tamamladı${tonnageStr}`,
+            timestamp: "Şimdi",
+            rawTime: Date.now(),
+            isNew: true,
+          };
+          setActions((prev) => {
+            const updated = [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15);
+            return updated;
+          });
+          // Remove isNew flag after animation
+          setTimeout(() => {
+            setActions((prev) =>
+              prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a))
+            );
+          }, 3000);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "daily_checkins" },
+        (payload) => {
+          const row = payload.new as any;
+          if (!athleteIdsRef.current.has(row.user_id)) return;
+          const name = athleteMapRef.current.get(row.user_id) ?? "Sporcu";
+          const moodEmoji = row.mood && row.mood >= 4 ? "😊" : row.mood && row.mood <= 2 ? "😔" : "📋";
+          const newItem: ActionItem = {
+            id: `checkin-${row.id}`,
+            type: "checkin",
+            message: `${name} günlük check-in tamamladı ${moodEmoji}`,
+            timestamp: "Şimdi",
+            rawTime: Date.now(),
+            isNew: true,
+          };
+          setActions((prev) => {
+            const updated = [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15);
+            return updated;
+          });
+          setTimeout(() => {
+            setActions((prev) =>
+              prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a))
+            );
+          }, 3000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   useEffect(() => {
     fetchActions();
-
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchActions, 30000);
+    const interval = setInterval(fetchActions, 60000); // refresh every 60s as backup
     return () => clearInterval(interval);
   }, [fetchActions]);
 
