@@ -96,7 +96,7 @@ export function useActionStream() {
       items.push({
         id: `workout-${w.id}`,
         type: w.tonnage && Number(w.tonnage) > 0 ? "pr" : "session",
-        message: `${name} "${w.workout_name}" tamamladı${tonnageStr}`,
+        message: `${name} "${w.workout_name}" tamamladı${tonnageStr}${coinsStr}`,
         timestamp: timeAgo(w.logged_at ?? new Date().toISOString()),
         rawTime: new Date(w.logged_at ?? 0).getTime(),
       });
