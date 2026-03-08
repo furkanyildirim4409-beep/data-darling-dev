@@ -81,6 +81,7 @@ function getNotificationStyles(type: string) {
 export function TopBar() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { profile, signOut } = useAuth();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
