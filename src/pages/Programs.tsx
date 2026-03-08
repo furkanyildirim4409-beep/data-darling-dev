@@ -345,6 +345,12 @@ export default function Programs() {
         onSave={handleSaveProgram}
         mode={builderMode}
         itemCount={currentItems.length}
+        editingProgram={editingProgram ? {
+          name: editingProgram.name,
+          description: editingProgram.description,
+          difficulty: editingProgram.difficulty,
+          targetGoal: editingProgram.targetGoal,
+        } : null}
       />
     </div>
   );
