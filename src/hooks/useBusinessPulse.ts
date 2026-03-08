@@ -6,14 +6,17 @@ export interface BusinessDataPoint {
   date: string;
   athletes: number;
   workouts: number;
+  revenue: number;
 }
 
 export interface BusinessPulseData {
   chartData: BusinessDataPoint[];
   currentAthletes: number;
   currentWorkouts: number;
+  totalRevenue: number;
   athleteGrowth: string;
   workoutGrowth: string;
+  revenueGrowth: string;
   isLoading: boolean;
 }
 
@@ -23,8 +26,10 @@ export function useBusinessPulse(): BusinessPulseData {
     chartData: [],
     currentAthletes: 0,
     currentWorkouts: 0,
+    totalRevenue: 0,
     athleteGrowth: "0",
     workoutGrowth: "0",
+    revenueGrowth: "0",
     isLoading: true,
   });
 
@@ -34,12 +39,12 @@ export function useBusinessPulse(): BusinessPulseData {
       return;
     }
 
-    const fetch = async () => {
+    const fetchData = async () => {
       const coachId = user.id;
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const [athletesRes, workoutLogsRes] = await Promise.all([
+      const [athletesRes, workoutLogsRes, paymentsRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, created_at")
@@ -49,12 +54,18 @@ export function useBusinessPulse(): BusinessPulseData {
           .from("workout_logs")
           .select("id, logged_at, user_id")
           .gte("logged_at", thirtyDaysAgo.toISOString()),
+        supabase
+          .from("payments")
+          .select("id, amount, payment_date, status")
+          .eq("coach_id", coachId)
+          .eq("status", "paid")
+          .gte("payment_date", thirtyDaysAgo.toISOString()),
       ]);
 
       const athletes = athletesRes.data ?? [];
       const workoutLogs = workoutLogsRes.data ?? [];
+      const payments = (paymentsRes.data as any[]) ?? [];
 
-      // Filter workout_logs to only coach's athletes
       const athleteIds = new Set(athletes.map((a) => a.id));
       const coachWorkouts = workoutLogs.filter((w) => athleteIds.has(w.user_id));
 
@@ -66,17 +77,19 @@ export function useBusinessPulse(): BusinessPulseData {
         const dayStr = date.toISOString().split("T")[0];
         const label = date.toLocaleDateString("tr-TR", { month: "short", day: "numeric" });
 
-        // Cumulative athletes up to this day
         const athleteCount = athletes.filter(
           (a) => a.created_at && a.created_at.split("T")[0] <= dayStr
         ).length;
 
-        // Workouts on this day
         const dayWorkouts = coachWorkouts.filter(
           (w) => w.logged_at && w.logged_at.split("T")[0] === dayStr
         ).length;
 
-        chartData.push({ date: label, athletes: athleteCount, workouts: dayWorkouts });
+        const dayRevenue = payments
+          .filter((p) => p.payment_date && p.payment_date.split("T")[0] === dayStr)
+          .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+        chartData.push({ date: label, athletes: athleteCount, workouts: dayWorkouts, revenue: dayRevenue });
       }
 
       const current = chartData[chartData.length - 1];
@@ -92,17 +105,27 @@ export function useBusinessPulse(): BusinessPulseData {
         ? (((totalCurrentWeek - totalPrevWeek) / totalPrevWeek) * 100).toFixed(1)
         : totalCurrentWeek > 0 ? "100" : "0";
 
+      const revenueCurrentWeek = chartData.slice(-7).reduce((s, d) => s + d.revenue, 0);
+      const revenuePrevWeek = chartData.slice(-14, -7).reduce((s, d) => s + d.revenue, 0);
+      const revenueGrowth = revenuePrevWeek > 0
+        ? (((revenueCurrentWeek - revenuePrevWeek) / revenuePrevWeek) * 100).toFixed(1)
+        : revenueCurrentWeek > 0 ? "100" : "0";
+
+      const totalRevenue = chartData.reduce((s, d) => s + d.revenue, 0);
+
       setData({
         chartData,
         currentAthletes: current.athletes,
         currentWorkouts: totalCurrentWeek,
+        totalRevenue,
         athleteGrowth,
         workoutGrowth,
+        revenueGrowth,
         isLoading: false,
       });
     };
 
-    fetch();
+    fetchData();
   }, [user]);
 
   return data;
