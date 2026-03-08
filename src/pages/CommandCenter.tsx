@@ -16,6 +16,7 @@ export default function CommandCenter() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessionsDialogOpen, setSessionsDialogOpen] = useState(false);
   const { athletes, riskDistribution, criticalAthletes, stats, compliance, isLoading } = useDashboardData();
+  const { criticalCount: alertCriticalCount } = useAlerts();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
