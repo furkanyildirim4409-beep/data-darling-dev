@@ -11,6 +11,15 @@ export interface Profile {
   avatar_url: string | null;
   coach_id: string | null;
   created_at: string | null;
+  bio: string | null;
+  gym_name: string | null;
+  specialty: string | null;
+  subscription_tier: string | null;
+  notification_preferences: {
+    email: boolean;
+    push: boolean;
+    alerts: boolean;
+  } | null;
 }
 
 interface AuthContextType {
