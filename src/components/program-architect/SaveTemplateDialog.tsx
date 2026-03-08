@@ -26,6 +26,7 @@ interface SaveTemplateDialogProps {
   onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
   mode: "exercise" | "nutrition";
   itemCount: number;
+  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
 }
 
 export function SaveTemplateDialog({
@@ -34,12 +35,41 @@ export function SaveTemplateDialog({
   onSave,
   mode,
   itemCount,
+  editingProgram,
 }: SaveTemplateDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [targetGoal, setTargetGoal] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isEditing = !!editingProgram;
+
+  // Pre-fill fields when editing
+  useState(() => {
+    if (editingProgram) {
+      setTitle(editingProgram.name);
+      setDescription(editingProgram.description);
+      setDifficulty(editingProgram.difficulty ?? "");
+      setTargetGoal(editingProgram.targetGoal ?? "");
+    }
+  });
+
+  // Reset/populate when dialog opens
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen && editingProgram) {
+      setTitle(editingProgram.name);
+      setDescription(editingProgram.description);
+      setDifficulty(editingProgram.difficulty ?? "");
+      setTargetGoal(editingProgram.targetGoal ?? "");
+    } else if (newOpen && !editingProgram) {
+      setTitle("");
+      setDescription("");
+      setDifficulty("");
+      setTargetGoal("");
+    }
+    onOpenChange(newOpen);
+  };
 
   const handleSave = async () => {
     if (!title.trim() || itemCount === 0) return;
