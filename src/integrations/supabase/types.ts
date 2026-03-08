@@ -245,6 +245,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_coach_of: { Args: { _athlete_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "coach" | "athlete"
