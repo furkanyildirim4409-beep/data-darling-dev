@@ -9,12 +9,14 @@ import { SessionsDialog } from "@/components/dashboard/SessionsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, TrendingUp, Calendar, AlertTriangle } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useAlerts } from "@/hooks/useAlerts";
 
 export default function CommandCenter() {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessionsDialogOpen, setSessionsDialogOpen] = useState(false);
   const { athletes, riskDistribution, criticalAthletes, stats, compliance, isLoading } = useDashboardData();
+  const { criticalCount: alertCriticalCount } = useAlerts();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -29,7 +31,7 @@ export default function CommandCenter() {
     { title: "Toplam Sporcu", value: stats.totalAthletes, icon: Users, variant: "default" as const, onClick: () => navigate("/athletes") },
     { title: "Ort. Hazırlık", value: avgReadiness, icon: TrendingUp, variant: "success" as const, onClick: () => navigate("/performance") },
     { title: "Bugünkü Seanslar", value: stats.todaySessions, icon: Calendar, variant: "default" as const, onClick: () => setSessionsDialogOpen(true) },
-    { title: "Kritik Uyarılar", value: stats.criticalAlerts, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
+    { title: "Kritik Uyarılar", value: alertCriticalCount, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
   ];
 
   return (
