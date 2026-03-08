@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -74,98 +74,132 @@ export function useDashboardData() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAll = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
     }
 
-    const fetchAll = async () => {
-      setIsLoading(true);
-      const coachId = user.id;
-      const today = new Date().toISOString().split("T")[0];
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    setIsLoading(true);
+    const coachId = user.id;
+    const today = new Date().toISOString().split("T")[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-      // Parallel fetches
-      const [athletesRes, todaySessionsRes, weekWorkoutsRes, checkinsRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, full_name, readiness_score, email, avatar_url, streak")
-          .eq("coach_id", coachId)
-          .eq("role", "athlete"),
-        supabase
-          .from("assigned_workouts")
-          .select("id, status, athlete_id")
-          .eq("coach_id", coachId)
-          .eq("scheduled_date", today),
-        supabase
-          .from("assigned_workouts")
-          .select("id, status")
-          .eq("coach_id", coachId)
-          .gte("scheduled_date", sevenDaysAgo.split("T")[0]),
-        supabase
-          .from("daily_checkins")
-          .select("id, user_id")
-          .gte("created_at", fortyEightHoursAgo),
-      ]);
+    const [athletesRes, todaySessionsRes, weekWorkoutsRes, checkinsRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, readiness_score, email, avatar_url, streak")
+        .eq("coach_id", coachId)
+        .eq("role", "athlete"),
+      supabase
+        .from("assigned_workouts")
+        .select("id, status, athlete_id")
+        .eq("coach_id", coachId)
+        .eq("scheduled_date", today),
+      supabase
+        .from("assigned_workouts")
+        .select("id, status")
+        .eq("coach_id", coachId)
+        .gte("scheduled_date", sevenDaysAgo.split("T")[0]),
+      supabase
+        .from("daily_checkins")
+        .select("id, user_id")
+        .gte("created_at", fortyEightHoursAgo),
+    ]);
 
-      const athleteList: DashboardAthlete[] = athletesRes.data ?? [];
-      const athleteIds = new Set(athleteList.map((a) => a.id));
+    const athleteList: DashboardAthlete[] = athletesRes.data ?? [];
+    const athleteIds = new Set(athleteList.map((a) => a.id));
 
-      // Risk distribution
-      const dist: RiskDistribution = {
-        low: { count: 0, label: "Düşük Risk" },
-        medium: { count: 0, label: "Orta Risk" },
-        high: { count: 0, label: "Yüksek Risk" },
-      };
-      const critical: CriticalAthlete[] = [];
-
-      for (const a of athleteList) {
-        const level = classifyRisk(a.readiness_score);
-        dist[level].count++;
-        if (level === "high") {
-          critical.push({
-            id: a.id,
-            name: a.full_name || "İsimsiz",
-            risk: Math.max(0, 100 - (a.readiness_score ?? 75)),
-            issue: deriveIssue(a.readiness_score),
-          });
-        }
-      }
-      critical.sort((a, b) => b.risk - a.risk);
-
-      // Today's sessions
-      const todaySessions = todaySessionsRes.data ?? [];
-      const completedToday = todaySessions.filter((s) => s.status === "completed").length;
-
-      // Weekly compliance
-      const weekWorkouts = weekWorkoutsRes.data ?? [];
-      const weekCompleted = weekWorkouts.filter((w) => w.status === "completed").length;
-      const workoutCompliance = weekWorkouts.length > 0 ? Math.round((weekCompleted / weekWorkouts.length) * 100) : 0;
-
-      // Check-in compliance (last 48h)
-      const recentCheckins = checkinsRes.data ?? [];
-      const checkedInAthletes = new Set(
-        recentCheckins.filter((c) => athleteIds.has(c.user_id)).map((c) => c.user_id)
-      );
-      const checkinCompliance = athleteList.length > 0 ? Math.round((checkedInAthletes.size / athleteList.length) * 100) : 0;
-
-      setAthletes(athleteList);
-      setRiskDistribution(dist);
-      setCriticalAthletes(critical.slice(0, 5));
-      setStats({
-        totalAthletes: athleteList.length,
-        todaySessions: todaySessions.length,
-        completedToday,
-        criticalAlerts: dist.high.count,
-      });
-      setCompliance({ workoutCompliance, checkinCompliance });
-      setIsLoading(false);
+    const dist: RiskDistribution = {
+      low: { count: 0, label: "Düşük Risk" },
+      medium: { count: 0, label: "Orta Risk" },
+      high: { count: 0, label: "Yüksek Risk" },
     };
+    const critical: CriticalAthlete[] = [];
 
-    fetchAll();
+    for (const a of athleteList) {
+      const level = classifyRisk(a.readiness_score);
+      dist[level].count++;
+      if (level === "high") {
+        critical.push({
+          id: a.id,
+          name: a.full_name || "İsimsiz",
+          risk: Math.max(0, 100 - (a.readiness_score ?? 75)),
+          issue: deriveIssue(a.readiness_score),
+        });
+      }
+    }
+    critical.sort((a, b) => b.risk - a.risk);
+
+    const todaySessions = todaySessionsRes.data ?? [];
+    const completedToday = todaySessions.filter((s) => s.status === "completed").length;
+
+    const weekWorkouts = weekWorkoutsRes.data ?? [];
+    const weekCompleted = weekWorkouts.filter((w) => w.status === "completed").length;
+    const workoutCompliance = weekWorkouts.length > 0 ? Math.round((weekCompleted / weekWorkouts.length) * 100) : 0;
+
+    const recentCheckins = checkinsRes.data ?? [];
+    const checkedInAthletes = new Set(
+      recentCheckins.filter((c) => athleteIds.has(c.user_id)).map((c) => c.user_id)
+    );
+    const checkinCompliance = athleteList.length > 0 ? Math.round((checkedInAthletes.size / athleteList.length) * 100) : 0;
+
+    setAthletes(athleteList);
+    setRiskDistribution(dist);
+    setCriticalAthletes(critical.slice(0, 5));
+    setStats({
+      totalAthletes: athleteList.length,
+      todaySessions: todaySessions.length,
+      completedToday,
+      criticalAlerts: dist.high.count,
+    });
+    setCompliance({ workoutCompliance, checkinCompliance });
+    setIsLoading(false);
   }, [user]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Realtime subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "workout_logs" },
+        () => fetchAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles" },
+        () => fetchAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "daily_checkins" },
+        () => fetchAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "assigned_workouts" },
+        () => fetchAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "assigned_workouts" },
+        () => fetchAll()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchAll]);
 
   return { athletes, riskDistribution, criticalAthletes, stats, compliance, isLoading };
 }

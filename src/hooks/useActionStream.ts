@@ -59,7 +59,7 @@ export function useActionStream() {
     const [workoutsRes, checkinsRes, nutritionRes, weightRes] = await Promise.all([
       supabase
         .from("workout_logs")
-        .select("id, user_id, workout_name, logged_at, completed, tonnage")
+        .select("id, user_id, workout_name, logged_at, completed, tonnage, bio_coins_earned")
         .in("user_id", athleteIds)
         .gte("logged_at", threeDaysAgo)
         .order("logged_at", { ascending: false })
@@ -92,10 +92,11 @@ export function useActionStream() {
     for (const w of workoutsRes.data ?? []) {
       const name = nameMap.get(w.user_id) ?? "Sporcu";
       const tonnageStr = w.tonnage && Number(w.tonnage) > 0 ? ` → ${Number(w.tonnage).toLocaleString("tr-TR")}kg tonaj` : "";
+      const coinsStr = w.bio_coins_earned && Number(w.bio_coins_earned) > 0 ? ` → +${w.bio_coins_earned} 🪙` : "";
       items.push({
         id: `workout-${w.id}`,
         type: w.tonnage && Number(w.tonnage) > 0 ? "pr" : "session",
-        message: `${name} "${w.workout_name}" tamamladı${tonnageStr}`,
+        message: `${name} "${w.workout_name}" tamamladı${tonnageStr}${coinsStr}`,
         timestamp: timeAgo(w.logged_at ?? new Date().toISOString()),
         rawTime: new Date(w.logged_at ?? 0).getTime(),
       });
