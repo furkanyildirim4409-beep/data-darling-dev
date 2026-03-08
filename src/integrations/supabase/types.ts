@@ -66,6 +66,78 @@ export type Database = {
           },
         ]
       }
+      bio_coin_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      body_measurements: {
+        Row: {
+          arm: number | null
+          body_fat_pct: number | null
+          chest: number | null
+          hips: number | null
+          id: string
+          logged_at: string | null
+          muscle_mass_kg: number | null
+          neck: number | null
+          shoulder: number | null
+          thigh: number | null
+          user_id: string | null
+          waist: number | null
+        }
+        Insert: {
+          arm?: number | null
+          body_fat_pct?: number | null
+          chest?: number | null
+          hips?: number | null
+          id?: string
+          logged_at?: string | null
+          muscle_mass_kg?: number | null
+          neck?: number | null
+          shoulder?: number | null
+          thigh?: number | null
+          user_id?: string | null
+          waist?: number | null
+        }
+        Update: {
+          arm?: number | null
+          body_fat_pct?: number | null
+          chest?: number | null
+          hips?: number | null
+          id?: string
+          logged_at?: string | null
+          muscle_mass_kg?: number | null
+          neck?: number | null
+          shoulder?: number | null
+          thigh?: number | null
+          user_id?: string | null
+          waist?: number | null
+        }
+        Relationships: []
+      }
       coach_invites: {
         Row: {
           coach_id: string
@@ -212,6 +284,36 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          created_at: string | null
+          id: string
+          items: Json
+          status: string | null
+          total_coins_used: number | null
+          total_price: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          items: Json
+          status?: string | null
+          total_coins_used?: number | null
+          total_price: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          items?: Json
+          status?: string | null
+          total_coins_used?: number | null
+          total_price?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -250,14 +352,23 @@ export type Database = {
       }
       profiles: {
         Row: {
+          activity_level: string | null
           avatar_url: string | null
           bio: string | null
           bio_coins: number | null
+          birth_date: string | null
           coach_id: string | null
           created_at: string | null
           current_weight: number | null
+          daily_calorie_target: number | null
+          daily_carb_target: number | null
+          daily_fat_target: number | null
+          daily_protein_target: number | null
           email: string | null
+          fitness_goal: string | null
           full_name: string | null
+          gender: string | null
+          height_cm: number | null
           id: string
           level: number | null
           readiness_score: number | null
@@ -266,14 +377,23 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          activity_level?: string | null
           avatar_url?: string | null
           bio?: string | null
           bio_coins?: number | null
+          birth_date?: string | null
           coach_id?: string | null
           created_at?: string | null
           current_weight?: number | null
+          daily_calorie_target?: number | null
+          daily_carb_target?: number | null
+          daily_fat_target?: number | null
+          daily_protein_target?: number | null
           email?: string | null
+          fitness_goal?: string | null
           full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
           id: string
           level?: number | null
           readiness_score?: number | null
@@ -282,14 +402,23 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          activity_level?: string | null
           avatar_url?: string | null
           bio?: string | null
           bio_coins?: number | null
+          birth_date?: string | null
           coach_id?: string | null
           created_at?: string | null
           current_weight?: number | null
+          daily_calorie_target?: number | null
+          daily_carb_target?: number | null
+          daily_fat_target?: number | null
+          daily_protein_target?: number | null
           email?: string | null
+          fitness_goal?: string | null
           full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
           id?: string
           level?: number | null
           readiness_score?: number | null
@@ -336,6 +465,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
