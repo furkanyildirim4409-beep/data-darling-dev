@@ -247,12 +247,12 @@ export function TopBar() {
               <Avatar className="w-8 h-8 border border-border">
                 <AvatarImage src="/placeholder.svg" />
                 <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                  JD
+                  {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
-                <span className="text-sm font-medium text-foreground">Koç Davis</span>
-                <span className="text-xs text-muted-foreground">Baş Antrenör</span>
+                <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Kullanıcı'}</span>
+                <span className="text-xs text-muted-foreground">{profile?.role === 'coach' ? 'Koç' : 'Sporcu'}</span>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Button>
