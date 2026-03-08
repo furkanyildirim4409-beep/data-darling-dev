@@ -1,23 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [pendingLogin, setPendingLogin] = useState(false);
+  const { signIn, signOut, profile } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await signIn(email, password);
-    if (!error) { navigate('/'); }
+    if (!error) {
+      setPendingLogin(true);
+    }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!pendingLogin || !profile) return;
+
+    if (profile.role === 'coach') {
+      navigate('/');
+    } else {
+      toast.error('Bu panel sadece Koçlar içindir!');
+      signOut();
+    }
+    setPendingLogin(false);
+  }, [pendingLogin, profile]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">

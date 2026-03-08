@@ -5,21 +5,19 @@ import type { User, Session } from '@supabase/supabase-js';
 
 export interface Profile {
   id: string;
+  email: string | null;
   full_name: string | null;
+  role: 'coach' | 'athlete' | null;
   avatar_url: string | null;
-  bio: string | null;
-  level: number | null;
-  bio_coins: number | null;
-  readiness_score: number | null;
-  streak: number | null;
-  current_weight: number | null;
+  coach_id: string | null;
+  created_at: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  role: 'admin' | 'coach' | 'athlete' | null;
+  role: 'coach' | 'athlete' | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string) => Promise<{ error: any }>;
@@ -32,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<'admin' | 'coach' | 'athlete' | null>(null);
+  const [role, setRole] = useState<'coach' | 'athlete' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -41,16 +39,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('id', userId)
       .single();
-    setProfile(data);
-  };
-
-  const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-    setRole(data?.role ?? 'athlete');
+    if (data) {
+      const p = data as any;
+      const profileData: Profile = {
+        id: p.id,
+        email: p.email ?? null,
+        full_name: p.full_name ?? null,
+        role: p.role ?? null,
+        avatar_url: p.avatar_url ?? null,
+        coach_id: p.coach_id ?? null,
+        created_at: p.created_at ?? null,
+      };
+      setProfile(profileData);
+      setRole(profileData.role);
+    }
   };
 
   useEffect(() => {
@@ -60,10 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
-          // Use setTimeout to avoid Supabase client deadlock
           setTimeout(() => {
             fetchProfile(newSession.user.id);
-            fetchRole(newSession.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -78,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         fetchProfile(s.user.id);
-        fetchRole(s.user.id);
       }
       setIsLoading(false);
     });
