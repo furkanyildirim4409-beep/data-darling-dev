@@ -20,6 +20,11 @@ export interface Profile {
     push: boolean;
     alerts: boolean;
   } | null;
+  notification_settings: {
+    email: boolean;
+    push: boolean;
+    alerts: boolean;
+  } | null;
 }
 
 interface AuthContextType {
@@ -64,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         specialty: p.specialty ?? null,
         subscription_tier: p.subscription_tier ?? null,
         notification_preferences: p.notification_preferences ?? null,
+        notification_settings: p.notification_settings ?? null,
       };
       setProfile(profileData);
       setRole(profileData.role);

@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,27 +34,23 @@ const subscriptionPlans = [
     price: "₺0",
     period: "aylık",
     features: ["5 sporcu", "Temel raporlar", "E-posta desteği"],
-    current: true
   },
   {
     name: "Pro",
     price: "₺499",
     period: "aylık",
     features: ["25 sporcu", "Gelişmiş analitik", "WhatsApp entegrasyonu", "Özel raporlar"],
-    current: false
   },
   {
     name: "Elite",
     price: "₺999",
     period: "aylık",
     features: ["Sınırsız sporcu", "AI analiz", "API erişimi", "Öncelikli destek", "Beyaz etiket"],
-    current: false
   }
 ];
 
 export default function Settings() {
   const { profile, user, refreshProfile } = useAuth();
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
@@ -77,10 +73,32 @@ export default function Settings() {
   });
 
   const [notificationPrefs, setNotificationPrefs] = useState({
-    email: profile?.notification_preferences?.email ?? true,
-    push: profile?.notification_preferences?.push ?? true,
-    alerts: profile?.notification_preferences?.alerts ?? true,
+    email: true,
+    push: true,
+    alerts: true,
   });
+
+  // Sync form state when profile loads/changes
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.full_name || "",
+        bio: profile.bio || "",
+        gymName: profile.gym_name || "",
+        specialty: profile.specialty || "",
+        email: profile.email || "",
+      }));
+      const ns = (profile as any).notification_settings ?? profile.notification_preferences;
+      if (ns && typeof ns === 'object') {
+        setNotificationPrefs({
+          email: (ns as any).email ?? true,
+          push: (ns as any).push ?? true,
+          alerts: (ns as any).alerts ?? true,
+        });
+      }
+    }
+  }, [profile]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -98,7 +116,8 @@ export default function Settings() {
           bio: formData.bio,
           gym_name: formData.gymName,
           specialty: formData.specialty,
-          notification_preferences: notificationPrefs
+          notification_preferences: notificationPrefs,
+          notification_settings: notificationPrefs
         })
         .eq('id', user.id);
 
@@ -106,17 +125,10 @@ export default function Settings() {
 
       await refreshProfile();
       
-      toast({
-        title: "Profil Güncellendi",
-        description: "Bilgileriniz başarıyla kaydedildi.",
-      });
+      toast.success("Ayarlar başarıyla güncellendi! 🛠️");
     } catch (error) {
       console.error('Profile update error:', error);
-      toast({
-        title: "Hata",
-        description: "Profil güncellenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Profil güncellenirken bir hata oluştu.");
     } finally {
       setIsSaving(false);
     }
@@ -153,17 +165,10 @@ export default function Settings() {
 
       await refreshProfile();
 
-      toast({
-        title: "Avatar Güncellendi",
-        description: "Profil fotoğrafınız başarıyla yüklendi.",
-      });
+      toast.success("Avatar başarıyla güncellendi! 📸");
     } catch (error) {
       console.error('Avatar upload error:', error);
-      toast({
-        title: "Hata",
-        description: "Avatar yüklenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Avatar yüklenirken bir hata oluştu.");
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -171,20 +176,12 @@ export default function Settings() {
 
   const handlePasswordUpdate = async () => {
     if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: "Hata",
-        description: "Yeni şifreler eşleşmiyor.",
-        variant: "destructive"
-      });
+      toast.error("Yeni şifreler eşleşmiyor.");
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      toast({
-        title: "Hata",
-        description: "Yeni şifre en az 6 karakter olmalı.",
-        variant: "destructive"
-      });
+      toast.error("Yeni şifre en az 6 karakter olmalı.");
       return;
     }
 
@@ -194,17 +191,10 @@ export default function Settings() {
 
       setFormData(prev => ({ ...prev, currentPassword: "", newPassword: "", confirmPassword: "" }));
       
-      toast({
-        title: "Şifre Güncellendi",
-        description: "Şifreniz başarıyla değiştirildi.",
-      });
+      toast.success("Şifre başarıyla değiştirildi! 🔒");
     } catch (error) {
       console.error('Password update error:', error);
-      toast({
-        title: "Hata",
-        description: "Şifre güncellenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Şifre güncellenirken bir hata oluştu.");
     }
   };
 
@@ -242,28 +232,20 @@ export default function Settings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast({
-        title: "Veriler Dışa Aktarıldı",
-        description: "Tüm verileriniz başarıyla indirildi.",
-      });
+      toast.success("Veriler başarıyla dışa aktarıldı! 📦");
     } catch (error) {
       console.error('Export error:', error);
-      toast({
-        title: "Hata",
-        description: "Veri dışa aktarılırken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Veri dışa aktarılırken bir hata oluştu.");
     } finally {
       setIsExporting(false);
     }
   };
 
   const handleUpgradeSubscription = (planName: string) => {
-    toast({
-      title: "Yakında!",
-      description: `${planName} planına yükseltme özelliği yakında aktif olacak.`,
-    });
+    toast.info(`${planName} planına yükseltme özelliği yakında aktif olacak.`);
   };
+
+  const currentTier = profile?.subscription_tier || "Free";
 
   if (!profile) {
     return <div className="flex items-center justify-center h-96">Profil yükleniyor...</div>;
@@ -413,17 +395,19 @@ export default function Settings() {
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {subscriptionPlans.map((plan) => (
+                {subscriptionPlans.map((plan) => {
+                    const isCurrent = plan.name === currentTier;
+                    return (
                     <div
                       key={plan.name}
                       className={cn(
                         "relative p-6 rounded-xl border transition-all",
-                        plan.current
+                        isCurrent
                           ? "border-primary bg-primary/5 glow-lime"
                           : "border-border bg-card hover:bg-muted/30"
                       )}
                     >
-                      {plan.current && (
+                      {isCurrent && (
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                           <span className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                             Mevcut Plan
@@ -450,17 +434,18 @@ export default function Settings() {
                       <Button
                         className={cn(
                           "w-full",
-                          plan.current
+                          isCurrent
                             ? "bg-muted text-muted-foreground cursor-not-allowed"
                             : "bg-primary text-primary-foreground hover:bg-primary/90"
                         )}
-                        disabled={plan.current}
+                        disabled={isCurrent}
                         onClick={() => handleUpgradeSubscription(plan.name)}
                       >
-                        {plan.current ? "Aktif Plan" : "Yükselt"}
+                        {isCurrent ? "Aktif Plan" : "Yükselt"}
                       </Button>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             </div>
