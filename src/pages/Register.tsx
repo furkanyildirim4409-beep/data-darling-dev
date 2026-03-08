@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { User, Mail, Lock, Zap } from 'lucide-react';
@@ -13,13 +13,29 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const inviteToken = searchParams.get('invite');
+
+  // If invite token present, force athlete role
+  useEffect(() => {
+    if (inviteToken) {
+      setRole('athlete');
+    }
+  }, [inviteToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) { toast.error('Şifre en az 6 karakter olmalıdır.'); return; }
     setLoading(true);
-    const { error } = await signUp(email, password, role, fullName);
-    if (!error) { toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.'); navigate('/login'); }
+
+    const finalRole = inviteToken ? 'athlete' : role;
+
+    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined);
+    if (!error) {
+      toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.');
+      navigate('/login');
+    }
     setLoading(false);
   };
 
@@ -32,9 +48,17 @@ export default function Register() {
             <Zap className="w-8 h-8 text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]" />
             <h1 className="text-4xl font-extrabold tracking-tighter text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.4)]">DYNABOLIC</h1>
           </div>
-          <p className="text-muted-foreground text-sm tracking-widest uppercase">Yeni Hesap Oluştur</p>
+          <p className="text-muted-foreground text-sm tracking-widest uppercase">
+            {inviteToken ? 'Koçunuzun Davetine Katılın' : 'Yeni Hesap Oluştur'}
+          </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-2xl">
+          {inviteToken && (
+            <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-center">
+              <p className="text-sm text-primary font-medium">🎉 Davet linki ile kayıt oluyorsunuz</p>
+              <p className="text-xs text-muted-foreground mt-1">Otomatik olarak koçunuza bağlanacaksınız</p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <label htmlFor="fullName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ad Soyad</label>
             <div className="relative">
@@ -46,7 +70,7 @@ export default function Register() {
             <label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-posta</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input id="email" type="email" placeholder="coach@dynabolic.com" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={255} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+              <input id="email" type="email" placeholder="sporcu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={255} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -56,13 +80,15 @@ export default function Register() {
               <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Hesap Türü</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setRole('coach')} className={`h-10 rounded-lg border text-sm font-medium transition-colors ${role === 'coach' ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 bg-black/50 text-muted-foreground hover:border-white/20'}`}>Koç</button>
-              <button type="button" onClick={() => setRole('athlete')} className={`h-10 rounded-lg border text-sm font-medium transition-colors ${role === 'athlete' ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 bg-black/50 text-muted-foreground hover:border-white/20'}`}>Sporcu</button>
+          {!inviteToken && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Hesap Türü</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setRole('coach')} className={`h-10 rounded-lg border text-sm font-medium transition-colors ${role === 'coach' ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 bg-black/50 text-muted-foreground hover:border-white/20'}`}>Koç</button>
+                <button type="button" onClick={() => setRole('athlete')} className={`h-10 rounded-lg border text-sm font-medium transition-colors ${role === 'athlete' ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 bg-black/50 text-muted-foreground hover:border-white/20'}`}>Sporcu</button>
+              </div>
             </div>
-          </div>
+          )}
           <Button type="submit" disabled={loading} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
             {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
           </Button>
