@@ -212,6 +212,42 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          payment_date: string
+          status: string
+        }
+        Insert: {
+          amount?: number
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          payment_date?: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          payment_date?: string
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
