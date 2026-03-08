@@ -11,6 +11,15 @@ export interface Profile {
   avatar_url: string | null;
   coach_id: string | null;
   created_at: string | null;
+  bio: string | null;
+  gym_name: string | null;
+  specialty: string | null;
+  subscription_tier: string | null;
+  notification_preferences: {
+    email: boolean;
+    push: boolean;
+    alerts: boolean;
+  } | null;
 }
 
 interface AuthContextType {
@@ -22,6 +31,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -49,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: p.avatar_url ?? null,
         coach_id: p.coach_id ?? null,
         created_at: p.created_at ?? null,
+        bio: p.bio ?? null,
+        gym_name: p.gym_name ?? null,
+        specialty: p.specialty ?? null,
+        subscription_tier: p.subscription_tier ?? null,
+        notification_preferences: p.notification_preferences ?? null,
       };
       setProfile(profileData);
       setRole(profileData.role);
@@ -121,8 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(null);
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isLoading, signIn, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

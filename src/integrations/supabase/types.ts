@@ -368,12 +368,18 @@ export type Database = {
           fitness_goal: string | null
           full_name: string | null
           gender: string | null
+          gym_name: string | null
           height_cm: number | null
           id: string
           level: number | null
+          notification_preferences: Json | null
+          notification_settings: Json | null
           readiness_score: number | null
           role: string | null
+          specialty: string | null
           streak: number | null
+          subscription_status: string | null
+          subscription_tier: string | null
           updated_at: string | null
         }
         Insert: {
@@ -393,12 +399,18 @@ export type Database = {
           fitness_goal?: string | null
           full_name?: string | null
           gender?: string | null
+          gym_name?: string | null
           height_cm?: number | null
           id: string
           level?: number | null
+          notification_preferences?: Json | null
+          notification_settings?: Json | null
           readiness_score?: number | null
           role?: string | null
+          specialty?: string | null
           streak?: number | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -418,12 +430,18 @@ export type Database = {
           fitness_goal?: string | null
           full_name?: string | null
           gender?: string | null
+          gym_name?: string | null
           height_cm?: number | null
           id?: string
           level?: number | null
+          notification_preferences?: Json | null
+          notification_settings?: Json | null
           readiness_score?: number | null
           role?: string | null
+          specialty?: string | null
           streak?: number | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           updated_at?: string | null
         }
         Relationships: []
