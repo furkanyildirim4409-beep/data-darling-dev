@@ -220,11 +220,10 @@ export default function Settings() {
   };
 
   const handleUpgradeSubscription = (planName: string) => {
-    toast({
-      title: "Yakında!",
-      description: `${planName} planına yükseltme özelliği yakında aktif olacak.`,
-    });
+    toast.info(`${planName} planına yükseltme özelliği yakında aktif olacak.`);
   };
+
+  const currentTier = profile?.subscription_tier || "Free";
 
   if (!profile) {
     return <div className="flex items-center justify-center h-96">Profil yükleniyor...</div>;
