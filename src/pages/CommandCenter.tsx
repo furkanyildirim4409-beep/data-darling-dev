@@ -6,25 +6,30 @@ import { CompliancePulse } from "@/components/dashboard/CompliancePulse";
 import { BusinessPulse } from "@/components/dashboard/BusinessPulse";
 import { ActionStream } from "@/components/dashboard/ActionStream";
 import { SessionsDialog } from "@/components/dashboard/SessionsDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Users, TrendingUp, Calendar, AlertTriangle } from "lucide-react";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function CommandCenter() {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessionsDialogOpen, setSessionsDialogOpen] = useState(false);
+  const { athletes, riskDistribution, criticalAthletes, stats, compliance, isLoading } = useDashboardData();
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const avgReadiness = athletes.length > 0
+    ? (athletes.reduce((sum, a) => sum + (a.readiness_score ?? 75), 0) / athletes.length).toFixed(1)
+    : "0";
+
   const quickStats = [
-    { title: "Toplam Sporcu", value: 180, icon: Users, change: { value: 12, type: "increase" as const }, variant: "default" as const, onClick: () => navigate("/athletes") },
-    { title: "Ort. Performans", value: "8.4", icon: TrendingUp, change: { value: 5, type: "increase" as const }, variant: "success" as const, onClick: () => navigate("/performance") },
-    { title: "Bugünkü Seanslar", value: 23, icon: Calendar, variant: "default" as const, onClick: () => setSessionsDialogOpen(true) },
-    { title: "Kritik Uyarılar", value: 15, icon: AlertTriangle, change: { value: 2, type: "decrease" as const }, variant: "danger" as const, onClick: () => navigate("/alerts") },
+    { title: "Toplam Sporcu", value: stats.totalAthletes, icon: Users, variant: "default" as const, onClick: () => navigate("/athletes") },
+    { title: "Ort. Hazırlık", value: avgReadiness, icon: TrendingUp, variant: "success" as const, onClick: () => navigate("/performance") },
+    { title: "Bugünkü Seanslar", value: stats.todaySessions, icon: Calendar, variant: "default" as const, onClick: () => setSessionsDialogOpen(true) },
+    { title: "Kritik Uyarılar", value: stats.criticalAlerts, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
   ];
 
   return (
@@ -36,7 +41,7 @@ export default function CommandCenter() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-success/10 border border-success/30">
-            <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_#22c55e]" />
+            <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_hsl(var(--success))]" />
             <span className="text-xs md:text-sm text-success font-medium hidden sm:inline">Sistem Saati</span>
             <span className="font-mono text-success font-bold ml-1 text-sm md:text-lg">
               {currentTime.toLocaleTimeString("tr-TR")}
@@ -45,16 +50,33 @@ export default function CommandCenter() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {quickStats.map((stat) => (
-          <StatCard key={stat.title} {...stat} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 md:h-28 rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {quickStats.map((stat) => (
+            <StatCard key={stat.title} {...stat} />
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 md:gap-6">
         <div className="xl:col-span-3 space-y-4 md:space-y-6">
-          <RiskRadar />
-          <CompliancePulse />
+          <RiskRadar
+            athletes={athletes}
+            riskDistribution={riskDistribution}
+            criticalAthletes={criticalAthletes}
+            isLoading={isLoading}
+          />
+          <CompliancePulse
+            workoutCompliance={compliance.workoutCompliance}
+            checkinCompliance={compliance.checkinCompliance}
+            isLoading={isLoading}
+          />
           <BusinessPulse />
         </div>
         <div className="xl:col-span-1">
