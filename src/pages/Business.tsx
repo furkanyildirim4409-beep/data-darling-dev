@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
+import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,7 +127,8 @@ export default function Business() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Payments List */}
-        <div className="lg:col-span-2 glass rounded-xl border border-border">
+        <div className="lg:col-span-2 space-y-6">
+        <div className="glass rounded-xl border border-border">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Ödeme Kayıtları</h2>
             <span className="text-xs font-mono text-muted-foreground">{payments.length} kayıt</span>
@@ -210,6 +212,10 @@ export default function Business() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Athlete Payment Status Widget */}
+        <AthletePaymentStatus payments={payments} athletes={athletes} />
         </div>
 
         {/* Today's Schedule */}
