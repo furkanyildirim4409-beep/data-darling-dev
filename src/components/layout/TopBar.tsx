@@ -273,7 +273,13 @@ export function TopBar() {
               Ayarlar
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem className="cursor-pointer hover:bg-secondary text-destructive">
+            <DropdownMenuItem 
+              className="cursor-pointer hover:bg-secondary text-destructive"
+              onClick={async () => {
+                await signOut();
+                navigate('/login');
+              }}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Çıkış Yap
             </DropdownMenuItem>
