@@ -51,7 +51,6 @@ const subscriptionPlans = [
 
 export default function Settings() {
   const { profile, user, refreshProfile } = useAuth();
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
