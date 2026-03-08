@@ -154,20 +154,12 @@ export default function Settings() {
 
   const handlePasswordUpdate = async () => {
     if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: "Hata",
-        description: "Yeni şifreler eşleşmiyor.",
-        variant: "destructive"
-      });
+      toast.error("Yeni şifreler eşleşmiyor.");
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      toast({
-        title: "Hata",
-        description: "Yeni şifre en az 6 karakter olmalı.",
-        variant: "destructive"
-      });
+      toast.error("Yeni şifre en az 6 karakter olmalı.");
       return;
     }
 
@@ -177,17 +169,10 @@ export default function Settings() {
 
       setFormData(prev => ({ ...prev, currentPassword: "", newPassword: "", confirmPassword: "" }));
       
-      toast({
-        title: "Şifre Güncellendi",
-        description: "Şifreniz başarıyla değiştirildi.",
-      });
+      toast.success("Şifre başarıyla değiştirildi! 🔒");
     } catch (error) {
       console.error('Password update error:', error);
-      toast({
-        title: "Hata",
-        description: "Şifre güncellenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Şifre güncellenirken bir hata oluştu.");
     }
   };
 
