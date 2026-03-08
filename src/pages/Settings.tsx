@@ -210,17 +210,10 @@ export default function Settings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast({
-        title: "Veriler Dışa Aktarıldı",
-        description: "Tüm verileriniz başarıyla indirildi.",
-      });
+      toast.success("Veriler başarıyla dışa aktarıldı! 📦");
     } catch (error) {
       console.error('Export error:', error);
-      toast({
-        title: "Hata",
-        description: "Veri dışa aktarılırken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Veri dışa aktarılırken bir hata oluştu.");
     } finally {
       setIsExporting(false);
     }
