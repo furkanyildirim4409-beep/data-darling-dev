@@ -73,10 +73,32 @@ export default function Settings() {
   });
 
   const [notificationPrefs, setNotificationPrefs] = useState({
-    email: profile?.notification_preferences?.email ?? true,
-    push: profile?.notification_preferences?.push ?? true,
-    alerts: profile?.notification_preferences?.alerts ?? true,
+    email: true,
+    push: true,
+    alerts: true,
   });
+
+  // Sync form state when profile loads/changes
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.full_name || "",
+        bio: profile.bio || "",
+        gymName: profile.gym_name || "",
+        specialty: profile.specialty || "",
+        email: profile.email || "",
+      }));
+      const ns = (profile as any).notification_settings ?? profile.notification_preferences;
+      if (ns && typeof ns === 'object') {
+        setNotificationPrefs({
+          email: (ns as any).email ?? true,
+          push: (ns as any).push ?? true,
+          alerts: (ns as any).alerts ?? true,
+        });
+      }
+    }
+  }, [profile]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
