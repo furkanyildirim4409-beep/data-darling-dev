@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
+import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
 import {
   AlertDialog,
   AlertDialogAction,
