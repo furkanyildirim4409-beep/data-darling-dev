@@ -293,6 +293,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
                         <Edit className="w-4 h-4 mr-2" />
                         Düzenle
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program })}>
+                        <Users className="w-4 h-4 mr-2" />
+                        Sporculara Ata
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDuplicate(program)}>
                         <Copy className="w-4 h-4 mr-2" />
                         Kopyala
