@@ -26,6 +26,7 @@ interface SaveTemplateDialogProps {
   onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
   mode: "exercise" | "nutrition";
   itemCount: number;
+  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
 }
 
 export function SaveTemplateDialog({
@@ -34,12 +35,41 @@ export function SaveTemplateDialog({
   onSave,
   mode,
   itemCount,
+  editingProgram,
 }: SaveTemplateDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [targetGoal, setTargetGoal] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isEditing = !!editingProgram;
+
+  // Pre-fill fields when editing
+  useState(() => {
+    if (editingProgram) {
+      setTitle(editingProgram.name);
+      setDescription(editingProgram.description);
+      setDifficulty(editingProgram.difficulty ?? "");
+      setTargetGoal(editingProgram.targetGoal ?? "");
+    }
+  });
+
+  // Reset/populate when dialog opens
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen && editingProgram) {
+      setTitle(editingProgram.name);
+      setDescription(editingProgram.description);
+      setDifficulty(editingProgram.difficulty ?? "");
+      setTargetGoal(editingProgram.targetGoal ?? "");
+    } else if (newOpen && !editingProgram) {
+      setTitle("");
+      setDescription("");
+      setDifficulty("");
+      setTargetGoal("");
+    }
+    onOpenChange(newOpen);
+  };
 
   const handleSave = async () => {
     if (!title.trim() || itemCount === 0) return;
@@ -57,15 +87,15 @@ export function SaveTemplateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[480px] bg-card border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookMarked className="w-5 h-5 text-primary" />
-            Programı Kaydet
+            {isEditing ? "Programı Güncelle" : "Programı Kaydet"}
           </DialogTitle>
           <DialogDescription>
-            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını veritabanına kaydedin.
+            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +188,7 @@ export function SaveTemplateDialog({
             className="bg-primary text-primary-foreground"
           >
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <BookMarked className="w-4 h-4 mr-1.5" />}
-            Kaydet
+            {isEditing ? "Güncelle" : "Kaydet"}
           </Button>
         </DialogFooter>
       </DialogContent>
