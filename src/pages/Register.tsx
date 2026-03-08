@@ -19,7 +19,7 @@ export default function Register() {
     if (password.length < 6) { toast.error('Şifre en az 6 karakter olmalıdır.'); return; }
     setLoading(true);
     const { error } = await signUp(email, password, role, fullName);
-    if (!error) { toast.success('Kayıt başarılı! Giriş yapabilirsiniz.'); navigate('/login'); }
+    if (!error) { toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.'); navigate('/login'); }
     setLoading(false);
   };
 
