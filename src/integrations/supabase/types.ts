@@ -88,12 +88,15 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           bio_coins: number | null
+          coach_id: string | null
           created_at: string | null
           current_weight: number | null
+          email: string | null
           full_name: string | null
           id: string
           level: number | null
           readiness_score: number | null
+          role: string | null
           streak: number | null
           updated_at: string | null
         }
@@ -101,12 +104,15 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           bio_coins?: number | null
+          coach_id?: string | null
           created_at?: string | null
           current_weight?: number | null
+          email?: string | null
           full_name?: string | null
           id: string
           level?: number | null
           readiness_score?: number | null
+          role?: string | null
           streak?: number | null
           updated_at?: string | null
         }
@@ -114,12 +120,15 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           bio_coins?: number | null
+          coach_id?: string | null
           created_at?: string | null
           current_weight?: number | null
+          email?: string | null
           full_name?: string | null
           id?: string
           level?: number | null
           readiness_score?: number | null
+          role?: string | null
           streak?: number | null
           updated_at?: string | null
         }
