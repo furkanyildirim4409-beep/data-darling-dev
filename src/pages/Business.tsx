@@ -214,6 +214,10 @@ export default function Business() {
           )}
         </div>
 
+        {/* Athlete Payment Status Widget */}
+        <AthletePaymentStatus payments={payments} athletes={athletes} />
+        </div>
+
         {/* Today's Schedule */}
         <div className="glass rounded-xl border border-border">
           <div className="p-4 border-b border-border flex items-center justify-between">
