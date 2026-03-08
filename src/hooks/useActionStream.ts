@@ -59,7 +59,7 @@ export function useActionStream() {
     const [workoutsRes, checkinsRes, nutritionRes, weightRes] = await Promise.all([
       supabase
         .from("workout_logs")
-        .select("id, user_id, workout_name, logged_at, completed, tonnage")
+        .select("id, user_id, workout_name, logged_at, completed, tonnage, bio_coins_earned")
         .in("user_id", athleteIds)
         .gte("logged_at", threeDaysAgo)
         .order("logged_at", { ascending: false })
