@@ -94,7 +94,8 @@ export default function Settings() {
           bio: formData.bio,
           gym_name: formData.gymName,
           specialty: formData.specialty,
-          notification_preferences: notificationPrefs
+          notification_preferences: notificationPrefs,
+          notification_settings: notificationPrefs
         })
         .eq('id', user.id);
 
@@ -102,17 +103,10 @@ export default function Settings() {
 
       await refreshProfile();
       
-      toast({
-        title: "Profil Güncellendi",
-        description: "Bilgileriniz başarıyla kaydedildi.",
-      });
+      toast.success("Ayarlar başarıyla güncellendi! 🛠️");
     } catch (error) {
       console.error('Profile update error:', error);
-      toast({
-        title: "Hata",
-        description: "Profil güncellenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Profil güncellenirken bir hata oluştu.");
     } finally {
       setIsSaving(false);
     }
