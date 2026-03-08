@@ -20,7 +20,7 @@ interface AuthContextType {
   role: 'coach' | 'athlete' | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -94,12 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string) => {
+  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string, inviteToken?: string) => {
+    const metadata: Record<string, string> = { full_name: fullName, role: selectedRole };
+    if (inviteToken) metadata.invite_token = inviteToken;
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, role: selectedRole },
+        data: metadata,
         emailRedirectTo: window.location.origin,
       },
     });
