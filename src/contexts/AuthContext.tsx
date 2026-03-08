@@ -20,7 +20,7 @@ interface AuthContextType {
   role: 'coach' | 'athlete' | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
