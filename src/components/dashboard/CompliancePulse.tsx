@@ -1,6 +1,13 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
-import { Dumbbell, Apple, MessageCircle } from "lucide-react";
+import { Dumbbell, MessageCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface CompliancePulseProps {
+  workoutCompliance: number;
+  checkinCompliance: number;
+  isLoading: boolean;
+}
 
 interface DonutChartProps {
   title: string;
@@ -65,7 +72,6 @@ function DonutChart({ title, value, icon, color, subLabel }: DonutChartProps) {
           </PieChart>
         </ResponsiveContainer>
 
-        {/* Center Value */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn("text-3xl font-bold font-mono", getColorClass())}>
             %{value}
@@ -76,7 +82,6 @@ function DonutChart({ title, value, icon, color, subLabel }: DonutChartProps) {
         </div>
       </div>
 
-      {/* Progress bar alternative */}
       <div className="w-full mt-4 space-y-1">
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">İlerleme</span>
@@ -97,25 +102,33 @@ function DonutChart({ title, value, icon, color, subLabel }: DonutChartProps) {
   );
 }
 
-export function CompliancePulse() {
+export function CompliancePulse({ workoutCompliance, checkinCompliance, isLoading }: CompliancePulseProps) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Skeleton className="h-6 w-40 mb-2" />
+          <Skeleton className="h-4 w-60" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   const metrics = [
     {
       title: "Antrenman Uyumu",
-      value: 92,
+      value: workoutCompliance,
       icon: <Dumbbell className="w-4 h-4 text-primary" />,
       color: "hsl(68, 100%, 50%)",
-      subLabel: "Bu Hafta",
-    },
-    {
-      title: "Beslenme Uyumu",
-      value: 74,
-      icon: <Apple className="w-4 h-4 text-primary" />,
-      color: "hsl(45, 100%, 50%)",
-      subLabel: "Ort. Skor",
+      subLabel: "Son 7 Gün",
     },
     {
       title: "Check-in Tamamlama",
-      value: 60,
+      value: checkinCompliance,
       icon: <MessageCircle className="w-4 h-4 text-primary" />,
       color: "hsl(0, 84%, 60%)",
       subLabel: "48sa Penceresi",
@@ -129,7 +142,7 @@ export function CompliancePulse() {
         <p className="text-sm text-muted-foreground">Takım geneli uyum metrikleri</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {metrics.map((metric) => (
           <DonutChart key={metric.title} {...metric} />
         ))}
