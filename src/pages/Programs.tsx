@@ -297,7 +297,7 @@ export default function Programs() {
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <BookMarked className="w-4 h-4 mr-1.5" />
-            Programı Kaydet
+            {editingProgram ? "Programı Güncelle" : "Programı Kaydet"}
           </Button>
         </div>
       </div>
