@@ -87,15 +87,15 @@ export function SaveTemplateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[480px] bg-card border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookMarked className="w-5 h-5 text-primary" />
-            Programı Kaydet
+            {isEditing ? "Programı Güncelle" : "Programı Kaydet"}
           </DialogTitle>
           <DialogDescription>
-            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını veritabanına kaydedin.
+            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
           </DialogDescription>
         </DialogHeader>
 
