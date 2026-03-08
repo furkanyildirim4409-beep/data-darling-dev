@@ -144,53 +144,80 @@ export default function Programs() {
         return;
       }
 
-      // Step A: Insert program
-      const { data: program, error: progErr } = await supabase
-        .from("programs")
-        .insert({
-          title: meta.title,
-          description: meta.description || null,
-          difficulty: meta.difficulty || null,
-          target_goal: meta.targetGoal || null,
-          coach_id: user.id,
-        })
-        .select()
-        .single();
+      const isEditing = !!editingProgram;
+      let programId: string;
 
-      if (progErr || !program) {
-        toast.error("Program kaydedilemedi: " + (progErr?.message ?? "Bilinmeyen hata"));
-        throw progErr;
+      if (isEditing) {
+        // Update existing program
+        const { error: progErr } = await supabase
+          .from("programs")
+          .update({
+            title: meta.title,
+            description: meta.description || null,
+            difficulty: meta.difficulty || null,
+            target_goal: meta.targetGoal || null,
+          })
+          .eq("id", editingProgram.id);
+
+        if (progErr) {
+          toast.error("Program güncellenemedi: " + progErr.message);
+          throw progErr;
+        }
+        programId = editingProgram.id;
+
+        // Delete old exercises, then re-insert
+        await supabase.from("exercises").delete().eq("program_id", programId);
+      } else {
+        // Insert new program
+        const { data: program, error: progErr } = await supabase
+          .from("programs")
+          .insert({
+            title: meta.title,
+            description: meta.description || null,
+            difficulty: meta.difficulty || null,
+            target_goal: meta.targetGoal || null,
+            coach_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (progErr || !program) {
+          toast.error("Program kaydedilemedi: " + (progErr?.message ?? "Bilinmeyen hata"));
+          throw progErr;
+        }
+        programId = program.id;
       }
 
-      // Step C: Bulk insert exercises
+      // Bulk insert exercises
       if (selectedExercises.length > 0) {
         const exerciseRows = selectedExercises.map((ex, idx) => ({
-          program_id: program.id,
+          program_id: programId,
           name: ex.name,
           sets: ex.sets,
           reps: String(ex.reps),
           rest_time: null as string | null,
-          notes: null as string | null,
+          notes: ex.notes ?? null as string | null,
           order_index: idx,
         }));
 
         const { error: exErr } = await supabase.from("exercises").insert(exerciseRows);
         if (exErr) {
-          // Rollback: delete the program we just created
-          await supabase.from("programs").delete().eq("id", program.id);
+          if (!isEditing) {
+            await supabase.from("programs").delete().eq("id", programId);
+          }
           toast.error("Egzersizler kaydedilemedi: " + exErr.message);
           throw exErr;
         }
       }
 
-      toast.success("Program başarıyla kaydedildi!");
-      // Clear and go back
+      toast.success(isEditing ? "Program başarıyla güncellendi!" : "Program başarıyla kaydedildi!");
       setSelectedExercises([]);
       setSelectedNutrition([]);
+      setEditingProgram(null);
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, selectedExercises]
+    [user, selectedExercises, editingProgram]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
