@@ -59,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: p.avatar_url ?? null,
         coach_id: p.coach_id ?? null,
         created_at: p.created_at ?? null,
+        bio: p.bio ?? null,
+        gym_name: p.gym_name ?? null,
+        specialty: p.specialty ?? null,
+        subscription_tier: p.subscription_tier ?? null,
+        notification_preferences: p.notification_preferences ?? null,
       };
       setProfile(profileData);
       setRole(profileData.role);
