@@ -63,6 +63,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
     open: false,
     program: null,
   });
+  const [assignDialog, setAssignDialog] = useState<{ open: boolean; program: ProgramData | null }>({
+    open: false,
+    program: null,
+  });
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
