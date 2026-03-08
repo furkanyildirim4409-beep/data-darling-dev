@@ -34,21 +34,18 @@ const subscriptionPlans = [
     price: "₺0",
     period: "aylık",
     features: ["5 sporcu", "Temel raporlar", "E-posta desteği"],
-    current: true
   },
   {
     name: "Pro",
     price: "₺499",
     period: "aylık",
     features: ["25 sporcu", "Gelişmiş analitik", "WhatsApp entegrasyonu", "Özel raporlar"],
-    current: false
   },
   {
     name: "Elite",
     price: "₺999",
     period: "aylık",
     features: ["Sınırsız sporcu", "AI analiz", "API erişimi", "Öncelikli destek", "Beyaz etiket"],
-    current: false
   }
 ];
 
