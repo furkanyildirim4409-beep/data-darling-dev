@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, LogOut, User, Settings, Clock, CreditCard, UserCheck, AlertCircle, Search } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -80,6 +81,7 @@ function getNotificationStyles(type: string) {
 export function TopBar() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { profile, signOut } = useAuth();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -245,12 +247,12 @@ export function TopBar() {
               <Avatar className="w-8 h-8 border border-border">
                 <AvatarImage src="/placeholder.svg" />
                 <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                  JD
+                  {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
-                <span className="text-sm font-medium text-foreground">Koç Davis</span>
-                <span className="text-xs text-muted-foreground">Baş Antrenör</span>
+                <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Kullanıcı'}</span>
+                <span className="text-xs text-muted-foreground">{profile?.role === 'coach' ? 'Koç' : 'Sporcu'}</span>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Button>
@@ -271,7 +273,13 @@ export function TopBar() {
               Ayarlar
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem className="cursor-pointer hover:bg-secondary text-destructive">
+            <DropdownMenuItem 
+              className="cursor-pointer hover:bg-secondary text-destructive"
+              onClick={async () => {
+                await signOut();
+                navigate('/login');
+              }}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Çıkış Yap
             </DropdownMenuItem>
