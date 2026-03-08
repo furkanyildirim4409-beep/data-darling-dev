@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Athlete } from "@/types/shared-models";
-import { mockAthletes } from "@/data/athletes";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UseAthletesReturn {
   athletes: Athlete[];
@@ -10,15 +10,28 @@ interface UseAthletesReturn {
   refetch: () => Promise<void>;
 }
 
-const ATHLETES_STORAGE_KEY = "dynabolic_athletes";
-
-function getStoredAthletes(): Athlete[] | null {
-  try {
-    const raw = localStorage.getItem(ATHLETES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+function mapProfileToAthlete(row: any): Athlete {
+  return {
+    id: row.id,
+    name: row.full_name || "İsimsiz",
+    email: row.email || "",
+    phone: "",
+    avatar: row.avatar_url || undefined,
+    sport: "",
+    tier: "Standard",
+    compliance: 80,
+    readiness: row.readiness_score ?? 75,
+    injuryRisk: "Low",
+    checkInStatus: "pending",
+    bloodworkStatus: "pending",
+    subscriptionExpiry: "",
+    currentCalories: 0,
+    currentProtein: 0,
+    currentProgram: "",
+    currentDiet: "",
+    joinDate: row.created_at ?? "",
+    lastActive: row.updated_at ?? "",
+  };
 }
 
 export function useAthletes(): UseAthletesReturn {
@@ -36,14 +49,17 @@ export function useAthletes(): UseAthletesReturn {
 
     try {
       setError(null);
-      const stored = getStoredAthletes();
-      if (stored) {
-        setAthletes(stored);
-      } else {
-        // Seed with mock data on first load
-        localStorage.setItem(ATHLETES_STORAGE_KEY, JSON.stringify(mockAthletes));
-        setAthletes(mockAthletes);
-      }
+      setIsLoading(true);
+
+      const { data, error: fetchError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "athlete")
+        .eq("coach_id", user.id);
+
+      if (fetchError) throw fetchError;
+
+      setAthletes((data || []).map(mapProfileToAthlete));
     } catch (err: any) {
       console.error("Failed to fetch athletes:", err);
       setError(err.message || "Sporcular yüklenemedi");
@@ -55,6 +71,31 @@ export function useAthletes(): UseAthletesReturn {
   useEffect(() => {
     fetchAthletes();
   }, [fetchAthletes]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("athletes-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `coach_id=eq.${user.id}`,
+        },
+        () => {
+          fetchAthletes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchAthletes]);
 
   return { athletes, isLoading, error, refetch: fetchAthletes };
 }

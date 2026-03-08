@@ -9,9 +9,7 @@ import { useAthletes } from "@/hooks/useAthletes";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockAthletes } from "@/data/athletes";
-
-const ATHLETES_STORAGE_KEY = "dynabolic_athletes";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Athletes() {
   const { user } = useAuth();
@@ -32,22 +30,28 @@ export default function Athletes() {
     }
     setIsLinking(true);
     try {
-      const match = mockAthletes.find(a => a.email.toLowerCase() === linkEmail.trim().toLowerCase());
-      if (!match) {
-        toast.error("Bu e-posta adresiyle kayıtlı bir öğrenci bulunamadı.");
-        return;
+      const { data, error: rpcError } = await supabase.rpc(
+        "link_athlete_to_coach" as any,
+        { _coach_id: user.id, _athlete_email: linkEmail.trim() }
+      );
+
+      if (rpcError) throw rpcError;
+
+      const result = data as any;
+      const status = result?.status;
+
+      if (status === "not_found") {
+        toast.error("Bu e-posta adresiyle kayıtlı bir sporcu bulunamadı.");
+      } else if (status === "already_linked") {
+        toast.warning("Bu sporcu zaten başka bir koça bağlı.");
+      } else if (status === "already_yours") {
+        toast.info("Bu sporcu zaten kadronuzda.");
+      } else if (status === "ok") {
+        toast.success("Sporcu başarıyla kadronuza eklendi!");
+        setAddDialogOpen(false);
+        setLinkEmail("");
+        refetch();
       }
-      const current = JSON.parse(localStorage.getItem(ATHLETES_STORAGE_KEY) || '[]') as any[];
-      if (current.find((a: any) => a.email.toLowerCase() === linkEmail.trim().toLowerCase())) {
-        toast.info("Bu öğrenci zaten kadronuzda.");
-        return;
-      }
-      current.push(match);
-      localStorage.setItem(ATHLETES_STORAGE_KEY, JSON.stringify(current));
-      toast.success("Öğrenci başarıyla kadronuza eklendi!");
-      setAddDialogOpen(false);
-      setLinkEmail("");
-      refetch();
     } catch (err: any) {
       toast.error(err.message || "Bir hata oluştu.");
     } finally {
