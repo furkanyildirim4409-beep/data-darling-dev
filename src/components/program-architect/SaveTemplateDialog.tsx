@@ -188,7 +188,7 @@ export function SaveTemplateDialog({
             className="bg-primary text-primary-foreground"
           >
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <BookMarked className="w-4 h-4 mr-1.5" />}
-            Kaydet
+            {isEditing ? "Güncelle" : "Kaydet"}
           </Button>
         </DialogFooter>
       </DialogContent>
