@@ -60,7 +60,7 @@ export default function AthleteDetail() {
     setIsLoading(true);
 
     const [profileRes, checkInRes, workoutRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", id).single(),
+      supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
       supabase.from("daily_checkins").select("mood, sleep, soreness, stress").eq("user_id", id).order("created_at", { ascending: false }).limit(1),
       supabase.from("workout_logs").select("completed, tonnage").eq("user_id", id),
     ]);
