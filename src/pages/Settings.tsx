@@ -143,17 +143,10 @@ export default function Settings() {
 
       await refreshProfile();
 
-      toast({
-        title: "Avatar Güncellendi",
-        description: "Profil fotoğrafınız başarıyla yüklendi.",
-      });
+      toast.success("Avatar başarıyla güncellendi! 📸");
     } catch (error) {
       console.error('Avatar upload error:', error);
-      toast({
-        title: "Hata",
-        description: "Avatar yüklenirken bir hata oluştu.",
-        variant: "destructive"
-      });
+      toast.error("Avatar yüklenirken bir hata oluştu.");
     } finally {
       setIsUploadingAvatar(false);
     }
