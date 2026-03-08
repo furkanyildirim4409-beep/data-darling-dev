@@ -9,11 +9,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Apple, BookMarked, ArrowLeft } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ViewMode = "dashboard" | "builder";
 
 export default function Programs() {
+  const { user } = useAuth();
+
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
   const [builderMode, setBuilderMode] = useState<"exercise" | "nutrition">("exercise");
@@ -26,6 +30,9 @@ export default function Programs() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
 
+  // Force dashboard refresh key
+  const [dashboardKey, setDashboardKey] = useState(0);
+
   const handleCreateProgram = useCallback((type: "exercise" | "nutrition") => {
     setBuilderMode(type);
     setEditingProgram(null);
@@ -37,12 +44,8 @@ export default function Programs() {
   const handleEditProgram = useCallback((program: ProgramData) => {
     setBuilderMode(program.type);
     setEditingProgram(program);
-    // In real app, load program exercises/nutrition here
     setViewMode("builder");
-    toast({
-      title: "Program Yüklendi",
-      description: `"${program.name}" düzenleme modunda açıldı.`,
-    });
+    toast.info(`"${program.name}" düzenleme modunda açıldı.`);
   }, []);
 
   const handleBackToDashboard = useCallback(() => {
@@ -54,12 +57,7 @@ export default function Programs() {
     (item: LibraryItem) => {
       if (builderMode === "exercise") {
         if (selectedExercises.find((ex) => ex.id === item.id)) return;
-        const newExercise: BuilderExercise = {
-          ...item,
-          sets: 3,
-          reps: 10,
-          rpe: 7,
-        };
+        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7 };
         setSelectedExercises((prev) => [...prev, newExercise]);
       } else {
         const newNutrition: NutritionItem = {
@@ -69,10 +67,7 @@ export default function Programs() {
           mealId: activeMealId,
         };
         setSelectedNutrition((prev) => [...prev, newNutrition]);
-        toast({
-          title: "Besin Eklendi",
-          description: `${item.name} listeye eklendi.`,
-        });
+        toast.success(`${item.name} listeye eklendi.`);
       }
     },
     [builderMode, selectedExercises, activeMealId]
@@ -112,56 +107,76 @@ export default function Programs() {
     }
   }, [builderMode]);
 
-  const handleSaveTemplate = useCallback(
-    (name: string) => {
-      const newTemplate: SavedTemplate = {
-        id: `template-${Date.now()}`,
-        name,
-        items: builderMode === "exercise" ? selectedExercises : selectedNutrition,
-        type: builderMode,
-        createdAt: new Date(),
-      };
-      setSavedTemplates((prev) => [...prev, newTemplate]);
-      toast({
-        title: "Şablon Kaydedildi",
-        description: "Program şablonlara eklendi.",
-      });
+  // ─── Supabase atomic save ───
+  const handleSaveProgram = useCallback(
+    async (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => {
+      if (!user) {
+        toast.error("Kaydetmek için giriş yapmalısınız.");
+        return;
+      }
+
+      // Step A: Insert program
+      const { data: program, error: progErr } = await supabase
+        .from("programs")
+        .insert({
+          title: meta.title,
+          description: meta.description || null,
+          difficulty: meta.difficulty || null,
+          target_goal: meta.targetGoal || null,
+          coach_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (progErr || !program) {
+        toast.error("Program kaydedilemedi: " + (progErr?.message ?? "Bilinmeyen hata"));
+        throw progErr;
+      }
+
+      // Step C: Bulk insert exercises
+      if (selectedExercises.length > 0) {
+        const exerciseRows = selectedExercises.map((ex, idx) => ({
+          program_id: program.id,
+          name: ex.name,
+          sets: ex.sets,
+          reps: String(ex.reps),
+          rest_time: null as string | null,
+          notes: null as string | null,
+          order_index: idx,
+        }));
+
+        const { error: exErr } = await supabase.from("exercises").insert(exerciseRows);
+        if (exErr) {
+          // Rollback: delete the program we just created
+          await supabase.from("programs").delete().eq("id", program.id);
+          toast.error("Egzersizler kaydedilemedi: " + exErr.message);
+          throw exErr;
+        }
+      }
+
+      toast.success("Program başarıyla kaydedildi!");
+      // Clear and go back
+      setSelectedExercises([]);
+      setSelectedNutrition([]);
+      setDashboardKey((k) => k + 1);
+      setViewMode("dashboard");
     },
-    [builderMode, selectedExercises, selectedNutrition]
+    [user, selectedExercises]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
     if (template.type === "exercise") {
       setSelectedExercises(
-        template.items.map(
-          (item) =>
-            ({
-              ...item,
-              sets: 3,
-              reps: 10,
-              rpe: 7,
-            }) as BuilderExercise
-        )
+        template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 }) as BuilderExercise)
       );
       setBuilderMode("exercise");
     } else {
       setSelectedNutrition(
-        template.items.map(
-          (item) =>
-            ({
-              ...item,
-              amount: 100,
-              unit: "g",
-              mealId: "meal-1",
-            }) as NutritionItem
-        )
+        template.items.map((item) => ({ ...item, amount: 100, unit: "g", mealId: "meal-1" }) as NutritionItem)
       );
       setBuilderMode("nutrition");
     }
-    toast({
-      title: "Şablon Yüklendi",
-      description: `"${template.name}" şablonu oluşturucuya yüklendi.`,
-    });
+    toast.success(`"${template.name}" şablonu yüklendi.`);
   }, []);
 
   const currentItems = builderMode === "exercise" ? selectedExercises : selectedNutrition;
@@ -169,14 +184,17 @@ export default function Programs() {
   // Dashboard View
   if (viewMode === "dashboard") {
     return (
-      <ProgramDashboard onCreateProgram={handleCreateProgram} onEditProgram={handleEditProgram} />
+      <ProgramDashboard
+        key={dashboardKey}
+        onCreateProgram={handleCreateProgram}
+        onEditProgram={handleEditProgram}
+      />
     );
   }
 
   // Builder View
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={handleBackToDashboard}>
@@ -194,7 +212,6 @@ export default function Programs() {
           </div>
         </div>
 
-        {/* Mode Toggle & Save Template */}
         <div className="flex items-center gap-4">
           <div className="glass rounded-lg px-4 py-2 border border-border flex items-center gap-3">
             <div
@@ -224,14 +241,12 @@ export default function Programs() {
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <BookMarked className="w-4 h-4 mr-1.5" />
-            Şablon Olarak Kaydet
+            Programı Kaydet
           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)]">
-        {/* Left Panel - Library */}
         <div className="lg:col-span-3 h-full">
           <ProgramLibrary
             onAddItem={handleAddItem}
@@ -241,8 +256,6 @@ export default function Programs() {
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
-
-        {/* Center Panel - Builder */}
         <div className="lg:col-span-5 h-full">
           {builderMode === "exercise" ? (
             <WorkoutBuilder
@@ -262,8 +275,6 @@ export default function Programs() {
             />
           )}
         </div>
-
-        {/* Right Panel - Weekly Schedule */}
         <div className="lg:col-span-4 h-full">
           <WeeklySchedule
             selectedExercises={selectedExercises}
@@ -275,7 +286,7 @@ export default function Programs() {
       <SaveTemplateDialog
         open={saveDialogOpen}
         onOpenChange={setSaveDialogOpen}
-        onSave={handleSaveTemplate}
+        onSave={handleSaveProgram}
         mode={builderMode}
         itemCount={currentItems.length}
       />

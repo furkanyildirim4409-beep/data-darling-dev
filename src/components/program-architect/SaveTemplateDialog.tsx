@@ -2,6 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BookMarked, Dumbbell, Apple } from "lucide-react";
+import { BookMarked, Dumbbell, Apple, Loader2 } from "lucide-react";
 
 interface SaveTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string) => void;
+  onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
   mode: "exercise" | "nutrition";
   itemCount: number;
 }
@@ -27,43 +35,94 @@ export function SaveTemplateDialog({
   mode,
   itemCount,
 }: SaveTemplateDialogProps) {
-  const [templateName, setTemplateName] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [difficulty, setDifficulty] = useState("");
+  const [targetGoal, setTargetGoal] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    if (templateName.trim()) {
-      onSave(templateName.trim());
-      setTemplateName("");
+  const handleSave = async () => {
+    if (!title.trim() || itemCount === 0) return;
+    setSaving(true);
+    try {
+      await onSave({ title: title.trim(), description: description.trim(), difficulty, targetGoal });
+      setTitle("");
+      setDescription("");
+      setDifficulty("");
+      setTargetGoal("");
       onOpenChange(false);
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-card border-border">
+      <DialogContent className="sm:max-w-[480px] bg-card border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookMarked className="w-5 h-5 text-primary" />
-            Şablon Olarak Kaydet
+            Programı Kaydet
           </DialogTitle>
           <DialogDescription>
-            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını şablon olarak kaydedin.
-            Daha sonra tekrar kullanabilirsiniz.
+            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını veritabanına kaydedin.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="template-name">Şablon Adı</Label>
+            <Label htmlFor="program-title">Program Adı *</Label>
             <Input
-              id="template-name"
+              id="program-title"
               placeholder={mode === "exercise" ? "Örn: Üst Vücut Günü A" : "Örn: Yüksek Protein Planı"}
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               className="bg-background/50"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="program-desc">Açıklama</Label>
+            <Textarea
+              id="program-desc"
+              placeholder="Program hakkında kısa açıklama..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="bg-background/50 resize-none"
+              rows={2}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Zorluk</Label>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue placeholder="Seçiniz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Başlangıç</SelectItem>
+                  <SelectItem value="intermediate">Orta</SelectItem>
+                  <SelectItem value="advanced">İleri</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Hedef</Label>
+              <Select value={targetGoal} onValueChange={setTargetGoal}>
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue placeholder="Seçiniz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hypertrophy">Hipertrofi</SelectItem>
+                  <SelectItem value="strength">Güç</SelectItem>
+                  <SelectItem value="endurance">Dayanıklılık</SelectItem>
+                  <SelectItem value="fat_loss">Yağ Yakımı</SelectItem>
+                  <SelectItem value="general">Genel Fitness</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="glass rounded-lg p-3 border border-border">
@@ -79,7 +138,7 @@ export function SaveTemplateDialog({
               )}
               <div>
                 <p className="text-sm font-medium">
-                  {mode === "exercise" ? "Antrenman Şablonu" : "Beslenme Şablonu"}
+                  {mode === "exercise" ? "Antrenman Programı" : "Beslenme Programı"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {itemCount} {mode === "exercise" ? "egzersiz" : "besin"} kaydedilecek
@@ -90,15 +149,15 @@ export function SaveTemplateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             İptal
           </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={!templateName.trim() || itemCount === 0}
+          <Button
+            onClick={handleSave}
+            disabled={!title.trim() || itemCount === 0 || saving}
             className="bg-primary text-primary-foreground"
           >
-            <BookMarked className="w-4 h-4 mr-1.5" />
+            {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <BookMarked className="w-4 h-4 mr-1.5" />}
             Kaydet
           </Button>
         </DialogFooter>
