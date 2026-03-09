@@ -61,6 +61,16 @@ function parseDetails(raw: unknown): ExerciseDetail[] | null {
   return null;
 }
 
+type QuickRange = "all" | "7d" | "30d" | "90d" | "custom";
+
+const quickRanges: { value: QuickRange; label: string }[] = [
+  { value: "all", label: "Tümü" },
+  { value: "7d", label: "7 Gün" },
+  { value: "30d", label: "30 Gün" },
+  { value: "90d", label: "90 Gün" },
+  { value: "custom", label: "Özel" },
+];
+
 export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,13 +78,35 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [hasMore, setHasMore] = useState(true);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
+  // Date filtering
+  const [quickRange, setQuickRange] = useState<QuickRange>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  const getDateRange = useCallback((): { from?: string; to?: string } => {
+    if (quickRange === "all") return {};
+    if (quickRange === "custom") {
+      return {
+        from: dateFrom ? startOfDay(dateFrom).toISOString() : undefined,
+        to: dateTo ? endOfDay(dateTo).toISOString() : undefined,
+      };
+    }
+    const days = quickRange === "7d" ? 7 : quickRange === "30d" ? 30 : 90;
+    return { from: startOfDay(subDays(new Date(), days)).toISOString() };
+  }, [quickRange, dateFrom, dateTo]);
+
   const fetchPage = useCallback(async (offset: number) => {
-    const { data } = await supabase
+    const range = getDateRange();
+    let query = supabase
       .from("workout_logs")
       .select("id, workout_name, logged_at, duration_minutes, tonnage, exercises_count, details, completed")
       .eq("user_id", athleteId)
-      .order("logged_at", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .order("logged_at", { ascending: false });
+
+    if (range.from) query = query.gte("logged_at", range.from);
+    if (range.to) query = query.lte("logged_at", range.to);
+
+    const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
     const parsed = (data ?? []).map(d => ({
       ...d,
@@ -83,8 +115,9 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
     if (parsed.length < PAGE_SIZE) setHasMore(false);
     return parsed;
-  }, [athleteId]);
+  }, [athleteId, getDateRange]);
 
+  // Reset and refetch when filters change
   useEffect(() => {
     setLogs([]);
     setHasMore(true);
