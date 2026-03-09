@@ -149,15 +149,15 @@ export function AssignProgramDialog({
       });
 
       // 3. Build payload
-      const payload: {
+      const payload: Array<{
         coach_id: string;
         athlete_id: string;
         program_id: string;
         scheduled_date: string;
         workout_name: string;
-        exercises: unknown[];
+        exercises: Record<string, unknown>[];
         status: string;
-      }[] = [];
+      }> = [];
 
       for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
         const cfg = weekConfig[dayIdx];
