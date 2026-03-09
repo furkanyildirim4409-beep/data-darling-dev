@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
+
+const STORAGE_KEY = "coach-exercise-library";
 
 // 20 real fitness exercises with muscle group tags
-export const exercises = [
+export const defaultExercises = [
   { id: "ex-1", name: "Bench Press", category: "Göğüs", type: "exercise", muscleGroup: "Pectoralis Major" },
   { id: "ex-2", name: "Squat", category: "Bacak", type: "exercise", muscleGroup: "Quadriceps" },
   { id: "ex-3", name: "Deadlift", category: "Sırt", type: "exercise", muscleGroup: "Erector Spinae" },
@@ -151,6 +154,21 @@ export function ProgramLibrary({
   const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
+  // Stateful exercise library with localStorage persistence
+  const [exercises, setExercises] = useState<LibraryItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : defaultExercises;
+    } catch {
+      return defaultExercises;
+    }
+  });
+
+  const handleExercisesChange = useCallback((newExercises: LibraryItem[]) => {
+    setExercises(newExercises);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newExercises));
+  }, []);
+
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoadingTemplates(true);
@@ -222,7 +240,12 @@ export function ProgramLibrary({
     <div className="glass rounded-xl border border-border h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground mb-3">Kütüphane</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
+          {builderMode === "exercise" && (
+            <ExerciseLibraryEditor exercises={exercises} onExercisesChange={handleExercisesChange} />
+          )}
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
