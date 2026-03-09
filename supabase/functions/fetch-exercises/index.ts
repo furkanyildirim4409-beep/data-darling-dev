@@ -53,7 +53,7 @@ serve(async (req) => {
       ? data.map((ex: any) => ({
           ...ex,
           imageUrl: ex.id
-            ? `https://exercisedb.p.rapidapi.com/image/${ex.id}?rapidapi-key=${apiKey}`
+            ? `https://exercisedb.p.rapidapi.com/image?exerciseId=${ex.id}&resolution=360&rapidapi-key=${apiKey}`
             : null,
         }))
       : data;
