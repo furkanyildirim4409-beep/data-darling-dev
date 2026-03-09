@@ -200,19 +200,19 @@ export function WorkoutBuilder({
       type,
       exerciseIds: Array.from(selectedIds),
     };
-    setDayGroups((prev) => ({
-      ...prev,
-      [activeDay]: [...(prev[activeDay] || []), newGroup],
-    }));
+    onSetDayGroups({
+      ...dayGroups,
+      [activeDay]: [...(dayGroups[activeDay] || []), newGroup],
+    });
     setSelectedIds(new Set());
     setGroupMode(false);
   };
 
   const dissolveGroup = (dayIndex: number, groupId: string) => {
-    setDayGroups((prev) => ({
-      ...prev,
-      [dayIndex]: (prev[dayIndex] || []).filter((g) => g.id !== groupId),
-    }));
+    onSetDayGroups({
+      ...dayGroups,
+      [dayIndex]: (dayGroups[dayIndex] || []).filter((g) => g.id !== groupId),
+    });
   };
 
   return (
