@@ -149,6 +149,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
               <CollapsibleContent>
                 <div className="px-5 pb-4 space-y-1.5 border-t border-border pt-3">
+                  {exercises.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-2">
+                      {log.exercises_count ? `${log.exercises_count} egzersiz tamamlandı (detay mevcut değil)` : "Detay bilgisi yok"}
+                    </p>
+                  )}
                   {exercises.map((ex, idx) => {
                     const isFailure = ex.failure_set === true || ex.failureSet === true;
                     const hasRir = ex.rir != null;
