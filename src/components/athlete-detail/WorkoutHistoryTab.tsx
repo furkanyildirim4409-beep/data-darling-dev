@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2 } from "lucide-react";
+import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PerformedSet {
@@ -43,12 +44,12 @@ interface WorkoutLog {
   completed: boolean | null;
 }
 
+const PAGE_SIZE = 20;
+
 // Parse details from various possible JSON shapes
 function parseDetails(raw: unknown): ExerciseDetail[] | null {
   if (!raw) return null;
-  // If it's already an array of exercises
   if (Array.isArray(raw)) return raw as ExerciseDetail[];
-  // If it's an object with an 'exercises' key
   if (typeof raw === "object" && raw !== null) {
     const obj = raw as Record<string, unknown>;
     if (Array.isArray(obj.exercises)) return obj.exercises as ExerciseDetail[];
@@ -59,26 +60,43 @@ function parseDetails(raw: unknown): ExerciseDetail[] | null {
 export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("workout_logs")
-        .select("id, workout_name, logged_at, duration_minutes, tonnage, exercises_count, details, completed")
-        .eq("user_id", athleteId)
-        .order("logged_at", { ascending: false })
-        .limit(50);
+  const fetchPage = useCallback(async (offset: number) => {
+    const { data } = await supabase
+      .from("workout_logs")
+      .select("id, workout_name, logged_at, duration_minutes, tonnage, exercises_count, details, completed")
+      .eq("user_id", athleteId)
+      .order("logged_at", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
 
-      if (data) {
-        setLogs(data.map(d => ({
-          ...d,
-          details: parseDetails(d.details),
-        })));
-      }
-      setLoading(false);
-    })();
+    const parsed = (data ?? []).map(d => ({
+      ...d,
+      details: parseDetails(d.details),
+    }));
+
+    if (parsed.length < PAGE_SIZE) setHasMore(false);
+    return parsed;
   }, [athleteId]);
+
+  useEffect(() => {
+    setLogs([]);
+    setHasMore(true);
+    setLoading(true);
+    fetchPage(0).then((data) => {
+      setLogs(data);
+      setLoading(false);
+    });
+  }, [athleteId, fetchPage]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const data = await fetchPage(logs.length);
+    setLogs(prev => [...prev, ...data]);
+    setLoadingMore(false);
+  };
 
   const toggle = (id: string) => {
     setOpenIds(prev => {
@@ -88,7 +106,6 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
     });
   };
 
-  // Extract performed sets from any of the possible keys
   const getPerformedSets = (ex: ExerciseDetail): PerformedSet[] => {
     if (Array.isArray(ex.sets)) return ex.sets;
     return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
@@ -204,7 +221,6 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
-                            {/* Target */}
                             {(() => {
                               const targetSets = typeof ex.targetSets === 'number' ? ex.targetSets : (typeof ex.sets === 'number' ? ex.sets : null);
                               const targetReps = ex.targetReps || ex.reps;
@@ -213,7 +229,6 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               ) : null;
                             })()}
 
-                            {/* Actual sets */}
                             {(() => {
                               const performed = getPerformedSets(ex);
                               return performed.length > 0 ? (
@@ -252,6 +267,26 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
           </Collapsible>
         );
       })}
+
+      {hasMore && (
+        <div className="flex justify-center pt-2 pb-4">
+          <Button
+            variant="outline"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="text-sm"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Yükleniyor...
+              </>
+            ) : (
+              "Daha Fazla Göster"
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
