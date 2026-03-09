@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
-import { WorkoutBuilder, BuilderExercise, DayPlan } from "@/components/program-architect/WorkoutBuilder";
+import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 type ViewMode = "dashboard" | "builder";
 
 const createEmptyWeek = (): DayPlan[] =>
-  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", exercises: [] }));
+  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", blockType: "none" as BlockType, exercises: [] }));
 
 export default function Programs() {
   const { user } = useAuth();
@@ -160,9 +160,15 @@ export default function Programs() {
     );
   }, []);
 
+  const handleUpdateDayBlockType = useCallback((dayIndex: number, blockType: BlockType) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, blockType } : d))
+    );
+  }, []);
+
   const handleClearDay = useCallback((dayIndex: number) => {
     setWeekPlan((prev) =>
-      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "" } : d))
+      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", blockType: "none" as BlockType } : d))
     );
   }, []);
 
@@ -357,6 +363,7 @@ export default function Programs() {
               activeDay={activeDay}
               onSetActiveDay={setActiveDay}
               onUpdateDayLabel={handleUpdateDayLabel}
+              onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
               onClearDay={handleClearDay}

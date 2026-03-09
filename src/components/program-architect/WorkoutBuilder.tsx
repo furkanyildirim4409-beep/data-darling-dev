@@ -44,11 +44,23 @@ export interface BuilderExercise extends LibraryItem {
   groupId?: string;
 }
 
+export type BlockType = "hypertrophy" | "strength" | "endurance" | "power" | "deload" | "none";
+
 export interface DayPlan {
   day: number;
   label: string;
+  blockType: BlockType;
   exercises: BuilderExercise[];
 }
+
+const blockTypes: { value: BlockType; label: string; color: string }[] = [
+  { value: "none", label: "Seçilmedi", color: "" },
+  { value: "hypertrophy", label: "Hipertrofi", color: "bg-primary/15 border-l-primary" },
+  { value: "strength", label: "Güç", color: "bg-warning/15 border-l-warning" },
+  { value: "endurance", label: "Dayanıklılık", color: "bg-info/15 border-l-info" },
+  { value: "power", label: "Patlayıcı Güç", color: "bg-destructive/15 border-l-destructive" },
+  { value: "deload", label: "Deload", color: "bg-muted/30 border-l-muted-foreground" },
+];
 
 export interface ExerciseGroup {
   id: string;
@@ -70,9 +82,15 @@ const turkishDays = [
 const conditionOptions = [
   { value: "rpe_low", label: "RPE < 7 ise" },
   { value: "rpe_high", label: "RPE > 8 ise" },
+  { value: "rir_0", label: "RIR = 0 (Failure) ise" },
+  { value: "rir_1", label: "RIR ≤ 1 ise" },
+  { value: "rir_3_plus", label: "RIR ≥ 3 ise" },
+  { value: "failure_reached", label: "Failure'a Ulaşılırsa" },
   { value: "missed_workout", label: "Antrenman Kaçırılırsa" },
   { value: "sleep_low", label: "Uyku < 6 saat ise" },
   { value: "stress_high", label: "Stres Yüksek ise" },
+  { value: "consecutive_failure", label: "Arka Arkaya 2x Failure ise" },
+  { value: "volume_exceeded", label: "Haftalık Hacim Aşılırsa" },
 ];
 
 const actionOptions = [
@@ -80,6 +98,10 @@ const actionOptions = [
   { value: "decrease_weight", label: "Ağırlığı Azalt" },
   { value: "add_rest", label: "Dinlenme Ekle" },
   { value: "reduce_volume", label: "Hacmi Azalt" },
+  { value: "reduce_reps", label: "Tekrarı Düşür" },
+  { value: "add_deload", label: "Deload Haftası Ekle" },
+  { value: "switch_to_rir2", label: "RIR 2'ye Geç" },
+  { value: "drop_set", label: "Drop Set Uygula" },
   { value: "notify_coach", label: "Koça Bildir" },
 ];
 
@@ -105,6 +127,7 @@ interface WorkoutBuilderProps {
   activeDay: number;
   onSetActiveDay: (index: number) => void;
   onUpdateDayLabel: (dayIndex: number, label: string) => void;
+  onUpdateDayBlockType: (dayIndex: number, blockType: BlockType) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
   onClearDay: (dayIndex: number) => void;
@@ -116,6 +139,7 @@ export function WorkoutBuilder({
   activeDay,
   onSetActiveDay,
   onUpdateDayLabel,
+  onUpdateDayBlockType,
   onRemoveExercise,
   onUpdateExercise,
   onClearDay,
@@ -235,13 +259,16 @@ export function WorkoutBuilder({
               const isActive = activeDay === index;
               const daySets = dayPlan.exercises.reduce((s, ex) => s + ex.sets, 0);
               const dayGroupList = getGroupsForDay(index);
+              const currentBlock = blockTypes.find((b) => b.value === dayPlan.blockType);
+              const hasBlock = dayPlan.blockType && dayPlan.blockType !== "none";
 
               return (
                 <AccordionItem key={index} value={`day-${index}`}
                   className={cn(
                     "mb-2 rounded-lg border transition-all overflow-hidden",
                     isActive ? "border-primary/50 border-l-2 border-l-primary" : "border-border",
-                    isRest && !isActive && "opacity-60"
+                    isRest && !isActive && "opacity-60",
+                    hasBlock && currentBlock?.color
                   )}>
                   <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:hidden">
                     <div className="flex items-center gap-3 w-full pr-2">
@@ -254,7 +281,8 @@ export function WorkoutBuilder({
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm font-medium truncate">{turkishDays[index]}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {dayPlan.label || (isRest ? "Dinlenme Günü" : "Etiket ekleyin...")}
+                          {hasBlock && currentBlock ? currentBlock.label + (dayPlan.label ? ` · ${dayPlan.label}` : '') 
+                            : dayPlan.label || (isRest ? "Dinlenme Günü" : "Etiket ekleyin...")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -280,12 +308,22 @@ export function WorkoutBuilder({
                   </AccordionTrigger>
 
                   <AccordionContent className="px-3 pb-3 pt-0">
-                    {/* Day Label */}
-                    <div className="mb-3">
+                    {/* Day Label + Block Type */}
+                    <div className="mb-3 flex gap-2">
                       <Input placeholder="Gün etiketi (ör. Push Day, Upper Body...)"
                         value={dayPlan.label}
                         onChange={(e) => onUpdateDayLabel(index, e.target.value)}
-                        className="h-8 text-xs bg-background/50" />
+                        className="h-8 text-xs bg-background/50 flex-1" />
+                      <Select value={dayPlan.blockType || "none"} onValueChange={(val) => onUpdateDayBlockType(index, val as BlockType)}>
+                        <SelectTrigger className="w-[130px] h-8 text-xs bg-background/50">
+                          <SelectValue placeholder="Blok Tipi" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {blockTypes.map((bt) => (
+                            <SelectItem key={bt.value} value={bt.value}>{bt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Group Controls */}
