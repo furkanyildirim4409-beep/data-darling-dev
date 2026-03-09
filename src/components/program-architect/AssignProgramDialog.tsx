@@ -270,9 +270,9 @@ export function AssignProgramDialog({
                 {activeDayCount} aktif gün
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {dayLabels.map((label, i) => (
+                {activeDays.map((day, i) => (
                   <Badge key={i} variant="outline" className="text-xs">
-                    {label} — {addDays(scheduledDate, i).split("-").reverse().join(".")}
+                    {day.label} — {addDays(scheduledDate, day.dayIdx).split("-").reverse().join(".")}
                   </Badge>
                 ))}
               </div>
