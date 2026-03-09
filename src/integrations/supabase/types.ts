@@ -210,6 +210,7 @@ export type Database = {
       exercises: {
         Row: {
           created_at: string | null
+          failure_set: boolean | null
           id: string
           name: string
           notes: string | null
@@ -217,11 +218,13 @@ export type Database = {
           program_id: string | null
           reps: string | null
           rest_time: string | null
+          rir: number | null
           sets: number | null
           video_url: string | null
         }
         Insert: {
           created_at?: string | null
+          failure_set?: boolean | null
           id?: string
           name: string
           notes?: string | null
@@ -229,11 +232,13 @@ export type Database = {
           program_id?: string | null
           reps?: string | null
           rest_time?: string | null
+          rir?: number | null
           sets?: number | null
           video_url?: string | null
         }
         Update: {
           created_at?: string | null
+          failure_set?: boolean | null
           id?: string
           name?: string
           notes?: string | null
@@ -241,6 +246,7 @@ export type Database = {
           program_id?: string | null
           reps?: string | null
           rest_time?: string | null
+          rir?: number | null
           sets?: number | null
           video_url?: string | null
         }
@@ -454,6 +460,7 @@ export type Database = {
       }
       programs: {
         Row: {
+          automation_rules: Json | null
           coach_id: string | null
           created_at: string | null
           description: string | null
@@ -461,8 +468,10 @@ export type Database = {
           id: string
           target_goal: string | null
           title: string
+          week_config: Json | null
         }
         Insert: {
+          automation_rules?: Json | null
           coach_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -470,8 +479,10 @@ export type Database = {
           id?: string
           target_goal?: string | null
           title: string
+          week_config?: Json | null
         }
         Update: {
+          automation_rules?: Json | null
           coach_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -479,6 +490,7 @@ export type Database = {
           id?: string
           target_goal?: string | null
           title?: string
+          week_config?: Json | null
         }
         Relationships: [
           {
