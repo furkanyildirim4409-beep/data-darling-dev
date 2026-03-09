@@ -41,6 +41,19 @@ interface WorkoutLog {
   completed: boolean | null;
 }
 
+// Parse details from various possible JSON shapes
+function parseDetails(raw: unknown): ExerciseDetail[] | null {
+  if (!raw) return null;
+  // If it's already an array of exercises
+  if (Array.isArray(raw)) return raw as ExerciseDetail[];
+  // If it's an object with an 'exercises' key
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.exercises)) return obj.exercises as ExerciseDetail[];
+  }
+  return null;
+}
+
 export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(true);
