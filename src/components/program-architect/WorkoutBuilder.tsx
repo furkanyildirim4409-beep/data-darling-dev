@@ -267,7 +267,8 @@ export function WorkoutBuilder({
                   className={cn(
                     "mb-2 rounded-lg border transition-all overflow-hidden",
                     isActive ? "border-primary/50 border-l-2 border-l-primary" : "border-border",
-                    isRest && !isActive && "opacity-60"
+                    isRest && !isActive && "opacity-60",
+                    hasBlock && currentBlock?.color
                   )}>
                   <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:hidden">
                     <div className="flex items-center gap-3 w-full pr-2">
