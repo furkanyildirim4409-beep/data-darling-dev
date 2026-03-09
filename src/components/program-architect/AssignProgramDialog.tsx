@@ -157,6 +157,7 @@ export function AssignProgramDialog({
         program_id: string;
         scheduled_date: string;
         workout_name: string;
+        day_notes: string;
         exercises: Json;
         status: string;
       }> = [];
@@ -170,6 +171,7 @@ export function AssignProgramDialog({
         if (!hasExercises && !hasBlock) continue;
 
         const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
+        const dayNotes = cfg?.notes || "";
         const targetDate = addDays(scheduledDate, dayIdx);
 
         const exercisesJson = (exs ?? [])
@@ -191,6 +193,7 @@ export function AssignProgramDialog({
             program_id: programId,
             scheduled_date: targetDate,
             workout_name: dayLabel,
+            day_notes: dayNotes,
             exercises: exercisesJson as Json,
             status: "pending",
           });
