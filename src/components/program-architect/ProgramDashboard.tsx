@@ -135,9 +135,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setDeleteDialog({ open: false, program: null });
   };
 
-  const handleDuplicate = async (program: ProgramData) => {
+  const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
     if (!user) return;
-    // Insert new program
+
+    // Fetch full program data + exercises in parallel
+    const [{ data: progData }, { data: exercises }] = await Promise.all([
+      supabase.from("programs").select("week_config, automation_rules").eq("id", program.id).single(),
+      supabase.from("exercises").select("*").eq("program_id", program.id),
+    ]);
+
+    // Insert cloned program with all metadata
     const { data: newProg, error: progErr } = await supabase
       .from("programs")
       .insert({
@@ -146,6 +153,8 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         difficulty: program.difficulty,
         target_goal: program.targetGoal,
         coach_id: user.id,
+        week_config: progData?.week_config ?? ([] as any),
+        automation_rules: progData?.automation_rules ?? ([] as any),
       })
       .select()
       .single();
@@ -155,14 +164,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       return;
     }
 
-    // Copy exercises
-    const { data: exercises } = await supabase
-      .from("exercises")
-      .select("*")
-      .eq("program_id", program.id);
-
+    // Copy exercises with all fields (rir, failure_set included)
     if (exercises && exercises.length > 0) {
-      await supabase.from("exercises").insert(
+      const { error: exErr } = await supabase.from("exercises").insert(
         exercises.map((ex) => ({
           program_id: newProg.id,
           name: ex.name,
@@ -172,12 +176,32 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           notes: ex.notes,
           order_index: ex.order_index,
           video_url: ex.video_url,
+          rir: (ex as any).rir ?? 2,
+          failure_set: (ex as any).failure_set ?? false,
         }))
       );
+      if (exErr) {
+        toast.error("Egzersizler kopyalanamadı");
+        await supabase.from("programs").delete().eq("id", newProg.id);
+        return;
+      }
     }
 
     toast.success(`"${program.name}" kopyalandı`);
-    fetchPrograms();
+
+    if (openInEditor) {
+      // Open clone in builder for customization
+      const clonedProgram: ProgramData = {
+        ...program,
+        id: newProg.id,
+        name: newProg.title,
+        createdAt: new Date(newProg.created_at ?? Date.now()),
+      };
+      onEditProgram(clonedProgram);
+    } else {
+      fetchPrograms();
+    }
+  };
   };
 
   const getBlockColor = (type?: string) => {
