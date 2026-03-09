@@ -40,6 +40,8 @@ export interface BuilderExercise extends LibraryItem {
   sets: number;
   reps: number;
   rpe: number;
+  rir: number;
+  failureSet: boolean;
   notes?: string;
   groupId?: string;
 }
@@ -446,24 +448,56 @@ export function WorkoutBuilder({
                               </div>
 
                               {exercise.type === "exercise" && !groupMode && (
-                                <div className="grid grid-cols-3 gap-2">
-                                  <div>
-                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Set</label>
-                                    <Input type="number" min={1} max={10} value={exercise.sets}
-                                      onChange={(e) => onUpdateExercise(index, exercise.id, "sets", parseInt(e.target.value) || 1)}
-                                      className="h-8 text-xs text-center bg-background/50" />
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-4 gap-2">
+                                    <div>
+                                      <label className="text-[10px] text-muted-foreground mb-0.5 block">Set</label>
+                                      <Input type="number" min={1} max={10} value={exercise.sets}
+                                        onChange={(e) => onUpdateExercise(index, exercise.id, "sets", parseInt(e.target.value) || 1)}
+                                        className="h-8 text-xs text-center bg-background/50" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-muted-foreground mb-0.5 block">Tekrar</label>
+                                      <Input type="number" min={1} max={50} value={exercise.reps}
+                                        onChange={(e) => onUpdateExercise(index, exercise.id, "reps", parseInt(e.target.value) || 1)}
+                                        className="h-8 text-xs text-center bg-background/50" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-muted-foreground mb-0.5 block">RPE</label>
+                                      <Input type="number" min={1} max={10} value={exercise.rpe}
+                                        onChange={(e) => onUpdateExercise(index, exercise.id, "rpe", parseInt(e.target.value) || 7)}
+                                        className="h-8 text-xs text-center bg-background/50" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-muted-foreground mb-0.5 block">RIR</label>
+                                      <Input type="number" min={0} max={5} value={exercise.rir ?? 2}
+                                        onChange={(e) => onUpdateExercise(index, exercise.id, "rir", parseInt(e.target.value) || 0)}
+                                        className={cn(
+                                          "h-8 text-xs text-center bg-background/50",
+                                          (exercise.rir ?? 2) === 0 && "border-destructive/50 text-destructive"
+                                        )} />
+                                    </div>
                                   </div>
-                                  <div>
-                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Tekrar</label>
-                                    <Input type="number" min={1} max={50} value={exercise.reps}
-                                      onChange={(e) => onUpdateExercise(index, exercise.id, "reps", parseInt(e.target.value) || 1)}
-                                      className="h-8 text-xs text-center bg-background/50" />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">RPE</label>
-                                    <Input type="number" min={1} max={10} value={exercise.rpe}
-                                      onChange={(e) => onUpdateExercise(index, exercise.id, "rpe", parseInt(e.target.value) || 7)}
-                                      className="h-8 text-xs text-center bg-background/50" />
+                                  {/* Failure toggle */}
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => onUpdateExercise(index, exercise.id, "failureSet", exercise.failureSet ? 0 : 1)}
+                                      className={cn(
+                                        "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium transition-all border",
+                                        exercise.failureSet
+                                          ? "bg-destructive/15 border-destructive/30 text-destructive"
+                                          : "bg-muted/30 border-border text-muted-foreground hover:border-destructive/30"
+                                      )}
+                                    >
+                                      <Zap className="w-3 h-3" />
+                                      {exercise.failureSet ? "Failure Aktif" : "Failure"}
+                                    </button>
+                                    {(exercise.rir ?? 2) === 0 && !exercise.failureSet && (
+                                      <span className="text-[9px] text-warning">⚠ RIR 0 = Failure'a yakın</span>
+                                    )}
+                                    {exercise.failureSet && (
+                                      <span className="text-[9px] text-destructive">Son set failure'a kadar</span>
+                                    )}
                                   </div>
                                 </div>
                               )}

@@ -79,6 +79,8 @@ export default function Programs() {
           sets: ex.sets ?? 3,
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
+          rir: 2,
+          failureSet: false,
           notes: ex.notes ?? undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
@@ -100,7 +102,7 @@ export default function Programs() {
       if (builderMode === "exercise") {
         // Check if already in active day
         if (weekPlan[activeDay].exercises.find((ex) => ex.id === item.id)) return;
-        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7 };
+        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false };
         setWeekPlan((prev) =>
           prev.map((d, i) =>
             i === activeDay ? { ...d, exercises: [...d.exercises, newExercise] } : d
@@ -265,7 +267,7 @@ export default function Programs() {
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
     if (template.type === "exercise") {
       // Load template into active day
-      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 }) as BuilderExercise);
+      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false }) as BuilderExercise);
       setWeekPlan((prev) =>
         prev.map((d, i) => (i === activeDay ? { ...d, exercises } : d))
       );
