@@ -222,6 +222,7 @@ export type Database = {
           reps: string | null
           rest_time: string | null
           rir: number | null
+          rir_per_set: Json | null
           sets: number | null
           video_url: string | null
         }
@@ -236,6 +237,7 @@ export type Database = {
           reps?: string | null
           rest_time?: string | null
           rir?: number | null
+          rir_per_set?: Json | null
           sets?: number | null
           video_url?: string | null
         }
@@ -250,6 +252,7 @@ export type Database = {
           reps?: string | null
           rest_time?: string | null
           rir?: number | null
+          rir_per_set?: Json | null
           sets?: number | null
           video_url?: string | null
         }
