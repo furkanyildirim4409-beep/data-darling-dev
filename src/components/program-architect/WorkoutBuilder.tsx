@@ -165,16 +165,16 @@ export function WorkoutBuilder({
 
   // --- Rules helpers ---
   const addRule = () => {
-    setRules((prev) => [...prev, {
+    onSetRules([...rules, {
       id: `rule-${Date.now()}`,
       condition: "rpe_low",
       action: "increase_weight",
       value: "%5",
     }]);
   };
-  const removeRule = (id: string) => setRules((prev) => prev.filter((r) => r.id !== id));
+  const removeRule = (id: string) => onSetRules(rules.filter((r) => r.id !== id));
   const updateRule = (id: string, field: keyof AutomationRule, value: string) => {
-    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    onSetRules(rules.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   // --- Group helpers ---
