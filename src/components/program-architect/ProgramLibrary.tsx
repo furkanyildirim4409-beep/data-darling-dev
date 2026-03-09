@@ -240,7 +240,12 @@ export function ProgramLibrary({
     <div className="glass rounded-xl border border-border h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground mb-3">Kütüphane</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
+          {builderMode === "exercise" && (
+            <ExerciseLibraryEditor exercises={exercises} onExercisesChange={handleExercisesChange} />
+          )}
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
