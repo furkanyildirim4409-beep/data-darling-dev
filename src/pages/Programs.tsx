@@ -89,7 +89,7 @@ export default function Programs() {
       }
     });
     setDayGroups(loadedGroups);
-    setAutomationRules((progData?.automation_rules as AutomationRule[]) || []);
+    setAutomationRules((progData?.automation_rules as unknown as AutomationRule[]) || []);
 
     if (exercises && exercises.length > 0) {
       exercises.forEach((ex) => {
