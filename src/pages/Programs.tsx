@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 type ViewMode = "dashboard" | "builder";
 
 const createEmptyWeek = (): DayPlan[] =>
-  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", blockType: "none" as BlockType, exercises: [] }));
+  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", notes: "", blockType: "none" as BlockType, exercises: [] }));
 
 export default function Programs() {
   const { user } = useAuth();
