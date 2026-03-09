@@ -184,7 +184,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                           style={groupColor ? { borderLeftColor: groupColor } : undefined}
                         >
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-sm font-medium text-foreground truncate">{ex.name}</span>
+                            <span className="text-sm font-medium text-foreground truncate">{getExerciseName(ex)}</span>
                             {isFailure && (
                               <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
                                 <Flame className="w-3 h-3 mr-0.5" />Tükeniş
