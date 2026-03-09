@@ -177,6 +177,7 @@ export function WorkoutBuilder({
   onUpdateExercise,
   onReorderExercises,
   onClearDay,
+  onDuplicateDay,
   onClearAll,
   rules,
   onSetRules,
