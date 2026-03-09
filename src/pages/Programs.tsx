@@ -459,6 +459,7 @@ export default function Programs() {
             reps: ex.reps ?? 10,
             rpe: 7,
             rir: ex.rir ?? 2,
+            rirPerSet: ex.rirPerSet,
             failureSet: ex.failureSet ?? false,
             notes: ex.notes,
           }));
