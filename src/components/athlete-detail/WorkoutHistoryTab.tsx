@@ -5,6 +5,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface PerformedSet {
+  weight?: number;
+  reps?: number;
+  rir?: number;
+  failure?: boolean;
+  isFailure?: boolean;
+}
+
 interface ExerciseDetail {
   name: string;
   sets?: number;
@@ -15,7 +23,11 @@ interface ExerciseDetail {
   groupId?: string | null;
   rest_time?: string;
   notes?: string;
-  actualSets?: { weight?: number; reps?: number; rir?: number; failure?: boolean }[];
+  // Multiple possible keys for performed sets
+  actualSets?: PerformedSet[];
+  completedSets?: PerformedSet[];
+  sets_completed?: PerformedSet[];
+  performed?: PerformedSet[];
 }
 
 interface WorkoutLog {
