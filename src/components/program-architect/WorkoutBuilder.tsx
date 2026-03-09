@@ -167,6 +167,7 @@ export function WorkoutBuilder({
   onUpdateDayBlockType,
   onRemoveExercise,
   onUpdateExercise,
+  onReorderExercises,
   onClearDay,
   onClearAll,
   rules,
@@ -177,6 +178,21 @@ export function WorkoutBuilder({
   const [showRules, setShowRules] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [groupMode, setGroupMode] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDragEnd = (dayIndex: number) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const exercises = weekPlan[dayIndex].exercises;
+    const oldIndex = exercises.findIndex((e) => e.id === active.id);
+    const newIndex = exercises.findIndex((e) => e.id === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onReorderExercises(dayIndex, oldIndex, newIndex);
+    }
+  };
 
   const totalExercises = weekPlan.reduce((acc, d) => acc + d.exercises.length, 0);
   const totalSets = weekPlan.reduce((acc, d) => acc + d.exercises.reduce((s, ex) => s + ex.sets, 0), 0);
