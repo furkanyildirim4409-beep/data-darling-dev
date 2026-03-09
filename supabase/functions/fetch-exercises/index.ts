@@ -12,6 +12,12 @@ serve(async (req) => {
   }
 
   try {
+    let limit = 0;
+    try {
+      const body = await req.json();
+      limit = Number(body.limit ?? 0);
+    } catch { /* empty body is fine, default to 0 */ }
+
     const apiKey = Deno.env.get("RAPIDAPI_KEY");
     if (!apiKey) {
       return new Response(
@@ -21,7 +27,7 @@ serve(async (req) => {
     }
 
     const response = await fetch(
-      "https://exercisedb.p.rapidapi.com/exercises?limit=0&offset=0",
+      `https://exercisedb.p.rapidapi.com/exercises?limit=${limit}&offset=0`,
       {
         method: "GET",
         headers: {
