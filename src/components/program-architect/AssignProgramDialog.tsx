@@ -156,7 +156,7 @@ export function AssignProgramDialog({
         program_id: string;
         scheduled_date: string;
         workout_name: string;
-        exercises: Record<string, unknown>[];
+        exercises: Json;
         status: string;
       }> = [];
 
