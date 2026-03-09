@@ -259,6 +259,8 @@ export function WorkoutBuilder({
               const isActive = activeDay === index;
               const daySets = dayPlan.exercises.reduce((s, ex) => s + ex.sets, 0);
               const dayGroupList = getGroupsForDay(index);
+              const currentBlock = blockTypes.find((b) => b.value === dayPlan.blockType);
+              const hasBlock = dayPlan.blockType && dayPlan.blockType !== "none";
 
               return (
                 <AccordionItem key={index} value={`day-${index}`}
