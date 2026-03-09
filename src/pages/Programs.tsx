@@ -186,6 +186,12 @@ export default function Programs() {
     );
   }, []);
 
+  const handleUpdateDayNotes = useCallback((dayIndex: number, notes: string) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, notes } : d))
+    );
+  }, []);
+
   const handleUpdateDayBlockType = useCallback((dayIndex: number, blockType: BlockType) => {
     setWeekPlan((prev) =>
       prev.map((d, i) => (i === dayIndex ? { ...d, blockType } : d))
