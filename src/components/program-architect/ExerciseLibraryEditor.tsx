@@ -122,7 +122,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
     try {
       const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
       const response = await fetch(
-        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}`,
+        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
         {
           method: "GET",
           headers: {
