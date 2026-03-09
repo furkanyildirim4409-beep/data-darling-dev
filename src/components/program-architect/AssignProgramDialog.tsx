@@ -32,7 +32,7 @@ interface WeekConfigDay {
   label?: string;
   notes?: string;
   blockType?: string;
-  groups?: unknown[];
+  groups?: Array<{ id: string; exerciseIds: string[] }>;
 }
 
 interface ExerciseRow {
