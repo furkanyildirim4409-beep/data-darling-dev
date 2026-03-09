@@ -401,16 +401,6 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
               </DialogHeader>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">RapidAPI Key</label>
-                  <Input
-                    type="password"
-                    placeholder="x-rapidapi-key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
                   <Input
                     type="number"
@@ -421,9 +411,10 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                     className="h-9 text-sm"
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground">API key güvenli olarak sunucuda saklanıyor.</p>
                 <Button
                   onClick={handleImport}
-                  disabled={importing || !apiKey.trim()}
+                  disabled={importing}
                   className="w-full"
                   size="sm"
                 >
