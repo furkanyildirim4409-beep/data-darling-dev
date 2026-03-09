@@ -397,18 +397,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                 <DialogTitle className="text-sm">ExerciseDB İçe Aktarıcı</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1300}
-                    value={importLimit}
-                    onChange={(e) => setImportLimit(Number(e.target.value))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground">API key güvenli olarak sunucuda saklanıyor.</p>
+                <p className="text-[10px] text-muted-foreground">Pro tier — tüm egzersizler tek seferde çekilir. API key güvenli olarak sunucuda saklanıyor.</p>
                 <Button
                   onClick={handleImport}
                   disabled={importing}
@@ -416,7 +405,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                   size="sm"
                 >
                   {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
-                  {importing ? "Çekiliyor..." : "Verileri Çek ve Kaydet"}
+                  {importing ? "Çekiliyor..." : "Tüm Egzersizleri Çek (Pro)"}
                 </Button>
                 {importResult && (
                   <p className="text-xs text-muted-foreground text-center p-2 rounded-md bg-muted/50">{importResult}</p>
