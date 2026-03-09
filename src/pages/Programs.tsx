@@ -229,10 +229,11 @@ export default function Programs() {
         const dayExercises = day.exercises;
         const rawGroups = dayGroups[i] || [];
         
-        // Map each group to use relative indices instead of IDs
+        // Map each group to save BOTH exerciseIds (for frontend) and exerciseIndices (for assignment)
         const mappedGroups = rawGroups.map(g => ({
           id: g.id,
           type: g.type,
+          exerciseIds: g.exerciseIds, // RESTORED FOR FRONTEND BUILDER
           exerciseIndices: g.exerciseIds
             .map(id => dayExercises.findIndex(e => e.id === id))
             .filter(idx => idx !== -1)
