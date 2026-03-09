@@ -250,6 +250,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
   return (
     <div className="space-y-3">
+      {filterBar}
       {logs.map(log => {
         const isOpen = openIds.has(log.id);
         const exercises = log.details ?? [];
