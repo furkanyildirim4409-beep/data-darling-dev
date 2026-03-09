@@ -96,10 +96,10 @@ export default function Schedule() {
         toast.error("Antrenmanlar yüklenirken hata oluştu");
         console.error(error);
       } else {
-        // Parse exercises JSONB
+        // Parse exercises JSONB with proper type assertion
         const parsed = (data || []).map(w => ({
           ...w,
-          exercises: Array.isArray(w.exercises) ? w.exercises as Exercise[] : []
+          exercises: Array.isArray(w.exercises) ? (w.exercises as unknown as Exercise[]) : []
         }));
         setWorkouts(parsed);
       }
