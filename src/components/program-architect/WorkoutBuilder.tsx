@@ -82,9 +82,15 @@ const turkishDays = [
 const conditionOptions = [
   { value: "rpe_low", label: "RPE < 7 ise" },
   { value: "rpe_high", label: "RPE > 8 ise" },
+  { value: "rir_0", label: "RIR = 0 (Failure) ise" },
+  { value: "rir_1", label: "RIR ≤ 1 ise" },
+  { value: "rir_3_plus", label: "RIR ≥ 3 ise" },
+  { value: "failure_reached", label: "Failure'a Ulaşılırsa" },
   { value: "missed_workout", label: "Antrenman Kaçırılırsa" },
   { value: "sleep_low", label: "Uyku < 6 saat ise" },
   { value: "stress_high", label: "Stres Yüksek ise" },
+  { value: "consecutive_failure", label: "Arka Arkaya 2x Failure ise" },
+  { value: "volume_exceeded", label: "Haftalık Hacim Aşılırsa" },
 ];
 
 const actionOptions = [
@@ -92,6 +98,10 @@ const actionOptions = [
   { value: "decrease_weight", label: "Ağırlığı Azalt" },
   { value: "add_rest", label: "Dinlenme Ekle" },
   { value: "reduce_volume", label: "Hacmi Azalt" },
+  { value: "reduce_reps", label: "Tekrarı Düşür" },
+  { value: "add_deload", label: "Deload Haftası Ekle" },
+  { value: "switch_to_rir2", label: "RIR 2'ye Geç" },
+  { value: "drop_set", label: "Drop Set Uygula" },
   { value: "notify_coach", label: "Koça Bildir" },
 ];
 
