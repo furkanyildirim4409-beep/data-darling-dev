@@ -70,6 +70,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     open: false,
     program: null,
   });
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
