@@ -48,7 +48,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { restrictToVerticalAxis } from "@dnd-kit/utilities";
+
 import { SortableExerciseItem } from "./SortableExerciseItem";
 
 export interface BuilderExercise extends LibraryItem {
