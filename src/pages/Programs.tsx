@@ -78,20 +78,7 @@ export default function Programs() {
 
     const newWeek = createEmptyWeek();
 
-    // Restore week_config (labels, blockTypes, groups)
-    const weekConfig = (progData?.week_config as any[]) || [];
-    const loadedGroups: Record<number, ExerciseGroup[]> = {};
-    weekConfig.forEach((cfg: any, i: number) => {
-      if (i < 7) {
-        newWeek[i].label = cfg.label || "";
-        newWeek[i].notes = cfg.notes || "";
-        newWeek[i].blockType = cfg.blockType || "none";
-        if (cfg.groups?.length) loadedGroups[i] = cfg.groups;
-      }
-    });
-    setDayGroups(loadedGroups);
-    setAutomationRules((progData?.automation_rules as unknown as AutomationRule[]) || []);
-
+    // First load exercises into newWeek so we have fresh UUIDs
     if (exercises && exercises.length > 0) {
       exercises.forEach((ex) => {
         const dayIndex = Math.floor((ex.order_index ?? 0) / 100);
@@ -111,6 +98,32 @@ export default function Programs() {
         newWeek[clampedDay].exercises.push(mapped);
       });
     }
+
+    // Now restore week_config (labels, blockTypes, groups) AFTER exercises are loaded
+    const weekConfig = (progData?.week_config as any[]) || [];
+    const loadedGroups: Record<number, ExerciseGroup[]> = {};
+    weekConfig.forEach((cfg: any, i: number) => {
+      if (i < 7) {
+        newWeek[i].label = cfg.label || "";
+        newWeek[i].notes = cfg.notes || "";
+        newWeek[i].blockType = cfg.blockType || "none";
+        
+        if (cfg.groups?.length) {
+          // Reconstruct exerciseIds from exerciseIndices using fresh DB UUIDs
+          loadedGroups[i] = cfg.groups.map((g: any) => {
+            const reconstructedIds = g.exerciseIndices && newWeek[i].exercises.length
+              ? g.exerciseIndices
+                  .map((idx: number) => newWeek[i].exercises[idx]?.id)
+                  .filter(Boolean)
+              : g.exerciseIds || [];
+            
+            return { ...g, exerciseIds: reconstructedIds };
+          });
+        }
+      }
+    });
+    setDayGroups(loadedGroups);
+    setAutomationRules((progData?.automation_rules as unknown as AutomationRule[]) || []);
 
     setWeekPlan(newWeek);
     setActiveDay(0);
@@ -229,10 +242,11 @@ export default function Programs() {
         const dayExercises = day.exercises;
         const rawGroups = dayGroups[i] || [];
         
-        // Map each group to use relative indices instead of IDs
+        // Map each group to save BOTH exerciseIds (for frontend) and exerciseIndices (for assignment)
         const mappedGroups = rawGroups.map(g => ({
           id: g.id,
           type: g.type,
+          exerciseIds: g.exerciseIds, // RESTORED FOR FRONTEND BUILDER
           exerciseIndices: g.exerciseIds
             .map(id => dayExercises.findIndex(e => e.id === id))
             .filter(idx => idx !== -1)
