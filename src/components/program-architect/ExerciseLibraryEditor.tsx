@@ -141,10 +141,10 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
       const newRows = data
         .filter((ex: any) => !existingNames.has(ex.name?.toLowerCase()))
         .map((ex: any) => ({
-          name: capitalize(ex.name || ""),
+          name: capitalize(ex.name || "Bilinmeyen"),
           category: capitalize(ex.bodyPart || "Diğer"),
-          target_muscle: ex.target || null,
-          video_url: ex.gifUrl || null,
+          target_muscle: capitalize(ex.target || ""),
+          video_url: ex.imageUrl || null,
         }));
 
       if (newRows.length > 0) {
