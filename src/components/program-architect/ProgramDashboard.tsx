@@ -226,6 +226,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           </div>
 
           <Button
+            variant="outline"
+            onClick={() => setBulkAssignOpen(true)}
+            className="border-border"
+          >
+            <Layers className="w-4 h-4 mr-1.5" />
+            Toplu Ata
+          </Button>
+
+          <Button
             onClick={() => onCreateProgram(viewMode)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
           >
