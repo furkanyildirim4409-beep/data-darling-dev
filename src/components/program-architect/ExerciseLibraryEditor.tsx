@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon } from "lucide-react";
+import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { LibraryItem } from "./ProgramLibrary";
@@ -36,6 +36,13 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
   const [newMuscle, setNewMuscle] = useState("Pectoralis Major");
   const [newGifUrl, setNewGifUrl] = useState("");
   const [search, setSearch] = useState("");
+
+  // RapidAPI Import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [importLimit, setImportLimit] = useState(50);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const startEdit = (item: LibraryItem) => {
     setEditingId(item.id);
@@ -76,6 +83,55 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
   const handleDelete = (id: string) => {
     onExercisesChange(exercises.filter(ex => ex.id !== id));
     toast.success("Egzersiz silindi");
+  };
+
+  const handleImport = async () => {
+    if (!apiKey.trim()) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
+      const response = await fetch(
+        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
+        {
+          method: "GET",
+          headers: {
+            "x-rapidapi-key": apiKey.trim(),
+            "x-rapidapi-host": "exercisedb.p.rapidapi.com",
+          },
+        }
+      );
+      if (!response.ok) throw new Error(`API hatası: ${response.status}`);
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
+
+      const existingNames = new Set(exercises.map((e) => e.name.toLowerCase()));
+      const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+      const newItems: LibraryItem[] = data
+        .filter((ex: any) => !existingNames.has(ex.name?.toLowerCase()))
+        .map((ex: any) => ({
+          id: `exdb-${ex.id}`,
+          name: capitalize(ex.name || ""),
+          category: capitalize(ex.bodyPart || "Diğer"),
+          type: "exercise" as const,
+          muscleGroup: ex.target || undefined,
+          gifUrl: ex.gifUrl || undefined,
+        }));
+
+      if (newItems.length > 0) {
+        onExercisesChange([...exercises, ...newItems]);
+        toast.success(`${newItems.length} yeni egzersiz eklendi`);
+        setImportResult(`✅ ${newItems.length} egzersiz başarıyla eklendi (${data.length - newItems.length} mükerrer atlandı)`);
+      } else {
+        setImportResult("ℹ️ Tüm egzersizler zaten kütüphanede mevcut");
+      }
+    } catch (err: any) {
+      toast.error("İçe aktarma başarısız");
+      setImportResult(`❌ Hata: ${err.message}`);
+    } finally {
+      setImporting(false);
+    }
   };
 
   const filtered = exercises.filter(ex =>
@@ -283,7 +339,56 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
           </div>
         </ScrollArea>
 
-        <div className="pt-2 border-t border-border">
+        {/* RapidAPI Import */}
+        <div className="pt-2 border-t border-border space-y-2">
+          <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) setImportResult(null); }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
+                <Download className="w-3.5 h-3.5" />
+                🚀 RapidAPI'den Egzersiz Çek
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-sm">ExerciseDB İçe Aktarıcı</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">RapidAPI Key</label>
+                  <Input
+                    type="password"
+                    placeholder="x-rapidapi-key"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1300}
+                    value={importLimit}
+                    onChange={(e) => setImportLimit(Number(e.target.value))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <Button
+                  onClick={handleImport}
+                  disabled={importing || !apiKey.trim()}
+                  className="w-full"
+                  size="sm"
+                >
+                  {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                  {importing ? "Çekiliyor..." : "Verileri Çek ve Kaydet"}
+                </Button>
+                {importResult && (
+                  <p className="text-xs text-muted-foreground text-center p-2 rounded-md bg-muted/50">{importResult}</p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <p className="text-xs text-muted-foreground text-center">
             Toplam: {exercises.length} egzersiz
           </p>
