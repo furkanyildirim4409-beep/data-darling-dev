@@ -30,12 +30,14 @@ import {
   Calendar,
   Loader2,
   Save,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssignProgramDialog } from "./AssignProgramDialog";
+import { BulkAssignDialog } from "./BulkAssignDialog";
 
 export interface ProgramData {
   id: string;
@@ -69,6 +71,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     open: false,
     program: null,
   });
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
@@ -222,6 +225,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               <Label className="text-sm font-medium cursor-pointer">Beslenme</Label>
             </div>
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setBulkAssignOpen(true)}
+            className="border-border"
+          >
+            <Layers className="w-4 h-4 mr-1.5" />
+            Toplu Ata
+          </Button>
 
           <Button
             onClick={() => onCreateProgram(viewMode)}
@@ -393,6 +405,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           programName={assignDialog.program.name}
         />
       )}
+
+      {/* Bulk Assign Dialog */}
+      <BulkAssignDialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen} />
     </div>
   );
 }
