@@ -409,6 +409,7 @@ export default function Programs() {
           notes: ex.notes ?? null as string | null,
           order_index: dayIdx * 100 + exIdx,
           rir: ex.rir ?? 2,
+          rir_per_set: ex.rirPerSet || null,
           failure_set: ex.failureSet ?? false,
         }))
       );
