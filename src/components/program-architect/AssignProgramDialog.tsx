@@ -70,7 +70,7 @@ export function AssignProgramDialog({
   const [saving, setSaving] = useState(false);
   const [activeDayCount, setActiveDayCount] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [dayLabels, setDayLabels] = useState<string[]>([]);
+  const [activeDays, setActiveDays] = useState<Array<{ label: string; dayIdx: number }>>([]);
 
   // Fetch program structure for preview when dialog opens
   useEffect(() => {
@@ -96,17 +96,17 @@ export function AssignProgramDialog({
         daysWithExercises.add(dayIdx);
       });
 
-      const labels: string[] = [];
+      const active: Array<{ label: string; dayIdx: number }> = [];
       for (let i = 0; i < 7; i++) {
         const cfg = weekConfig[i];
         const hasExercises = daysWithExercises.has(i);
         const hasBlock = cfg?.blockType && cfg.blockType !== "none";
         if (hasExercises || hasBlock) {
-          labels.push(cfg?.label || `Gün ${i + 1}`);
+          active.push({ label: cfg?.label || `Gün ${i + 1}`, dayIdx: i });
         }
       }
-      setDayLabels(labels);
-      setActiveDayCount(labels.length);
+      setActiveDays(active);
+      setActiveDayCount(active.length);
       setLoadingPreview(false);
     };
 
@@ -184,6 +184,7 @@ export function AssignProgramDialog({
             failure_set: ex.failure_set ?? false,
             rest_time: ex.rest_time ?? "",
             notes: ex.notes ?? "",
+            order_index: (ex.order_index ?? 0) % 100,
           }));
 
         for (const athleteId of selectedIds) {
@@ -270,9 +271,9 @@ export function AssignProgramDialog({
                 {activeDayCount} aktif gün
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {dayLabels.map((label, i) => (
+                {activeDays.map((day, i) => (
                   <Badge key={i} variant="outline" className="text-xs">
-                    {label} — {addDays(scheduledDate, i).split("-").reverse().join(".")}
+                    {day.label} — {addDays(scheduledDate, day.dayIdx).split("-").reverse().join(".")}
                   </Badge>
                 ))}
               </div>
