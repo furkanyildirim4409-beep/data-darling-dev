@@ -33,6 +33,8 @@ export default function Programs() {
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
+  const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
 
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
