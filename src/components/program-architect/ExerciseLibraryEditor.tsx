@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell } from "lucide-react";
+import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { LibraryItem } from "./ProgramLibrary";
@@ -29,10 +29,12 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editMuscle, setEditMuscle] = useState("");
+  const [editGifUrl, setEditGifUrl] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("Göğüs");
   const [newMuscle, setNewMuscle] = useState("Pectoralis Major");
+  const [newGifUrl, setNewGifUrl] = useState("");
   const [search, setSearch] = useState("");
 
   const startEdit = (item: LibraryItem) => {
@@ -40,13 +42,14 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
     setEditName(item.name);
     setEditCategory(item.category);
     setEditMuscle(item.muscleGroup || "");
+    setEditGifUrl(item.gifUrl || "");
   };
 
   const saveEdit = () => {
     if (!editName.trim()) return;
     onExercisesChange(exercises.map(ex =>
       ex.id === editingId
-        ? { ...ex, name: editName.trim(), category: editCategory, muscleGroup: editMuscle }
+        ? { ...ex, name: editName.trim(), category: editCategory, muscleGroup: editMuscle, gifUrl: editGifUrl.trim() || undefined }
         : ex
     ));
     setEditingId(null);
@@ -55,16 +58,17 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const newId = `ex-custom-${Date.now()}`;
     const newExercise: LibraryItem = {
-      id: newId,
+      id: `ex-custom-${Date.now()}`,
       name: newName.trim(),
       category: newCategory,
       type: "exercise",
       muscleGroup: newMuscle,
+      gifUrl: newGifUrl.trim() || undefined,
     };
     onExercisesChange([...exercises, newExercise]);
     setNewName("");
+    setNewGifUrl("");
     setShowAddForm(false);
     toast.success("Egzersiz eklendi");
   };
@@ -140,8 +144,25 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
                 </SelectContent>
               </Select>
             </div>
+            <Input
+              placeholder="Örn: https://example.com/bench-press.gif"
+              value={newGifUrl}
+              onChange={(e) => setNewGifUrl(e.target.value)}
+              className="h-9 text-xs"
+            />
+            {newGifUrl.trim() && (
+              <div className="flex flex-col items-center p-2 rounded-lg border border-border bg-background/50">
+                <span className="text-[10px] text-muted-foreground mb-1.5">GIF Önizleme</span>
+                <img
+                  src={newGifUrl}
+                  alt="Preview"
+                  className="w-24 h-24 object-cover rounded-lg border border-border"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>İptal</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setShowAddForm(false); setNewGifUrl(""); }}>İptal</Button>
               <Button size="sm" onClick={handleAdd} disabled={!newName.trim()}>Ekle</Button>
             </div>
           </div>
@@ -185,6 +206,23 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
                         </SelectContent>
                       </Select>
                     </div>
+                    <Input
+                      placeholder="Örn: https://example.com/bench-press.gif"
+                      value={editGifUrl}
+                      onChange={(e) => setEditGifUrl(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    {editGifUrl.trim() && (
+                      <div className="flex flex-col items-center p-2 rounded-lg border border-border bg-background/50">
+                        <span className="text-[10px] text-muted-foreground mb-1.5">GIF Önizleme</span>
+                        <img
+                          src={editGifUrl}
+                          alt="Preview"
+                          className="w-24 h-24 object-cover rounded-lg border border-border"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-end gap-1.5">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingId(null)}>
                         <X className="w-3.5 h-3.5" />
@@ -196,6 +234,16 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
+                    {ex.gifUrl ? (
+                      <img
+                        src={ex.gifUrl}
+                        alt={ex.name}
+                        className="w-8 h-8 rounded object-cover shrink-0 border border-border"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{ex.name}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
