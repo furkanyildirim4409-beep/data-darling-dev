@@ -84,6 +84,7 @@ export default function Programs() {
     weekConfig.forEach((cfg: any, i: number) => {
       if (i < 7) {
         newWeek[i].label = cfg.label || "";
+        newWeek[i].notes = cfg.notes || "";
         newWeek[i].blockType = cfg.blockType || "none";
         if (cfg.groups?.length) loadedGroups[i] = cfg.groups;
       }
