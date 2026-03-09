@@ -85,6 +85,55 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
     toast.success("Egzersiz silindi");
   };
 
+  const handleImport = async () => {
+    if (!apiKey.trim()) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
+      const response = await fetch(
+        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
+        {
+          method: "GET",
+          headers: {
+            "x-rapidapi-key": apiKey.trim(),
+            "x-rapidapi-host": "exercisedb.p.rapidapi.com",
+          },
+        }
+      );
+      if (!response.ok) throw new Error(`API hatası: ${response.status}`);
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
+
+      const existingNames = new Set(exercises.map((e) => e.name.toLowerCase()));
+      const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+      const newItems: LibraryItem[] = data
+        .filter((ex: any) => !existingNames.has(ex.name?.toLowerCase()))
+        .map((ex: any) => ({
+          id: `exdb-${ex.id}`,
+          name: capitalize(ex.name || ""),
+          category: capitalize(ex.bodyPart || "Diğer"),
+          type: "exercise" as const,
+          muscleGroup: ex.target || undefined,
+          gifUrl: ex.gifUrl || undefined,
+        }));
+
+      if (newItems.length > 0) {
+        onExercisesChange([...exercises, ...newItems]);
+        toast.success(`${newItems.length} yeni egzersiz eklendi`);
+        setImportResult(`✅ ${newItems.length} egzersiz başarıyla eklendi (${data.length - newItems.length} mükerrer atlandı)`);
+      } else {
+        setImportResult("ℹ️ Tüm egzersizler zaten kütüphanede mevcut");
+      }
+    } catch (err: any) {
+      toast.error("İçe aktarma başarısız");
+      setImportResult(`❌ Hata: ${err.message}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const filtered = exercises.filter(ex =>
     ex.name.toLowerCase().includes(search.toLowerCase()) ||
     ex.category.toLowerCase().includes(search.toLowerCase())
