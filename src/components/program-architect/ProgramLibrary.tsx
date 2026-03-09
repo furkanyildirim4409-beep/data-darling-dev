@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
+
+const STORAGE_KEY = "coach-exercise-library";
 
 // 20 real fitness exercises with muscle group tags
-export const exercises = [
+export const defaultExercises = [
   { id: "ex-1", name: "Bench Press", category: "Göğüs", type: "exercise", muscleGroup: "Pectoralis Major" },
   { id: "ex-2", name: "Squat", category: "Bacak", type: "exercise", muscleGroup: "Quadriceps" },
   { id: "ex-3", name: "Deadlift", category: "Sırt", type: "exercise", muscleGroup: "Erector Spinae" },
