@@ -58,7 +58,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
       if (data) {
         setLogs(data.map(d => ({
           ...d,
-          details: Array.isArray(d.details) ? (d.details as unknown as ExerciseDetail[]) : null,
+          details: parseDetails(d.details),
         })));
       }
       setLoading(false);
@@ -71,6 +71,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  // Extract performed sets from any of the possible keys
+  const getPerformedSets = (ex: ExerciseDetail): PerformedSet[] => {
+    return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
   };
 
   if (loading) {
