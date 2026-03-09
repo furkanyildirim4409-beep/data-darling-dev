@@ -381,6 +381,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 </div>
                               ) : null;
                             })()}
+                            {ex.rir != null && ex.rirSuccess === false && (
+                              <span className="text-[10px] text-destructive flex items-center gap-0.5">
+                                <AlertTriangle className="w-3 h-3" /> RIR Hedefi Kaçırıldı
+                              </span>
+                            )}
                           </div>
                         </div>
                         {isLastInGroup && <div className="mb-1" />}
