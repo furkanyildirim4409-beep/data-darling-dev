@@ -645,6 +645,7 @@ export default function Programs() {
               onUpdateExercise={handleUpdateExercise}
               onReorderExercises={handleReorderExercises}
               onClearDay={handleClearDay}
+              onDuplicateDay={handleDuplicateDay}
               onClearAll={handleClearAll}
               rules={automationRules}
               onSetRules={setAutomationRules}
