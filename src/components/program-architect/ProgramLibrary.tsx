@@ -169,7 +169,8 @@ export function ProgramLibrary({
     const { data, error } = await supabase
       .from("exercise_library")
       .select("*")
-      .order("name");
+      .order("name")
+      .limit(5000);
 
     if (error) {
       console.error("Failed to fetch exercise library:", error);
