@@ -41,7 +41,6 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
 
   // RapidAPI Import state
   const [importOpen, setImportOpen] = useState(false);
-  const [apiKey, setApiKey] = useState("");
   const [importLimit, setImportLimit] = useState(50);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
@@ -116,27 +115,17 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
   };
 
   const handleImport = async () => {
-    if (!apiKey.trim()) return;
     setImporting(true);
     setImportResult(null);
     try {
       const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
-      const response = await fetch(
-        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
-        {
-          method: "GET",
-          headers: {
-            "x-rapidapi-host": "exercisedb.p.rapidapi.com",
-            "x-rapidapi-key": apiKey.trim(),
-          },
-        }
-      );
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("RapidAPI Error:", errorText);
-        throw new Error(`API Hatası (${response.status}): Lütfen konsolu kontrol edin.`);
+      const response = await supabase.functions.invoke("fetch-exercises", {
+        body: { limit: clampedLimit },
+      });
+      if (response.error) {
+        throw new Error(response.error.message || "Edge function error");
       }
-      const data = await response.json();
+      const data = response.data;
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
       console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
       if (data.length > 0) {
@@ -412,16 +401,6 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
               </DialogHeader>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">RapidAPI Key</label>
-                  <Input
-                    type="password"
-                    placeholder="x-rapidapi-key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
                   <Input
                     type="number"
@@ -432,9 +411,10 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                     className="h-9 text-sm"
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground">API key güvenli olarak sunucuda saklanıyor.</p>
                 <Button
                   onClick={handleImport}
-                  disabled={importing || !apiKey.trim()}
+                  disabled={importing}
                   className="w-full"
                   size="sm"
                 >
