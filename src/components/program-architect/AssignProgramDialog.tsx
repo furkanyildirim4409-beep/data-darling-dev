@@ -198,6 +198,7 @@ export function AssignProgramDialog({
             notes: ex.notes ?? "",
             order_index: (ex.order_index ?? 0) % 100,
             groupId: foundGroup?.id ?? null,
+            video_url: ex.video_url ?? null,
           };
         });
 

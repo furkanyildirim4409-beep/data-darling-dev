@@ -413,6 +413,7 @@ export default function Programs() {
           rir: ex.rir ?? 2,
           rir_per_set: ex.rirPerSet || null,
           failure_set: ex.failureSet ?? false,
+          video_url: ex.videoUrl || null,
         }))
       );
 

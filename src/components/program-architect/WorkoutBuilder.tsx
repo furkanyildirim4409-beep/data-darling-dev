@@ -67,6 +67,7 @@ export interface BuilderExercise extends LibraryItem {
   failureSet: boolean;
   notes?: string;
   groupId?: string;
+  videoUrl?: string;
 }
 
 export type BlockType = "hypertrophy" | "strength" | "endurance" | "power" | "deload" | "none";
