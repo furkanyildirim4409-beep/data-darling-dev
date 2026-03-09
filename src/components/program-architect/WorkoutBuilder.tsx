@@ -308,12 +308,22 @@ export function WorkoutBuilder({
                   </AccordionTrigger>
 
                   <AccordionContent className="px-3 pb-3 pt-0">
-                    {/* Day Label */}
-                    <div className="mb-3">
+                    {/* Day Label + Block Type */}
+                    <div className="mb-3 flex gap-2">
                       <Input placeholder="Gün etiketi (ör. Push Day, Upper Body...)"
                         value={dayPlan.label}
                         onChange={(e) => onUpdateDayLabel(index, e.target.value)}
-                        className="h-8 text-xs bg-background/50" />
+                        className="h-8 text-xs bg-background/50 flex-1" />
+                      <Select value={dayPlan.blockType || "none"} onValueChange={(val) => onUpdateDayBlockType(index, val as BlockType)}>
+                        <SelectTrigger className="w-[130px] h-8 text-xs bg-background/50">
+                          <SelectValue placeholder="Blok Tipi" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {blockTypes.map((bt) => (
+                            <SelectItem key={bt.value} value={bt.value}>{bt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Group Controls */}
