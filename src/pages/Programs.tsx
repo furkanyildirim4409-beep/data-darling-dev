@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 type ViewMode = "dashboard" | "builder";
 
 const createEmptyWeek = (): DayPlan[] =>
-  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", blockType: "none" as BlockType, exercises: [] }));
+  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", notes: "", blockType: "none" as BlockType, exercises: [] }));
 
 export default function Programs() {
   const { user } = useAuth();
@@ -84,6 +84,7 @@ export default function Programs() {
     weekConfig.forEach((cfg: any, i: number) => {
       if (i < 7) {
         newWeek[i].label = cfg.label || "";
+        newWeek[i].notes = cfg.notes || "";
         newWeek[i].blockType = cfg.blockType || "none";
         if (cfg.groups?.length) loadedGroups[i] = cfg.groups;
       }
@@ -186,6 +187,12 @@ export default function Programs() {
     );
   }, []);
 
+  const handleUpdateDayNotes = useCallback((dayIndex: number, notes: string) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, notes } : d))
+    );
+  }, []);
+
   const handleUpdateDayBlockType = useCallback((dayIndex: number, blockType: BlockType) => {
     setWeekPlan((prev) =>
       prev.map((d, i) => (i === dayIndex ? { ...d, blockType } : d))
@@ -194,7 +201,7 @@ export default function Programs() {
 
   const handleClearDay = useCallback((dayIndex: number) => {
     setWeekPlan((prev) =>
-      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", blockType: "none" as BlockType } : d))
+      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", notes: "", blockType: "none" as BlockType } : d))
     );
   }, []);
 
@@ -220,6 +227,7 @@ export default function Programs() {
       // Build week_config JSON for day metadata + groups
       const weekConfig = weekPlan.map((day, i) => ({
         label: day.label,
+        notes: day.notes || "",
         blockType: day.blockType,
         groups: dayGroups[i] || [],
       }));
@@ -404,6 +412,7 @@ export default function Programs() {
               activeDay={activeDay}
               onSetActiveDay={setActiveDay}
               onUpdateDayLabel={handleUpdateDayLabel}
+              onUpdateDayNotes={handleUpdateDayNotes}
               onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
