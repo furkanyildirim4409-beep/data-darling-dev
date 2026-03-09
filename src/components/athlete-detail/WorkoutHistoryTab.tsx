@@ -197,29 +197,32 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               <span className="opacity-60">Hedef: {ex.sets}×{ex.reps}</span>
                             )}
                             {/* Actual sets */}
-                            {ex.actualSets && ex.actualSets.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap justify-end">
-                                {ex.actualSets.map((s, si) => {
-                                  const repsMet = ex.reps != null && s.reps != null && s.reps >= Number(ex.reps);
-                                  const isSetFailure = s.failure === true;
-                                  return (
-                                    <span
-                                      key={si}
-                                      className={cn(
-                                        "px-1.5 py-0.5 rounded text-[10px] font-mono",
-                                        isSetFailure
-                                          ? "bg-orange-500/10 text-orange-400"
-                                          : repsMet
-                                            ? "bg-green-500/10 text-green-400"
-                                            : "bg-muted text-muted-foreground"
-                                      )}
-                                    >
-                                      {s.weight ?? "—"}kg×{s.reps ?? "—"}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+                            {(() => {
+                              const performed = getPerformedSets(ex);
+                              return performed.length > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                  {performed.map((s, si) => {
+                                    const repsMet = ex.reps != null && s.reps != null && s.reps >= Number(ex.reps);
+                                    const isSetFailure = s.failure === true || s.isFailure === true;
+                                    return (
+                                      <span
+                                        key={si}
+                                        className={cn(
+                                          "px-1.5 py-0.5 rounded text-[10px] font-mono",
+                                          isSetFailure
+                                            ? "bg-orange-500/10 text-orange-400"
+                                            : repsMet
+                                              ? "bg-green-500/10 text-green-400"
+                                              : "bg-muted text-muted-foreground"
+                                        )}
+                                      >
+                                        {s.weight ?? "—"}kg×{s.reps ?? "—"}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                         {isLastInGroup && <div className="mb-1" />}
