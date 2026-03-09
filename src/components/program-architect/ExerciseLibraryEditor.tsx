@@ -139,6 +139,10 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
       console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
+      if (data.length > 0) {
+        console.log("[RapidAPI] Sample exercise keys:", Object.keys(data[0]));
+        console.log("[RapidAPI] Sample exercise:", JSON.stringify(data[0]).slice(0, 500));
+      }
 
       // Fetch ALL existing names directly from DB to avoid Supabase 1000-row cap
       const { data: existingRows } = await supabase
