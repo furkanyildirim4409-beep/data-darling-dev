@@ -62,6 +62,7 @@ export interface LibraryItem {
   type: string;
   muscleGroup?: string;
   kcal?: number;
+  gifUrl?: string;
 }
 
 export interface SavedTemplate {
