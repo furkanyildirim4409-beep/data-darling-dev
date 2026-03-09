@@ -405,6 +405,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           programName={assignDialog.program.name}
         />
       )}
+
+      {/* Bulk Assign Dialog */}
+      <BulkAssignDialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen} />
     </div>
   );
 }
