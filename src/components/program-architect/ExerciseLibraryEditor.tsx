@@ -119,7 +119,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
     setImportResult(null);
     try {
       const response = await supabase.functions.invoke("fetch-exercises", {
-        body: {},
+        body: { limit: importLimit },
       });
       if (response.error) {
         throw new Error(response.error.message || "Edge function error");
