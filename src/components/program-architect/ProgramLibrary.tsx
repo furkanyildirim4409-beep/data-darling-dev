@@ -11,30 +11,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 
-const STORAGE_KEY = "coach-exercise-library";
-
-// 20 real fitness exercises with muscle group tags
-export const defaultExercises = [
-  { id: "ex-1", name: "Bench Press", category: "Göğüs", type: "exercise", muscleGroup: "Pectoralis Major" },
-  { id: "ex-2", name: "Squat", category: "Bacak", type: "exercise", muscleGroup: "Quadriceps" },
-  { id: "ex-3", name: "Deadlift", category: "Sırt", type: "exercise", muscleGroup: "Erector Spinae" },
-  { id: "ex-4", name: "Overhead Press", category: "Omuz", type: "exercise", muscleGroup: "Deltoids" },
-  { id: "ex-5", name: "Barbell Row", category: "Sırt", type: "exercise", muscleGroup: "Latissimus Dorsi" },
-  { id: "ex-6", name: "Pull-up", category: "Sırt", type: "exercise", muscleGroup: "Latissimus Dorsi" },
-  { id: "ex-7", name: "Romanian Deadlift", category: "Bacak", type: "exercise", muscleGroup: "Hamstrings" },
-  { id: "ex-8", name: "Leg Press", category: "Bacak", type: "exercise", muscleGroup: "Quadriceps" },
-  { id: "ex-9", name: "Dumbbell Curl", category: "Kol", type: "exercise", muscleGroup: "Biceps" },
-  { id: "ex-10", name: "Tricep Pushdown", category: "Kol", type: "exercise", muscleGroup: "Triceps" },
-  { id: "ex-11", name: "Lat Pulldown", category: "Sırt", type: "exercise", muscleGroup: "Latissimus Dorsi" },
-  { id: "ex-12", name: "Incline Bench Press", category: "Göğüs", type: "exercise", muscleGroup: "Upper Pectoralis" },
-  { id: "ex-13", name: "Leg Curl", category: "Bacak", type: "exercise", muscleGroup: "Hamstrings" },
-  { id: "ex-14", name: "Leg Extension", category: "Bacak", type: "exercise", muscleGroup: "Quadriceps" },
-  { id: "ex-15", name: "Lateral Raise", category: "Omuz", type: "exercise", muscleGroup: "Lateral Deltoid" },
-  { id: "ex-16", name: "Face Pull", category: "Omuz", type: "exercise", muscleGroup: "Rear Deltoid" },
-  { id: "ex-17", name: "Cable Fly", category: "Göğüs", type: "exercise", muscleGroup: "Pectoralis Major" },
-  { id: "ex-18", name: "Hip Thrust", category: "Bacak", type: "exercise", muscleGroup: "Gluteus Maximus" },
-  { id: "ex-19", name: "Calf Raise", category: "Bacak", type: "exercise", muscleGroup: "Gastrocnemius" },
-  { id: "ex-20", name: "Skull Crusher", category: "Kol", type: "exercise", muscleGroup: "Triceps" },
+// Default exercises to seed when table is empty
+const defaultExercises = [
+  { name: "Bench Press", category: "Göğüs", target_muscle: "Pectoralis Major" },
+  { name: "Squat", category: "Bacak", target_muscle: "Quadriceps" },
+  { name: "Deadlift", category: "Sırt", target_muscle: "Erector Spinae" },
+  { name: "Overhead Press", category: "Omuz", target_muscle: "Deltoids" },
+  { name: "Barbell Row", category: "Sırt", target_muscle: "Latissimus Dorsi" },
+  { name: "Pull-up", category: "Sırt", target_muscle: "Latissimus Dorsi" },
+  { name: "Romanian Deadlift", category: "Bacak", target_muscle: "Hamstrings" },
+  { name: "Leg Press", category: "Bacak", target_muscle: "Quadriceps" },
+  { name: "Dumbbell Curl", category: "Kol", target_muscle: "Biceps" },
+  { name: "Tricep Pushdown", category: "Kol", target_muscle: "Triceps" },
+  { name: "Lat Pulldown", category: "Sırt", target_muscle: "Latissimus Dorsi" },
+  { name: "Incline Bench Press", category: "Göğüs", target_muscle: "Upper Pectoralis" },
+  { name: "Leg Curl", category: "Bacak", target_muscle: "Hamstrings" },
+  { name: "Leg Extension", category: "Bacak", target_muscle: "Quadriceps" },
+  { name: "Lateral Raise", category: "Omuz", target_muscle: "Lateral Deltoid" },
+  { name: "Face Pull", category: "Omuz", target_muscle: "Rear Deltoid" },
+  { name: "Cable Fly", category: "Göğüs", target_muscle: "Pectoralis Major" },
+  { name: "Hip Thrust", category: "Bacak", target_muscle: "Gluteus Maximus" },
+  { name: "Calf Raise", category: "Bacak", target_muscle: "Gastrocnemius" },
+  { name: "Skull Crusher", category: "Kol", target_muscle: "Triceps" },
 ];
 
 export const nutrition = [
@@ -161,21 +159,64 @@ export function ProgramLibrary({
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
   const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingExercises, setLoadingExercises] = useState(true);
 
-  // Stateful exercise library with localStorage persistence
-  const [exercises, setExercises] = useState<LibraryItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : defaultExercises;
-    } catch {
-      return defaultExercises;
+  // Exercises fetched from Supabase exercise_library table
+  const [exercises, setExercises] = useState<LibraryItem[]>([]);
+
+  const fetchExercises = useCallback(async () => {
+    setLoadingExercises(true);
+    const { data, error } = await supabase
+      .from("exercise_library")
+      .select("*")
+      .order("name");
+
+    if (error) {
+      console.error("Failed to fetch exercise library:", error);
+      toast.error("Egzersiz kütüphanesi yüklenemedi");
+      setLoadingExercises(false);
+      return;
     }
-  });
 
-  const handleExercisesChange = useCallback((newExercises: LibraryItem[]) => {
-    setExercises(newExercises);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newExercises));
+    if (data && data.length > 0) {
+      setExercises(data.map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category || "Diğer",
+        type: "exercise",
+        muscleGroup: row.target_muscle || undefined,
+        gifUrl: row.video_url || undefined,
+      })));
+    } else if (data && data.length === 0) {
+      // Seed default exercises into the table
+      const { error: seedError } = await supabase
+        .from("exercise_library")
+        .insert(defaultExercises);
+
+      if (!seedError) {
+        // Re-fetch after seeding
+        const { data: seeded } = await supabase
+          .from("exercise_library")
+          .select("*")
+          .order("name");
+        if (seeded) {
+          setExercises(seeded.map(row => ({
+            id: row.id,
+            name: row.name,
+            category: row.category || "Diğer",
+            type: "exercise",
+            muscleGroup: row.target_muscle || undefined,
+            gifUrl: row.video_url || undefined,
+          })));
+        }
+      }
+    }
+    setLoadingExercises(false);
   }, []);
+
+  useEffect(() => {
+    fetchExercises();
+  }, [fetchExercises]);
 
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
@@ -251,7 +292,7 @@ export function ProgramLibrary({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
           {builderMode === "exercise" && (
-            <ExerciseLibraryEditor exercises={exercises} onExercisesChange={handleExercisesChange} />
+            <ExerciseLibraryEditor exercises={exercises} onRefresh={fetchExercises} />
           )}
         </div>
         <div className="relative">
@@ -291,18 +332,26 @@ export function ProgramLibrary({
 
         <ScrollArea className="flex-1 px-4 py-3">
           <TabsContent value="items" className="mt-0 space-y-2">
-            {currentItems.map((item) => (
-              <LibraryItemCard
-                key={item.id}
-                item={item}
-                onAdd={onAddItem}
-                isAdded={addedItemIds.includes(item.id)}
-              />
-            ))}
-            {currentItems.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
-              </p>
+            {loadingExercises && builderMode === "exercise" ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {currentItems.map((item) => (
+                  <LibraryItemCard
+                    key={item.id}
+                    item={item}
+                    onAdd={onAddItem}
+                    isAdded={addedItemIds.includes(item.id)}
+                  />
+                ))}
+                {currentItems.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
+                  </p>
+                )}
+              </>
             )}
           </TabsContent>
 
