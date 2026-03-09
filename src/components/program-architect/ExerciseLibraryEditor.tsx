@@ -339,7 +339,56 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
           </div>
         </ScrollArea>
 
-        <div className="pt-2 border-t border-border">
+        {/* RapidAPI Import */}
+        <div className="pt-2 border-t border-border space-y-2">
+          <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) setImportResult(null); }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
+                <Download className="w-3.5 h-3.5" />
+                🚀 RapidAPI'den Egzersiz Çek
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-sm">ExerciseDB İçe Aktarıcı</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">RapidAPI Key</label>
+                  <Input
+                    type="password"
+                    placeholder="x-rapidapi-key"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1300}
+                    value={importLimit}
+                    onChange={(e) => setImportLimit(Number(e.target.value))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <Button
+                  onClick={handleImport}
+                  disabled={importing || !apiKey.trim()}
+                  className="w-full"
+                  size="sm"
+                >
+                  {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                  {importing ? "Çekiliyor..." : "Verileri Çek ve Kaydet"}
+                </Button>
+                {importResult && (
+                  <p className="text-xs text-muted-foreground text-center p-2 rounded-md bg-muted/50">{importResult}</p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <p className="text-xs text-muted-foreground text-center">
             Toplam: {exercises.length} egzersiz
           </p>
