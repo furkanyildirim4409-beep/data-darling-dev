@@ -63,6 +63,7 @@ export interface BuilderExercise extends LibraryItem {
   reps: number;
   rpe: number;
   rir: number;
+  rirPerSet?: number[];
   failureSet: boolean;
   notes?: string;
   groupId?: string;
