@@ -35,6 +35,8 @@ interface ExerciseDetail {
   completedSets?: PerformedSet[];
   sets_completed?: PerformedSet[];
   performed?: PerformedSet[];
+  weightDiff?: number | null;
+  rirSuccess?: boolean | null;
 }
 
 interface WorkoutLog {
