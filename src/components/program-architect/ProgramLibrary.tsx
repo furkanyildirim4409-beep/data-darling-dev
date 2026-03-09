@@ -166,21 +166,37 @@ export function ProgramLibrary({
 
   const fetchExercises = useCallback(async () => {
     setLoadingExercises(true);
-    const { data, error } = await supabase
-      .from("exercise_library")
-      .select("*")
-      .order("name")
-      .limit(5000);
+    try {
+      // Paginated fetch to bypass Supabase 1000-row default limit
+      const PAGE_SIZE = 1000;
+      let allRows: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-    if (error) {
-      console.error("Failed to fetch exercise library:", error);
-      toast.error("Egzersiz kütüphanesi yüklenemedi");
-      setLoadingExercises(false);
-      return;
-    }
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("exercise_library")
+          .select("*")
+          .order("name")
+          .range(from, from + PAGE_SIZE - 1);
 
-    if (data && data.length > 0) {
-      setExercises(data.map(row => ({
+        if (error) {
+          console.error("Failed to fetch exercise library:", error);
+          toast.error("Egzersiz kütüphanesi yüklenemedi");
+          setLoadingExercises(false);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          allRows = allRows.concat(data);
+          from += PAGE_SIZE;
+          hasMore = data.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setExercises(allRows.map(row => ({
         id: row.id,
         name: row.name,
         category: row.category || "Diğer",
@@ -188,8 +204,9 @@ export function ProgramLibrary({
         muscleGroup: row.target_muscle || undefined,
         gifUrl: row.video_url || undefined,
       })));
-    } else {
-      setExercises([]);
+    } catch (err) {
+      console.error("Exercise fetch error:", err);
+      toast.error("Egzersiz kütüphanesi yüklenemedi");
     }
     setLoadingExercises(false);
   }, []);
