@@ -190,7 +190,7 @@ export function AssignProgramDialog({
             program_id: programId,
             scheduled_date: targetDate,
             workout_name: dayLabel,
-            exercises: exercisesJson,
+            exercises: exercisesJson as Json,
             status: "pending",
           });
         }
