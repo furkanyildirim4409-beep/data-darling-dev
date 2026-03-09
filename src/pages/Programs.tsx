@@ -141,7 +141,7 @@ export default function Programs() {
       if (builderMode === "exercise") {
         // Check if already in active day
         if (weekPlan[activeDay].exercises.find((ex) => ex.id === item.id)) return;
-        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false };
+        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false, videoUrl: item.gifUrl || undefined };
         setWeekPlan((prev) =>
           prev.map((d, i) =>
             i === activeDay ? { ...d, exercises: [...d.exercises, newExercise] } : d
