@@ -30,6 +30,7 @@ interface AssignProgramDialogProps {
 
 interface WeekConfigDay {
   label?: string;
+  notes?: string;
   blockType?: string;
   groups?: unknown[];
 }
