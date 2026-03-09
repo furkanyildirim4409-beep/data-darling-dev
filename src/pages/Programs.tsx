@@ -394,6 +394,10 @@ export default function Programs() {
               onUpdateExercise={handleUpdateExercise}
               onClearDay={handleClearDay}
               onClearAll={handleClearAll}
+              rules={automationRules}
+              onSetRules={setAutomationRules}
+              dayGroups={dayGroups}
+              onSetDayGroups={setDayGroups}
             />
           ) : (
             <NutritionBuilder
