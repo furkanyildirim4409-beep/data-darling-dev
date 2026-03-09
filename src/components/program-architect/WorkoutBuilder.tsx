@@ -51,6 +51,7 @@ export type BlockType = "hypertrophy" | "strength" | "endurance" | "power" | "de
 export interface DayPlan {
   day: number;
   label: string;
+  notes: string;
   blockType: BlockType;
   exercises: BuilderExercise[];
 }
