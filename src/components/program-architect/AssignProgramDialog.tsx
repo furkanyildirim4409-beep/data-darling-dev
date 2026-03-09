@@ -36,6 +36,7 @@ interface WeekConfigDay {
 }
 
 interface ExerciseRow {
+  id: string;
   name: string;
   sets: number | null;
   reps: string | null;
