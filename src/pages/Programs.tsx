@@ -218,12 +218,18 @@ export default function Programs() {
   }, []);
 
   const handleDuplicateDay = useCallback((sourceDayIndex: number, targetDayIndex: number) => {
+    // Pre-compute ID mapping so exercises and groups stay in sync
+    const sourceExercises = weekPlan[sourceDayIndex].exercises;
+    const idMap = new Map<string, string>();
+    sourceExercises.forEach((ex) => {
+      idMap.set(ex.id, `${ex.id}-cp-${Math.random().toString(36).slice(2, 8)}`);
+    });
+
     setWeekPlan((prev) => {
       const sourceDay = prev[sourceDayIndex];
-      // Clone exercises with new IDs to avoid conflicts
       const clonedExercises = sourceDay.exercises.map((ex) => ({
         ...ex,
-        id: `${ex.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: idMap.get(ex.id) || ex.id,
       }));
       return prev.map((d, i) =>
         i === targetDayIndex
@@ -231,27 +237,21 @@ export default function Programs() {
           : d
       );
     });
-    // Also duplicate groups
+
     setDayGroups((prev) => {
       const sourceGroups = prev[sourceDayIndex] || [];
       if (sourceGroups.length === 0) {
         const { [targetDayIndex]: _, ...rest } = prev;
         return rest;
       }
-      // Remap group exercise IDs to match cloned IDs
-      const sourceExercises = weekPlan[sourceDayIndex].exercises;
       const clonedGroups = sourceGroups.map((g) => ({
         ...g,
-        id: `grp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        exerciseIds: g.exerciseIds.map((eid) => {
-          const idx = sourceExercises.findIndex((ex) => ex.id === eid);
-          // The cloned exercises will have new IDs based on the pattern above
-          // but we need to reference the weekPlan after update, so just keep mapping
-          return idx >= 0 ? `${eid}-copy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` : eid;
-        }),
+        id: `grp-${Math.random().toString(36).slice(2, 8)}`,
+        exerciseIds: g.exerciseIds.map((eid) => idMap.get(eid) || eid),
       }));
       return { ...prev, [targetDayIndex]: clonedGroups };
     });
+
     toast.success("Gün başarıyla kopyalandı!");
   }, [weekPlan]);
 
