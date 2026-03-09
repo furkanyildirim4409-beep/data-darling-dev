@@ -184,6 +184,7 @@ export function AssignProgramDialog({
             failure_set: ex.failure_set ?? false,
             rest_time: ex.rest_time ?? "",
             notes: ex.notes ?? "",
+            order_index: (ex.order_index ?? 0) % 100,
           }));
 
         for (const athleteId of selectedIds) {
