@@ -281,7 +281,8 @@ export function WorkoutBuilder({
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm font-medium truncate">{turkishDays[index]}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {dayPlan.label || (isRest ? "Dinlenme Günü" : "Etiket ekleyin...")}
+                          {hasBlock && currentBlock ? currentBlock.label + (dayPlan.label ? ` · ${dayPlan.label}` : '') 
+                            : dayPlan.label || (isRest ? "Dinlenme Günü" : "Etiket ekleyin...")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
