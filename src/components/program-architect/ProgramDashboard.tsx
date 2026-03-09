@@ -303,6 +303,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                         <Copy className="w-4 h-4 mr-2" />
                         Kopyala
                       </DropdownMenuItem>
+                      {onSaveAsTemplate && (
+                        <DropdownMenuItem onClick={() => onSaveAsTemplate(program)}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Şablon Olarak Kaydet
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(program)}
                         className="text-destructive focus:text-destructive"
