@@ -226,6 +226,7 @@ export default function Programs() {
       // Build week_config JSON for day metadata + groups
       const weekConfig = weekPlan.map((day, i) => ({
         label: day.label,
+        notes: day.notes || "",
         blockType: day.blockType,
         groups: dayGroups[i] || [],
       }));
