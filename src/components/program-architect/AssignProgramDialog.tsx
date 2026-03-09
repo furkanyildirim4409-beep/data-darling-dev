@@ -70,7 +70,7 @@ export function AssignProgramDialog({
   const [saving, setSaving] = useState(false);
   const [activeDayCount, setActiveDayCount] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [dayLabels, setDayLabels] = useState<string[]>([]);
+  const [activeDays, setActiveDays] = useState<Array<{ label: string; dayIdx: number }>>([]);
 
   // Fetch program structure for preview when dialog opens
   useEffect(() => {
