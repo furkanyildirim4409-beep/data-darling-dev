@@ -616,6 +616,33 @@ export type Database = {
         }
         Relationships: []
       }
+      workout_templates: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          routine_days: Json
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          routine_days?: Json
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          routine_days?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
