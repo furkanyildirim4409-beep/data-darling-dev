@@ -35,6 +35,21 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/utilities";
+import { SortableExerciseItem } from "./SortableExerciseItem";
 
 export interface BuilderExercise extends LibraryItem {
   sets: number;
