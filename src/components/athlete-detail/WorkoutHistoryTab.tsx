@@ -211,8 +211,8 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               return targetSets && targetReps ? (
                                 <span className="opacity-60">Hedef: {targetSets}×{targetReps}</span>
                               ) : null;
-                            })()
-                            )}
+                            })()}
+
                             {/* Actual sets */}
                             {(() => {
                               const performed = getPerformedSets(ex);
