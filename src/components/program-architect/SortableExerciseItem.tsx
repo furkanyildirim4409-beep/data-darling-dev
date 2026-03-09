@@ -129,14 +129,43 @@ export function SortableExerciseItem({
                 onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "rpe", parseInt(e.target.value) || 7)}
                 className="h-8 text-xs text-center bg-background/50" />
             </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground mb-0.5 block">RIR</label>
-              <Input type="number" min={0} max={5} value={exercise.rir ?? 2}
-                onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "rir", parseInt(e.target.value) || 0)}
-                className={cn(
-                  "h-8 text-xs text-center bg-background/50",
-                  (exercise.rir ?? 2) === 0 && "border-destructive/50 text-destructive"
-                )} />
+          </div>
+          {/* Per-Set RIR */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground block">RIR (Set Bazlı)</label>
+            <div className="flex items-center gap-1 flex-wrap">
+              {Array.from({ length: exercise.sets || 1 }).map((_, i) => {
+                const isLastSet = i === (exercise.sets || 1) - 1;
+                const isFailure = exercise.failureSet && isLastSet;
+                const val = exercise.rirPerSet?.[i] ?? exercise.rir ?? 2;
+                return (
+                  <div key={i} className="flex flex-col items-center">
+                    <span className="text-[8px] text-muted-foreground mb-0.5">S{i + 1}</span>
+                    {isFailure ? (
+                      <div className="w-10 h-7 rounded-md border border-destructive/40 bg-destructive/10 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-destructive">F</span>
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={val}
+                        onChange={(e) => {
+                          const newArray = [...(exercise.rirPerSet || Array(exercise.sets).fill(exercise.rir ?? 2))];
+                          newArray[i] = e.target.value ? Number(e.target.value) : 0;
+                          onUpdateExercise(dayIndex, exercise.id, "rirPerSet", newArray);
+                          onUpdateExercise(dayIndex, exercise.id, "rir", newArray[0]);
+                        }}
+                        className={cn(
+                          "w-10 h-7 text-[11px] text-center p-0 bg-background/50",
+                          val === 0 && "border-destructive/50 text-destructive"
+                        )}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           {/* Failure toggle */}
@@ -153,9 +182,6 @@ export function SortableExerciseItem({
               <Zap className="w-3 h-3" />
               {exercise.failureSet ? "Failure Aktif" : "Failure"}
             </button>
-            {(exercise.rir ?? 2) === 0 && !exercise.failureSet && (
-              <span className="text-[9px] text-warning">⚠ RIR 0 = Failure'a yakın</span>
-            )}
             {exercise.failureSet && (
               <span className="text-[9px] text-destructive">Son set failure'a kadar</span>
             )}
