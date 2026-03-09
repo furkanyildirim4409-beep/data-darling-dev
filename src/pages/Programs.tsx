@@ -456,6 +456,7 @@ export default function Programs() {
               onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
+              onReorderExercises={handleReorderExercises}
               onClearDay={handleClearDay}
               onClearAll={handleClearAll}
               rules={automationRules}
