@@ -46,6 +46,7 @@ interface ExerciseRow {
   rest_time: string | null;
   notes: string | null;
   order_index: number | null;
+  video_url: string | null;
 }
 
 const addDays = (dateStr: string, days: number): string => {
@@ -198,6 +199,7 @@ export function AssignProgramDialog({
             notes: ex.notes ?? "",
             order_index: (ex.order_index ?? 0) % 100,
             groupId: foundGroup?.id ?? null,
+            video_url: ex.video_url ?? null,
           };
         });
 

@@ -94,6 +94,7 @@ export default function Programs() {
           rirPerSet: Array.isArray((ex as any).rir_per_set) ? (ex as any).rir_per_set : undefined,
           failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
+          videoUrl: (ex as any).video_url || undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
       });
@@ -140,7 +141,7 @@ export default function Programs() {
       if (builderMode === "exercise") {
         // Check if already in active day
         if (weekPlan[activeDay].exercises.find((ex) => ex.id === item.id)) return;
-        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false };
+        const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false, videoUrl: item.gifUrl || undefined };
         setWeekPlan((prev) =>
           prev.map((d, i) =>
             i === activeDay ? { ...d, exercises: [...d.exercises, newExercise] } : d
@@ -412,6 +413,7 @@ export default function Programs() {
           rir: ex.rir ?? 2,
           rir_per_set: ex.rirPerSet || null,
           failure_set: ex.failureSet ?? false,
+          video_url: ex.videoUrl || null,
         }))
       );
 
