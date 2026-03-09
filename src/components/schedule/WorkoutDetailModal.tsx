@@ -140,7 +140,7 @@ export function WorkoutDetailModal({
                     <div className={cn(
                       "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
                       isCompleted 
-                        ? "bg-green-500/20 text-green-400" 
+                        ? "bg-accent/40 text-accent-foreground" 
                         : "bg-primary/20 text-primary"
                     )}>
                       {index + 1}
