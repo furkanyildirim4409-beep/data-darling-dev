@@ -70,7 +70,7 @@ export interface ExerciseGroup {
   exerciseIds: string[];
 }
 
-interface AutomationRule {
+export interface AutomationRule {
   id: string;
   condition: string;
   action: string;
