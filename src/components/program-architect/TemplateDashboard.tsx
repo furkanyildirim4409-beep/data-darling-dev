@@ -64,7 +64,7 @@ export default function TemplateDashboard({ onCreateNew, onEdit, onAssign }: Pro
       setTemplates(
         (data || []).map((t) => ({
           ...t,
-          routine_days: (Array.isArray(t.routine_days) ? t.routine_days : []) as RoutineDay[],
+          routine_days: (Array.isArray(t.routine_days) ? t.routine_days : []) as unknown as RoutineDay[],
         }))
       );
     }
