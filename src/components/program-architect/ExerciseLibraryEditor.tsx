@@ -122,16 +122,20 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
     try {
       const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
       const response = await fetch(
-        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
+        `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}`,
         {
           method: "GET",
           headers: {
-            "x-rapidapi-key": apiKey.trim(),
             "x-rapidapi-host": "exercisedb.p.rapidapi.com",
+            "x-rapidapi-key": apiKey.trim(),
           },
         }
       );
-      if (!response.ok) throw new Error(`API hatası: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("RapidAPI Error:", errorText);
+        throw new Error(`API Hatası (${response.status}): Lütfen konsolu kontrol edin.`);
+      }
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
       console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
