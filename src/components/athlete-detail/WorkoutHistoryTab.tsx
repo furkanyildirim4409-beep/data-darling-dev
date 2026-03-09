@@ -90,7 +90,12 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
   // Extract performed sets from any of the possible keys
   const getPerformedSets = (ex: ExerciseDetail): PerformedSet[] => {
+    if (Array.isArray(ex.sets)) return ex.sets;
     return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
+  };
+
+  const getExerciseName = (ex: ExerciseDetail): string => {
+    return ex.name || ex.exerciseName || "Bilinmeyen Egzersiz";
   };
 
   if (loading) {
