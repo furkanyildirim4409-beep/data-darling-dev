@@ -345,7 +345,7 @@ export default function Schedule() {
               <span>Bekliyor</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/30" />
+              <div className="w-3 h-3 rounded bg-accent/40 border border-accent/50" />
               <span>Tamamlandı</span>
             </div>
           </div>

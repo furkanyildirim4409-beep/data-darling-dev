@@ -181,8 +181,7 @@ export function WorkoutDetailModal({
             <AlertDialogTrigger asChild>
               <Button
                 type="button"
-                variant="outline"
-                className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                variant="destructive"
                 disabled={deleting}
               >
                 {deleting ? (
