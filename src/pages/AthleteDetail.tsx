@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { EnergyBank } from "@/components/athlete-detail/EnergyBank";
 import { SmartContract } from "@/components/athlete-detail/SmartContract";
@@ -18,6 +18,7 @@ import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
+import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { cn } from "@/lib/utils";
 
 interface AthleteProfile {
@@ -195,6 +196,7 @@ export default function AthleteDetail() {
           <TabsTrigger value="general" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><User className="w-4 h-4" />Genel</TabsTrigger>
           <TabsTrigger value="program" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Dumbbell className="w-4 h-4" />Antrenman Programı</TabsTrigger>
           <TabsTrigger value="nutrition" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-success data-[state=active]:text-success-foreground"><Apple className="w-4 h-4" />Beslenme Planı</TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><History className="w-4 h-4" />Antrenman Geçmişi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
@@ -221,6 +223,10 @@ export default function AthleteDetail() {
 
         <TabsContent value="nutrition" className="mt-6">
           <NutritionTab athleteId={athlete.id} currentDiet="Beslenme" calories={0} protein={0} />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <WorkoutHistoryTab athleteId={athlete.id} />
         </TabsContent>
       </Tabs>
     </div>
