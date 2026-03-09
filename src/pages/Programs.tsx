@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
-import { WorkoutBuilder, BuilderExercise, DayPlan } from "@/components/program-architect/WorkoutBuilder";
+import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
