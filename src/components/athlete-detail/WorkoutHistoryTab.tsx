@@ -335,6 +335,15 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 <Target className="w-3 h-3 mr-0.5" />RIR: {ex.rir}
                               </Badge>
                             )}
+                            {ex.weightDiff != null && ex.weightDiff !== 0 && (
+                              <span className={cn(
+                                "text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                                ex.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
+                              )}>
+                                {ex.weightDiff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {ex.weightDiff > 0 ? `+${ex.weightDiff}kg` : `${ex.weightDiff}kg`}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
