@@ -161,7 +161,7 @@ export default function Schedule() {
       if (data) {
         const parsed = data.map(w => ({
           ...w,
-          exercises: Array.isArray(w.exercises) ? w.exercises as Exercise[] : []
+          exercises: Array.isArray(w.exercises) ? (w.exercises as unknown as Exercise[]) : []
         }));
         setWorkouts(parsed);
       }
