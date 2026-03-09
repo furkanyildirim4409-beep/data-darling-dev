@@ -14,16 +14,18 @@ interface PerformedSet {
 }
 
 interface ExerciseDetail {
-  name: string;
-  sets?: number;
+  name?: string;
+  exerciseName?: string;
+  sets?: number | PerformedSet[];
   reps?: string | number;
+  targetSets?: number;
+  targetReps?: string | number;
   rir?: number;
   failure_set?: boolean;
   failureSet?: boolean;
   groupId?: string | null;
   rest_time?: string;
   notes?: string;
-  // Multiple possible keys for performed sets
   actualSets?: PerformedSet[];
   completedSets?: PerformedSet[];
   sets_completed?: PerformedSet[];
