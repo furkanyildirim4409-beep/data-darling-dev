@@ -122,9 +122,6 @@ function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
             )}
           </div>
         </div>
-        {!item.gifUrl && item.type === "exercise" ? null : !item.gifUrl ? (
-          <Apple className="w-4 h-4 text-success/60 shrink-0" />
-        )}
         <Button
           variant="ghost"
           size="icon"
