@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
+import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
+import { tr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2 } from "lucide-react";
+import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PerformedSet {
@@ -57,6 +61,16 @@ function parseDetails(raw: unknown): ExerciseDetail[] | null {
   return null;
 }
 
+type QuickRange = "all" | "7d" | "30d" | "90d" | "custom";
+
+const quickRanges: { value: QuickRange; label: string }[] = [
+  { value: "all", label: "Tümü" },
+  { value: "7d", label: "7 Gün" },
+  { value: "30d", label: "30 Gün" },
+  { value: "90d", label: "90 Gün" },
+  { value: "custom", label: "Özel" },
+];
+
 export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,13 +78,35 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [hasMore, setHasMore] = useState(true);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
+  // Date filtering
+  const [quickRange, setQuickRange] = useState<QuickRange>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  const getDateRange = useCallback((): { from?: string; to?: string } => {
+    if (quickRange === "all") return {};
+    if (quickRange === "custom") {
+      return {
+        from: dateFrom ? startOfDay(dateFrom).toISOString() : undefined,
+        to: dateTo ? endOfDay(dateTo).toISOString() : undefined,
+      };
+    }
+    const days = quickRange === "7d" ? 7 : quickRange === "30d" ? 30 : 90;
+    return { from: startOfDay(subDays(new Date(), days)).toISOString() };
+  }, [quickRange, dateFrom, dateTo]);
+
   const fetchPage = useCallback(async (offset: number) => {
-    const { data } = await supabase
+    const range = getDateRange();
+    let query = supabase
       .from("workout_logs")
       .select("id, workout_name, logged_at, duration_minutes, tonnage, exercises_count, details, completed")
       .eq("user_id", athleteId)
-      .order("logged_at", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .order("logged_at", { ascending: false });
+
+    if (range.from) query = query.gte("logged_at", range.from);
+    if (range.to) query = query.lte("logged_at", range.to);
+
+    const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
     const parsed = (data ?? []).map(d => ({
       ...d,
@@ -79,8 +115,9 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
     if (parsed.length < PAGE_SIZE) setHasMore(false);
     return parsed;
-  }, [athleteId]);
+  }, [athleteId, getDateRange]);
 
+  // Reset and refetch when filters change
   useEffect(() => {
     setLogs([]);
     setHasMore(true);
@@ -115,27 +152,105 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
     return ex.name || ex.exerciseName || "Bilinmeyen Egzersiz";
   };
 
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      {quickRanges.map((r) => (
+        <Button
+          key={r.value}
+          variant={quickRange === r.value ? "default" : "outline"}
+          size="sm"
+          className="text-xs h-7"
+          onClick={() => {
+            setQuickRange(r.value);
+            if (r.value !== "custom") {
+              setDateFrom(undefined);
+              setDateTo(undefined);
+            }
+          }}
+        >
+          {r.label}
+        </Button>
+      ))}
+
+      {quickRange === "custom" && (
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("text-xs h-7 gap-1", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="w-3 h-3" />
+                {dateFrom ? format(dateFrom, "d MMM yyyy", { locale: tr }) : "Başlangıç"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={setDateFrom}
+                disabled={(d) => d > new Date() || (dateTo ? d > dateTo : false)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <span className="text-xs text-muted-foreground">—</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("text-xs h-7 gap-1", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="w-3 h-3" />
+                {dateTo ? format(dateTo, "d MMM yyyy", { locale: tr }) : "Bitiş"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                disabled={(d) => d > new Date() || (dateFrom ? d < dateFrom : false)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />
-        ))}
+      <div>
+        {filterBar}
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!logs.length) {
     return (
-      <div className="glass rounded-xl border border-border p-12 text-center">
-        <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
-        <p className="text-muted-foreground">Henüz tamamlanmış antrenman kaydı yok.</p>
+      <div>
+        {filterBar}
+        <div className="glass rounded-xl border border-border p-12 text-center">
+          <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="text-muted-foreground">
+            {quickRange !== "all" ? "Bu tarih aralığında antrenman kaydı bulunamadı." : "Henüz tamamlanmış antrenman kaydı yok."}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {filterBar}
       {logs.map(log => {
         const isOpen = openIds.has(log.id);
         const exercises = log.details ?? [];
