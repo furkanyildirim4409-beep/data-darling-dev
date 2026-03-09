@@ -94,6 +94,7 @@ export default function Programs() {
           rirPerSet: Array.isArray((ex as any).rir_per_set) ? (ex as any).rir_per_set : undefined,
           failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
+          videoUrl: (ex as any).video_url || undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
       });
