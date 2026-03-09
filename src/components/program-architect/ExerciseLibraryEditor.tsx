@@ -41,7 +41,6 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
 
   // RapidAPI Import state
   const [importOpen, setImportOpen] = useState(false);
-  const [importLimit, setImportLimit] = useState(50);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
 
