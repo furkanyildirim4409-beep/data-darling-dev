@@ -410,6 +410,7 @@ export default function Programs() {
               activeDay={activeDay}
               onSetActiveDay={setActiveDay}
               onUpdateDayLabel={handleUpdateDayLabel}
+              onUpdateDayNotes={handleUpdateDayNotes}
               onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
