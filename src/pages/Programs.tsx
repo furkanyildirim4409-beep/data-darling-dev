@@ -201,7 +201,7 @@ export default function Programs() {
 
   const handleClearDay = useCallback((dayIndex: number) => {
     setWeekPlan((prev) =>
-      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", blockType: "none" as BlockType } : d))
+      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", notes: "", blockType: "none" as BlockType } : d))
     );
   }, []);
 
