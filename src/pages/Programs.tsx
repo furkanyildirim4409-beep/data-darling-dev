@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProgramDashboard, type ProgramData } from "@/components/program-architect/ProgramDashboard";
-import { ProgramLibrary } from "@/components/program-architect/ProgramLibrary";
-import { WorkoutBuilder } from "@/components/program-architect/WorkoutBuilder";
+import { ProgramLibrary, type LibraryItem, type SavedTemplate } from "@/components/program-architect/ProgramLibrary";
+import { WorkoutBuilder, type BuilderExercise } from "@/components/program-architect/WorkoutBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
-import { NutritionBuilder } from "@/components/program-architect/NutritionBuilder";
+import { NutritionBuilder, type NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import TemplateDashboard, { type WorkoutTemplate } from "@/components/program-architect/TemplateDashboard";
 import RoutineBuilder from "@/components/program-architect/RoutineBuilder";
 import AssignTemplateDialog from "@/components/program-architect/AssignTemplateDialog";
@@ -17,7 +17,10 @@ export default function Programs() {
   // --- Program Mimarı state ---
   const [architectView, setArchitectView] = useState<ArchitectView>("dashboard");
   const [architectMode, setArchitectMode] = useState<"exercise" | "nutrition">("exercise");
-  const [editingProgram, setEditingProgram] = useState<ProgramData | null>(null);
+  const [selectedExercises, setSelectedExercises] = useState<BuilderExercise[]>([]);
+  const [selectedNutritionItems, setSelectedNutritionItems] = useState<NutritionItem[]>([]);
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [activeMealId, setActiveMealId] = useState("meal-1");
 
   // --- Şablon Kütüphanesi state ---
   const [templateView, setTemplateView] = useState<TemplateView>("dashboard");
@@ -29,19 +32,63 @@ export default function Programs() {
   // Program Mimarı handlers
   const handleCreateProgram = useCallback((type: "exercise" | "nutrition") => {
     setArchitectMode(type);
-    setEditingProgram(null);
+    setSelectedExercises([]);
+    setSelectedNutritionItems([]);
     setArchitectView("builder");
   }, []);
 
   const handleEditProgram = useCallback((program: ProgramData) => {
     setArchitectMode(program.type);
-    setEditingProgram(program);
     setArchitectView("builder");
   }, []);
 
   const handleArchitectBack = useCallback(() => {
     setArchitectView("dashboard");
-    setEditingProgram(null);
+  }, []);
+
+  const handleAddLibraryItem = useCallback((item: LibraryItem) => {
+    if (architectMode === "exercise") {
+      setSelectedExercises((prev) => {
+        if (prev.find((e) => e.id === item.id)) return prev;
+        return [...prev, { ...item, sets: 3, reps: 10, rpe: 7 }];
+      });
+    } else {
+      setSelectedNutritionItems((prev) => {
+        if (prev.find((e) => e.id === item.id)) return prev;
+        return [...prev, { ...item, amount: 100, unit: "g", mealId: activeMealId }];
+      });
+    }
+  }, [architectMode, activeMealId]);
+
+  const handleRemoveExercise = useCallback((id: string) => {
+    setSelectedExercises((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const handleUpdateExercise = useCallback((id: string, field: keyof BuilderExercise, value: number | string) => {
+    setSelectedExercises((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
+    );
+  }, []);
+
+  const handleRemoveNutritionItem = useCallback((id: string) => {
+    setSelectedNutritionItems((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const handleUpdateNutritionItem = useCallback((id: string, field: keyof NutritionItem, value: number | string) => {
+    setSelectedNutritionItems((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
+    );
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    setSelectedExercises([]);
+    setSelectedNutritionItems([]);
+  }, []);
+
+  const handleLoadTemplate = useCallback((template: SavedTemplate) => {
+    if (template.type === "exercise") {
+      setSelectedExercises(template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 })));
+    }
   }, []);
 
   // Şablon Kütüphanesi handlers
@@ -71,6 +118,10 @@ export default function Programs() {
     setEditingTemplate(null);
   }, []);
 
+  const addedItemIds = architectMode === "exercise"
+    ? selectedExercises.map((e) => e.id)
+    : selectedNutritionItems.map((e) => e.id);
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="architect" className="w-full">
@@ -94,16 +145,34 @@ export default function Programs() {
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_300px] gap-4">
-              <ProgramLibrary />
+              <ProgramLibrary
+                onAddItem={handleAddLibraryItem}
+                addedItemIds={addedItemIds}
+                builderMode={architectMode}
+                savedTemplates={savedTemplates}
+                onLoadTemplate={handleLoadTemplate}
+              />
               {architectMode === "exercise" ? (
                 <WorkoutBuilder
-                  editingProgram={editingProgram}
-                  onBack={handleArchitectBack}
+                  selectedExercises={selectedExercises}
+                  onRemoveExercise={handleRemoveExercise}
+                  onUpdateExercise={handleUpdateExercise}
+                  onClearAll={handleClearAll}
                 />
               ) : (
-                <NutritionBuilder onBack={handleArchitectBack} />
+                <NutritionBuilder
+                  selectedItems={selectedNutritionItems}
+                  onRemoveItem={handleRemoveNutritionItem}
+                  onUpdateItem={handleUpdateNutritionItem}
+                  onClearAll={handleClearAll}
+                  activeMealId={activeMealId}
+                  setActiveMealId={setActiveMealId}
+                />
               )}
-              <WeeklySchedule />
+              <WeeklySchedule
+                selectedExercises={selectedExercises}
+                onClearBuilder={handleClearAll}
+              />
             </div>
           )}
         </TabsContent>
