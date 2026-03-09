@@ -69,7 +69,27 @@ export default function Programs() {
       return;
     }
 
+    // Load program metadata (rules + week_config)
+    const { data: progData } = await supabase
+      .from("programs")
+      .select("automation_rules, week_config")
+      .eq("id", program.id)
+      .single();
+
     const newWeek = createEmptyWeek();
+
+    // Restore week_config (labels, blockTypes, groups)
+    const weekConfig = (progData?.week_config as any[]) || [];
+    const loadedGroups: Record<number, ExerciseGroup[]> = {};
+    weekConfig.forEach((cfg: any, i: number) => {
+      if (i < 7) {
+        newWeek[i].label = cfg.label || "";
+        newWeek[i].blockType = cfg.blockType || "none";
+        if (cfg.groups?.length) loadedGroups[i] = cfg.groups;
+      }
+    });
+    setDayGroups(loadedGroups);
+    setAutomationRules((progData?.automation_rules as AutomationRule[]) || []);
 
     if (exercises && exercises.length > 0) {
       exercises.forEach((ex) => {
@@ -83,8 +103,8 @@ export default function Programs() {
           sets: ex.sets ?? 3,
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
-          rir: 2,
-          failureSet: false,
+          rir: (ex as any).rir ?? 2,
+          failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
