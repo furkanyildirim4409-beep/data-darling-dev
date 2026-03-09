@@ -139,6 +139,7 @@ export function WorkoutBuilder({
   activeDay,
   onSetActiveDay,
   onUpdateDayLabel,
+  onUpdateDayBlockType,
   onRemoveExercise,
   onUpdateExercise,
   onClearDay,

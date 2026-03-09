@@ -160,9 +160,15 @@ export default function Programs() {
     );
   }, []);
 
+  const handleUpdateDayBlockType = useCallback((dayIndex: number, blockType: BlockType) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, blockType } : d))
+    );
+  }, []);
+
   const handleClearDay = useCallback((dayIndex: number) => {
     setWeekPlan((prev) =>
-      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "" } : d))
+      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "", blockType: "none" as BlockType } : d))
     );
   }, []);
 
