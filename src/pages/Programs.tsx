@@ -217,6 +217,44 @@ export default function Programs() {
     );
   }, []);
 
+  const handleDuplicateDay = useCallback((sourceDayIndex: number, targetDayIndex: number) => {
+    // Pre-compute ID mapping so exercises and groups stay in sync
+    const sourceExercises = weekPlan[sourceDayIndex].exercises;
+    const idMap = new Map<string, string>();
+    sourceExercises.forEach((ex) => {
+      idMap.set(ex.id, `${ex.id}-cp-${Math.random().toString(36).slice(2, 8)}`);
+    });
+
+    setWeekPlan((prev) => {
+      const sourceDay = prev[sourceDayIndex];
+      const clonedExercises = sourceDay.exercises.map((ex) => ({
+        ...ex,
+        id: idMap.get(ex.id) || ex.id,
+      }));
+      return prev.map((d, i) =>
+        i === targetDayIndex
+          ? { ...d, exercises: clonedExercises, label: sourceDay.label, notes: sourceDay.notes, blockType: sourceDay.blockType }
+          : d
+      );
+    });
+
+    setDayGroups((prev) => {
+      const sourceGroups = prev[sourceDayIndex] || [];
+      if (sourceGroups.length === 0) {
+        const { [targetDayIndex]: _, ...rest } = prev;
+        return rest;
+      }
+      const clonedGroups = sourceGroups.map((g) => ({
+        ...g,
+        id: `grp-${Math.random().toString(36).slice(2, 8)}`,
+        exerciseIds: g.exerciseIds.map((eid) => idMap.get(eid) || eid),
+      }));
+      return { ...prev, [targetDayIndex]: clonedGroups };
+    });
+
+    toast.success("Gün başarıyla kopyalandı!");
+  }, [weekPlan]);
+
   const handleReorderExercises = useCallback((dayIndex: number, oldIndex: number, newIndex: number) => {
     setWeekPlan((prev) =>
       prev.map((d, i) => {
@@ -607,6 +645,7 @@ export default function Programs() {
               onUpdateExercise={handleUpdateExercise}
               onReorderExercises={handleReorderExercises}
               onClearDay={handleClearDay}
+              onDuplicateDay={handleDuplicateDay}
               onClearAll={handleClearAll}
               rules={automationRules}
               onSetRules={setAutomationRules}

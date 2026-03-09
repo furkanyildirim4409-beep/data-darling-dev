@@ -32,7 +32,14 @@ import {
   Unlink,
   RotateCcw,
   Layers,
+  Copy,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 import {
@@ -151,6 +158,7 @@ interface WorkoutBuilderProps {
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
   onReorderExercises: (dayIndex: number, oldIndex: number, newIndex: number) => void;
   onClearDay: (dayIndex: number) => void;
+  onDuplicateDay: (sourceDayIndex: number, targetDayIndex: number) => void;
   onClearAll: () => void;
   rules: AutomationRule[];
   onSetRules: (rules: AutomationRule[]) => void;
@@ -169,6 +177,7 @@ export function WorkoutBuilder({
   onUpdateExercise,
   onReorderExercises,
   onClearDay,
+  onDuplicateDay,
   onClearAll,
   rules,
   onSetRules,
@@ -469,10 +478,37 @@ export function WorkoutBuilder({
                     )}
 
                     {dayPlan.exercises.length > 0 && (
-                      <Button variant="ghost" size="sm" onClick={() => onClearDay(index)}
-                        className="w-full text-xs text-destructive hover:text-destructive hover:bg-destructive/10 mt-1">
-                        <Trash2 className="w-3.5 h-3.5 mr-1" />Günü Temizle
-                      </Button>
+                      <div className="flex gap-2 mt-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
+                              <Copy className="w-3.5 h-3.5 mr-1" />Günü Kopyala
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="bg-card border-border">
+                            {turkishDays.map((dayName, targetIdx) => (
+                              targetIdx !== index && (
+                                <DropdownMenuItem
+                                  key={targetIdx}
+                                  onClick={() => onDuplicateDay(index, targetIdx)}
+                                  className="text-xs"
+                                >
+                                  {dayName}
+                                  {weekPlan[targetIdx].exercises.length > 0 && (
+                                    <span className="ml-auto text-muted-foreground text-[10px]">
+                                      ({weekPlan[targetIdx].exercises.length} egz)
+                                    </span>
+                                  )}
+                                </DropdownMenuItem>
+                              )
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button variant="ghost" size="sm" onClick={() => onClearDay(index)}
+                          className="flex-1 text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />Günü Temizle
+                        </Button>
+                      </div>
                     )}
                   </AccordionContent>
                 </AccordionItem>
