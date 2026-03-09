@@ -302,6 +302,7 @@ export default function Programs() {
         sets: ex.sets,
         reps: ex.reps,
         rir: ex.rir,
+        rirPerSet: ex.rirPerSet,
         failureSet: ex.failureSet,
         notes: ex.notes,
         category: ex.category,
