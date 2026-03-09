@@ -152,21 +152,98 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
     return ex.name || ex.exerciseName || "Bilinmeyen Egzersiz";
   };
 
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      {quickRanges.map((r) => (
+        <Button
+          key={r.value}
+          variant={quickRange === r.value ? "default" : "outline"}
+          size="sm"
+          className="text-xs h-7"
+          onClick={() => {
+            setQuickRange(r.value);
+            if (r.value !== "custom") {
+              setDateFrom(undefined);
+              setDateTo(undefined);
+            }
+          }}
+        >
+          {r.label}
+        </Button>
+      ))}
+
+      {quickRange === "custom" && (
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("text-xs h-7 gap-1", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="w-3 h-3" />
+                {dateFrom ? format(dateFrom, "d MMM yyyy", { locale: tr }) : "Başlangıç"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={setDateFrom}
+                disabled={(d) => d > new Date() || (dateTo ? d > dateTo : false)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <span className="text-xs text-muted-foreground">—</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("text-xs h-7 gap-1", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="w-3 h-3" />
+                {dateTo ? format(dateTo, "d MMM yyyy", { locale: tr }) : "Bitiş"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                disabled={(d) => d > new Date() || (dateFrom ? d < dateFrom : false)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />
-        ))}
+      <div>
+        {filterBar}
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!logs.length) {
     return (
-      <div className="glass rounded-xl border border-border p-12 text-center">
-        <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
-        <p className="text-muted-foreground">Henüz tamamlanmış antrenman kaydı yok.</p>
+      <div>
+        {filterBar}
+        <div className="glass rounded-xl border border-border p-12 text-center">
+          <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="text-muted-foreground">
+            {quickRange !== "all" ? "Bu tarih aralığında antrenman kaydı bulunamadı." : "Henüz tamamlanmış antrenman kaydı yok."}
+          </p>
+        </div>
       </div>
     );
   }
