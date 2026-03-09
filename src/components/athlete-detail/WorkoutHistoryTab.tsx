@@ -294,7 +294,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                <div className="px-5 pb-4 space-y-1.5 border-t border-border pt-3">
+                <div className="px-5 pb-5 space-y-2 border-t border-border pt-4">
                   {exercises.length === 0 && (
                     <p className="text-sm text-muted-foreground py-2">
                       {log.exercises_count ? `${log.exercises_count} egzersiz tamamlandı (detay mevcut değil)` : "Detay bilgisi yok"}
@@ -310,42 +310,42 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                     return (
                       <div key={idx}>
                         {isFirstInGroup && (
-                          <div className="flex items-center gap-1.5 mt-2 mb-1 text-xs text-muted-foreground">
-                            <Link2 className="w-3 h-3" />
+                          <div className="flex items-center gap-1.5 mt-3 mb-1.5 text-xs text-muted-foreground">
+                            <Link2 className="w-3.5 h-3.5" />
                             <span>Süperset</span>
                           </div>
                         )}
                         <div
                           className={cn(
-                            "flex items-center justify-between py-2.5 px-3 rounded-lg bg-muted/30",
+                            "flex items-center justify-between py-3 px-4 rounded-lg bg-muted/30",
                             groupColor && `border-l-[3px]`,
                           )}
                           style={groupColor ? { borderLeftColor: groupColor } : undefined}
                         >
-                          <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-sm font-medium text-foreground truncate">{getExerciseName(ex)}</span>
+                          <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                            <span className="text-sm font-semibold text-foreground truncate">{getExerciseName(ex)}</span>
                             {isFailure && (
-                              <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
-                                <Flame className="w-3 h-3 mr-0.5" />Tükeniş
+                              <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[11px] px-2 py-0.5">
+                                <Flame className="w-3.5 h-3.5 mr-0.5" />Tükeniş
                               </Badge>
                             )}
                             {hasRir && (
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "text-[10px] px-1.5 py-0 border-border",
+                                  "text-[11px] px-2 py-0.5 border-border",
                                   ex.rir === 0 ? "text-orange-400 border-orange-500/30" : "text-muted-foreground"
                                 )}
                               >
-                                <Target className="w-3 h-3 mr-0.5" />RIR: {ex.rir}
+                                <Target className="w-3.5 h-3.5 mr-0.5" />RIR: {ex.rir}
                               </Badge>
                             )}
                             {ex.weightDiff != null && ex.weightDiff !== 0 && (
                               <span className={cn(
-                                "text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                                "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
                                 ex.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
                               )}>
-                                {ex.weightDiff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {ex.weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                                 {ex.weightDiff > 0 ? `+${ex.weightDiff}kg` : `${ex.weightDiff}kg`}
                               </span>
                             )}
@@ -356,14 +356,14 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               const targetSets = typeof ex.targetSets === 'number' ? ex.targetSets : (typeof ex.sets === 'number' ? ex.sets : null);
                               const targetReps = ex.targetReps || ex.reps;
                               return targetSets && targetReps ? (
-                                <span className="opacity-60">Hedef: {targetSets}×{targetReps}</span>
+                                <span className="opacity-60 text-xs">Hedef: {targetSets}×{targetReps}</span>
                               ) : null;
                             })()}
 
                             {(() => {
                               const performed = getPerformedSets(ex);
                               return performed.length > 0 ? (
-                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                   {performed.map((s, si) => {
                                     const repsMet = ex.reps != null && s.reps != null && s.reps >= Number(ex.reps);
                                     const isSetFailure = s.failure === true || s.isFailure === true;
@@ -371,7 +371,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                       <span
                                         key={si}
                                         className={cn(
-                                          "px-1.5 py-0.5 rounded text-[10px] font-mono",
+                                          "px-2 py-1 rounded text-[11px] font-mono",
                                           isSetFailure
                                             ? "bg-orange-500/10 text-orange-400"
                                             : repsMet
@@ -387,8 +387,8 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               ) : null;
                             })()}
                             {ex.rir != null && ex.rirSuccess === false && (
-                              <span className="text-[10px] text-destructive flex items-center gap-0.5">
-                                <AlertTriangle className="w-3 h-3" /> RIR Hedefi Kaçırıldı
+                              <span className="text-[11px] text-destructive flex items-center gap-0.5">
+                                <AlertTriangle className="w-3.5 h-3.5" /> RIR Hedefi Kaçırıldı
                               </span>
                             )}
                           </div>
