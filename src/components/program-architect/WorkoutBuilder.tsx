@@ -32,7 +32,14 @@ import {
   Unlink,
   RotateCcw,
   Layers,
+  Copy,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 import {
