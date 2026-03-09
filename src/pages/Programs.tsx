@@ -225,12 +225,26 @@ export default function Programs() {
       let programId: string;
 
       // Build week_config JSON for day metadata + groups
-      const weekConfig = weekPlan.map((day, i) => ({
-        label: day.label,
-        notes: day.notes || "",
-        blockType: day.blockType,
-        groups: dayGroups[i] || [],
-      }));
+      const weekConfig = weekPlan.map((day, i) => {
+        const dayExercises = day.exercises;
+        const rawGroups = dayGroups[i] || [];
+        
+        // Map each group to use relative indices instead of IDs
+        const mappedGroups = rawGroups.map(g => ({
+          id: g.id,
+          type: g.type,
+          exerciseIndices: g.exerciseIds
+            .map(id => dayExercises.findIndex(e => e.id === id))
+            .filter(idx => idx !== -1)
+        }));
+
+        return {
+          label: day.label,
+          notes: day.notes || "",
+          blockType: day.blockType,
+          groups: mappedGroups,
+        };
+      });
 
       if (isEditing) {
         const { error: progErr } = await supabase

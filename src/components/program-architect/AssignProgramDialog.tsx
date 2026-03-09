@@ -32,7 +32,7 @@ interface WeekConfigDay {
   label?: string;
   notes?: string;
   blockType?: string;
-  groups?: Array<{ id: string; exerciseIds: string[] }>;
+  groups?: Array<{ id: string; type?: string; exerciseIndices?: number[] }>;
 }
 
 interface ExerciseRow {
@@ -176,22 +176,28 @@ export function AssignProgramDialog({
         const targetDate = addDays(scheduledDate, dayIdx);
 
         const dayGroups = cfg?.groups || [];
-        const exercisesJson = (exs ?? [])
-          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-          .map((ex) => {
-            const foundGroup = dayGroups.find(g => g.exerciseIds.includes(ex.id));
-            return {
-              name: ex.name,
-              sets: ex.sets ?? 3,
-              reps: ex.reps ?? "10",
-              rir: ex.rir ?? 2,
-              failure_set: ex.failure_set ?? false,
-              rest_time: ex.rest_time ?? "",
-              notes: ex.notes ?? "",
-              order_index: (ex.order_index ?? 0) % 100,
-              groupId: foundGroup?.id ?? null,
-            };
-          });
+
+        // Sort exercises first to establish stable indices
+        const sortedExercises = (exs ?? []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+        const exercisesJson = sortedExercises.map((ex, exIdx) => {
+          // Find if this exercise index belongs to any group
+          const foundGroup = dayGroups.find(g => 
+            g.exerciseIndices && g.exerciseIndices.includes(exIdx)
+          );
+          
+          return {
+            name: ex.name,
+            sets: ex.sets ?? 3,
+            reps: ex.reps ?? "10",
+            rir: ex.rir ?? 2,
+            failure_set: ex.failure_set ?? false,
+            rest_time: ex.rest_time ?? "",
+            notes: ex.notes ?? "",
+            order_index: (ex.order_index ?? 0) % 100,
+            groupId: foundGroup?.id ?? null,
+          };
+        });
 
         for (const athleteId of selectedIds) {
           payload.push({
