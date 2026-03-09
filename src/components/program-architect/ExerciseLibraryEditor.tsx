@@ -398,7 +398,18 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                 <DialogTitle className="text-sm">ExerciseDB İçe Aktarıcı</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <p className="text-[10px] text-muted-foreground">Pro tier — tüm egzersizler tek seferde çekilir. API key güvenli olarak sunucuda saklanıyor.</p>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Limit (0 = tümü)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1500}
+                    value={importLimit}
+                    onChange={(e) => setImportLimit(Number(e.target.value))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">Pro tier — 0 girilirse tüm egzersizler çekilir. API key sunucuda saklanıyor.</p>
                 <Button
                   onClick={handleImport}
                   disabled={importing}
