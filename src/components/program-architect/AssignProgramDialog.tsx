@@ -96,17 +96,17 @@ export function AssignProgramDialog({
         daysWithExercises.add(dayIdx);
       });
 
-      const labels: string[] = [];
+      const active: Array<{ label: string; dayIdx: number }> = [];
       for (let i = 0; i < 7; i++) {
         const cfg = weekConfig[i];
         const hasExercises = daysWithExercises.has(i);
         const hasBlock = cfg?.blockType && cfg.blockType !== "none";
         if (hasExercises || hasBlock) {
-          labels.push(cfg?.label || `Gün ${i + 1}`);
+          active.push({ label: cfg?.label || `Gün ${i + 1}`, dayIdx: i });
         }
       }
-      setDayLabels(labels);
-      setActiveDayCount(labels.length);
+      setActiveDays(active);
+      setActiveDayCount(active.length);
       setLoadingPreview(false);
     };
 
