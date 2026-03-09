@@ -91,6 +91,7 @@ export default function Programs() {
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
           rir: (ex as any).rir ?? 2,
+          rirPerSet: Array.isArray((ex as any).rir_per_set) ? (ex as any).rir_per_set : undefined,
           failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
         };
@@ -172,7 +173,7 @@ export default function Programs() {
   }, []);
 
   const handleUpdateExercise = useCallback(
-    (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string) => {
+    (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string | number[]) => {
       setWeekPlan((prev) =>
         prev.map((d, i) =>
           i === dayIndex
@@ -301,6 +302,7 @@ export default function Programs() {
         sets: ex.sets,
         reps: ex.reps,
         rir: ex.rir,
+        rirPerSet: ex.rirPerSet,
         failureSet: ex.failureSet,
         notes: ex.notes,
         category: ex.category,
@@ -408,6 +410,7 @@ export default function Programs() {
           notes: ex.notes ?? null as string | null,
           order_index: dayIdx * 100 + exIdx,
           rir: ex.rir ?? 2,
+          rir_per_set: ex.rirPerSet || null,
           failure_set: ex.failureSet ?? false,
         }))
       );
@@ -456,6 +459,7 @@ export default function Programs() {
             reps: ex.reps ?? 10,
             rpe: 7,
             rir: ex.rir ?? 2,
+            rirPerSet: ex.rirPerSet,
             failureSet: ex.failureSet ?? false,
             notes: ex.notes,
           }));
@@ -507,6 +511,7 @@ export default function Programs() {
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
           rir: (ex as any).rir ?? 2,
+          rirPerSet: Array.isArray((ex as any).rir_per_set) ? (ex as any).rir_per_set : undefined,
           failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
         });
@@ -522,6 +527,7 @@ export default function Programs() {
         sets: ex.sets,
         reps: ex.reps,
         rir: ex.rir,
+        rirPerSet: ex.rirPerSet,
         failureSet: ex.failureSet,
         notes: ex.notes,
         category: ex.category,

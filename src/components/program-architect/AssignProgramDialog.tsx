@@ -41,6 +41,7 @@ interface ExerciseRow {
   sets: number | null;
   reps: string | null;
   rir: number | null;
+  rir_per_set: number[] | null;
   failure_set: boolean | null;
   rest_time: string | null;
   notes: string | null;
@@ -191,6 +192,7 @@ export function AssignProgramDialog({
             sets: ex.sets ?? 3,
             reps: ex.reps ?? "10",
             rir: ex.rir ?? 2,
+            rir_per_set: ex.rir_per_set ?? null,
             failure_set: ex.failure_set ?? false,
             rest_time: ex.rest_time ?? "",
             notes: ex.notes ?? "",
