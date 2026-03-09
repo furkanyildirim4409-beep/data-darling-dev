@@ -218,6 +218,18 @@ export default function Programs() {
     );
   }, []);
 
+  const handleReorderExercises = useCallback((dayIndex: number, oldIndex: number, newIndex: number) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => {
+        if (i !== dayIndex) return d;
+        const newExercises = [...d.exercises];
+        const [moved] = newExercises.splice(oldIndex, 1);
+        newExercises.splice(newIndex, 0, moved);
+        return { ...d, exercises: newExercises };
+      })
+    );
+  }, []);
+
   const handleClearAll = useCallback(() => {
     if (builderMode === "exercise") {
       setWeekPlan(createEmptyWeek());
@@ -444,6 +456,7 @@ export default function Programs() {
               onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
+              onReorderExercises={handleReorderExercises}
               onClearDay={handleClearDay}
               onClearAll={handleClearAll}
               rules={automationRules}
