@@ -154,6 +154,21 @@ export function ProgramLibrary({
   const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
+  // Stateful exercise library with localStorage persistence
+  const [exercises, setExercises] = useState<LibraryItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : defaultExercises;
+    } catch {
+      return defaultExercises;
+    }
+  });
+
+  const handleExercisesChange = useCallback((newExercises: LibraryItem[]) => {
+    setExercises(newExercises);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newExercises));
+  }, []);
+
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoadingTemplates(true);
