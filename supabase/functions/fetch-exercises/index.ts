@@ -27,7 +27,7 @@ serve(async (req) => {
     }
 
     const response = await fetch(
-      "https://exercisedb.p.rapidapi.com/exercises?limit=0&offset=0",
+      `https://exercisedb.p.rapidapi.com/exercises?limit=${limit}&offset=0`,
       {
         method: "GET",
         headers: {
