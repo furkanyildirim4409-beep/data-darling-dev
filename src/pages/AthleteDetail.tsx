@@ -18,6 +18,7 @@ import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
+import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { cn } from "@/lib/utils";
 
 interface AthleteProfile {
