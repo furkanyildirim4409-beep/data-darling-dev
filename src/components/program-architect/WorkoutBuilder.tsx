@@ -127,6 +127,7 @@ interface WorkoutBuilderProps {
   activeDay: number;
   onSetActiveDay: (index: number) => void;
   onUpdateDayLabel: (dayIndex: number, label: string) => void;
+  onUpdateDayBlockType: (dayIndex: number, blockType: BlockType) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
   onClearDay: (dayIndex: number) => void;
