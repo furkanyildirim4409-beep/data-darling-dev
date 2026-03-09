@@ -363,6 +363,7 @@ export default function Programs() {
               activeDay={activeDay}
               onSetActiveDay={setActiveDay}
               onUpdateDayLabel={handleUpdateDayLabel}
+              onUpdateDayBlockType={handleUpdateDayBlockType}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
               onClearDay={handleClearDay}
