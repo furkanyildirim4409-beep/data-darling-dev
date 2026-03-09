@@ -210,6 +210,30 @@ export type Database = {
         }
         Relationships: []
       }
+      exercise_library: {
+        Row: {
+          category: string | null
+          id: string
+          name: string
+          target_muscle: string | null
+          video_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          name: string
+          target_muscle?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          name?: string
+          target_muscle?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           created_at: string | null

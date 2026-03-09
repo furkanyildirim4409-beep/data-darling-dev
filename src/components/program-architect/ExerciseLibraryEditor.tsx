@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { LibraryItem } from "./ProgramLibrary";
 
 const CATEGORIES = ["Göğüs", "Sırt", "Bacak", "Omuz", "Kol", "Core", "Kardiyo", "Diğer"];
@@ -20,10 +21,10 @@ const MUSCLE_GROUPS = [
 
 interface ExerciseLibraryEditorProps {
   exercises: LibraryItem[];
-  onExercisesChange: (exercises: LibraryItem[]) => void;
+  onRefresh: () => void;
 }
 
-export function ExerciseLibraryEditor({ exercises, onExercisesChange }: ExerciseLibraryEditorProps) {
+export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryEditorProps) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -36,6 +37,7 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
   const [newMuscle, setNewMuscle] = useState("Pectoralis Major");
   const [newGifUrl, setNewGifUrl] = useState("");
   const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // RapidAPI Import state
   const [importOpen, setImportOpen] = useState(false);
@@ -52,37 +54,65 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
     setEditGifUrl(item.gifUrl || "");
   };
 
-  const saveEdit = () => {
-    if (!editName.trim()) return;
-    onExercisesChange(exercises.map(ex =>
-      ex.id === editingId
-        ? { ...ex, name: editName.trim(), category: editCategory, muscleGroup: editMuscle, gifUrl: editGifUrl.trim() || undefined }
-        : ex
-    ));
+  const saveEdit = async () => {
+    if (!editName.trim() || !editingId) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("exercise_library")
+      .update({
+        name: editName.trim(),
+        category: editCategory,
+        target_muscle: editMuscle || null,
+        video_url: editGifUrl.trim() || null,
+      })
+      .eq("id", editingId);
+
+    if (error) {
+      toast.error("Güncelleme başarısız");
+    } else {
+      toast.success("Egzersiz güncellendi");
+      onRefresh();
+    }
     setEditingId(null);
-    toast.success("Egzersiz güncellendi");
+    setSaving(false);
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return;
-    const newExercise: LibraryItem = {
-      id: `ex-custom-${Date.now()}`,
-      name: newName.trim(),
-      category: newCategory,
-      type: "exercise",
-      muscleGroup: newMuscle,
-      gifUrl: newGifUrl.trim() || undefined,
-    };
-    onExercisesChange([...exercises, newExercise]);
+    setSaving(true);
+    const { error } = await supabase
+      .from("exercise_library")
+      .insert({
+        name: newName.trim(),
+        category: newCategory,
+        target_muscle: newMuscle || null,
+        video_url: newGifUrl.trim() || null,
+      });
+
+    if (error) {
+      toast.error("Egzersiz eklenemedi");
+    } else {
+      toast.success("Egzersiz eklendi");
+      onRefresh();
+    }
     setNewName("");
     setNewGifUrl("");
     setShowAddForm(false);
-    toast.success("Egzersiz eklendi");
+    setSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    onExercisesChange(exercises.filter(ex => ex.id !== id));
-    toast.success("Egzersiz silindi");
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from("exercise_library")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Silme başarısız");
+    } else {
+      toast.success("Egzersiz silindi");
+      onRefresh();
+    }
   };
 
   const handleImport = async () => {
@@ -108,21 +138,32 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
       const existingNames = new Set(exercises.map((e) => e.name.toLowerCase()));
       const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-      const newItems: LibraryItem[] = data
+      const newRows = data
         .filter((ex: any) => !existingNames.has(ex.name?.toLowerCase()))
         .map((ex: any) => ({
-          id: `exdb-${ex.id}`,
           name: capitalize(ex.name || ""),
           category: capitalize(ex.bodyPart || "Diğer"),
-          type: "exercise" as const,
-          muscleGroup: ex.target || undefined,
-          gifUrl: ex.gifUrl || undefined,
+          target_muscle: ex.target || null,
+          video_url: ex.gifUrl || null,
         }));
 
-      if (newItems.length > 0) {
-        onExercisesChange([...exercises, ...newItems]);
-        toast.success(`${newItems.length} yeni egzersiz eklendi`);
-        setImportResult(`✅ ${newItems.length} egzersiz başarıyla eklendi (${data.length - newItems.length} mükerrer atlandı)`);
+      if (newRows.length > 0) {
+        // Chunked insert — 500 per batch
+        const CHUNK_SIZE = 500;
+        let insertedCount = 0;
+        for (let i = 0; i < newRows.length; i += CHUNK_SIZE) {
+          const chunk = newRows.slice(i, i + CHUNK_SIZE);
+          const { error } = await supabase.from("exercise_library").insert(chunk);
+          if (error) {
+            console.error("Chunk insert error:", error);
+            toast.error(`Batch ${Math.floor(i / CHUNK_SIZE) + 1} başarısız`);
+          } else {
+            insertedCount += chunk.length;
+          }
+        }
+        onRefresh();
+        toast.success(`${insertedCount} yeni egzersiz eklendi`);
+        setImportResult(`✅ ${insertedCount} egzersiz başarıyla eklendi (${data.length - newRows.length} mükerrer atlandı)`);
       } else {
         setImportResult("ℹ️ Tüm egzersizler zaten kütüphanede mevcut");
       }
@@ -219,7 +260,10 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
             )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setShowAddForm(false); setNewGifUrl(""); }}>İptal</Button>
-              <Button size="sm" onClick={handleAdd} disabled={!newName.trim()}>Ekle</Button>
+              <Button size="sm" onClick={handleAdd} disabled={!newName.trim() || saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+                Ekle
+              </Button>
             </div>
           </div>
         )}
@@ -283,8 +327,8 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingId(null)}>
                         <X className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" className="h-7 w-7" onClick={saveEdit}>
-                        <Check className="w-3.5 h-3.5" />
+                      <Button size="icon" className="h-7 w-7" onClick={saveEdit} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                       </Button>
                     </div>
                   </div>
