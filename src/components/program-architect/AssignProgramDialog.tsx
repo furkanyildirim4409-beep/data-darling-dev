@@ -46,6 +46,7 @@ interface ExerciseRow {
   rest_time: string | null;
   notes: string | null;
   order_index: number | null;
+  video_url: string | null;
 }
 
 const addDays = (dateStr: string, days: number): string => {
