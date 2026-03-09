@@ -1,30 +1,41 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dumbbell, Calendar, Edit, Clock, Target, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dumbbell, Calendar, Edit, Clock, Trash2, StickyNote, Zap, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-interface AssignedProgram {
+interface ExerciseJson {
+  name: string;
+  sets?: number;
+  reps?: string;
+  rir?: number;
+  failure_set?: boolean;
+  rest_time?: string;
+  notes?: string;
+}
+
+interface AssignedWorkout {
   id: string;
-  programId: string;
-  title: string;
-  description: string | null;
-  difficulty: string | null;
-  targetGoal: string | null;
-  scheduledDate: string | null;
+  workout_name: string;
+  day_notes: string | null;
+  scheduled_date: string | null;
   status: string | null;
-  exercises: {
-    id: string;
-    name: string;
-    sets: number | null;
-    reps: string | null;
-    restTime: string | null;
-    notes: string | null;
-    orderIndex: number | null;
-  }[];
+  program_id: string | null;
+  exercises: ExerciseJson[];
 }
 
 interface ProgramTabProps {
@@ -34,102 +45,54 @@ interface ProgramTabProps {
 
 export function ProgramTab({ athleteId, currentProgram }: ProgramTabProps) {
   const navigate = useNavigate();
-  const [programs, setPrograms] = useState<AssignedProgram[]>([]);
+  const [workouts, setWorkouts] = useState<AssignedWorkout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<AssignedWorkout | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchAssignedPrograms = useCallback(async () => {
+  const fetchAssigned = useCallback(async () => {
     setLoading(true);
-
-    // Fetch assigned workouts for this athlete
-    const { data: assignments, error: assignErr } = await supabase
+    const { data, error } = await supabase
       .from("assigned_workouts")
-      .select("id, program_id, scheduled_date, status")
+      .select("id, workout_name, day_notes, scheduled_date, status, program_id, exercises")
       .eq("athlete_id", athleteId)
-      .order("scheduled_date", { ascending: false });
+      .order("scheduled_date", { ascending: true });
 
-    if (assignErr || !assignments || assignments.length === 0) {
-      setPrograms([]);
-      setLoading(false);
-      return;
+    if (error) {
+      toast.error("Atanmış programlar yüklenemedi");
+      setWorkouts([]);
+    } else {
+      setWorkouts(
+        (data ?? []).map((d) => ({
+          ...d,
+          day_notes: (d as any).day_notes ?? null,
+          exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
+        }))
+      );
     }
-
-    // Get unique program IDs
-    const programIds = [...new Set(assignments.map((a) => a.program_id).filter(Boolean))] as string[];
-
-    if (programIds.length === 0) {
-      setPrograms([]);
-      setLoading(false);
-      return;
-    }
-
-    // Fetch programs and exercises in parallel
-    const [programsRes, exercisesRes] = await Promise.all([
-      supabase.from("programs").select("*").in("id", programIds),
-      supabase.from("exercises").select("*").in("program_id", programIds).order("order_index", { ascending: true }),
-    ]);
-
-    const programMap = new Map(
-      (programsRes.data ?? []).map((p) => [p.id, p])
-    );
-    const exerciseMap = new Map<string, typeof exercisesRes.data>();
-    for (const ex of exercisesRes.data ?? []) {
-      const pid = ex.program_id as string;
-      if (!exerciseMap.has(pid)) exerciseMap.set(pid, []);
-      exerciseMap.get(pid)!.push(ex);
-    }
-
-    const mapped: AssignedProgram[] = assignments
-      .filter((a) => a.program_id && programMap.has(a.program_id))
-      .map((a) => {
-        const prog = programMap.get(a.program_id!)!;
-        const exs = exerciseMap.get(a.program_id!) ?? [];
-        return {
-          id: a.id,
-          programId: a.program_id!,
-          title: prog.title,
-          description: prog.description,
-          difficulty: prog.difficulty,
-          targetGoal: prog.target_goal,
-          scheduledDate: a.scheduled_date,
-          status: a.status,
-          exercises: exs.map((e) => ({
-            id: e.id,
-            name: e.name,
-            sets: e.sets,
-            reps: e.reps,
-            restTime: e.rest_time,
-            notes: e.notes,
-            orderIndex: e.order_index,
-          })),
-        };
-      });
-
-    setPrograms(mapped);
     setLoading(false);
   }, [athleteId]);
 
   useEffect(() => {
-    fetchAssignedPrograms();
-  }, [fetchAssignedPrograms]);
+    fetchAssigned();
+  }, [fetchAssigned]);
 
-  const getDifficultyLabel = (d: string | null) => {
-    switch (d) {
-      case "beginner": return "Başlangıç";
-      case "intermediate": return "Orta";
-      case "advanced": return "İleri";
-      default: return null;
-    }
-  };
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from("assigned_workouts")
+      .delete()
+      .eq("id", deleteTarget.id);
 
-  const getGoalLabel = (g: string | null) => {
-    switch (g) {
-      case "hypertrophy": return "Hipertrofi";
-      case "strength": return "Güç";
-      case "endurance": return "Dayanıklılık";
-      case "fat_loss": return "Yağ Yakımı";
-      case "general": return "Genel Fitness";
-      default: return null;
+    if (error) {
+      toast.error("Silme başarısız: " + error.message);
+    } else {
+      toast.success(`"${deleteTarget.workout_name}" silindi`);
+      setWorkouts((prev) => prev.filter((w) => w.id !== deleteTarget.id));
     }
+    setDeleting(false);
+    setDeleteTarget(null);
   };
 
   const getStatusBadge = (s: string | null) => {
@@ -152,7 +115,7 @@ export function ProgramTab({ athleteId, currentProgram }: ProgramTabProps) {
     );
   }
 
-  if (programs.length === 0) {
+  if (workouts.length === 0) {
     return (
       <div className="glass rounded-xl border border-border p-12 text-center">
         <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
@@ -171,85 +134,122 @@ export function ProgramTab({ athleteId, currentProgram }: ProgramTabProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {programs.map((program) => (
-        <div key={program.id} className="space-y-4">
-          {/* Program Header */}
-          <div className="glass rounded-xl border border-primary/30 p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <Dumbbell className="w-7 h-7 text-primary" />
+    <>
+      <div className="space-y-4">
+        {workouts.map((workout) => (
+          <div key={workout.id} className="glass rounded-xl border border-border overflow-hidden">
+            {/* Header */}
+            <div className="p-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                  <Dumbbell className="w-5 h-5 text-primary" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground">{program.title}</h3>
-                  {program.description && (
-                    <p className="text-sm text-muted-foreground">{program.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {getStatusBadge(program.status)}
-                    {program.scheduledDate && (
-                      <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border">
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-foreground truncate">{workout.workout_name}</h3>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {getStatusBadge(workout.status)}
+                    {workout.scheduled_date && (
+                      <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-xs">
                         <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(program.scheduledDate).toLocaleDateString("tr-TR")}
-                      </Badge>
-                    )}
-                    {getDifficultyLabel(program.difficulty) && (
-                      <Badge variant="outline" className="text-xs">
-                        {getDifficultyLabel(program.difficulty)}
-                      </Badge>
-                    )}
-                    {getGoalLabel(program.targetGoal) && (
-                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                        <Target className="w-3 h-3 mr-1" />
-                        {getGoalLabel(program.targetGoal)}
+                        {new Date(workout.scheduled_date + "T00:00:00").toLocaleDateString("tr-TR", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
                       </Badge>
                     )}
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/programs")}
-                className="border-border"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Düzenle
-              </Button>
-            </div>
-          </div>
-
-          {/* Exercises */}
-          {program.exercises.length > 0 && (
-            <div className="glass rounded-xl border border-border p-5">
-              <h4 className="text-base font-semibold text-foreground flex items-center gap-2 mb-4">
-                <Clock className="w-4 h-4 text-primary" />
-                Egzersizler ({program.exercises.length})
-              </h4>
-              <div className="space-y-2">
-                {program.exercises.map((ex, idx) => (
-                  <div
-                    key={ex.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm font-medium text-foreground">{ex.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
-                      {ex.sets && <span>{ex.sets} set</span>}
-                      {ex.reps && <span>×{ex.reps}</span>}
-                      {ex.restTime && <span className="text-muted-foreground/60">({ex.restTime})</span>}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setDeleteTarget(workout)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-          )}
-        </div>
-      ))}
-    </div>
+
+            {/* Day Notes */}
+            {workout.day_notes && (
+              <div className="mx-4 mb-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+                <div className="flex items-start gap-2">
+                  <StickyNote className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{workout.day_notes}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Exercises */}
+            {workout.exercises.length > 0 && (
+              <div className="px-4 pb-4">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  Egzersizler ({workout.exercises.length})
+                </h4>
+                <div className="space-y-1.5">
+                  {workout.exercises.map((ex, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 border border-border/50"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-foreground truncate block">{ex.name}</span>
+                          {ex.notes && (
+                            <span className="text-[10px] text-muted-foreground truncate block">{ex.notes}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground shrink-0">
+                        {ex.sets && <span>{ex.sets}set</span>}
+                        {ex.reps && <span>×{ex.reps}</span>}
+                        {ex.rir !== undefined && ex.rir !== null && (
+                          <Badge variant="outline" className={cn("text-[10px] h-4 px-1", ex.rir === 0 && "border-destructive/50 text-destructive")}>
+                            RIR {ex.rir}
+                          </Badge>
+                        )}
+                        {ex.failure_set && (
+                          <Zap className="w-3.5 h-3.5 text-destructive" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atamayı Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.workout_name}" atamasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
