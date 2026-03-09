@@ -205,8 +205,13 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
                             {/* Target */}
-                            {ex.sets && ex.reps && (
-                              <span className="opacity-60">Hedef: {ex.sets}×{ex.reps}</span>
+                            {(() => {
+                              const targetSets = typeof ex.targetSets === 'number' ? ex.targetSets : (typeof ex.sets === 'number' ? ex.sets : null);
+                              const targetReps = ex.targetReps || ex.reps;
+                              return targetSets && targetReps ? (
+                                <span className="opacity-60">Hedef: {targetSets}×{targetReps}</span>
+                              ) : null;
+                            })()
                             )}
                             {/* Actual sets */}
                             {(() => {
