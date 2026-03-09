@@ -172,7 +172,7 @@ export default function Programs() {
   }, []);
 
   const handleUpdateExercise = useCallback(
-    (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string) => {
+    (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string | number[]) => {
       setWeekPlan((prev) =>
         prev.map((d, i) =>
           i === dayIndex
