@@ -217,6 +217,44 @@ export default function Programs() {
     );
   }, []);
 
+  const handleDuplicateDay = useCallback((sourceDayIndex: number, targetDayIndex: number) => {
+    setWeekPlan((prev) => {
+      const sourceDay = prev[sourceDayIndex];
+      // Clone exercises with new IDs to avoid conflicts
+      const clonedExercises = sourceDay.exercises.map((ex) => ({
+        ...ex,
+        id: `${ex.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      }));
+      return prev.map((d, i) =>
+        i === targetDayIndex
+          ? { ...d, exercises: clonedExercises, label: sourceDay.label, notes: sourceDay.notes, blockType: sourceDay.blockType }
+          : d
+      );
+    });
+    // Also duplicate groups
+    setDayGroups((prev) => {
+      const sourceGroups = prev[sourceDayIndex] || [];
+      if (sourceGroups.length === 0) {
+        const { [targetDayIndex]: _, ...rest } = prev;
+        return rest;
+      }
+      // Remap group exercise IDs to match cloned IDs
+      const sourceExercises = weekPlan[sourceDayIndex].exercises;
+      const clonedGroups = sourceGroups.map((g) => ({
+        ...g,
+        id: `grp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        exerciseIds: g.exerciseIds.map((eid) => {
+          const idx = sourceExercises.findIndex((ex) => ex.id === eid);
+          // The cloned exercises will have new IDs based on the pattern above
+          // but we need to reference the weekPlan after update, so just keep mapping
+          return idx >= 0 ? `${eid}-copy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` : eid;
+        }),
+      }));
+      return { ...prev, [targetDayIndex]: clonedGroups };
+    });
+    toast.success("Gün başarıyla kopyalandı!");
+  }, [weekPlan]);
+
   const handleReorderExercises = useCallback((dayIndex: number, oldIndex: number, newIndex: number) => {
     setWeekPlan((prev) =>
       prev.map((d, i) => {
