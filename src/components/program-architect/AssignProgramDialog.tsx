@@ -41,6 +41,7 @@ interface ExerciseRow {
   sets: number | null;
   reps: string | null;
   rir: number | null;
+  rir_per_set: number[] | null;
   failure_set: boolean | null;
   rest_time: string | null;
   notes: string | null;
