@@ -62,6 +62,7 @@ export interface LibraryItem {
   type: string;
   muscleGroup?: string;
   kcal?: number;
+  gifUrl?: string;
 }
 
 export interface SavedTemplate {
@@ -93,6 +94,18 @@ function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
       )}
     >
       <div className="flex items-center gap-3">
+        {item.gifUrl ? (
+          <img
+            src={item.gifUrl}
+            alt={item.name}
+            className="w-7 h-7 rounded object-cover shrink-0 border border-border"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : item.type === "exercise" ? (
+          <Dumbbell className="w-4 h-4 text-primary/60 shrink-0" />
+        ) : (
+          <Apple className="w-4 h-4 text-success/60 shrink-0" />
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
           <div className="flex items-center gap-2 mt-0.5">
@@ -109,11 +122,6 @@ function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
             )}
           </div>
         </div>
-        {item.type === "exercise" ? (
-          <Dumbbell className="w-4 h-4 text-primary/60 shrink-0" />
-        ) : (
-          <Apple className="w-4 h-4 text-success/60 shrink-0" />
-        )}
         <Button
           variant="ghost"
           size="icon"
