@@ -117,19 +117,17 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
     setImporting(true);
     setImportResult(null);
     try {
-      const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
       const response = await supabase.functions.invoke("fetch-exercises", {
-        body: { limit: clampedLimit },
+        body: {},
       });
       if (response.error) {
         throw new Error(response.error.message || "Edge function error");
       }
       const data = response.data;
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
-      console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
+      console.log(`[RapidAPI] Fetched ${data.length} exercises`);
       if (data.length > 0) {
         console.log("[RapidAPI] Sample exercise keys:", Object.keys(data[0]));
-        console.log("[RapidAPI] Sample exercise:", JSON.stringify(data[0]).slice(0, 500));
       }
 
       // Fetch ALL existing names directly from DB to avoid Supabase 1000-row cap
