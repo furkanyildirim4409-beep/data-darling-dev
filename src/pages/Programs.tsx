@@ -294,11 +294,13 @@ export default function Programs() {
       toast.success(isEditing ? "Program başarıyla güncellendi!" : "Program başarıyla kaydedildi!");
       setWeekPlan(createEmptyWeek());
       setSelectedNutrition([]);
+      setAutomationRules([]);
+      setDayGroups({});
       setEditingProgram(null);
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, weekPlan, editingProgram]
+    [user, weekPlan, editingProgram, automationRules, dayGroups]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
