@@ -14,16 +14,18 @@ interface PerformedSet {
 }
 
 interface ExerciseDetail {
-  name: string;
-  sets?: number;
+  name?: string;
+  exerciseName?: string;
+  sets?: number | PerformedSet[];
   reps?: string | number;
+  targetSets?: number;
+  targetReps?: string | number;
   rir?: number;
   failure_set?: boolean;
   failureSet?: boolean;
   groupId?: string | null;
   rest_time?: string;
   notes?: string;
-  // Multiple possible keys for performed sets
   actualSets?: PerformedSet[];
   completedSets?: PerformedSet[];
   sets_completed?: PerformedSet[];
@@ -88,7 +90,12 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
   // Extract performed sets from any of the possible keys
   const getPerformedSets = (ex: ExerciseDetail): PerformedSet[] => {
+    if (Array.isArray(ex.sets)) return ex.sets;
     return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
+  };
+
+  const getExerciseName = (ex: ExerciseDetail): string => {
+    return ex.name || ex.exerciseName || "Bilinmeyen Egzersiz";
   };
 
   if (loading) {
@@ -177,7 +184,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                           style={groupColor ? { borderLeftColor: groupColor } : undefined}
                         >
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-sm font-medium text-foreground truncate">{ex.name}</span>
+                            <span className="text-sm font-medium text-foreground truncate">{getExerciseName(ex)}</span>
                             {isFailure && (
                               <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
                                 <Flame className="w-3 h-3 mr-0.5" />Tükeniş
@@ -198,9 +205,14 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
                             {/* Target */}
-                            {ex.sets && ex.reps && (
-                              <span className="opacity-60">Hedef: {ex.sets}×{ex.reps}</span>
-                            )}
+                            {(() => {
+                              const targetSets = typeof ex.targetSets === 'number' ? ex.targetSets : (typeof ex.sets === 'number' ? ex.sets : null);
+                              const targetReps = ex.targetReps || ex.reps;
+                              return targetSets && targetReps ? (
+                                <span className="opacity-60">Hedef: {targetSets}×{targetReps}</span>
+                              ) : null;
+                            })()}
+
                             {/* Actual sets */}
                             {(() => {
                               const performed = getPerformedSets(ex);
