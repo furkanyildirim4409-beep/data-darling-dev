@@ -264,27 +264,32 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
               <CollapsibleTrigger className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-4 text-left">
                   <div>
-                    <p className="font-semibold text-foreground">{log.workout_name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground text-base">{log.workout_name}</p>
+                    <p className="text-sm text-muted-foreground">
                       {log.logged_at ? new Date(log.logged_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   {log.duration_minutes && (
-                    <Badge variant="outline" className="hidden sm:flex gap-1 text-muted-foreground border-border">
-                      <Clock className="w-3 h-3" />{log.duration_minutes} dk
-                    </Badge>
+                    <div className="hidden sm:flex items-center gap-1.5 bg-muted/60 text-foreground px-3 py-1.5 rounded-lg">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{log.duration_minutes} dk</span>
+                    </div>
                   )}
                   {log.tonnage != null && log.tonnage > 0 && (
-                    <Badge variant="outline" className="hidden sm:flex gap-1 text-muted-foreground border-border">
-                      <Dumbbell className="w-3 h-3" />{Math.round(log.tonnage)} kg
-                    </Badge>
+                    <div className="hidden sm:flex items-center gap-1.5 bg-muted/60 text-foreground px-3 py-1.5 rounded-lg">
+                      <Dumbbell className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{Math.round(log.tonnage)} kg</span>
+                    </div>
                   )}
                   {log.exercises_count && (
-                    <Badge variant="secondary" className="text-xs">{log.exercises_count} egzersiz</Badge>
+                    <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-lg">
+                      <span className="text-sm font-semibold">{log.exercises_count}</span>
+                      <span className="text-sm">egzersiz</span>
+                    </div>
                   )}
-                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                  <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
                 </div>
               </CollapsibleTrigger>
 
