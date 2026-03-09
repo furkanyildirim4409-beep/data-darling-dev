@@ -202,7 +202,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       fetchPrograms();
     }
   };
-  };
 
   const getBlockColor = (type?: string) => {
     switch (type) {
