@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon } from "lucide-react";
+import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { LibraryItem } from "./ProgramLibrary";
@@ -36,6 +36,13 @@ export function ExerciseLibraryEditor({ exercises, onExercisesChange }: Exercise
   const [newMuscle, setNewMuscle] = useState("Pectoralis Major");
   const [newGifUrl, setNewGifUrl] = useState("");
   const [search, setSearch] = useState("");
+
+  // RapidAPI Import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [importLimit, setImportLimit] = useState(50);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const startEdit = (item: LibraryItem) => {
     setEditingId(item.id);
