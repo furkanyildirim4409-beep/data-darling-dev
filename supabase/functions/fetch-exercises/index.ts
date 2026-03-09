@@ -12,9 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    const { limit = 50 } = await req.json();
-    const clampedLimit = Math.min(Math.max(Number(limit), 1), 1300);
-
     const apiKey = Deno.env.get("RAPIDAPI_KEY");
     if (!apiKey) {
       return new Response(
@@ -24,7 +21,7 @@ serve(async (req) => {
     }
 
     const response = await fetch(
-      `https://exercisedb.p.rapidapi.com/exercises?limit=${clampedLimit}&offset=0`,
+      "https://exercisedb.p.rapidapi.com/exercises?limit=0&offset=0",
       {
         method: "GET",
         headers: {
@@ -44,7 +41,18 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    return new Response(JSON.stringify(data), {
+    console.log(`[fetch-exercises] Fetched ${Array.isArray(data) ? data.length : 0} exercises from ExerciseDB Pro`);
+
+    const enriched = Array.isArray(data)
+      ? data.map((ex: any) => ({
+          ...ex,
+          imageUrl: ex.id
+            ? `https://exercisedb.p.rapidapi.com/image/${ex.id}?rapidapi-key=${apiKey}`
+            : null,
+        }))
+      : data;
+
+    return new Response(JSON.stringify(enriched), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -41,7 +41,6 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
 
   // RapidAPI Import state
   const [importOpen, setImportOpen] = useState(false);
-  const [importLimit, setImportLimit] = useState(50);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
 
@@ -118,19 +117,17 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
     setImporting(true);
     setImportResult(null);
     try {
-      const clampedLimit = Math.min(Math.max(importLimit, 1), 1300);
       const response = await supabase.functions.invoke("fetch-exercises", {
-        body: { limit: clampedLimit },
+        body: {},
       });
       if (response.error) {
         throw new Error(response.error.message || "Edge function error");
       }
       const data = response.data;
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
-      console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
+      console.log(`[RapidAPI] Fetched ${data.length} exercises`);
       if (data.length > 0) {
         console.log("[RapidAPI] Sample exercise keys:", Object.keys(data[0]));
-        console.log("[RapidAPI] Sample exercise:", JSON.stringify(data[0]).slice(0, 500));
       }
 
       // Fetch ALL existing names directly from DB to avoid Supabase 1000-row cap
@@ -144,10 +141,10 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
       const newRows = data
         .filter((ex: any) => !existingNames.has(ex.name?.toLowerCase()))
         .map((ex: any) => ({
-          name: capitalize(ex.name || ""),
+          name: capitalize(ex.name || "Bilinmeyen"),
           category: capitalize(ex.bodyPart || "Diğer"),
-          target_muscle: ex.target || null,
-          video_url: ex.gifUrl || null,
+          target_muscle: capitalize(ex.target || ""),
+          video_url: ex.imageUrl || null,
         }));
 
       if (newRows.length > 0) {
@@ -400,18 +397,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                 <DialogTitle className="text-sm">ExerciseDB İçe Aktarıcı</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Limit (maks 1300)</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1300}
-                    value={importLimit}
-                    onChange={(e) => setImportLimit(Number(e.target.value))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground">API key güvenli olarak sunucuda saklanıyor.</p>
+                <p className="text-[10px] text-muted-foreground">Pro tier — tüm egzersizler tek seferde çekilir. API key güvenli olarak sunucuda saklanıyor.</p>
                 <Button
                   onClick={handleImport}
                   disabled={importing}
@@ -419,7 +405,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                   size="sm"
                 >
                   {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
-                  {importing ? "Çekiliyor..." : "Verileri Çek ve Kaydet"}
+                  {importing ? "Çekiliyor..." : "Tüm Egzersizleri Çek (Pro)"}
                 </Button>
                 {importResult && (
                   <p className="text-xs text-muted-foreground text-center p-2 rounded-md bg-muted/50">{importResult}</p>
