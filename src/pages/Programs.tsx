@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
-import { WorkoutBuilder, BuilderExercise } from "@/components/program-architect/WorkoutBuilder";
+import { WorkoutBuilder, BuilderExercise, DayPlan } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
@@ -15,6 +15,9 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ViewMode = "dashboard" | "builder";
 
+const createEmptyWeek = (): DayPlan[] =>
+  Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", exercises: [] }));
+
 export default function Programs() {
   const { user } = useAuth();
 
@@ -23,8 +26,9 @@ export default function Programs() {
   const [builderMode, setBuilderMode] = useState<"exercise" | "nutrition">("exercise");
   const [editingProgram, setEditingProgram] = useState<ProgramData | null>(null);
 
-  // Builder state
-  const [selectedExercises, setSelectedExercises] = useState<BuilderExercise[]>([]);
+  // Builder state — 7-day structure
+  const [weekPlan, setWeekPlan] = useState<DayPlan[]>(createEmptyWeek());
+  const [activeDay, setActiveDay] = useState(0);
   const [selectedNutrition, setSelectedNutrition] = useState<NutritionItem[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -33,10 +37,14 @@ export default function Programs() {
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
 
+  // Flatten all exercises for compatibility
+  const allExercises = weekPlan.flatMap((d) => d.exercises);
+
   const handleCreateProgram = useCallback((type: "exercise" | "nutrition") => {
     setBuilderMode(type);
     setEditingProgram(null);
-    setSelectedExercises([]);
+    setWeekPlan(createEmptyWeek());
+    setActiveDay(0);
     setSelectedNutrition([]);
     setViewMode("builder");
   }, []);
@@ -46,7 +54,6 @@ export default function Programs() {
     setEditingProgram(program);
     setViewMode("builder");
 
-    // Fetch existing exercises from Supabase
     const { data: exercises, error } = await supabase
       .from("exercises")
       .select("*")
@@ -58,22 +65,28 @@ export default function Programs() {
       return;
     }
 
+    const newWeek = createEmptyWeek();
+
     if (exercises && exercises.length > 0) {
-      const mapped: BuilderExercise[] = exercises.map((ex) => ({
-        id: ex.id,
-        name: ex.name,
-        category: "",
-        type: "exercise",
-        sets: ex.sets ?? 3,
-        reps: parseInt(ex.reps ?? "10", 10),
-        rpe: 7,
-        notes: ex.notes ?? undefined,
-      }));
-      setSelectedExercises(mapped);
-    } else {
-      setSelectedExercises([]);
+      exercises.forEach((ex) => {
+        const dayIndex = Math.floor((ex.order_index ?? 0) / 100);
+        const clampedDay = Math.min(Math.max(dayIndex, 0), 6);
+        const mapped: BuilderExercise = {
+          id: ex.id,
+          name: ex.name,
+          category: "",
+          type: "exercise",
+          sets: ex.sets ?? 3,
+          reps: parseInt(ex.reps ?? "10", 10),
+          rpe: 7,
+          notes: ex.notes ?? undefined,
+        };
+        newWeek[clampedDay].exercises.push(mapped);
+      });
     }
 
+    setWeekPlan(newWeek);
+    setActiveDay(0);
     toast.info(`"${program.name}" düzenleme modunda açıldı.`);
   }, []);
 
@@ -85,9 +98,14 @@ export default function Programs() {
   const handleAddItem = useCallback(
     (item: LibraryItem) => {
       if (builderMode === "exercise") {
-        if (selectedExercises.find((ex) => ex.id === item.id)) return;
+        // Check if already in active day
+        if (weekPlan[activeDay].exercises.find((ex) => ex.id === item.id)) return;
         const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7 };
-        setSelectedExercises((prev) => [...prev, newExercise]);
+        setWeekPlan((prev) =>
+          prev.map((d, i) =>
+            i === activeDay ? { ...d, exercises: [...d.exercises, newExercise] } : d
+          )
+        );
       } else {
         const newNutrition: NutritionItem = {
           ...item,
@@ -99,11 +117,15 @@ export default function Programs() {
         toast.success(`${item.name} listeye eklendi.`);
       }
     },
-    [builderMode, selectedExercises, activeMealId]
+    [builderMode, weekPlan, activeDay, activeMealId]
   );
 
-  const handleRemoveExercise = useCallback((id: string) => {
-    setSelectedExercises((prev) => prev.filter((ex) => ex.id !== id));
+  const handleRemoveExercise = useCallback((dayIndex: number, id: string) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) =>
+        i === dayIndex ? { ...d, exercises: d.exercises.filter((ex) => ex.id !== id) } : d
+      )
+    );
   }, []);
 
   const handleRemoveNutrition = useCallback((id: string) => {
@@ -111,9 +133,13 @@ export default function Programs() {
   }, []);
 
   const handleUpdateExercise = useCallback(
-    (id: string, field: keyof BuilderExercise, value: number | string) => {
-      setSelectedExercises((prev) =>
-        prev.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex))
+    (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string) => {
+      setWeekPlan((prev) =>
+        prev.map((d, i) =>
+          i === dayIndex
+            ? { ...d, exercises: d.exercises.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex)) }
+            : d
+        )
       );
     },
     []
@@ -128,9 +154,21 @@ export default function Programs() {
     []
   );
 
+  const handleUpdateDayLabel = useCallback((dayIndex: number, label: string) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, label } : d))
+    );
+  }, []);
+
+  const handleClearDay = useCallback((dayIndex: number) => {
+    setWeekPlan((prev) =>
+      prev.map((d, i) => (i === dayIndex ? { ...d, exercises: [], label: "" } : d))
+    );
+  }, []);
+
   const handleClearAll = useCallback(() => {
     if (builderMode === "exercise") {
-      setSelectedExercises([]);
+      setWeekPlan(createEmptyWeek());
     } else {
       setSelectedNutrition([]);
     }
@@ -148,7 +186,6 @@ export default function Programs() {
       let programId: string;
 
       if (isEditing) {
-        // Update existing program
         const { error: progErr } = await supabase
           .from("programs")
           .update({
@@ -164,11 +201,8 @@ export default function Programs() {
           throw progErr;
         }
         programId = editingProgram.id;
-
-        // Delete old exercises, then re-insert
         await supabase.from("exercises").delete().eq("program_id", programId);
       } else {
-        // Insert new program
         const { data: program, error: progErr } = await supabase
           .from("programs")
           .insert({
@@ -188,18 +222,20 @@ export default function Programs() {
         programId = program.id;
       }
 
-      // Bulk insert exercises
-      if (selectedExercises.length > 0) {
-        const exerciseRows = selectedExercises.map((ex, idx) => ({
+      // Flatten all 7 days with encoded order_index: dayIndex * 100 + exerciseIndex
+      const exerciseRows = weekPlan.flatMap((day, dayIdx) =>
+        day.exercises.map((ex, exIdx) => ({
           program_id: programId,
           name: ex.name,
           sets: ex.sets,
           reps: String(ex.reps),
           rest_time: null as string | null,
           notes: ex.notes ?? null as string | null,
-          order_index: idx,
-        }));
+          order_index: dayIdx * 100 + exIdx,
+        }))
+      );
 
+      if (exerciseRows.length > 0) {
         const { error: exErr } = await supabase.from("exercises").insert(exerciseRows);
         if (exErr) {
           if (!isEditing) {
@@ -211,19 +247,21 @@ export default function Programs() {
       }
 
       toast.success(isEditing ? "Program başarıyla güncellendi!" : "Program başarıyla kaydedildi!");
-      setSelectedExercises([]);
+      setWeekPlan(createEmptyWeek());
       setSelectedNutrition([]);
       setEditingProgram(null);
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, selectedExercises, editingProgram]
+    [user, weekPlan, editingProgram]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
     if (template.type === "exercise") {
-      setSelectedExercises(
-        template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 }) as BuilderExercise)
+      // Load template into active day
+      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 }) as BuilderExercise);
+      setWeekPlan((prev) =>
+        prev.map((d, i) => (i === activeDay ? { ...d, exercises } : d))
       );
       setBuilderMode("exercise");
     } else {
@@ -233,9 +271,9 @@ export default function Programs() {
       setBuilderMode("nutrition");
     }
     toast.success(`"${template.name}" şablonu yüklendi.`);
-  }, []);
+  }, [activeDay]);
 
-  const currentItems = builderMode === "exercise" ? selectedExercises : selectedNutrition;
+  const currentItems = builderMode === "exercise" ? allExercises : selectedNutrition;
 
   // Dashboard View
   if (viewMode === "dashboard") {
@@ -262,7 +300,7 @@ export default function Programs() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {builderMode === "exercise"
-                ? "Antrenman bloğu tasarla ve sporcularına ata"
+                ? "7 günlük antrenman programı tasarla ve sporcularına ata"
                 : "Beslenme planı oluştur ve sporcularına ata"}
             </p>
           </div>
@@ -306,7 +344,7 @@ export default function Programs() {
         <div className="lg:col-span-3 h-full">
           <ProgramLibrary
             onAddItem={handleAddItem}
-            addedItemIds={currentItems.map((item) => item.id)}
+            addedItemIds={weekPlan[activeDay]?.exercises.map((ex) => ex.id) ?? []}
             builderMode={builderMode}
             savedTemplates={savedTemplates}
             onLoadTemplate={handleLoadTemplate}
@@ -315,9 +353,13 @@ export default function Programs() {
         <div className="lg:col-span-5 h-full">
           {builderMode === "exercise" ? (
             <WorkoutBuilder
-              selectedExercises={selectedExercises}
+              weekPlan={weekPlan}
+              activeDay={activeDay}
+              onSetActiveDay={setActiveDay}
+              onUpdateDayLabel={handleUpdateDayLabel}
               onRemoveExercise={handleRemoveExercise}
               onUpdateExercise={handleUpdateExercise}
+              onClearDay={handleClearDay}
               onClearAll={handleClearAll}
             />
           ) : (
@@ -333,7 +375,7 @@ export default function Programs() {
         </div>
         <div className="lg:col-span-4 h-full">
           <WeeklySchedule
-            selectedExercises={selectedExercises}
+            weekPlan={weekPlan}
             onClearBuilder={handleClearAll}
           />
         </div>

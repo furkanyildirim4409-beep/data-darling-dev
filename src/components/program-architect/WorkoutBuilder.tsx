@@ -4,23 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
-  Plus,
   Trash2,
-  Settings2,
-  Zap,
   Dumbbell,
   Apple,
   X,
-  ChevronDown,
-  ChevronUp,
   GripVertical,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
@@ -32,317 +27,262 @@ export interface BuilderExercise extends LibraryItem {
   notes?: string;
 }
 
-interface AutomationRule {
-  id: string;
-  condition: string;
-  action: string;
-  value: string;
+export interface DayPlan {
+  day: number;
+  label: string;
+  exercises: BuilderExercise[];
 }
 
+const turkishDays = [
+  "Pazartesi",
+  "Salı",
+  "Çarşamba",
+  "Perşembe",
+  "Cuma",
+  "Cumartesi",
+  "Pazar",
+];
+
 interface WorkoutBuilderProps {
-  selectedExercises: BuilderExercise[];
-  onRemoveExercise: (id: string) => void;
-  onUpdateExercise: (id: string, field: keyof BuilderExercise, value: number | string) => void;
+  weekPlan: DayPlan[];
+  activeDay: number;
+  onSetActiveDay: (index: number) => void;
+  onUpdateDayLabel: (dayIndex: number, label: string) => void;
+  onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
+  onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
+  onClearDay: (dayIndex: number) => void;
   onClearAll: () => void;
 }
 
-const blockTypes = [
-  { value: "hypertrophy", label: "Hipertrofi Bloğu", color: "bg-primary/20 border-primary/30" },
-  { value: "strength", label: "Güç Bloğu", color: "bg-warning/20 border-warning/30" },
-  { value: "endurance", label: "Dayanıklılık Bloğu", color: "bg-info/20 border-info/30" },
-  { value: "nutrition", label: "Beslenme Bloğu", color: "bg-success/20 border-success/30" },
-];
-
-const conditionOptions = [
-  { value: "rpe_low", label: "RPE < 7 ise" },
-  { value: "rpe_high", label: "RPE > 8 ise" },
-  { value: "missed_workout", label: "Antrenman Kaçırılırsa" },
-  { value: "sleep_low", label: "Uyku < 6 saat ise" },
-  { value: "stress_high", label: "Stres Yüksek ise" },
-];
-
-const actionOptions = [
-  { value: "increase_weight", label: "Ağırlığı Artır" },
-  { value: "decrease_weight", label: "Ağırlığı Azalt" },
-  { value: "add_rest", label: "Dinlenme Ekle" },
-  { value: "reduce_volume", label: "Hacmi Azalt" },
-  { value: "notify_coach", label: "Koça Bildir" },
-];
-
-export function WorkoutBuilder({ 
-  selectedExercises, 
+export function WorkoutBuilder({
+  weekPlan,
+  activeDay,
+  onSetActiveDay,
+  onUpdateDayLabel,
   onRemoveExercise,
   onUpdateExercise,
-  onClearAll
+  onClearDay,
+  onClearAll,
 }: WorkoutBuilderProps) {
-  const [blockName, setBlockName] = useState("Hipertrofi Bloğu A");
-  const [blockType, setBlockType] = useState<string>("hypertrophy");
-  const [rules, setRules] = useState<AutomationRule[]>([
-    { id: "rule-1", condition: "rpe_low", action: "increase_weight", value: "%5" },
-  ]);
-  const [showRules, setShowRules] = useState(true);
-
-  const addRule = () => {
-    setRules([
-      ...rules,
-      {
-        id: `rule-${Date.now()}`,
-        condition: "rpe_low",
-        action: "increase_weight",
-        value: "%5",
-      },
-    ]);
-  };
-
-  const removeRule = (ruleId: string) => {
-    setRules(rules.filter((r) => r.id !== ruleId));
-  };
-
-  const updateRule = (ruleId: string, field: keyof AutomationRule, value: string) => {
-    setRules(rules.map((r) => (r.id === ruleId ? { ...r, [field]: value } : r)));
-  };
-
-  const getBlockColor = (type: string) => {
-    return blockTypes.find((bt) => bt.value === type)?.color || "";
-  };
-
-  const totalSets = selectedExercises.reduce((acc, ex) => acc + ex.sets, 0);
-  const avgRPE = selectedExercises.length > 0 
-    ? (selectedExercises.reduce((acc, ex) => acc + ex.rpe, 0) / selectedExercises.length).toFixed(1)
-    : 0;
+  const totalExercises = weekPlan.reduce((acc, d) => acc + d.exercises.length, 0);
+  const totalSets = weekPlan.reduce((acc, d) => acc + d.exercises.reduce((s, ex) => s + ex.sets, 0), 0);
+  const activeDays = weekPlan.filter((d) => d.exercises.length > 0).length;
 
   return (
     <div className="glass rounded-xl border border-border h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-foreground">Antrenman Oluşturucu</h2>
-          {selectedExercises.length > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+          <h2 className="text-lg font-semibold text-foreground">7 Günlük Program</h2>
+          {totalExercises > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClearAll}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="w-4 h-4 mr-1.5" />
-              Temizle
+              Tümünü Temizle
             </Button>
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Kütüphaneden egzersiz eklemek için "+" butonuna tıklayın
+          Bir gün seçin, ardından kütüphaneden egzersiz ekleyin
         </p>
       </div>
 
-      {/* Block Header */}
-      <div className={cn("p-3 border-b flex items-center gap-3", getBlockColor(blockType))}>
-        <Input
-          value={blockName}
-          onChange={(e) => setBlockName(e.target.value)}
-          className="h-8 text-sm font-medium bg-transparent border-none p-0 focus-visible:ring-0 flex-1"
-        />
-        <Select value={blockType} onValueChange={setBlockType}>
-          <SelectTrigger className="w-[140px] h-8 text-xs bg-background/50">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-card border-border">
-            {blockTypes.map((bt) => (
-              <SelectItem key={bt.value} value={bt.value}>
-                {bt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Stats Bar */}
-      {selectedExercises.length > 0 && (
+      {/* Weekly Stats */}
+      {totalExercises > 0 && (
         <div className="px-4 py-2 bg-muted/30 border-b border-border flex items-center gap-4">
           <Badge variant="secondary" className="text-xs">
-            {selectedExercises.length} Egzersiz
+            {activeDays}/7 Gün Aktif
+          </Badge>
+          <Badge variant="secondary" className="text-xs">
+            {totalExercises} Egzersiz
           </Badge>
           <Badge variant="secondary" className="text-xs">
             {totalSets} Set
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            Ort. RPE: {avgRPE}
           </Badge>
         </div>
       )}
 
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {/* Exercise List */}
-          {selectedExercises.length === 0 ? (
-            <div className="border-2 border-dashed rounded-xl p-6 transition-all border-border">
-              <div className="flex flex-col items-center justify-center text-muted-foreground">
-                <Dumbbell className="w-10 h-10 mb-3 opacity-50" />
-                <p className="text-sm font-medium mb-1">Henüz egzersiz eklenmedi</p>
-                <p className="text-xs text-center">
-                  Sol panelden egzersiz seçerek programa ekleyin
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {selectedExercises.map((exercise, index) => (
-                <div
-                  key={exercise.id}
-                  className="glass rounded-lg p-4 border border-border group hover:border-primary/30 transition-all"
-                >
-                  {/* Exercise Header */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold">
+        <Accordion
+          type="single"
+          collapsible
+          value={`day-${activeDay}`}
+          onValueChange={(val) => {
+            if (val) {
+              const idx = parseInt(val.replace("day-", ""), 10);
+              onSetActiveDay(idx);
+            }
+          }}
+          className="px-3 py-2"
+        >
+          {weekPlan.map((dayPlan, index) => {
+            const isRest = dayPlan.exercises.length === 0;
+            const isActive = activeDay === index;
+            const daySets = dayPlan.exercises.reduce((s, ex) => s + ex.sets, 0);
+
+            return (
+              <AccordionItem
+                key={index}
+                value={`day-${index}`}
+                className={cn(
+                  "mb-2 rounded-lg border transition-all overflow-hidden",
+                  isActive
+                    ? "border-primary/50 border-l-2 border-l-primary"
+                    : "border-border",
+                  isRest && !isActive && "opacity-60"
+                )}
+              >
+                <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:hidden">
+                  <div className="flex items-center gap-3 w-full pr-2">
+                    <div className={cn(
+                      "flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : isRest
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary/20 text-primary"
+                    )}>
                       {index + 1}
                     </div>
-                    <GripVertical className="w-4 h-4 text-muted-foreground" />
-                    {exercise.type === "exercise" ? (
-                      <Dumbbell className="w-4 h-4 text-primary" />
-                    ) : (
-                      <Apple className="w-4 h-4 text-success" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{exercise.name}</p>
-                      <p className="text-xs text-muted-foreground">{exercise.category}</p>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium truncate">
+                        {turkishDays[index]}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {dayPlan.label || (isRest ? "Dinlenme Günü" : "Etiket ekleyin...")}
+                      </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => onRemoveExercise(exercise.id)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isRest ? (
+                        <Moon className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Badge variant="secondary" className="text-[10px] h-5">
+                            {dayPlan.exercises.length} egz
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] h-5 border-primary/30 text-primary">
+                            {daySets} set
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+
+                <AccordionContent className="px-3 pb-3 pt-0">
+                  {/* Day Label Input */}
+                  <div className="mb-3">
+                    <Input
+                      placeholder="Gün etiketi (ör. Push Day, Upper Body...)"
+                      value={dayPlan.label}
+                      onChange={(e) => onUpdateDayLabel(index, e.target.value)}
+                      className="h-8 text-xs bg-background/50"
+                    />
                   </div>
 
-                  {/* Exercise Inputs */}
-                  {exercise.type === "exercise" && (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Set</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={exercise.sets}
-                          onChange={(e) => onUpdateExercise(exercise.id, "sets", parseInt(e.target.value) || 1)}
-                          className="h-9 text-center bg-background/50"
-                        />
+                  {/* Exercises */}
+                  {dayPlan.exercises.length === 0 ? (
+                    <div className="border-2 border-dashed rounded-lg p-4 border-border">
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Dumbbell className="w-8 h-8 mb-2 opacity-40" />
+                        <p className="text-xs font-medium">Egzersiz yok</p>
+                        <p className="text-[10px] text-center mt-0.5">
+                          Kütüphaneden "+" ile ekleyin
+                        </p>
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Tekrar</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={exercise.reps}
-                          onChange={(e) => onUpdateExercise(exercise.id, "reps", parseInt(e.target.value) || 1)}
-                          className="h-9 text-center bg-background/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">RPE</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={exercise.rpe}
-                          onChange={(e) => onUpdateExercise(exercise.id, "rpe", parseInt(e.target.value) || 7)}
-                          className="h-9 text-center bg-background/50"
-                        />
-                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {dayPlan.exercises.map((exercise, exIndex) => (
+                        <div
+                          key={exercise.id}
+                          className="glass rounded-lg p-3 border border-border group hover:border-primary/30 transition-all"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
+                              {exIndex + 1}
+                            </div>
+                            <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                            {exercise.type === "exercise" ? (
+                              <Dumbbell className="w-3.5 h-3.5 text-primary" />
+                            ) : (
+                              <Apple className="w-3.5 h-3.5 text-success" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{exercise.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{exercise.category}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => onRemoveExercise(index, exercise.id)}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+
+                          {exercise.type === "exercise" && (
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-[10px] text-muted-foreground mb-0.5 block">Set</label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={exercise.sets}
+                                  onChange={(e) => onUpdateExercise(index, exercise.id, "sets", parseInt(e.target.value) || 1)}
+                                  className="h-8 text-xs text-center bg-background/50"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground mb-0.5 block">Tekrar</label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  value={exercise.reps}
+                                  onChange={(e) => onUpdateExercise(index, exercise.id, "reps", parseInt(e.target.value) || 1)}
+                                  className="h-8 text-xs text-center bg-background/50"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground mb-0.5 block">RPE</label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={exercise.rpe}
+                                  onChange={(e) => onUpdateExercise(index, exercise.id, "rpe", parseInt(e.target.value) || 7)}
+                                  className="h-8 text-xs text-center bg-background/50"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Clear Day */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onClearDay(index)}
+                        className="w-full text-xs text-destructive hover:text-destructive hover:bg-destructive/10 mt-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        Günü Temizle
+                      </Button>
                     </div>
                   )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Automation Rules */}
-          <div className="border-t border-border pt-4">
-            <button
-              onClick={() => setShowRules(!showRules)}
-              className="flex items-center gap-2 text-sm font-medium text-foreground mb-3 hover:text-primary transition-colors"
-            >
-              <Settings2 className="w-4 h-4" />
-              Otomasyon Kuralları
-              {showRules ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {rules.length}
-              </Badge>
-            </button>
-
-            {showRules && (
-              <div className="space-y-2">
-                {rules.map((rule) => (
-                  <div
-                    key={rule.id}
-                    className="glass rounded-lg p-3 border border-border flex items-center gap-2 flex-wrap"
-                  >
-                    <Zap className="w-4 h-4 text-warning shrink-0" />
-                    <Select
-                      value={rule.condition}
-                      onValueChange={(val) => updateRule(rule.id, "condition", val)}
-                    >
-                      <SelectTrigger className="w-[160px] h-8 text-xs bg-background/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        {conditionOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <span className="text-xs text-muted-foreground">→</span>
-                    <Select
-                      value={rule.action}
-                      onValueChange={(val) => updateRule(rule.id, "action", val)}
-                    >
-                      <SelectTrigger className="w-[140px] h-8 text-xs bg-background/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        {actionOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={rule.value}
-                      onChange={(e) => updateRule(rule.id, "value", e.target.value)}
-                      className="w-16 h-8 text-xs bg-background/50"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive ml-auto"
-                      onClick={() => removeRule(rule.id)}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addRule}
-                  className="w-full mt-2 border-dashed"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Kural Ekle
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
       </ScrollArea>
     </div>
   );

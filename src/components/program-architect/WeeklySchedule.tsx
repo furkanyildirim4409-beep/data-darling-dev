@@ -1,19 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Send, CheckCircle, Calendar, X, Dumbbell } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Send, CheckCircle, Calendar, Dumbbell, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { BuilderExercise } from "./WorkoutBuilder";
+import { toast } from "sonner";
+import { DayPlan } from "./WorkoutBuilder";
 
 const athletes = [
   { id: "1", name: "Ahmet Yılmaz", initials: "AY" },
@@ -34,23 +26,15 @@ const turkishDays = [
   { short: "Paz", full: "Pazar" },
 ];
 
-interface ScheduleBlock {
-  id: string;
-  dayIndex: number;
-  exerciseCount: number;
-  blockName: string;
-}
-
 interface WeeklyScheduleProps {
-  selectedExercises: BuilderExercise[];
+  weekPlan: DayPlan[];
   onClearBuilder: () => void;
 }
 
-export function WeeklySchedule({ selectedExercises, onClearBuilder }: WeeklyScheduleProps) {
-  const { toast } = useToast();
+export function WeeklySchedule({ weekPlan, onClearBuilder }: WeeklyScheduleProps) {
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
-  const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
-  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+
+  const totalExercises = weekPlan.reduce((acc, d) => acc + d.exercises.length, 0);
 
   const toggleAthleteSelection = (athleteId: string) => {
     setSelectedAthletes((prev) =>
@@ -66,81 +50,19 @@ export function WeeklySchedule({ selectedExercises, onClearBuilder }: WeeklySche
     }
   };
 
-  const handleDragStart = (e: React.DragEvent) => {
-    if (selectedExercises.length === 0) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.setData("text/plain", "exercises");
-    e.dataTransfer.effectAllowed = "copy";
-  };
-
-  const handleDragOver = (e: React.DragEvent, dayIndex: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-    setDragOverDay(dayIndex);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverDay(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, dayIndex: number) => {
-    e.preventDefault();
-    setDragOverDay(null);
-
-    if (selectedExercises.length === 0) return;
-
-    const newBlock: ScheduleBlock = {
-      id: `block-${Date.now()}`,
-      dayIndex,
-      exerciseCount: selectedExercises.length,
-      blockName: `${selectedExercises.length} Egzersiz`,
-    };
-
-    setScheduleBlocks((prev) => [...prev, newBlock]);
-
-    toast({
-      title: "Blok Eklendi",
-      description: `${turkishDays[dayIndex].full} gününe ${selectedExercises.length} egzersiz eklendi.`,
-    });
-  };
-
-  const removeBlock = (blockId: string) => {
-    setScheduleBlocks((prev) => prev.filter((b) => b.id !== blockId));
-  };
-
-  const getBlocksForDay = (dayIndex: number) => {
-    return scheduleBlocks.filter((b) => b.dayIndex === dayIndex);
-  };
-
   const publishProgram = () => {
-    if (scheduleBlocks.length === 0) {
-      toast({
-        title: "Hata",
-        description: "Lütfen önce takvime en az bir blok ekleyin.",
-        variant: "destructive",
-      });
+    if (totalExercises === 0) {
+      toast.error("Lütfen önce en az bir güne egzersiz ekleyin.");
       return;
     }
 
     if (selectedAthletes.length === 0) {
-      toast({
-        title: "Hata",
-        description: "Lütfen en az bir sporcu seçin.",
-        variant: "destructive",
-      });
+      toast.error("Lütfen en az bir sporcu seçin.");
       return;
     }
 
-    toast({
-      title: "Program Yayınlandı!",
-      description: `Program ${selectedAthletes.length} sporcuya başarıyla atandı!`,
-    });
-
-    // Clear everything
+    toast.success(`Program ${selectedAthletes.length} sporcuya başarıyla atandı!`);
     setSelectedAthletes([]);
-    setScheduleBlocks([]);
     onClearBuilder();
   };
 
@@ -148,87 +70,54 @@ export function WeeklySchedule({ selectedExercises, onClearBuilder }: WeeklySche
     <div className="glass rounded-xl border border-border h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            Haftalık Program
-          </h2>
-        </div>
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary" />
+          Haftalık Önizleme
+        </h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Egzersiz bloğunu sürükleyip günlere bırakın
+          Programdaki günlerin özeti
         </p>
       </div>
 
-      {/* Draggable Block Source */}
-      <div className="p-4 border-b border-border bg-muted/30">
-        <div
-          draggable={selectedExercises.length > 0}
-          onDragStart={handleDragStart}
-          className={cn(
-            "p-3 rounded-lg border-2 border-dashed transition-all flex items-center gap-3",
-            selectedExercises.length > 0
-              ? "border-primary/50 bg-primary/10 cursor-grab active:cursor-grabbing hover:border-primary"
-              : "border-border bg-muted/20 cursor-not-allowed opacity-50"
-          )}
-        >
-          <div className="p-2 rounded-lg bg-primary/20">
-            <Dumbbell className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium">
-              {selectedExercises.length > 0
-                ? `${selectedExercises.length} Egzersiz Bloğu`
-                : "Egzersiz seçin"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {selectedExercises.length > 0
-                ? "Sürükleyip güne bırakın"
-                : "Sol panelden egzersiz ekleyin"}
-            </p>
-          </div>
-          {selectedExercises.length > 0 && (
-            <Badge variant="secondary" className="bg-primary/20 text-primary">
-              {selectedExercises.reduce((acc, ex) => acc + ex.sets, 0)} Set
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Weekly Grid */}
+      {/* Weekly Grid — auto-populated from weekPlan */}
       <div className="p-4 border-b border-border">
         <div className="grid grid-cols-7 gap-2">
           {turkishDays.map((day, index) => {
-            const dayBlocks = getBlocksForDay(index);
+            const dayPlan = weekPlan[index];
+            const hasExercises = dayPlan.exercises.length > 0;
+            const daySets = dayPlan.exercises.reduce((s, ex) => s + ex.sets, 0);
+
             return (
               <div
                 key={index}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "min-h-[100px] rounded-lg border-2 border-dashed p-2 transition-all",
-                  dragOverDay === index
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/30"
+                  "min-h-[100px] rounded-lg border p-2 transition-all",
+                  hasExercises
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-border bg-muted/20 opacity-60"
                 )}
               >
                 <p className="text-xs font-medium text-center mb-2">{day.short}</p>
-                <div className="space-y-1">
-                  {dayBlocks.map((block) => (
-                    <div
-                      key={block.id}
-                      className="bg-primary/20 text-primary text-[10px] px-2 py-1 rounded flex items-center justify-between group"
-                    >
-                      <span className="truncate">{block.blockName}</span>
-                      <button
-                        onClick={() => removeBlock(block.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                {hasExercises ? (
+                  <div className="space-y-1">
+                    <div className="bg-primary/20 text-primary text-[10px] px-1.5 py-1 rounded text-center font-medium">
+                      {dayPlan.exercises.length} Egzersiz
                     </div>
-                  ))}
-                </div>
+                    <div className="text-[9px] text-muted-foreground text-center">
+                      {daySets} Set
+                    </div>
+                    {dayPlan.label && (
+                      <div className="text-[9px] text-primary/70 text-center truncate font-medium">
+                        {dayPlan.label}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center mt-2">
+                    <Moon className="w-4 h-4 text-muted-foreground/50 mb-1" />
+                    <span className="text-[9px] text-muted-foreground">Dinlenme</span>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -278,7 +167,7 @@ export function WeeklySchedule({ selectedExercises, onClearBuilder }: WeeklySche
         <Button
           className="w-full bg-primary text-primary-foreground glow-lime"
           onClick={publishProgram}
-          disabled={scheduleBlocks.length === 0}
+          disabled={totalExercises === 0}
         >
           <Send className="w-4 h-4 mr-2" />
           Programı Yayınla ({selectedAthletes.length} Sporcu)
