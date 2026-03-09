@@ -17,7 +17,7 @@ interface SortableExerciseItemProps {
   getGroupColor: (groupId: string) => string;
   onToggleSelection: (id: string) => void;
   onRemoveExercise: (dayIndex: number, id: string) => void;
-  onUpdateExercise: (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string) => void;
+  onUpdateExercise: (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string | number[]) => void;
 }
 
 export function SortableExerciseItem({
