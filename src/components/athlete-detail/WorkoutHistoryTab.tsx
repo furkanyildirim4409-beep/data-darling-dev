@@ -5,6 +5,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface PerformedSet {
+  weight?: number;
+  reps?: number;
+  rir?: number;
+  failure?: boolean;
+  isFailure?: boolean;
+}
+
 interface ExerciseDetail {
   name: string;
   sets?: number;
@@ -15,7 +23,11 @@ interface ExerciseDetail {
   groupId?: string | null;
   rest_time?: string;
   notes?: string;
-  actualSets?: { weight?: number; reps?: number; rir?: number; failure?: boolean }[];
+  // Multiple possible keys for performed sets
+  actualSets?: PerformedSet[];
+  completedSets?: PerformedSet[];
+  sets_completed?: PerformedSet[];
+  performed?: PerformedSet[];
 }
 
 interface WorkoutLog {
@@ -27,6 +39,19 @@ interface WorkoutLog {
   exercises_count: number | null;
   details: ExerciseDetail[] | null;
   completed: boolean | null;
+}
+
+// Parse details from various possible JSON shapes
+function parseDetails(raw: unknown): ExerciseDetail[] | null {
+  if (!raw) return null;
+  // If it's already an array of exercises
+  if (Array.isArray(raw)) return raw as ExerciseDetail[];
+  // If it's an object with an 'exercises' key
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.exercises)) return obj.exercises as ExerciseDetail[];
+  }
+  return null;
 }
 
 export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
@@ -46,7 +71,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
       if (data) {
         setLogs(data.map(d => ({
           ...d,
-          details: Array.isArray(d.details) ? (d.details as unknown as ExerciseDetail[]) : null,
+          details: parseDetails(d.details),
         })));
       }
       setLoading(false);
@@ -59,6 +84,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  // Extract performed sets from any of the possible keys
+  const getPerformedSets = (ex: ExerciseDetail): PerformedSet[] => {
+    return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
   };
 
   if (loading) {
@@ -119,6 +149,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
 
               <CollapsibleContent>
                 <div className="px-5 pb-4 space-y-1.5 border-t border-border pt-3">
+                  {exercises.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-2">
+                      {log.exercises_count ? `${log.exercises_count} egzersiz tamamlandı (detay mevcut değil)` : "Detay bilgisi yok"}
+                    </p>
+                  )}
                   {exercises.map((ex, idx) => {
                     const isFailure = ex.failure_set === true || ex.failureSet === true;
                     const hasRir = ex.rir != null;
@@ -167,29 +202,32 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                               <span className="opacity-60">Hedef: {ex.sets}×{ex.reps}</span>
                             )}
                             {/* Actual sets */}
-                            {ex.actualSets && ex.actualSets.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap justify-end">
-                                {ex.actualSets.map((s, si) => {
-                                  const repsMet = ex.reps != null && s.reps != null && s.reps >= Number(ex.reps);
-                                  const isSetFailure = s.failure === true;
-                                  return (
-                                    <span
-                                      key={si}
-                                      className={cn(
-                                        "px-1.5 py-0.5 rounded text-[10px] font-mono",
-                                        isSetFailure
-                                          ? "bg-orange-500/10 text-orange-400"
-                                          : repsMet
-                                            ? "bg-green-500/10 text-green-400"
-                                            : "bg-muted text-muted-foreground"
-                                      )}
-                                    >
-                                      {s.weight ?? "—"}kg×{s.reps ?? "—"}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+                            {(() => {
+                              const performed = getPerformedSets(ex);
+                              return performed.length > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                  {performed.map((s, si) => {
+                                    const repsMet = ex.reps != null && s.reps != null && s.reps >= Number(ex.reps);
+                                    const isSetFailure = s.failure === true || s.isFailure === true;
+                                    return (
+                                      <span
+                                        key={si}
+                                        className={cn(
+                                          "px-1.5 py-0.5 rounded text-[10px] font-mono",
+                                          isSetFailure
+                                            ? "bg-orange-500/10 text-orange-400"
+                                            : repsMet
+                                              ? "bg-green-500/10 text-green-400"
+                                              : "bg-muted text-muted-foreground"
+                                        )}
+                                      >
+                                        {s.weight ?? "—"}kg×{s.reps ?? "—"}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                         {isLastInGroup && <div className="mb-1" />}
