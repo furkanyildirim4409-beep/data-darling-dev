@@ -267,7 +267,7 @@ export default function Programs() {
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
     if (template.type === "exercise") {
       // Load template into active day
-      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7 }) as BuilderExercise);
+      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false }) as BuilderExercise);
       setWeekPlan((prev) =>
         prev.map((d, i) => (i === activeDay ? { ...d, exercises } : d))
       );
