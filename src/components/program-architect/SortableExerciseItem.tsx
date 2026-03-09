@@ -110,7 +110,7 @@ export function SortableExerciseItem({
 
       {exercise.type === "exercise" && !groupMode && (
         <div className="space-y-2">
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-muted-foreground mb-0.5 block">Set</label>
               <Input type="number" min={1} max={10} value={exercise.sets}

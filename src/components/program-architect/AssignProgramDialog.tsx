@@ -191,6 +191,7 @@ export function AssignProgramDialog({
             sets: ex.sets ?? 3,
             reps: ex.reps ?? "10",
             rir: ex.rir ?? 2,
+            rir_per_set: ex.rir_per_set ?? null,
             failure_set: ex.failure_set ?? false,
             rest_time: ex.rest_time ?? "",
             notes: ex.notes ?? "",

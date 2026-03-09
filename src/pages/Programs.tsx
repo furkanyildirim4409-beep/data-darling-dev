@@ -511,6 +511,7 @@ export default function Programs() {
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
           rir: (ex as any).rir ?? 2,
+          rirPerSet: Array.isArray((ex as any).rir_per_set) ? (ex as any).rir_per_set : undefined,
           failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
         });
@@ -526,6 +527,7 @@ export default function Programs() {
         sets: ex.sets,
         reps: ex.reps,
         rir: ex.rir,
+        rirPerSet: ex.rirPerSet,
         failureSet: ex.failureSet,
         notes: ex.notes,
         category: ex.category,

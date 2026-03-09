@@ -156,7 +156,7 @@ interface WorkoutBuilderProps {
   onUpdateDayNotes: (dayIndex: number, notes: string) => void;
   onUpdateDayBlockType: (dayIndex: number, blockType: BlockType) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
-  onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
+  onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string | number[]) => void;
   onReorderExercises: (dayIndex: number, oldIndex: number, newIndex: number) => void;
   onClearDay: (dayIndex: number) => void;
   onDuplicateDay: (sourceDayIndex: number, targetDayIndex: number) => void;
