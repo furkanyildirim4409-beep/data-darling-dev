@@ -79,6 +79,8 @@ export default function Programs() {
           sets: ex.sets ?? 3,
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
+          rir: 2,
+          failureSet: false,
           notes: ex.notes ?? undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
