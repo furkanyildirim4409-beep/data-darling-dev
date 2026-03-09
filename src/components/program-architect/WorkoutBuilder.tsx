@@ -44,11 +44,23 @@ export interface BuilderExercise extends LibraryItem {
   groupId?: string;
 }
 
+export type BlockType = "hypertrophy" | "strength" | "endurance" | "power" | "deload" | "none";
+
 export interface DayPlan {
   day: number;
   label: string;
+  blockType: BlockType;
   exercises: BuilderExercise[];
 }
+
+const blockTypes: { value: BlockType; label: string; color: string }[] = [
+  { value: "none", label: "Seçilmedi", color: "" },
+  { value: "hypertrophy", label: "Hipertrofi", color: "bg-primary/15 border-l-primary" },
+  { value: "strength", label: "Güç", color: "bg-warning/15 border-l-warning" },
+  { value: "endurance", label: "Dayanıklılık", color: "bg-info/15 border-l-info" },
+  { value: "power", label: "Patlayıcı Güç", color: "bg-destructive/15 border-l-destructive" },
+  { value: "deload", label: "Deload", color: "bg-muted/30 border-l-muted-foreground" },
+];
 
 export interface ExerciseGroup {
   id: string;
