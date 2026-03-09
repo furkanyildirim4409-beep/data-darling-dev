@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
-import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType } from "@/components/program-architect/WorkoutBuilder";
+import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
@@ -33,6 +33,8 @@ export default function Programs() {
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
+  const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
 
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
@@ -46,6 +48,8 @@ export default function Programs() {
     setWeekPlan(createEmptyWeek());
     setActiveDay(0);
     setSelectedNutrition([]);
+    setAutomationRules([]);
+    setDayGroups({});
     setViewMode("builder");
   }, []);
 
@@ -65,7 +69,27 @@ export default function Programs() {
       return;
     }
 
+    // Load program metadata (rules + week_config)
+    const { data: progData } = await supabase
+      .from("programs")
+      .select("automation_rules, week_config")
+      .eq("id", program.id)
+      .single();
+
     const newWeek = createEmptyWeek();
+
+    // Restore week_config (labels, blockTypes, groups)
+    const weekConfig = (progData?.week_config as any[]) || [];
+    const loadedGroups: Record<number, ExerciseGroup[]> = {};
+    weekConfig.forEach((cfg: any, i: number) => {
+      if (i < 7) {
+        newWeek[i].label = cfg.label || "";
+        newWeek[i].blockType = cfg.blockType || "none";
+        if (cfg.groups?.length) loadedGroups[i] = cfg.groups;
+      }
+    });
+    setDayGroups(loadedGroups);
+    setAutomationRules((progData?.automation_rules as unknown as AutomationRule[]) || []);
 
     if (exercises && exercises.length > 0) {
       exercises.forEach((ex) => {
@@ -79,8 +103,8 @@ export default function Programs() {
           sets: ex.sets ?? 3,
           reps: parseInt(ex.reps ?? "10", 10),
           rpe: 7,
-          rir: 2,
-          failureSet: false,
+          rir: (ex as any).rir ?? 2,
+          failureSet: (ex as any).failure_set ?? false,
           notes: ex.notes ?? undefined,
         };
         newWeek[clampedDay].exercises.push(mapped);
@@ -193,6 +217,13 @@ export default function Programs() {
       const isEditing = !!editingProgram;
       let programId: string;
 
+      // Build week_config JSON for day metadata + groups
+      const weekConfig = weekPlan.map((day, i) => ({
+        label: day.label,
+        blockType: day.blockType,
+        groups: dayGroups[i] || [],
+      }));
+
       if (isEditing) {
         const { error: progErr } = await supabase
           .from("programs")
@@ -201,6 +232,8 @@ export default function Programs() {
             description: meta.description || null,
             difficulty: meta.difficulty || null,
             target_goal: meta.targetGoal || null,
+            automation_rules: automationRules as any,
+            week_config: weekConfig as any,
           })
           .eq("id", editingProgram.id);
 
@@ -219,6 +252,8 @@ export default function Programs() {
             difficulty: meta.difficulty || null,
             target_goal: meta.targetGoal || null,
             coach_id: user.id,
+            automation_rules: automationRules as any,
+            week_config: weekConfig as any,
           })
           .select()
           .single();
@@ -230,7 +265,7 @@ export default function Programs() {
         programId = program.id;
       }
 
-      // Flatten all 7 days with encoded order_index: dayIndex * 100 + exerciseIndex
+      // Flatten all 7 days with encoded order_index + rir/failure_set
       const exerciseRows = weekPlan.flatMap((day, dayIdx) =>
         day.exercises.map((ex, exIdx) => ({
           program_id: programId,
@@ -240,6 +275,8 @@ export default function Programs() {
           rest_time: null as string | null,
           notes: ex.notes ?? null as string | null,
           order_index: dayIdx * 100 + exIdx,
+          rir: ex.rir ?? 2,
+          failure_set: ex.failureSet ?? false,
         }))
       );
 
@@ -257,11 +294,13 @@ export default function Programs() {
       toast.success(isEditing ? "Program başarıyla güncellendi!" : "Program başarıyla kaydedildi!");
       setWeekPlan(createEmptyWeek());
       setSelectedNutrition([]);
+      setAutomationRules([]);
+      setDayGroups({});
       setEditingProgram(null);
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, weekPlan, editingProgram]
+    [user, weekPlan, editingProgram, automationRules, dayGroups]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
@@ -370,6 +409,10 @@ export default function Programs() {
               onUpdateExercise={handleUpdateExercise}
               onClearDay={handleClearDay}
               onClearAll={handleClearAll}
+              rules={automationRules}
+              onSetRules={setAutomationRules}
+              dayGroups={dayGroups}
+              onSetDayGroups={setDayGroups}
             />
           ) : (
             <NutritionBuilder

@@ -70,7 +70,7 @@ export interface ExerciseGroup {
   exerciseIds: string[];
 }
 
-interface AutomationRule {
+export interface AutomationRule {
   id: string;
   condition: string;
   action: string;
@@ -134,6 +134,10 @@ interface WorkoutBuilderProps {
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
   onClearDay: (dayIndex: number) => void;
   onClearAll: () => void;
+  rules: AutomationRule[];
+  onSetRules: (rules: AutomationRule[]) => void;
+  dayGroups: Record<number, ExerciseGroup[]>;
+  onSetDayGroups: (groups: Record<number, ExerciseGroup[]>) => void;
 }
 
 export function WorkoutBuilder({
@@ -146,15 +150,12 @@ export function WorkoutBuilder({
   onUpdateExercise,
   onClearDay,
   onClearAll,
+  rules,
+  onSetRules,
+  dayGroups,
+  onSetDayGroups,
 }: WorkoutBuilderProps) {
-  // Local state: automation rules + exercise groups + selection
-  const [rules, setRules] = useState<AutomationRule[]>([
-    { id: "rule-1", condition: "rpe_low", action: "increase_weight", value: "%5" },
-  ]);
   const [showRules, setShowRules] = useState(false);
-
-  // Per-day groups stored locally
-  const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [groupMode, setGroupMode] = useState(false);
 
@@ -164,16 +165,16 @@ export function WorkoutBuilder({
 
   // --- Rules helpers ---
   const addRule = () => {
-    setRules((prev) => [...prev, {
+    onSetRules([...rules, {
       id: `rule-${Date.now()}`,
       condition: "rpe_low",
       action: "increase_weight",
       value: "%5",
     }]);
   };
-  const removeRule = (id: string) => setRules((prev) => prev.filter((r) => r.id !== id));
+  const removeRule = (id: string) => onSetRules(rules.filter((r) => r.id !== id));
   const updateRule = (id: string, field: keyof AutomationRule, value: string) => {
-    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    onSetRules(rules.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   // --- Group helpers ---
@@ -199,19 +200,19 @@ export function WorkoutBuilder({
       type,
       exerciseIds: Array.from(selectedIds),
     };
-    setDayGroups((prev) => ({
-      ...prev,
-      [activeDay]: [...(prev[activeDay] || []), newGroup],
-    }));
+    onSetDayGroups({
+      ...dayGroups,
+      [activeDay]: [...(dayGroups[activeDay] || []), newGroup],
+    });
     setSelectedIds(new Set());
     setGroupMode(false);
   };
 
   const dissolveGroup = (dayIndex: number, groupId: string) => {
-    setDayGroups((prev) => ({
-      ...prev,
-      [dayIndex]: (prev[dayIndex] || []).filter((g) => g.id !== groupId),
-    }));
+    onSetDayGroups({
+      ...dayGroups,
+      [dayIndex]: (dayGroups[dayIndex] || []).filter((g) => g.id !== groupId),
+    });
   };
 
   return (
