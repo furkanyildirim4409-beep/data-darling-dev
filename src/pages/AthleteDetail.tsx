@@ -224,6 +224,10 @@ export default function AthleteDetail() {
         <TabsContent value="nutrition" className="mt-6">
           <NutritionTab athleteId={athlete.id} currentDiet="Beslenme" calories={0} protein={0} />
         </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <WorkoutHistoryTab athleteId={athlete.id} />
+        </TabsContent>
       </Tabs>
     </div>
   );
