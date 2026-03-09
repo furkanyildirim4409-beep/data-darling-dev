@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssignProgramDialog } from "./AssignProgramDialog";
+import { BulkAssignDialog } from "./BulkAssignDialog";
 
 export interface ProgramData {
   id: string;
