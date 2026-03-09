@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X } from "lucide-react";
+import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PerformedSet {
@@ -35,6 +35,8 @@ interface ExerciseDetail {
   completedSets?: PerformedSet[];
   sets_completed?: PerformedSet[];
   performed?: PerformedSet[];
+  weightDiff?: number | null;
+  rirSuccess?: boolean | null;
 }
 
 interface WorkoutLog {
@@ -333,6 +335,15 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 <Target className="w-3 h-3 mr-0.5" />RIR: {ex.rir}
                               </Badge>
                             )}
+                            {ex.weightDiff != null && ex.weightDiff !== 0 && (
+                              <span className={cn(
+                                "text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                                ex.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
+                              )}>
+                                {ex.weightDiff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {ex.weightDiff > 0 ? `+${ex.weightDiff}kg` : `${ex.weightDiff}kg`}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
@@ -370,6 +381,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 </div>
                               ) : null;
                             })()}
+                            {ex.rir != null && ex.rirSuccess === false && (
+                              <span className="text-[10px] text-destructive flex items-center gap-0.5">
+                                <AlertTriangle className="w-3 h-3" /> RIR Hedefi Kaçırıldı
+                              </span>
+                            )}
                           </div>
                         </div>
                         {isLastInGroup && <div className="mb-1" />}
