@@ -1,0 +1,1 @@
+ALTER TABLE public.assigned_workouts ADD COLUMN IF NOT EXISTS day_notes text DEFAULT '';
