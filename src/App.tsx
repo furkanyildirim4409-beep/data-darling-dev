@@ -11,6 +11,7 @@ import CommandCenter from "./pages/CommandCenter";
 import Athletes from "./pages/Athletes";
 import AthleteDetail from "./pages/AthleteDetail";
 import Programs from "./pages/Programs";
+import Schedule from "./pages/Schedule";
 import Alerts from "./pages/Alerts";
 import Business from "./pages/Business";
 import Team from "./pages/Team";
