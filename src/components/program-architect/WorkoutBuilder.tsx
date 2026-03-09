@@ -149,6 +149,7 @@ interface WorkoutBuilderProps {
   onUpdateDayBlockType: (dayIndex: number, blockType: BlockType) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
+  onReorderExercises: (dayIndex: number, oldIndex: number, newIndex: number) => void;
   onClearDay: (dayIndex: number) => void;
   onClearAll: () => void;
   rules: AutomationRule[];
