@@ -80,7 +80,14 @@ export function SortableExerciseItem({
         >
           <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
-        {exercise.type === "exercise" ? (
+        {exercise.videoUrl ? (
+          <img
+            src={exercise.videoUrl}
+            alt={exercise.name}
+            className="w-7 h-7 rounded object-cover shrink-0 border border-border"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : exercise.type === "exercise" ? (
           <Dumbbell className="w-3.5 h-3.5 text-primary" />
         ) : (
           <Apple className="w-3.5 h-3.5 text-success" />

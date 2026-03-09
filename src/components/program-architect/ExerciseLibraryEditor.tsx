@@ -134,8 +134,14 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
       if (!response.ok) throw new Error(`API hatası: ${response.status}`);
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error("Beklenmeyen API yanıtı");
+      console.log(`[RapidAPI] Fetched ${data.length} exercises (requested limit: ${clampedLimit})`);
 
-      const existingNames = new Set(exercises.map((e) => e.name.toLowerCase()));
+      // Fetch ALL existing names directly from DB to avoid Supabase 1000-row cap
+      const { data: existingRows } = await supabase
+        .from("exercise_library")
+        .select("name")
+        .limit(10000);
+      const existingNames = new Set((existingRows || []).map((e) => e.name.toLowerCase()));
       const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
       const newRows = data

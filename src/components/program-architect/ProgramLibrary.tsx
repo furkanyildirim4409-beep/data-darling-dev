@@ -169,7 +169,8 @@ export function ProgramLibrary({
     const { data, error } = await supabase
       .from("exercise_library")
       .select("*")
-      .order("name");
+      .order("name")
+      .limit(5000);
 
     if (error) {
       console.error("Failed to fetch exercise library:", error);
@@ -187,29 +188,8 @@ export function ProgramLibrary({
         muscleGroup: row.target_muscle || undefined,
         gifUrl: row.video_url || undefined,
       })));
-    } else if (data && data.length === 0) {
-      // Seed default exercises into the table
-      const { error: seedError } = await supabase
-        .from("exercise_library")
-        .insert(defaultExercises);
-
-      if (!seedError) {
-        // Re-fetch after seeding
-        const { data: seeded } = await supabase
-          .from("exercise_library")
-          .select("*")
-          .order("name");
-        if (seeded) {
-          setExercises(seeded.map(row => ({
-            id: row.id,
-            name: row.name,
-            category: row.category || "Diğer",
-            type: "exercise",
-            muscleGroup: row.target_muscle || undefined,
-            gifUrl: row.video_url || undefined,
-          })));
-        }
-      }
+    } else {
+      setExercises([]);
     }
     setLoadingExercises(false);
   }, []);
