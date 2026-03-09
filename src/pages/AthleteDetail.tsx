@@ -196,6 +196,7 @@ export default function AthleteDetail() {
           <TabsTrigger value="general" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><User className="w-4 h-4" />Genel</TabsTrigger>
           <TabsTrigger value="program" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Dumbbell className="w-4 h-4" />Antrenman Programı</TabsTrigger>
           <TabsTrigger value="nutrition" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-success data-[state=active]:text-success-foreground"><Apple className="w-4 h-4" />Beslenme Planı</TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><History className="w-4 h-4" />Antrenman Geçmişi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
