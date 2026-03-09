@@ -53,9 +53,10 @@ export interface ProgramData {
 interface ProgramDashboardProps {
   onCreateProgram: (type: "exercise" | "nutrition") => void;
   onEditProgram: (program: ProgramData) => void;
+  onSaveAsTemplate?: (program: ProgramData) => void;
 }
 
-export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDashboardProps) {
+export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
