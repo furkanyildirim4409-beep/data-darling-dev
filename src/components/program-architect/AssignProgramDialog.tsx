@@ -32,10 +32,11 @@ interface WeekConfigDay {
   label?: string;
   notes?: string;
   blockType?: string;
-  groups?: unknown[];
+  groups?: Array<{ id: string; exerciseIds: string[] }>;
 }
 
 interface ExerciseRow {
+  id: string;
   name: string;
   sets: number | null;
   reps: string | null;
@@ -174,18 +175,23 @@ export function AssignProgramDialog({
         const dayNotes = cfg?.notes || "";
         const targetDate = addDays(scheduledDate, dayIdx);
 
+        const dayGroups = cfg?.groups || [];
         const exercisesJson = (exs ?? [])
           .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-          .map((ex) => ({
-            name: ex.name,
-            sets: ex.sets ?? 3,
-            reps: ex.reps ?? "10",
-            rir: ex.rir ?? 2,
-            failure_set: ex.failure_set ?? false,
-            rest_time: ex.rest_time ?? "",
-            notes: ex.notes ?? "",
-            order_index: (ex.order_index ?? 0) % 100,
-          }));
+          .map((ex) => {
+            const foundGroup = dayGroups.find(g => g.exerciseIds.includes(ex.id));
+            return {
+              name: ex.name,
+              sets: ex.sets ?? 3,
+              reps: ex.reps ?? "10",
+              rir: ex.rir ?? 2,
+              failure_set: ex.failure_set ?? false,
+              rest_time: ex.rest_time ?? "",
+              notes: ex.notes ?? "",
+              order_index: (ex.order_index ?? 0) % 100,
+              groupId: foundGroup?.id ?? null,
+            };
+          });
 
         for (const athleteId of selectedIds) {
           payload.push({
