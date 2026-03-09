@@ -217,6 +217,13 @@ export default function Programs() {
       const isEditing = !!editingProgram;
       let programId: string;
 
+      // Build week_config JSON for day metadata + groups
+      const weekConfig = weekPlan.map((day, i) => ({
+        label: day.label,
+        blockType: day.blockType,
+        groups: dayGroups[i] || [],
+      }));
+
       if (isEditing) {
         const { error: progErr } = await supabase
           .from("programs")
@@ -225,6 +232,8 @@ export default function Programs() {
             description: meta.description || null,
             difficulty: meta.difficulty || null,
             target_goal: meta.targetGoal || null,
+            automation_rules: automationRules as any,
+            week_config: weekConfig as any,
           })
           .eq("id", editingProgram.id);
 
@@ -243,6 +252,8 @@ export default function Programs() {
             difficulty: meta.difficulty || null,
             target_goal: meta.targetGoal || null,
             coach_id: user.id,
+            automation_rules: automationRules as any,
+            week_config: weekConfig as any,
           })
           .select()
           .single();
@@ -254,7 +265,7 @@ export default function Programs() {
         programId = program.id;
       }
 
-      // Flatten all 7 days with encoded order_index: dayIndex * 100 + exerciseIndex
+      // Flatten all 7 days with encoded order_index + rir/failure_set
       const exerciseRows = weekPlan.flatMap((day, dayIdx) =>
         day.exercises.map((ex, exIdx) => ({
           program_id: programId,
@@ -264,6 +275,8 @@ export default function Programs() {
           rest_time: null as string | null,
           notes: ex.notes ?? null as string | null,
           order_index: dayIdx * 100 + exIdx,
+          rir: ex.rir ?? 2,
+          failure_set: ex.failureSet ?? false,
         }))
       );
 
