@@ -8,7 +8,7 @@ import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateD
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, BookMarked, ArrowLeft } from "lucide-react";
+import { Dumbbell, Apple, BookMarked, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +30,6 @@ export default function Programs() {
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>(createEmptyWeek());
   const [activeDay, setActiveDay] = useState(0);
   const [selectedNutrition, setSelectedNutrition] = useState<NutritionItem[]>([]);
-  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -238,6 +237,53 @@ export default function Programs() {
     }
   }, [builderMode]);
 
+  // ─── Save current builder state as a reusable template ───
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!user) {
+      toast.error("Giriş yapmalısınız.");
+      return;
+    }
+
+    const totalExercises = weekPlan.reduce((sum, d) => sum + d.exercises.length, 0);
+    if (totalExercises === 0) {
+      toast.error("Şablon kaydetmek için en az bir egzersiz ekleyin.");
+      return;
+    }
+
+    const name = editingProgram?.name
+      ? `${editingProgram.name} (Şablon)`
+      : `Şablon - ${new Date().toLocaleDateString("tr-TR")}`;
+
+    const routineDays = weekPlan.map((day, i) => ({
+      label: day.label,
+      notes: day.notes,
+      blockType: day.blockType,
+      exercises: day.exercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        rir: ex.rir,
+        failureSet: ex.failureSet,
+        notes: ex.notes,
+        category: ex.category,
+      })),
+      groups: dayGroups[i] || [],
+    }));
+
+    const { error } = await supabase.from("workout_templates").insert({
+      name,
+      description: editingProgram?.description || null,
+      coach_id: user.id,
+      routine_days: routineDays as any,
+    });
+
+    if (error) {
+      toast.error("Şablon kaydedilemedi: " + error.message);
+    } else {
+      toast.success(`"${name}" şablon olarak kaydedildi!`);
+    }
+  }, [user, weekPlan, dayGroups, editingProgram]);
+
   // ─── Supabase atomic save ───
   const handleSaveProgram = useCallback(
     async (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => {
@@ -352,21 +398,112 @@ export default function Programs() {
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
-    if (template.type === "exercise") {
-      // Load template into active day
-      const exercises = template.items.map((item) => ({ ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false }) as BuilderExercise);
-      setWeekPlan((prev) =>
-        prev.map((d, i) => (i === activeDay ? { ...d, exercises } : d))
-      );
-      setBuilderMode("exercise");
-    } else {
-      setSelectedNutrition(
-        template.items.map((item) => ({ ...item, amount: 100, unit: "g", mealId: "meal-1" }) as NutritionItem)
-      );
-      setBuilderMode("nutrition");
+    const newWeek = createEmptyWeek();
+    const loadedGroups: Record<number, ExerciseGroup[]> = {};
+
+    if (template.routineDays && template.routineDays.length > 0) {
+      template.routineDays.forEach((day: any, i: number) => {
+        if (i >= 7) return;
+        newWeek[i].label = day.label || "";
+        newWeek[i].notes = day.notes || "";
+        newWeek[i].blockType = day.blockType || "none";
+
+        if (Array.isArray(day.exercises)) {
+          newWeek[i].exercises = day.exercises.map((ex: any, idx: number) => ({
+            id: `tmpl-${i}-${idx}-${Date.now()}`,
+            name: ex.name,
+            category: ex.category || "",
+            type: "exercise",
+            sets: ex.sets ?? 3,
+            reps: ex.reps ?? 10,
+            rpe: 7,
+            rir: ex.rir ?? 2,
+            failureSet: ex.failureSet ?? false,
+            notes: ex.notes,
+          }));
+        }
+
+        if (Array.isArray(day.groups)) {
+          loadedGroups[i] = day.groups;
+        }
+      });
     }
+
+    setWeekPlan(newWeek);
+    setDayGroups(loadedGroups);
+    setActiveDay(0);
+    setBuilderMode("exercise");
     toast.success(`"${template.name}" şablonu yüklendi.`);
-  }, [activeDay]);
+  }, []);
+
+  // ─── Save program from dashboard as template ───
+  const handleSaveProgramAsTemplate = useCallback(async (program: ProgramData) => {
+    if (!user) return;
+
+    // Fetch program exercises and config
+    const [{ data: exercises }, { data: progData }] = await Promise.all([
+      supabase.from("exercises").select("*").eq("program_id", program.id).order("order_index", { ascending: true }),
+      supabase.from("programs").select("week_config").eq("id", program.id).single(),
+    ]);
+
+    const tempWeek = createEmptyWeek();
+    const weekConfig = (progData?.week_config as any[]) || [];
+
+    weekConfig.forEach((cfg: any, i: number) => {
+      if (i < 7) {
+        tempWeek[i].label = cfg.label || "";
+        tempWeek[i].notes = cfg.notes || "";
+        tempWeek[i].blockType = cfg.blockType || "none";
+      }
+    });
+
+    if (exercises) {
+      exercises.forEach((ex) => {
+        const dayIndex = Math.min(Math.max(Math.floor((ex.order_index ?? 0) / 100), 0), 6);
+        tempWeek[dayIndex].exercises.push({
+          id: ex.id,
+          name: ex.name,
+          category: "",
+          type: "exercise",
+          sets: ex.sets ?? 3,
+          reps: parseInt(ex.reps ?? "10", 10),
+          rpe: 7,
+          rir: (ex as any).rir ?? 2,
+          failureSet: (ex as any).failure_set ?? false,
+          notes: ex.notes ?? undefined,
+        });
+      });
+    }
+
+    const routineDays = tempWeek.map((day, i) => ({
+      label: day.label,
+      notes: day.notes,
+      blockType: day.blockType,
+      exercises: day.exercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        rir: ex.rir,
+        failureSet: ex.failureSet,
+        notes: ex.notes,
+        category: ex.category,
+      })),
+      groups: weekConfig[i]?.groups || [],
+    }));
+
+    const { error } = await supabase.from("workout_templates").insert({
+      name: `${program.name} (Şablon)`,
+      description: program.description || null,
+      coach_id: user.id,
+      routine_days: routineDays as any,
+    });
+
+    if (error) {
+      toast.error("Şablon kaydedilemedi: " + error.message);
+    } else {
+      toast.success(`"${program.name}" şablon olarak kaydedildi!`);
+    }
+  }, [user]);
 
   const currentItems = builderMode === "exercise" ? allExercises : selectedNutrition;
 
@@ -377,6 +514,7 @@ export default function Programs() {
         key={dashboardKey}
         onCreateProgram={handleCreateProgram}
         onEditProgram={handleEditProgram}
+        onSaveAsTemplate={handleSaveProgramAsTemplate}
       />
     );
   }
@@ -424,6 +562,18 @@ export default function Programs() {
             </div>
           </div>
 
+          {builderMode === "exercise" && (
+            <Button
+              variant="outline"
+              onClick={handleSaveAsTemplate}
+              disabled={allExercises.length === 0}
+              className="border-border"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Şablon Kaydet
+            </Button>
+          )}
+
           <Button
             onClick={() => setSaveDialogOpen(true)}
             disabled={currentItems.length === 0}
@@ -441,7 +591,6 @@ export default function Programs() {
             onAddItem={handleAddItem}
             addedItemIds={weekPlan[activeDay]?.exercises.map((ex) => ex.id) ?? []}
             builderMode={builderMode}
-            savedTemplates={savedTemplates}
             onLoadTemplate={handleLoadTemplate}
           />
         </div>

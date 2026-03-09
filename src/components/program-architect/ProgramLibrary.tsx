@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Dumbbell, Apple, Plus, BookMarked } from "lucide-react";
+import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 // 20 real fitness exercises with muscle group tags
 export const exercises = [
@@ -61,9 +64,13 @@ export interface LibraryItem {
 export interface SavedTemplate {
   id: string;
   name: string;
+  description?: string;
   items: LibraryItem[];
+  routineDays: any[];
   type: "exercise" | "nutrition";
   createdAt: Date;
+  exerciseCount: number;
+  dayCount: number;
 }
 
 interface LibraryItemCardProps {
@@ -129,7 +136,6 @@ interface ProgramLibraryProps {
   onAddItem: (item: LibraryItem) => void;
   addedItemIds: string[];
   builderMode: "exercise" | "nutrition";
-  savedTemplates: SavedTemplate[];
   onLoadTemplate: (template: SavedTemplate) => void;
 }
 
@@ -137,11 +143,61 @@ export function ProgramLibrary({
   onAddItem, 
   addedItemIds, 
   builderMode,
-  savedTemplates,
   onLoadTemplate
 }: ProgramLibraryProps) {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
+  const [templates, setTemplates] = useState<SavedTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  const fetchTemplates = useCallback(async () => {
+    if (!user) return;
+    setLoadingTemplates(true);
+    const { data, error } = await supabase
+      .from("workout_templates")
+      .select("*")
+      .eq("coach_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setTemplates(data.map(t => {
+        const routineDays = Array.isArray(t.routine_days) ? (t.routine_days as any[]) : [];
+        const exerciseCount = routineDays.reduce((sum: number, day: any) => 
+          sum + (Array.isArray(day?.exercises) ? day.exercises.length : 0), 0);
+        const dayCount = routineDays.filter((day: any) => 
+          Array.isArray(day?.exercises) && day.exercises.length > 0).length;
+
+        return {
+          id: t.id,
+          name: t.name,
+          description: t.description ?? undefined,
+          items: [],
+          routineDays,
+          type: "exercise" as const,
+          createdAt: new Date(t.created_at ?? Date.now()),
+          exerciseCount,
+          dayCount,
+        };
+      }));
+    }
+    setLoadingTemplates(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  const handleDeleteTemplate = async (e: React.MouseEvent, templateId: string) => {
+    e.stopPropagation();
+    const { error } = await supabase.from("workout_templates").delete().eq("id", templateId);
+    if (error) {
+      toast.error("Şablon silinemedi");
+    } else {
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
+      toast.success("Şablon silindi");
+    }
+  };
 
   const filteredExercises = exercises.filter(
     (ex) =>
@@ -156,8 +212,8 @@ export function ProgramLibrary({
       nut.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredTemplates = savedTemplates.filter(
-    (t) => t.type === builderMode && t.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTemplates = templates.filter(
+    (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const currentItems = builderMode === "exercise" ? filteredExercises : filteredNutrition;
@@ -197,7 +253,7 @@ export function ProgramLibrary({
             </TabsTrigger>
             <TabsTrigger value="templates" className="flex-1 text-xs">
               <BookMarked className="w-3 h-3 mr-1.5" />
-              Şablonlarım ({savedTemplates.filter(t => t.type === builderMode).length})
+              Şablonlarım ({templates.length})
             </TabsTrigger>
           </TabsList>
         </div>
@@ -220,7 +276,11 @@ export function ProgramLibrary({
           </TabsContent>
 
           <TabsContent value="templates" className="mt-0 space-y-2">
-            {filteredTemplates.length === 0 ? (
+            {loadingTemplates ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredTemplates.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <BookMarked className="w-10 h-10 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">Henüz kayıtlı şablon yok</p>
@@ -236,17 +296,38 @@ export function ProgramLibrary({
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {template.items.length} öğe • {new Date(template.createdAt).toLocaleDateString("tr-TR")}
-                      </p>
+                      {template.description && (
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">{template.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
+                          {template.exerciseCount} egzersiz
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
+                          {template.dayCount} gün
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {template.createdAt.toLocaleDateString("tr-TR")}
+                        </span>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs"
-                    >
-                      Yükle
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => handleDeleteTemplate(e, template.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs"
+                      >
+                        Yükle
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))

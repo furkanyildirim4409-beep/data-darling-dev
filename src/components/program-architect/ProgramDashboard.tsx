@@ -29,6 +29,7 @@ import {
   Users,
   Calendar,
   Loader2,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -52,9 +53,10 @@ export interface ProgramData {
 interface ProgramDashboardProps {
   onCreateProgram: (type: "exercise" | "nutrition") => void;
   onEditProgram: (program: ProgramData) => void;
+  onSaveAsTemplate?: (program: ProgramData) => void;
 }
 
-export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDashboardProps) {
+export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
@@ -301,6 +303,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram }: ProgramDash
                         <Copy className="w-4 h-4 mr-2" />
                         Kopyala
                       </DropdownMenuItem>
+                      {onSaveAsTemplate && (
+                        <DropdownMenuItem onClick={() => onSaveAsTemplate(program)}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Şablon Olarak Kaydet
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(program)}
                         className="text-destructive focus:text-destructive"
