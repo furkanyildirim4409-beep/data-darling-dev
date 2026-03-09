@@ -134,6 +134,10 @@ interface WorkoutBuilderProps {
   onUpdateExercise: (dayIndex: number, exerciseId: string, field: keyof BuilderExercise, value: number | string) => void;
   onClearDay: (dayIndex: number) => void;
   onClearAll: () => void;
+  rules: AutomationRule[];
+  onSetRules: (rules: AutomationRule[]) => void;
+  dayGroups: Record<number, ExerciseGroup[]>;
+  onSetDayGroups: (groups: Record<number, ExerciseGroup[]>) => void;
 }
 
 export function WorkoutBuilder({
@@ -146,15 +150,12 @@ export function WorkoutBuilder({
   onUpdateExercise,
   onClearDay,
   onClearAll,
+  rules,
+  onSetRules,
+  dayGroups,
+  onSetDayGroups,
 }: WorkoutBuilderProps) {
-  // Local state: automation rules + exercise groups + selection
-  const [rules, setRules] = useState<AutomationRule[]>([
-    { id: "rule-1", condition: "rpe_low", action: "increase_weight", value: "%5" },
-  ]);
   const [showRules, setShowRules] = useState(false);
-
-  // Per-day groups stored locally
-  const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [groupMode, setGroupMode] = useState(false);
 
