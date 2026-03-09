@@ -19,28 +19,34 @@ export type Database = {
           athlete_id: string | null
           coach_id: string | null
           created_at: string | null
+          exercises: Json
           id: string
           program_id: string | null
           scheduled_date: string | null
           status: string | null
+          workout_name: string
         }
         Insert: {
           athlete_id?: string | null
           coach_id?: string | null
           created_at?: string | null
+          exercises?: Json
           id?: string
           program_id?: string | null
           scheduled_date?: string | null
           status?: string | null
+          workout_name?: string
         }
         Update: {
           athlete_id?: string | null
           coach_id?: string | null
           created_at?: string | null
+          exercises?: Json
           id?: string
           program_id?: string | null
           scheduled_date?: string | null
           status?: string | null
+          workout_name?: string
         }
         Relationships: [
           {
@@ -607,6 +613,33 @@ export type Database = {
           tonnage?: number | null
           user_id?: string
           workout_name?: string
+        }
+        Relationships: []
+      }
+      workout_templates: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          routine_days: Json
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          routine_days?: Json
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          routine_days?: Json
         }
         Relationships: []
       }
