@@ -1,1 +1,4 @@
 project_id = "fsbhbfltathfcpvcjfzt"
+
+[functions.fetch-exercises]
+verify_jwt = false
