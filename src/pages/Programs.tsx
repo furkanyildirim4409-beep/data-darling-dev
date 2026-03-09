@@ -48,6 +48,8 @@ export default function Programs() {
     setWeekPlan(createEmptyWeek());
     setActiveDay(0);
     setSelectedNutrition([]);
+    setAutomationRules([]);
+    setDayGroups({});
     setViewMode("builder");
   }, []);
 
