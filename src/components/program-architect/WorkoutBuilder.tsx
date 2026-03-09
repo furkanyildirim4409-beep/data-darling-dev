@@ -314,9 +314,9 @@ export function WorkoutBuilder({
                   </AccordionTrigger>
 
                   <AccordionContent className="px-3 pb-3 pt-0">
-                    {/* Day Label + Block Type */}
-                    <div className="mb-3 flex gap-2">
-                      <Input placeholder="Gün etiketi (ör. Push Day, Upper Body...)"
+                    {/* Day Name + Block Type */}
+                    <div className="mb-2 flex gap-2">
+                      <Input placeholder="Gün adı (ör. Push Day, Upper Body...)"
                         value={dayPlan.label}
                         onChange={(e) => onUpdateDayLabel(index, e.target.value)}
                         className="h-8 text-xs bg-background/50 flex-1" />
@@ -330,6 +330,17 @@ export function WorkoutBuilder({
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Day Notes */}
+                    <div className="mb-3">
+                      <textarea
+                        placeholder="Bu gün için notlar ekleyin... (ör. Isınma: 10dk koşu, Soğuma: stretching)"
+                        value={dayPlan.notes || ""}
+                        onChange={(e) => onUpdateDayNotes(index, e.target.value)}
+                        rows={2}
+                        className="w-full rounded-md border border-input bg-background/50 px-3 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 resize-none"
+                      />
                     </div>
 
                     {/* Group Controls */}
