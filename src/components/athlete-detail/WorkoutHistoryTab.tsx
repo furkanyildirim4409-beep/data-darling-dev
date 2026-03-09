@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X } from "lucide-react";
+import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PerformedSet {
