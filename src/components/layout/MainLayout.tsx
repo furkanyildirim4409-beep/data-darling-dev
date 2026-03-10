@@ -8,6 +8,7 @@ import { subscribeToPush } from "@/hooks/usePushNotifications";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
   // Request browser notification permission once
