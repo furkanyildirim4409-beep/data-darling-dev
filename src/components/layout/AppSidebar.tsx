@@ -130,7 +130,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                     {item.label}
                   </span>
                   {/* Badge for expanded state */}
-                  {showBadge && (
+                  {badgeActive && (
                     <AnimatePresence>
                       <motion.span
                         initial={{ scale: 0 }}
@@ -138,12 +138,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                         exit={{ scale: 0 }}
                         className={cn(
                           "min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center",
-                          alertCounts.critical > 0 
+                          badgeIsCritical
                             ? "bg-destructive text-destructive-foreground pulse-red" 
-                            : "bg-warning text-warning-foreground"
+                            : showMsgBadge
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-warning text-warning-foreground"
                         )}
                       >
-                        {alertCounts.total > 99 ? "99+" : alertCounts.total}
+                        {badgeCount > 99 ? "99+" : badgeCount}
                       </motion.span>
                     </AnimatePresence>
                   )}
