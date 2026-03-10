@@ -87,6 +87,7 @@ export function MobileNav({ className }: MobileNavProps) {
               (item.path !== "/" && location.pathname.startsWith(item.path));
             const Icon = item.icon;
             const showBadge = item.showBadge && alertCounts.total > 0;
+            const showMsgBadge = (item as any).showMessageBadge && totalUnread > 0;
 
             return (
               <NavLink
