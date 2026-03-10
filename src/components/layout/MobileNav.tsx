@@ -47,6 +47,7 @@ interface MobileNavProps {
 export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { totalUnread } = useCoachChat();
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
