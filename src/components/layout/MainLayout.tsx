@@ -11,12 +11,12 @@ export function MainLayout() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  // Request browser notification permission once
+  // Register push subscription when authenticated
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (user?.id) {
+      subscribeToPush(user.id).catch(() => {});
     }
-  }, []);
+  }, [user?.id]);
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-background">
