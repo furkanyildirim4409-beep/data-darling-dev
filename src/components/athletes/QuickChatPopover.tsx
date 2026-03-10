@@ -17,9 +17,13 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const { messages, selectAthlete, sendMessage, isLoadingMessages } = useCoachChat();
   const { user } = useAuth();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const initializedAthleteId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (athlete.id) selectAthlete(athlete.id);
+    if (athlete.id && initializedAthleteId.current !== athlete.id) {
+      initializedAthleteId.current = athlete.id;
+      selectAthlete(athlete.id);
+    }
   }, [athlete.id, selectAthlete]);
 
   useEffect(() => {
