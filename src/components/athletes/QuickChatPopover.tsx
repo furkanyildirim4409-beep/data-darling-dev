@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Send, Paperclip, Smile, Loader2 } from "lucide-react";
+import { X, Send, Paperclip, Smile, Loader2, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMutedChats } from "@/hooks/useMutedChats";
 
 interface QuickChatPopoverProps {
   athlete: { id: string; name: string; avatar?: string; sport?: string };
