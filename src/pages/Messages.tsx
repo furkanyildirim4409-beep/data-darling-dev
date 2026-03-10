@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { CoachInbox } from "@/components/chat/CoachInbox";
@@ -8,6 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export default function Messages() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
   const {
     athletes,
     selectedAthleteId,
@@ -19,6 +21,14 @@ export default function Messages() {
   } = useCoachChat();
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  useEffect(() => {
+    const athleteId = searchParams.get('athleteId');
+    if (athleteId && athletes.length > 0) {
+      selectAthlete(athleteId);
+      if (isMobile) setMobileShowChat(true);
+    }
+  }, [searchParams, athletes.length, selectAthlete, isMobile]);
 
   const selectedAthlete = athletes.find(a => a.id === selectedAthleteId) || null;
 
