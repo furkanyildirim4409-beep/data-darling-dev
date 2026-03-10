@@ -52,7 +52,9 @@ serve(async (req) => {
     const enriched = Array.isArray(data)
       ? data.map((ex: any) => ({
           ...ex,
-          imageUrl: ex.gifUrl || null,
+          imageUrl: ex.id
+            ? `https://exercisedb.p.rapidapi.com/image?exerciseId=${ex.id}&resolution=360&rapidapi-key=${apiKey}`
+            : null,
         }))
       : data;
 
