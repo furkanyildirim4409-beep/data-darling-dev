@@ -231,6 +231,21 @@ export function useCoachChat() {
               )
             );
             setTotalUnread(prev => prev + 1);
+
+            // Browser notification (respecting mute)
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                const mutedRaw = localStorage.getItem('coach_muted_chats');
+                const muted: string[] = mutedRaw ? JSON.parse(mutedRaw) : [];
+                if (!muted.includes(senderId)) {
+                  const senderName = athletes.find(a => a.id === senderId)?.full_name || 'Sporcu';
+                  new Notification(`Yeni Mesaj: ${senderName}`, {
+                    body: newMsg.content.substring(0, 100),
+                    icon: '/favicon.ico',
+                  });
+                }
+              } catch {}
+            }
           }
 
           // Update latest message for inbox

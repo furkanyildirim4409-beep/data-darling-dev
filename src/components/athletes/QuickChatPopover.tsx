@@ -76,14 +76,25 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
             <p className="text-xs text-muted-foreground">{athlete.sport}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-8 w-8 hover:bg-secondary"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleMute(athlete.id)}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title={isMuted(athlete.id) ? "Bildirimleri aç" : "Bildirimleri kapat"}
+          >
+            {isMuted(athlete.id) ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 hover:bg-secondary"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}

@@ -80,10 +80,19 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
             {(athlete.full_name || "?").charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-sm text-foreground">{athlete.full_name || "İsimsiz"}</p>
           <p className="text-xs text-muted-foreground">Sporcu</p>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => toggleMute(athlete.id)}
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          title={isMuted(athlete.id) ? "Bildirimleri aç" : "Bildirimleri kapat"}
+        >
+          {isMuted(athlete.id) ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+        </Button>
       </div>
 
       {/* Messages */}
