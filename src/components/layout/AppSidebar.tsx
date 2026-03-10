@@ -81,6 +81,10 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             (item.path !== "/" && location.pathname.startsWith(item.path));
           const Icon = item.icon;
           const showBadge = item.showBadge && alertCounts.total > 0;
+          const showMsgBadge = (item as any).showMessageBadge && totalUnread > 0;
+          const badgeActive = showBadge || showMsgBadge;
+          const badgeCount = showBadge ? alertCounts.total : totalUnread;
+          const badgeIsCritical = showBadge && alertCounts.critical > 0;
 
           const linkContent = (
             <NavLink
