@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useCoachChat } from "@/hooks/useCoachChat";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -34,7 +35,7 @@ const navItems = [
   { path: "/business", label: "İş Yönetimi", icon: Briefcase },
   { path: "/store", label: "Mağaza", icon: ShoppingBag },
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette },
-  { path: "/messages", label: "Mesajlar", icon: MessageCircle },
+  { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
   { path: "/team", label: "Takım", icon: UserCog },
   { path: "/settings", label: "Ayarlar", icon: Settings },
 ];
@@ -46,6 +47,7 @@ interface MobileNavProps {
 export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { totalUnread } = useCoachChat();
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
@@ -85,6 +87,7 @@ export function MobileNav({ className }: MobileNavProps) {
               (item.path !== "/" && location.pathname.startsWith(item.path));
             const Icon = item.icon;
             const showBadge = item.showBadge && alertCounts.total > 0;
+            const showMsgBadge = (item as any).showMessageBadge && totalUnread > 0;
 
             return (
               <NavLink
@@ -114,7 +117,7 @@ export function MobileNav({ className }: MobileNavProps) {
                 >
                   {item.label}
                 </span>
-                {showBadge && (
+                {(showBadge || showMsgBadge) && (
                   <AnimatePresence>
                     <motion.span
                       initial={{ scale: 0 }}
@@ -122,12 +125,16 @@ export function MobileNav({ className }: MobileNavProps) {
                       exit={{ scale: 0 }}
                       className={cn(
                         "min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center",
-                        alertCounts.critical > 0
+                        showBadge && alertCounts.critical > 0
                           ? "bg-destructive text-destructive-foreground pulse-red"
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}
                     >
-                      {alertCounts.total > 99 ? "99+" : alertCounts.total}
+                      {showMsgBadge
+                        ? (totalUnread > 99 ? "99+" : totalUnread)
+                        : (alertCounts.total > 99 ? "99+" : alertCounts.total)}
                     </motion.span>
                   </AnimatePresence>
                 )}

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useCoachChat } from "@/hooks/useCoachChat";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -28,7 +29,7 @@ const navItems = [
   { path: "/business", label: "İş Yönetimi", icon: Briefcase },
   { path: "/store", label: "Mağaza", icon: ShoppingBag },
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette },
-  { path: "/messages", label: "Mesajlar", icon: MessageCircle, showBadge: false },
+  { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
   { path: "/team", label: "Takım", icon: UserCog },
   { path: "/settings", label: "Ayarlar", icon: Settings },
 ];
@@ -40,6 +41,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
+  const { totalUnread } = useCoachChat();
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
@@ -79,6 +81,10 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             (item.path !== "/" && location.pathname.startsWith(item.path));
           const Icon = item.icon;
           const showBadge = item.showBadge && alertCounts.total > 0;
+          const showMsgBadge = (item as any).showMessageBadge && totalUnread > 0;
+          const badgeActive = showBadge || showMsgBadge;
+          const badgeCount = showBadge ? alertCounts.total : totalUnread;
+          const badgeIsCritical = showBadge && alertCounts.critical > 0;
 
           const linkContent = (
             <NavLink
@@ -98,7 +104,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   )}
                 />
                 {/* Badge for collapsed state */}
-                {showBadge && collapsed && (
+                {badgeActive && collapsed && (
                   <AnimatePresence>
                     <motion.span
                       initial={{ scale: 0 }}
@@ -106,12 +112,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                       exit={{ scale: 0 }}
                       className={cn(
                         "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
-                        alertCounts.critical > 0 
+                        badgeIsCritical
                           ? "bg-destructive text-destructive-foreground pulse-red" 
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}
                     >
-                      {alertCounts.total > 9 ? "9+" : alertCounts.total}
+                      {badgeCount > 9 ? "9+" : badgeCount}
                     </motion.span>
                   </AnimatePresence>
                 )}
@@ -122,7 +130,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                     {item.label}
                   </span>
                   {/* Badge for expanded state */}
-                  {showBadge && (
+                  {badgeActive && (
                     <AnimatePresence>
                       <motion.span
                         initial={{ scale: 0 }}
@@ -130,12 +138,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                         exit={{ scale: 0 }}
                         className={cn(
                           "min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center",
-                          alertCounts.critical > 0 
+                          badgeIsCritical
                             ? "bg-destructive text-destructive-foreground pulse-red" 
-                            : "bg-warning text-warning-foreground"
+                            : showMsgBadge
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-warning text-warning-foreground"
                         )}
                       >
-                        {alertCounts.total > 99 ? "99+" : alertCounts.total}
+                        {badgeCount > 99 ? "99+" : badgeCount}
                       </motion.span>
                     </AnimatePresence>
                   )}
@@ -151,14 +161,16 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                 <TooltipContent side="right" className="bg-card border-border">
                   <div className="flex items-center gap-2">
                     {item.label}
-                    {showBadge && (
+                    {badgeActive && (
                       <span className={cn(
                         "min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
-                        alertCounts.critical > 0 
+                        badgeIsCritical
                           ? "bg-destructive text-destructive-foreground" 
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}>
-                        {alertCounts.total}
+                        {badgeCount}
                       </span>
                     )}
                   </div>
