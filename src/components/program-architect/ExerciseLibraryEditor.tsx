@@ -270,7 +270,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
         )}
 
         {/* Exercise List */}
-        <ScrollArea className="flex-1 -mx-1 px-1" style={{ maxHeight: "50vh" }}>
+        <ScrollArea className="flex-1 min-h-0 -mx-1 px-1" style={{ maxHeight: "55vh" }}>
           <div className="space-y-1.5">
             {filtered.map((ex) => (
               <div
