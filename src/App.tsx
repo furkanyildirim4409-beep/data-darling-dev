@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import StoreManager from "./pages/StoreManager";
 import ContentStudio from "./pages/ContentStudio";
 import Performance from "./pages/Performance";
+import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/team" element={<Team />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/performance" element={<Performance />} />
+                <Route path="/messages" element={<Messages />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
