@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import StoreManager from "./pages/StoreManager";
 import ContentStudio from "./pages/ContentStudio";
 import Performance from "./pages/Performance";
+import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
