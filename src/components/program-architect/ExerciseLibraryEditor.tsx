@@ -382,7 +382,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
               <p className="text-sm text-muted-foreground text-center py-6">Egzersiz bulunamadı</p>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* RapidAPI Import */}
         <div className="pt-2 border-t border-border space-y-2">
