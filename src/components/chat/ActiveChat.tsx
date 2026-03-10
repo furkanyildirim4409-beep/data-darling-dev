@@ -24,6 +24,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { isMuted, toggleMute } = useMutedChats();
 
   // Auto-scroll to bottom
   useEffect(() => {
