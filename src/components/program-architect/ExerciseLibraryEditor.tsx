@@ -22,10 +22,16 @@ const MUSCLE_GROUPS = [
 interface ExerciseLibraryEditorProps {
   exercises: LibraryItem[];
   onRefresh: () => void;
+  onOpen?: () => void;
 }
 
-export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryEditorProps) {
+export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: ExerciseLibraryEditorProps) {
   const [open, setOpen] = useState(false);
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (v && onOpen) onOpen();
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
