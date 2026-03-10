@@ -17,11 +17,13 @@ export async function subscribeToPush(userId: string): Promise<void> {
     return;
   }
 
-  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!vapidPublicKey) {
-    console.warn('VITE_VAPID_PUBLIC_KEY not configured');
+  // Fetch VAPID public key dynamically from edge function
+  const { data, error: fetchError } = await supabase.functions.invoke('get-vapid-public-key');
+  if (fetchError || !data?.publicKey) {
+    console.warn('Could not fetch VAPID public key:', fetchError?.message);
     return;
   }
+  const vapidPublicKey = data.publicKey;
 
   // Wait for the PWA service worker (registered by vite-plugin-pwa)
   const registration = await navigator.serviceWorker.ready;
