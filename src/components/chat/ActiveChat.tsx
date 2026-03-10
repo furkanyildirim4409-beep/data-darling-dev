@@ -4,10 +4,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { ChatAthlete, ChatMessage } from "@/hooks/useCoachChat";
+import { useMutedChats } from "@/hooks/useMutedChats";
 
 interface ActiveChatProps {
   athlete: ChatAthlete | null;
