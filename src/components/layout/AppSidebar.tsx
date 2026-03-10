@@ -104,7 +104,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   )}
                 />
                 {/* Badge for collapsed state */}
-                {showBadge && collapsed && (
+                {badgeActive && collapsed && (
                   <AnimatePresence>
                     <motion.span
                       initial={{ scale: 0 }}
@@ -112,12 +112,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                       exit={{ scale: 0 }}
                       className={cn(
                         "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
-                        alertCounts.critical > 0 
+                        badgeIsCritical
                           ? "bg-destructive text-destructive-foreground pulse-red" 
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}
                     >
-                      {alertCounts.total > 9 ? "9+" : alertCounts.total}
+                      {badgeCount > 9 ? "9+" : badgeCount}
                     </motion.span>
                   </AnimatePresence>
                 )}
