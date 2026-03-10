@@ -1,45 +1,30 @@
-import { useState } from "react";
-import { Athlete } from "@/data/athletes";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Send, Paperclip, Smile } from "lucide-react";
+import { X, Send, Paperclip, Smile, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCoachChat } from "@/hooks/useCoachChat";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface QuickChatPopoverProps {
-  athlete: Athlete;
+  athlete: { id: string; name: string; avatar?: string; sport?: string };
   onClose: () => void;
 }
 
-interface Message {
-  id: number;
-  text: string;
-  sender: "coach" | "athlete";
-  time: string;
-}
-
 export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Merhaba Koç, bugünkü antrenman hakkında soru sormak istiyorum.",
-      sender: "athlete",
-      time: "10:30",
-    },
-    {
-      id: 2,
-      text: "Tabii, nasıl yardımcı olabilirim?",
-      sender: "coach",
-      time: "10:32",
-    },
-    {
-      id: 3,
-      text: "Squat ağırlığını artırmalı mıyım?",
-      sender: "athlete",
-      time: "10:33",
-    },
-  ]);
+  const [input, setInput] = useState("");
+  const { messages, selectAthlete, sendMessage, isLoadingMessages } = useCoachChat();
+  const { user } = useAuth();
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (athlete.id) selectAthlete(athlete.id);
+  }, [athlete.id, selectAthlete]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const initials = athlete.name
     .split(" ")
@@ -47,24 +32,25 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     .join("")
     .toUpperCase();
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-
-    const newMessage: Message = {
-      id: messages.length + 1,
-      text: message,
-      sender: "coach",
-      time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setMessages([...messages, newMessage]);
-    setMessage("");
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    const text = input;
+    setInput("");
+    await sendMessage(text);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
     }
   };
 
@@ -96,27 +82,41 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn(
-              "flex flex-col max-w-[85%]",
-              msg.sender === "coach" ? "ml-auto items-end" : "mr-auto items-start"
-            )}
-          >
-            <div
-              className={cn(
-                "px-3 py-2 rounded-xl text-sm",
-                msg.sender === "coach"
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : "bg-secondary text-foreground rounded-bl-sm"
-              )}
-            >
-              {msg.text}
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1">{msg.time}</span>
+        {isLoadingMessages ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
-        ))}
+        ) : messages.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground mt-8">Henüz mesaj yok</p>
+        ) : (
+          messages.map((msg) => {
+            const isCoach = msg.sender_id === user?.id;
+            return (
+              <div
+                key={msg.id}
+                className={cn(
+                  "flex flex-col max-w-[85%]",
+                  isCoach ? "ml-auto items-end" : "mr-auto items-start"
+                )}
+              >
+                <div
+                  className={cn(
+                    "px-3 py-2 rounded-xl text-sm",
+                    isCoach
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-secondary text-foreground rounded-bl-sm"
+                  )}
+                >
+                  {msg.content}
+                </div>
+                <span className="text-[10px] text-muted-foreground mt-1">
+                  {formatTime(msg.created_at)}
+                </span>
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -131,8 +131,8 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
           </Button>
           <Input
             placeholder="Mesaj yazın..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             className="flex-1 h-9 bg-secondary border-border text-sm"
           />
@@ -146,7 +146,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!message.trim()}
+            disabled={!input.trim()}
             className="h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Send className="w-4 h-4" />
