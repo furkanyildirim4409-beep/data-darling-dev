@@ -264,11 +264,18 @@ export function ProgramLibrary({
     }
   };
 
+  // Extract unique categories from exercises
+  const exerciseCategories = Array.from(new Set(exercises.map(ex => ex.category).filter(Boolean))).sort();
+
   const filteredExercises = exercises.filter(
-    (ex) =>
-      ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ex.muscleGroup?.toLowerCase().includes(searchTerm.toLowerCase())
+    (ex) => {
+      const matchesSearch =
+        ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ex.muscleGroup?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === "all" || ex.category.toLowerCase() === selectedCategory.toLowerCase();
+      return matchesSearch && matchesCategory;
+    }
   );
 
   const filteredNutrition = nutrition.filter(
