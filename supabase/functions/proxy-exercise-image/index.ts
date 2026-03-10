@@ -32,7 +32,7 @@ serve(async (req) => {
     }
 
     const imageResponse = await fetch(
-      `https://exercisedb.p.rapidapi.com/image/${exerciseId}?resolution=${resolution}`,
+      `https://exercisedb.p.rapidapi.com/image?exerciseId=${exerciseId}&resolution=${resolution}`,
       {
         headers: {
           "x-rapidapi-host": "exercisedb.p.rapidapi.com",
