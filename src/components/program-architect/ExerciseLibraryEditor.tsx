@@ -22,10 +22,16 @@ const MUSCLE_GROUPS = [
 interface ExerciseLibraryEditorProps {
   exercises: LibraryItem[];
   onRefresh: () => void;
+  onOpen?: () => void;
 }
 
-export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryEditorProps) {
+export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: ExerciseLibraryEditorProps) {
   const [open, setOpen] = useState(false);
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (v && onOpen) onOpen();
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
@@ -182,7 +188,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
           <Settings2 className="w-4 h-4" />
