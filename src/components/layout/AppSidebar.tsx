@@ -41,6 +41,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
+  const { totalUnread } = useCoachChat();
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
