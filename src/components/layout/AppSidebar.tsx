@@ -29,7 +29,7 @@ const navItems = [
   { path: "/business", label: "İş Yönetimi", icon: Briefcase },
   { path: "/store", label: "Mağaza", icon: ShoppingBag },
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette },
-  { path: "/messages", label: "Mesajlar", icon: MessageCircle, showBadge: false },
+  { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
   { path: "/team", label: "Takım", icon: UserCog },
   { path: "/settings", label: "Ayarlar", icon: Settings },
 ];
