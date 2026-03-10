@@ -270,7 +270,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
         )}
 
         {/* Exercise List */}
-        <ScrollArea className="flex-1 min-h-0 -mx-1 px-1" style={{ maxHeight: "55vh" }}>
+        <div className="flex-1 min-h-0 -mx-1 px-1 overflow-y-auto" style={{ maxHeight: "55vh" }}>
           <div className="space-y-1.5">
             {filtered.map((ex) => (
               <div
@@ -382,7 +382,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
               <p className="text-sm text-muted-foreground text-center py-6">Egzersiz bulunamadı</p>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* RapidAPI Import */}
         <div className="pt-2 border-t border-border space-y-2">
