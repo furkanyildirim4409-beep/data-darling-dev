@@ -161,14 +161,16 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                 <TooltipContent side="right" className="bg-card border-border">
                   <div className="flex items-center gap-2">
                     {item.label}
-                    {showBadge && (
+                    {badgeActive && (
                       <span className={cn(
                         "min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
-                        alertCounts.critical > 0 
+                        badgeIsCritical
                           ? "bg-destructive text-destructive-foreground" 
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}>
-                        {alertCounts.total}
+                        {badgeCount}
                       </span>
                     )}
                   </div>

@@ -117,7 +117,7 @@ export function MobileNav({ className }: MobileNavProps) {
                 >
                   {item.label}
                 </span>
-                {showBadge && (
+                {(showBadge || showMsgBadge) && (
                   <AnimatePresence>
                     <motion.span
                       initial={{ scale: 0 }}
@@ -125,12 +125,16 @@ export function MobileNav({ className }: MobileNavProps) {
                       exit={{ scale: 0 }}
                       className={cn(
                         "min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center",
-                        alertCounts.critical > 0
+                        showBadge && alertCounts.critical > 0
                           ? "bg-destructive text-destructive-foreground pulse-red"
-                          : "bg-warning text-warning-foreground"
+                          : showMsgBadge
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-warning text-warning-foreground"
                       )}
                     >
-                      {alertCounts.total > 99 ? "99+" : alertCounts.total}
+                      {showMsgBadge
+                        ? (totalUnread > 99 ? "99+" : totalUnread)
+                        : (alertCounts.total > 99 ? "99+" : alertCounts.total)}
                     </motion.span>
                   </AnimatePresence>
                 )}
