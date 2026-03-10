@@ -3,17 +3,20 @@ import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { subscribeToPush } from "@/hooks/usePushNotifications";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  // Request browser notification permission once
+  // Register push subscription when authenticated
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (user?.id) {
+      subscribeToPush(user.id).catch(() => {});
     }
-  }, []);
+  }, [user?.id]);
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-background">
