@@ -336,12 +336,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh }: ExerciseLibraryE
                 ) : (
                   <div className="flex items-center gap-2">
                     {ex.gifUrl ? (
-                      <img
-                        src={ex.gifUrl}
-                        alt={ex.name}
-                        className="w-8 h-8 rounded object-cover shrink-0 border border-border"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
+                      <ImageIcon className="w-4 h-4 text-primary/50 shrink-0" />
                     ) : (
                       <ImageIcon className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                     )}
