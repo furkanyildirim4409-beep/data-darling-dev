@@ -21,14 +21,14 @@ export default function Messages() {
   } = useCoachChat();
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const athleteIdParam = searchParams.get('athleteId');
 
   useEffect(() => {
-    const athleteId = searchParams.get('athleteId');
-    if (athleteId && athletes.length > 0) {
-      selectAthlete(athleteId);
+    if (athleteIdParam && athletes.length > 0 && athleteIdParam !== selectedAthleteId) {
+      selectAthlete(athleteIdParam);
       if (isMobile) setMobileShowChat(true);
     }
-  }, [searchParams, athletes.length, selectAthlete, isMobile]);
+  }, [athleteIdParam, athletes.length, selectedAthleteId, selectAthlete, isMobile]);
 
   const selectedAthlete = athletes.find(a => a.id === selectedAthleteId) || null;
 
