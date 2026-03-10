@@ -17,6 +17,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [input, setInput] = useState("");
   const { messages, selectAthlete, sendMessage, isLoadingMessages } = useCoachChat();
   const { user } = useAuth();
+  const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
   const initializedAthleteId = useRef<string | null>(null);
 
