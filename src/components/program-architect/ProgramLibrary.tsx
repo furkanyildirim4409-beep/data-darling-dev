@@ -156,6 +156,7 @@ export function ProgramLibrary({
 }: ProgramLibraryProps) {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
   const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -263,11 +264,18 @@ export function ProgramLibrary({
     }
   };
 
+  // Extract unique categories from exercises
+  const exerciseCategories = Array.from(new Set(exercises.map(ex => ex.category).filter(Boolean))).sort();
+
   const filteredExercises = exercises.filter(
-    (ex) =>
-      ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ex.muscleGroup?.toLowerCase().includes(searchTerm.toLowerCase())
+    (ex) => {
+      const matchesSearch =
+        ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ex.muscleGroup?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === "all" || ex.category.toLowerCase() === selectedCategory.toLowerCase();
+      return matchesSearch && matchesCategory;
+    }
   );
 
   const filteredNutrition = nutrition.filter(
@@ -301,6 +309,37 @@ export function ProgramLibrary({
             className="pl-9 bg-background/50 border-border"
           />
         </div>
+
+        {/* Category Filter */}
+        {builderMode === "exercise" && (
+          <div className="flex gap-1.5 flex-wrap mt-2.5">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors border",
+                selectedCategory === "all"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              Tümü
+            </button>
+            {exerciseCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? "all" : cat)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors border",
+                  selectedCategory === cat
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
