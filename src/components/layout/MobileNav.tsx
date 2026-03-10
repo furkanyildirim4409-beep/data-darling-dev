@@ -11,6 +11,7 @@ import {
   Settings,
   ShoppingBag,
   Palette,
+  MessageCircle,
   Menu,
   X,
 } from "lucide-react";
