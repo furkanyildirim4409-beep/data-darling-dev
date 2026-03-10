@@ -1,32 +1,73 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, Play, Pause } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { ChatAthlete, ChatMessage } from "@/hooks/useCoachChat";
 import { useMutedChats } from "@/hooks/useMutedChats";
+import { useMediaUpload } from "@/hooks/useMediaUpload";
 
 interface ActiveChatProps {
   athlete: ChatAthlete | null;
   messages: ChatMessage[];
   coachId: string;
   isLoading: boolean;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => void;
   onBack?: () => void;
   showBackButton?: boolean;
+}
+
+function MiniAudioPlayer({ src }: { src: string }) {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggle = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(src);
+      audioRef.current.onended = () => setPlaying(false);
+    }
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <button onClick={toggle} className="flex items-center gap-2 py-1">
+      {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+      <span className="text-xs">Ses kaydı</span>
+      <div className="flex gap-0.5">
+        {[...Array(12)].map((_, i) => (
+          <div key={i} className="w-0.5 rounded-full bg-current opacity-60" style={{ height: `${6 + Math.random() * 10}px` }} />
+        ))}
+      </div>
+    </button>
+  );
 }
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessage, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
 
-  // Auto-scroll to bottom
+  const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
+    onSendMessage('', mediaUrl, mediaType);
+  }, [onSendMessage]);
+
+  const { isUploading, isRecording, recordingDuration, handleImageSelect, startRecording, stopRecording, cancelRecording } = useMediaUpload({
+    userId: coachId,
+    onUploadComplete: handleMediaSent,
+  });
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -38,6 +79,12 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
     onSendMessage(input);
     setInput("");
     inputRef.current?.focus();
+  };
+
+  const formatDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
   if (!athlete) {
@@ -53,7 +100,6 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
     );
   }
 
-  // Group messages by date
   const grouped: { date: string; msgs: ChatMessage[] }[] = [];
   for (const msg of messages) {
     const dateStr = format(new Date(msg.created_at), "d MMMM yyyy", { locale: tr });
@@ -126,7 +172,24 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
                             : "bg-muted text-foreground rounded-bl-md"
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        {/* Media rendering */}
+                        {msg.media_type === 'image' && msg.media_url && (
+                          <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={msg.media_url}
+                              alt="Paylaşılan fotoğraf"
+                              className="rounded-lg max-w-full max-h-60 object-cover mb-1"
+                              loading="lazy"
+                            />
+                          </a>
+                        )}
+                        {msg.media_type === 'audio' && msg.media_url && (
+                          <MiniAudioPlayer src={msg.media_url} />
+                        )}
+                        {/* Text content (skip placeholder text for media-only messages) */}
+                        {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        )}
                         <p className={cn(
                           "text-[10px] mt-1",
                           isCoach ? "text-primary-foreground/70 text-right" : "text-muted-foreground text-right"
@@ -143,23 +206,75 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
         )}
       </div>
 
-      {/* Input */}
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageSelect(file);
+          e.target.value = '';
+        }}
+      />
+
+      {/* Input area */}
       <div className="p-3 border-t border-border bg-card">
-        <form
-          onSubmit={e => { e.preventDefault(); handleSend(); }}
-          className="flex items-center gap-2"
-        >
-          <Input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Mesaj yaz..."
-            className="flex-1 bg-muted/50 border-border"
-          />
-          <Button type="submit" size="icon" disabled={!input.trim()} className="flex-shrink-0">
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
+        {isRecording ? (
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={cancelRecording} className="h-9 w-9 text-destructive">
+              <X className="w-4 h-4" />
+            </Button>
+            <div className="flex-1 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm font-mono text-foreground">{formatDuration(recordingDuration)}</span>
+              <span className="text-xs text-muted-foreground">Kayıt yapılıyor...</span>
+            </div>
+            <Button size="icon" onClick={stopRecording} className="h-9 w-9 bg-primary text-primary-foreground">
+              <Square className="w-4 h-4" />
+            </Button>
+          </div>
+        ) : (
+          <form
+            onSubmit={e => { e.preventDefault(); handleSend(); }}
+            className="flex items-center gap-2"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground flex-shrink-0"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+            </Button>
+            <Input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Mesaj yaz..."
+              className="flex-1 bg-muted/50 border-border"
+              disabled={isUploading}
+            />
+            {input.trim() ? (
+              <Button type="submit" size="icon" disabled={isUploading} className="flex-shrink-0 h-9 w-9">
+                <Send className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="icon"
+                onClick={startRecording}
+                disabled={isUploading}
+                className="flex-shrink-0 h-9 w-9"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+            )}
+          </form>
+        )}
       </div>
     </div>
   );

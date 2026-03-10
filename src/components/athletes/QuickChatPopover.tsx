@@ -1,16 +1,43 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Send, Paperclip, Smile, Loader2, Bell, BellOff } from "lucide-react";
+import { X, Send, ImagePlus, Mic, Square, Loader2, Bell, BellOff, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutedChats } from "@/hooks/useMutedChats";
+import { useMediaUpload } from "@/hooks/useMediaUpload";
 
 interface QuickChatPopoverProps {
   athlete: { id: string; name: string; avatar?: string; sport?: string };
   onClose: () => void;
+}
+
+function MiniAudioPlayer({ src }: { src: string }) {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggle = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(src);
+      audioRef.current.onended = () => setPlaying(false);
+    }
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <button onClick={toggle} className="flex items-center gap-2 py-1">
+      {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+      <span className="text-xs">Ses kaydı</span>
+    </button>
+  );
 }
 
 export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
@@ -20,6 +47,16 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
   const initializedAthleteId = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
+    sendMessage('', mediaUrl, mediaType);
+  }, [sendMessage]);
+
+  const { isUploading, isRecording, recordingDuration, handleImageSelect, startRecording, stopRecording, cancelRecording } = useMediaUpload({
+    userId: user?.id || '',
+    onUploadComplete: handleMediaSent,
+  });
 
   useEffect(() => {
     if (athlete.id && initializedAthleteId.current !== athlete.id) {
@@ -58,6 +95,12 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     } catch {
       return "";
     }
+  };
+
+  const formatDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -124,7 +167,17 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
                       : "bg-secondary text-foreground rounded-bl-sm"
                   )}
                 >
-                  {msg.content}
+                  {msg.media_type === 'image' && msg.media_url && (
+                    <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
+                      <img src={msg.media_url} alt="Fotoğraf" className="rounded-lg max-w-full max-h-40 object-cover mb-1" loading="lazy" />
+                    </a>
+                  )}
+                  {msg.media_type === 'audio' && msg.media_url && (
+                    <MiniAudioPlayer src={msg.media_url} />
+                  )}
+                  {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (
+                    <span>{msg.content}</span>
+                  )}
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1">
                   {formatTime(msg.created_at)}
@@ -136,39 +189,75 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageSelect(file);
+          e.target.value = '';
+        }}
+      />
+
       {/* Input */}
       <div className="p-3 border-t border-border bg-card">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          >
-            <Paperclip className="w-4 h-4" />
-          </Button>
-          <Input
-            placeholder="Mesaj yazın..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="flex-1 h-9 bg-secondary border-border text-sm"
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          >
-            <Smile className="w-4 h-4" />
-          </Button>
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
+        {isRecording ? (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={cancelRecording} className="h-8 w-8 text-destructive">
+              <X className="w-4 h-4" />
+            </Button>
+            <div className="flex-1 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-xs font-mono text-foreground">{formatDuration(recordingDuration)}</span>
+            </div>
+            <Button size="icon" onClick={stopRecording} className="h-8 w-8 bg-primary text-primary-foreground">
+              <Square className="w-3 h-3" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+            </Button>
+            <Input
+              placeholder="Mesaj yazın..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="flex-1 h-9 bg-secondary border-border text-sm"
+              disabled={isUploading}
+            />
+            {input.trim() ? (
+              <Button
+                size="icon"
+                onClick={handleSend}
+                disabled={isUploading}
+                className="h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={startRecording}
+                disabled={isUploading}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

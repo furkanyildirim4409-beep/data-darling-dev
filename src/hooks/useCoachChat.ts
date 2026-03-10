@@ -11,6 +11,7 @@ export interface ChatAthlete {
     content: string;
     created_at: string;
     sender_id: string;
+    media_type?: string | null;
   } | null;
   unreadCount: number;
 }
@@ -22,6 +23,8 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   is_read: boolean;
+  media_url?: string | null;
+  media_type?: string | null;
 }
 
 export function useCoachChat() {
@@ -37,12 +40,18 @@ export function useCoachChat() {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
 
+  // Helper: get preview text for a message
+  const getPreviewText = (content: string, mediaType?: string | null) => {
+    if (mediaType === 'image') return '📷 Fotoğraf';
+    if (mediaType === 'audio') return '🎤 Ses kaydı';
+    return content;
+  };
+
   // Fetch athletes + latest messages + unread counts in bulk
   const fetchAthletes = useCallback(async () => {
     if (!coachId) return;
     setIsLoadingAthletes(true);
 
-    // 1. Get assigned athletes
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
@@ -56,7 +65,6 @@ export function useCoachChat() {
 
     const athleteIds = profiles.map(p => p.id);
 
-    // 2. Get all messages between coach and any athlete (bulk, avoid N+1)
     const { data: allMessages } = await supabase
       .from('messages')
       .select('*')
@@ -65,8 +73,7 @@ export function useCoachChat() {
       )
       .order('created_at', { ascending: false });
 
-    // 3. Group: latest message per athlete + unread count
-    const latestMap = new Map<string, ChatMessage>();
+    const latestMap = new Map<string, any>();
     const unreadMap = new Map<string, number>();
 
     for (const msg of (allMessages || []) as ChatMessage[]) {
@@ -81,21 +88,24 @@ export function useCoachChat() {
       }
     }
 
-    const mapped: ChatAthlete[] = profiles.map(p => ({
-      id: p.id,
-      full_name: p.full_name,
-      avatar_url: p.avatar_url,
-      latestMessage: latestMap.get(p.id)
-        ? {
-            content: latestMap.get(p.id)!.content,
-            created_at: latestMap.get(p.id)!.created_at,
-            sender_id: latestMap.get(p.id)!.sender_id,
-          }
-        : null,
-      unreadCount: unreadMap.get(p.id) || 0,
-    }));
+    const mapped: ChatAthlete[] = profiles.map(p => {
+      const latest = latestMap.get(p.id);
+      return {
+        id: p.id,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        latestMessage: latest
+          ? {
+              content: getPreviewText(latest.content, latest.media_type),
+              created_at: latest.created_at,
+              sender_id: latest.sender_id,
+              media_type: latest.media_type,
+            }
+          : null,
+        unreadCount: unreadMap.get(p.id) || 0,
+      };
+    });
 
-    // Sort by latest message time desc, athletes with no messages last
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
       if (!a.latestMessage) return 1;
@@ -124,7 +134,6 @@ export function useCoachChat() {
     setMessages((data as ChatMessage[]) || []);
     setIsLoadingMessages(false);
 
-    // Mark unread as read
     await supabase
       .from('messages')
       .update({ is_read: true })
@@ -132,7 +141,6 @@ export function useCoachChat() {
       .eq('receiver_id', coachId)
       .eq('is_read', false);
 
-    // Update local unread count
     setAthletes(prev =>
       prev.map(a =>
         a.id === athleteId ? { ...a, unreadCount: 0 } : a
@@ -144,53 +152,56 @@ export function useCoachChat() {
     });
   }, [coachId, athletes]);
 
-  // Select athlete
   const selectAthlete = useCallback((athleteId: string) => {
     setSelectedAthleteId(athleteId);
     fetchMessages(athleteId);
   }, [fetchMessages]);
 
-  // Send message with optimistic UI
-  const sendMessage = useCallback(async (content: string) => {
-    if (!coachId || !selectedAthleteId || !content.trim()) return;
+  // Send message with optimistic UI — supports media
+  const sendMessage = useCallback(async (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => {
+    if (!coachId || !selectedAthleteId) return;
+    if (!content.trim() && !mediaUrl) return;
 
     const optimistic: ChatMessage = {
       id: crypto.randomUUID(),
       sender_id: coachId,
       receiver_id: selectedAthleteId,
-      content: content.trim(),
+      content: content.trim() || (mediaType === 'image' ? '📷 Fotoğraf' : '🎤 Ses kaydı'),
       created_at: new Date().toISOString(),
       is_read: false,
+      media_url: mediaUrl || null,
+      media_type: mediaType || null,
     };
 
-    // Optimistic append
     setMessages(prev => [...prev, optimistic]);
 
-    // Update athlete's latest message
+    const previewText = getPreviewText(optimistic.content, mediaType);
     setAthletes(prev =>
       prev.map(a =>
         a.id === selectedAthleteId
-          ? { ...a, latestMessage: { content: optimistic.content, created_at: optimistic.created_at, sender_id: coachId } }
+          ? { ...a, latestMessage: { content: previewText, created_at: optimistic.created_at, sender_id: coachId, media_type: mediaType } }
           : a
       )
     );
 
-    const { error } = await supabase.from('messages').insert({
+    const insertData: any = {
       sender_id: coachId,
       receiver_id: selectedAthleteId,
-      content: content.trim(),
-    });
+      content: content.trim() || (mediaType === 'image' ? '📷 Fotoğraf' : '🎤 Ses kaydı'),
+    };
+    if (mediaUrl) insertData.media_url = mediaUrl;
+    if (mediaType) insertData.media_type = mediaType;
+
+    const { error } = await supabase.from('messages').insert(insertData);
 
     if (error) {
-      // Rollback optimistic
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     } else {
-      // Fire push notification (fire-and-forget)
       supabase.functions.invoke('send-message-push', {
         body: {
           receiver_id: selectedAthleteId,
           sender_id: coachId,
-          content: content.trim(),
+          content: previewText,
         },
       }).catch(() => {});
     }
@@ -213,8 +224,8 @@ export function useCoachChat() {
         (payload) => {
           const newMsg = payload.new as ChatMessage;
           const senderId = newMsg.sender_id;
+          const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
-          // If this athlete's chat is open, append & mark read
           if (senderId === selectedAthleteId) {
             setMessages(prev => [...prev, newMsg]);
             supabase
@@ -222,17 +233,15 @@ export function useCoachChat() {
               .update({ is_read: true })
               .eq('id', newMsg.id);
           } else {
-            // Update unread count
             setAthletes(prev =>
               prev.map(a =>
                 a.id === senderId
-                  ? { ...a, unreadCount: a.unreadCount + 1, latestMessage: { content: newMsg.content, created_at: newMsg.created_at, sender_id: senderId } }
+                  ? { ...a, unreadCount: a.unreadCount + 1, latestMessage: { content: previewText, created_at: newMsg.created_at, sender_id: senderId, media_type: newMsg.media_type } }
                   : a
               )
             );
             setTotalUnread(prev => prev + 1);
 
-            // Browser notification (respecting mute)
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 const mutedRaw = localStorage.getItem('coach_muted_chats');
@@ -240,19 +249,18 @@ export function useCoachChat() {
                 if (!muted.includes(senderId)) {
                   const senderName = athletes.find(a => a.id === senderId)?.full_name || 'Sporcu';
                   new Notification(`Yeni Mesaj: ${senderName}`, {
-                    body: newMsg.content.substring(0, 100),
-                    icon: '/favicon.ico',
+                    body: previewText.substring(0, 100),
+                    icon: '/pwa-192x192.png',
                   });
                 }
               } catch {}
             }
           }
 
-          // Update latest message for inbox
           setAthletes(prev => {
             const updated = prev.map(a =>
               a.id === senderId
-                ? { ...a, latestMessage: { content: newMsg.content, created_at: newMsg.created_at, sender_id: senderId } }
+                ? { ...a, latestMessage: { content: previewText, created_at: newMsg.created_at, sender_id: senderId, media_type: newMsg.media_type } }
                 : a
             );
             updated.sort((a, b) => {
@@ -272,7 +280,6 @@ export function useCoachChat() {
     };
   }, [coachId, selectedAthleteId]);
 
-  // Initial fetch
   useEffect(() => {
     fetchAthletes();
   }, [fetchAthletes]);
