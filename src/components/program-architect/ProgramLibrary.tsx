@@ -1,15 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
+
+const TOTAL_EXERCISE_COUNT = 1324;
+const PAGE_SIZE = 50;
 
 // Default exercises to seed when table is empty
 const defaultExercises = [
@@ -79,9 +83,10 @@ interface LibraryItemCardProps {
   item: LibraryItem;
   onAdd: (item: LibraryItem) => void;
   isAdded: boolean;
+  onDetail: (item: LibraryItem) => void;
 }
 
-function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
+function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProps) {
   return (
     <div
       className={cn(
@@ -90,6 +95,7 @@ function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
           ? "opacity-50 bg-muted/30" 
           : "glass-hover cursor-pointer hover:border-primary/50"
       )}
+      onClick={() => onDetail(item)}
     >
       <div className="flex items-center gap-3">
         {item.type === "exercise" ? (
@@ -134,6 +140,50 @@ function LibraryItemCard({ item, onAdd, isAdded }: LibraryItemCardProps) {
   );
 }
 
+// --- Exercise Detail Modal ---
+function ExerciseDetailModal({ item, open, onClose }: { item: LibraryItem | null; open: boolean; onClose: () => void }) {
+  if (!item) return null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Dumbbell className="w-5 h-5 text-primary" />
+            {item.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {item.gifUrl ? (
+            <div className="rounded-xl border border-border overflow-hidden bg-background/50 flex items-center justify-center">
+              <img
+                src={item.gifUrl}
+                alt={item.name}
+                className="w-full max-h-[360px] object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-muted/30 flex flex-col items-center justify-center py-12">
+              <Dumbbell className="w-12 h-12 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">Görsel mevcut değil</p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-xs border-primary/30 text-primary/80">
+              {item.category}
+            </Badge>
+            {item.muscleGroup && (
+              <Badge variant="outline" className="text-xs border-primary/30 text-primary/80">
+                {item.muscleGroup}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface ProgramLibraryProps {
   onAddItem: (item: LibraryItem) => void;
   addedItemIds: string[];
@@ -153,62 +203,168 @@ export function ProgramLibrary({
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
   const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [loadingExercises, setLoadingExercises] = useState(true);
 
-  // Exercises fetched from Supabase exercise_library table
+  // Paginated exercises state
   const [exercises, setExercises] = useState<LibraryItem[]>([]);
+  const [loadingExercises, setLoadingExercises] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const fetchExercises = useCallback(async () => {
-    setLoadingExercises(true);
-    try {
-      // Paginated fetch to bypass Supabase 1000-row default limit
-      const PAGE_SIZE = 1000;
-      let allRows: any[] = [];
-      let from = 0;
-      let hasMore = true;
+  // Category list (fetched once)
+  const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from("exercise_library")
-          .select("*")
-          .order("name")
-          .range(from, from + PAGE_SIZE - 1);
+  // Detail modal
+  const [detailItem, setDetailItem] = useState<LibraryItem | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-        if (error) {
-          console.error("Failed to fetch exercise library:", error);
-          toast.error("Egzersiz kütüphanesi yüklenemedi");
-          setLoadingExercises(false);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          allRows = allRows.concat(data);
-          from += PAGE_SIZE;
-          hasMore = data.length === PAGE_SIZE;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      setExercises(allRows.map(row => ({
-        id: row.id,
-        name: row.name,
-        category: row.category || "Diğer",
-        type: "exercise",
-        muscleGroup: row.target_muscle || undefined,
-        gifUrl: row.video_url || undefined,
-      })));
-    } catch (err) {
-      console.error("Exercise fetch error:", err);
-      toast.error("Egzersiz kütüphanesi yüklenemedi");
-    }
-    setLoadingExercises(false);
-  }, []);
+  // Debounced search
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    fetchExercises();
-  }, [fetchExercises]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchTerm]);
 
+  // Fetch categories once
+  useEffect(() => {
+    if (categoriesLoaded) return;
+    (async () => {
+      const { data } = await supabase
+        .from("exercise_library")
+        .select("category")
+        .not("category", "is", null);
+      if (data) {
+        const cats = Array.from(new Set(data.map((r: any) => r.category as string).filter(Boolean))).sort();
+        setExerciseCategories(cats);
+        setCategoriesLoaded(true);
+      }
+    })();
+  }, [categoriesLoaded]);
+
+  // Fetch exercises with pagination + server-side search
+  const fetchPage = useCallback(async (reset: boolean) => {
+    if (reset) {
+      setLoadingExercises(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    const from = reset ? 0 : offset;
+
+    let query = supabase
+      .from("exercise_library")
+      .select("*")
+      .order("name")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (debouncedSearch.trim()) {
+      query = query.ilike("name", `%${debouncedSearch.trim()}%`);
+    }
+
+    if (selectedCategory !== "all") {
+      query = query.ilike("category", selectedCategory);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Exercise fetch error:", error);
+      toast.error("Egzersiz yüklenemedi");
+      setLoadingExercises(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    const mapped = (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      category: row.category || "Diğer",
+      type: "exercise" as const,
+      muscleGroup: row.target_muscle || undefined,
+      gifUrl: row.video_url || undefined,
+    }));
+
+    if (reset) {
+      setExercises(mapped);
+      setOffset(PAGE_SIZE);
+    } else {
+      setExercises(prev => [...prev, ...mapped]);
+      setOffset(from + PAGE_SIZE);
+    }
+
+    setHasMore(mapped.length === PAGE_SIZE);
+    setLoadingExercises(false);
+    setLoadingMore(false);
+  }, [debouncedSearch, selectedCategory, offset]);
+
+  // Reset and fetch when search or category changes
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(true);
+    fetchPage(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, selectedCategory]);
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || loadingMore || !hasMore || builderMode !== "exercise") return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+      fetchPage(false);
+    }
+  }, [loadingMore, hasMore, builderMode, fetchPage]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  // For ExerciseLibraryEditor - full fetch for editor only
+  const [allExercisesForEditor, setAllExercisesForEditor] = useState<LibraryItem[]>([]);
+  const fetchAllForEditor = useCallback(async () => {
+    const PAGE = 1000;
+    let all: any[] = [];
+    let from = 0;
+    let more = true;
+    while (more) {
+      const { data } = await supabase.from("exercise_library").select("*").order("name").range(from, from + PAGE - 1);
+      if (data && data.length > 0) {
+        all = all.concat(data);
+        from += PAGE;
+        more = data.length === PAGE;
+      } else {
+        more = false;
+      }
+    }
+    setAllExercisesForEditor(all.map(row => ({
+      id: row.id,
+      name: row.name,
+      category: row.category || "Diğer",
+      type: "exercise",
+      muscleGroup: row.target_muscle || undefined,
+      gifUrl: row.video_url || undefined,
+    })));
+  }, []);
+
+  const handleEditorRefresh = useCallback(() => {
+    fetchAllForEditor();
+    // Also reset paginated view
+    setOffset(0);
+    setHasMore(true);
+    fetchPage(true);
+    setCategoriesLoaded(false);
+  }, [fetchAllForEditor]);
+
+  // Fetch templates
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoadingTemplates(true);
@@ -257,20 +413,6 @@ export function ProgramLibrary({
     }
   };
 
-  // Extract unique categories from exercises
-  const exerciseCategories = Array.from(new Set(exercises.map(ex => ex.category).filter(Boolean))).sort();
-
-  const filteredExercises = exercises.filter(
-    (ex) => {
-      const matchesSearch =
-        ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ex.muscleGroup?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === "all" || ex.category.toLowerCase() === selectedCategory.toLowerCase();
-      return matchesSearch && matchesCategory;
-    }
-  );
-
   const filteredNutrition = nutrition.filter(
     (nut) =>
       nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -281,16 +423,19 @@ export function ProgramLibrary({
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const currentItems = builderMode === "exercise" ? filteredExercises : filteredNutrition;
+  const currentItems = builderMode === "exercise" ? exercises : filteredNutrition;
 
   return (
     <div className="glass rounded-xl border border-border h-full flex flex-col">
+      {/* Detail Modal */}
+      <ExerciseDetailModal item={detailItem} open={detailOpen} onClose={() => { setDetailOpen(false); setDetailItem(null); }} />
+
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
           {builderMode === "exercise" && (
-            <ExerciseLibraryEditor exercises={exercises} onRefresh={fetchExercises} />
+            <ExerciseLibraryEditor exercises={allExercisesForEditor} onRefresh={handleEditorRefresh} onOpen={fetchAllForEditor} />
           )}
         </div>
         <div className="relative">
@@ -336,14 +481,14 @@ export function ProgramLibrary({
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "templates")} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "templates")} className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-3">
           <TabsList className="w-full bg-muted/50">
             <TabsTrigger value="items" className="flex-1 text-xs">
               {builderMode === "exercise" ? (
                 <>
                   <Dumbbell className="w-3 h-3 mr-1.5" />
-                  Egzersizler ({exercises.length})
+                  Egzersizler ({TOTAL_EXERCISE_COUNT})
                 </>
               ) : (
                 <>
@@ -359,97 +504,112 @@ export function ProgramLibrary({
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1 px-4 py-3">
-          <TabsContent value="items" className="mt-0 space-y-2">
-            {loadingExercises && builderMode === "exercise" ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                {currentItems.map((item) => (
-                  <LibraryItemCard
-                    key={item.id}
-                    item={item}
-                    onAdd={onAddItem}
-                    isAdded={addedItemIds.includes(item.id)}
-                  />
-                ))}
-                {currentItems.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
-                  </p>
-                )}
-              </>
-            )}
+        <div className="flex-1 min-h-0">
+          <TabsContent value="items" className="mt-0 h-full">
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
+            >
+              {loadingExercises && builderMode === "exercise" ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {currentItems.map((item) => (
+                    <LibraryItemCard
+                      key={item.id}
+                      item={item}
+                      onAdd={onAddItem}
+                      isAdded={addedItemIds.includes(item.id)}
+                      onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                    />
+                  ))}
+                  {loadingMore && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {currentItems.length === 0 && !loadingExercises && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="templates" className="mt-0 space-y-2">
-            {loadingTemplates ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredTemplates.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <BookMarked className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Henüz kayıtlı şablon yok</p>
-                <p className="text-xs mt-1">Program oluşturup "Şablon Olarak Kaydet" butonuna tıklayın</p>
-              </div>
-            ) : (
-              filteredTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className="glass rounded-lg p-3 border border-border hover:border-primary/50 transition-all cursor-pointer group"
-                  onClick={() => onLoadTemplate(template)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
-                      {template.description && (
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">{template.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
-                          {template.exerciseCount} egzersiz
-                        </Badge>
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
-                          {template.dayCount} gün
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          {template.createdAt.toLocaleDateString("tr-TR")}
-                        </span>
+          <TabsContent value="templates" className="mt-0 h-full">
+            <ScrollArea className="h-full px-4 py-3">
+              {loadingTemplates ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredTemplates.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookMarked className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Henüz kayıtlı şablon yok</p>
+                  <p className="text-xs mt-1">Program oluşturup "Şablon Olarak Kaydet" butonuna tıklayın</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="glass rounded-lg p-3 border border-border hover:border-primary/50 transition-all cursor-pointer group"
+                      onClick={() => onLoadTemplate(template)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
+                          {template.description && (
+                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{template.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
+                              {template.exerciseCount} egzersiz
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-border text-muted-foreground">
+                              {template.dayCount} gün
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {template.createdAt.toLocaleDateString("tr-TR")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => handleDeleteTemplate(e, template.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs"
+                          >
+                            Yükle
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => handleDeleteTemplate(e, template.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs"
-                      >
-                        Yükle
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))
-            )}
+              )}
+            </ScrollArea>
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
 
       {/* Quick Stats */}
       <div className="p-4 border-t border-border bg-muted/20">
         <p className="text-xs text-muted-foreground text-center">
           {builderMode === "exercise" 
-            ? `Toplam: ${exercises.length} egzersiz`
+            ? `Toplam: ${TOTAL_EXERCISE_COUNT} egzersiz`
             : `Toplam: ${nutrition.length} besin`
           }
         </p>
