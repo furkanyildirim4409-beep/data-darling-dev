@@ -76,11 +76,15 @@ Deno.serve(async (req) => {
     );
 
     const notificationPayload = JSON.stringify({
-      title: senderName,
-      body: content.length > 100 ? content.substring(0, 97) + "..." : content,
-      icon: "/favicon.ico",
+      title: `💬 ${senderName}`,
+      body: content.length > 100 ? content.substring(0, 100) + "..." : content,
+      icon: "/pwa-192x192.png",
       badge: "/favicon.ico",
-      data: { url: "/messages", sender_id },
+      data: {
+        coachUrl: `/messages?athleteId=${sender_id}`,
+        athleteUrl: `/?openChat=true&coachId=${sender_id}`,
+        senderId: sender_id,
+      },
     });
 
     const results = await Promise.allSettled(
