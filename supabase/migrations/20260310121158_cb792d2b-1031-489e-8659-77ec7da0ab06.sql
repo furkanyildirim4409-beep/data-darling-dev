@@ -1,0 +1,1 @@
+UPDATE exercise_library SET video_url = NULL WHERE video_url LIKE '%rapidapi-key=%';
