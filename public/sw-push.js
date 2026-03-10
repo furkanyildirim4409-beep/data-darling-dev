@@ -1,4 +1,4 @@
-/* Coach OS – Service Worker for Web Push */
+/* Push notification handler — imported by Workbox via importScripts */
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -8,9 +8,10 @@ self.addEventListener('push', (event) => {
     const title = payload.title || 'Dynabolic';
     const options = {
       body: payload.body || '',
-      icon: payload.icon || '/favicon.ico',
+      icon: payload.icon || '/pwa-192x192.png',
       badge: payload.badge || '/favicon.ico',
       data: payload.data || {},
+      vibrate: [200, 100, 200],
     };
 
     event.waitUntil(self.registration.showNotification(title, options));

@@ -23,9 +23,8 @@ export async function subscribeToPush(userId: string): Promise<void> {
     return;
   }
 
-  // Register service worker
-  const registration = await navigator.serviceWorker.register('/sw.js');
-  await navigator.serviceWorker.ready;
+  // Wait for the PWA service worker (registered by vite-plugin-pwa)
+  const registration = await navigator.serviceWorker.ready;
 
   // Request permission
   const permission = await Notification.requestPermission();
