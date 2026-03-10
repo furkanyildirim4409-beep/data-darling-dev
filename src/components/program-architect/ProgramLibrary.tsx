@@ -312,7 +312,7 @@ export function ProgramLibrary({
 
         {/* Category Filter */}
         {builderMode === "exercise" && (
-          <div className="flex gap-1.5 flex-wrap px-4 pt-2">
+          <div className="flex gap-1.5 flex-wrap mt-2.5">
             <button
               onClick={() => setSelectedCategory("all")}
               className={cn(
