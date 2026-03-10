@@ -4,10 +4,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { ChatAthlete, ChatMessage } from "@/hooks/useCoachChat";
+import { useMutedChats } from "@/hooks/useMutedChats";
 
 interface ActiveChatProps {
   athlete: ChatAthlete | null;
@@ -23,6 +24,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { isMuted, toggleMute } = useMutedChats();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -78,10 +80,19 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
             {(athlete.full_name || "?").charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-sm text-foreground">{athlete.full_name || "İsimsiz"}</p>
           <p className="text-xs text-muted-foreground">Sporcu</p>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => toggleMute(athlete.id)}
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          title={isMuted(athlete.id) ? "Bildirimleri aç" : "Bildirimleri kapat"}
+        >
+          {isMuted(athlete.id) ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+        </Button>
       </div>
 
       {/* Messages */}

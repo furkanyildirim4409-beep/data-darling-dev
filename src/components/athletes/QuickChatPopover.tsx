@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Send, Paperclip, Smile, Loader2 } from "lucide-react";
+import { X, Send, Paperclip, Smile, Loader2, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMutedChats } from "@/hooks/useMutedChats";
 
 interface QuickChatPopoverProps {
   athlete: { id: string; name: string; avatar?: string; sport?: string };
@@ -16,6 +17,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [input, setInput] = useState("");
   const { messages, selectAthlete, sendMessage, isLoadingMessages } = useCoachChat();
   const { user } = useAuth();
+  const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
   const initializedAthleteId = useRef<string | null>(null);
 
@@ -74,14 +76,25 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
             <p className="text-xs text-muted-foreground">{athlete.sport}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-8 w-8 hover:bg-secondary"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleMute(athlete.id)}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title={isMuted(athlete.id) ? "Bildirimleri aç" : "Bildirimleri kapat"}
+          >
+            {isMuted(athlete.id) ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 hover:bg-secondary"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}
