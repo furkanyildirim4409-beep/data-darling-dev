@@ -3,6 +3,8 @@ import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { subscribeToPush } from "@/hooks/usePushNotifications";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
