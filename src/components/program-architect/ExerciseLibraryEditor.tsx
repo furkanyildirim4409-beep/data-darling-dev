@@ -188,7 +188,7 @@ export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: Exercise
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
           <Settings2 className="w-4 h-4" />
