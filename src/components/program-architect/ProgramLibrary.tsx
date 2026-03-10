@@ -309,7 +309,37 @@ export function ProgramLibrary({
             className="pl-9 bg-background/50 border-border"
           />
         </div>
-      </div>
+
+        {/* Category Filter */}
+        {builderMode === "exercise" && (
+          <div className="flex gap-1.5 flex-wrap px-4 pt-2">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors border",
+                selectedCategory === "all"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              Tümü
+            </button>
+            {exerciseCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? "all" : cat)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors border",
+                  selectedCategory === cat
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "templates")} className="flex-1 flex flex-col">
