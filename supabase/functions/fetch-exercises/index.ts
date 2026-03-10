@@ -49,10 +49,12 @@ serve(async (req) => {
     const data = await response.json();
     console.log(`[fetch-exercises] Fetched ${Array.isArray(data) ? data.length : 0} exercises from ExerciseDB Pro`);
 
+    // Construct proxy image URLs using exercise IDs
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "https://fsbhbfltathfcpvcjfzt.supabase.co";
     const enriched = Array.isArray(data)
       ? data.map((ex: any) => ({
           ...ex,
-          imageUrl: ex.gifUrl || null,
+          imageUrl: ex.id ? `${SUPABASE_URL}/functions/v1/proxy-exercise-image?exerciseId=${ex.id}` : null,
         }))
       : data;
 

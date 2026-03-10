@@ -1,0 +1,1 @@
+TRUNCATE TABLE exercise_library;

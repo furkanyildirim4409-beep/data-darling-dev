@@ -2,3 +2,6 @@ project_id = "fsbhbfltathfcpvcjfzt"
 
 [functions.fetch-exercises]
 verify_jwt = false
+
+[functions.proxy-exercise-image]
+verify_jwt = false
