@@ -340,6 +340,7 @@ export function ProgramLibrary({
             ))}
           </div>
         )}
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "templates")} className="flex-1 flex flex-col">
