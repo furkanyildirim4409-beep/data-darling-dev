@@ -446,7 +446,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                       <Trophy className="w-3.5 h-3.5 mr-0.5" />YENİ REKOR
                                     </Badge>
                                   )}
-                                  {!prog.isGlobalPR && prog.weightDiff != null && (
+                                  {prog.weightDiff != null && (
                                     <span className={cn(
                                       "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
                                       prog.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
