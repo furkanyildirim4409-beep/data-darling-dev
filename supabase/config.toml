@@ -6,8 +6,6 @@ verify_jwt = false
 [functions.proxy-exercise-image]
 verify_jwt = false
 
-[functions.send-message-push]
-verify_jwt = false
 
 [functions.get-vapid-public-key]
 verify_jwt = false

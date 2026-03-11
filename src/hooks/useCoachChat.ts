@@ -240,7 +240,7 @@ export function useCoachChat() {
                 const muted: string[] = mutedRaw ? JSON.parse(mutedRaw) : [];
                 if (!muted.includes(senderId)) {
                   const senderName = athletes.find(a => a.id === senderId)?.full_name || 'Sporcu';
-                  new Notification(`Yeni Mesaj: ${senderName}`, {
+                  new Notification(`💬 ${senderName} sana yeni bir mesaj gönderdi`, {
                     body: previewText.substring(0, 100),
                     icon: '/pwa-192x192.png',
                   });
