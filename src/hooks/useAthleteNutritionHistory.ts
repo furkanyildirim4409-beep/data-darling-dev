@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
 
 export interface ConsumedFood {
   id: string;
