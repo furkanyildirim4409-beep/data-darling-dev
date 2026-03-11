@@ -6,13 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useAthleteNutritionHistory, type ConsumedFood } from "@/hooks/useAthleteNutritionHistory";
+import { useAthleteNutritionHistory, type ConsumedFood, type DateRange } from "@/hooks/useAthleteNutritionHistory";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { tr } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 interface NutritionTabProps {
   athleteId: string;
@@ -52,9 +54,28 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [hasExisting, setHasExisting] = useState(false);
 
   // ─── History State ───
+  const RANGE_PRESETS = [
+    { label: "7 Gün", days: 7 },
+    { label: "14 Gün", days: 14 },
+    { label: "30 Gün", days: 30 },
+  ];
+  const [activePreset, setActivePreset] = useState(7);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 6),
+    to: new Date(),
+  });
+  const [customRange, setCustomRange] = useState(false);
+
   const { dailyData, isLoading: historyLoading, calorieTarget, averageAdherence, macroAverages } =
-    useAthleteNutritionHistory(athleteId);
+    useAthleteNutritionHistory(athleteId, dateRange);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const handlePreset = (days: number) => {
+    setActivePreset(days);
+    setCustomRange(false);
+    setDateRange({ from: subDays(new Date(), days - 1), to: new Date() });
+    setSelectedDate(null);
+  };
 
   // ─── Fetch Targets ───
   const fetchTargets = useCallback(async () => {
@@ -237,17 +258,59 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       {/* ═══ Weekly Compliance Chart ═══ */}
       <Card className="border-border">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <CardTitle className="text-lg">Beslenme Geçmişi & Uyum</CardTitle>
-                <p className="text-sm text-muted-foreground">Son 7 günlük kalori takibi</p>
+                <p className="text-sm text-muted-foreground">
+                  {format(dateRange.from, "d MMM", { locale: tr })} – {format(dateRange.to, "d MMM yyyy", { locale: tr })}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {RANGE_PRESETS.map((p) => (
+                <Button
+                  key={p.days}
+                  size="sm"
+                  variant={!customRange && activePreset === p.days ? "default" : "outline"}
+                  onClick={() => handlePreset(p.days)}
+                  className="h-8 text-xs"
+                >
+                  {p.label}
+                </Button>
+              ))}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={customRange ? "default" : "outline"}
+                    className="h-8 text-xs"
+                  >
+                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                    Özel
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => {
+                      if (range?.from) {
+                        setDateRange({ from: range.from, to: range.to || range.from });
+                        setCustomRange(true);
+                        setActivePreset(0);
+                        setSelectedDate(null);
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
               <Badge variant={averageAdherence >= 80 ? "default" : averageAdherence >= 50 ? "secondary" : "destructive"}>
                 Uyum: %{averageAdherence}
               </Badge>
@@ -274,7 +337,18 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis dataKey="label" className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+                    <XAxis
+                      dataKey="date"
+                      className="text-xs fill-muted-foreground"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(val) => {
+                        const totalDays = dailyData.length;
+                        if (totalDays <= 7) return format(new Date(val), "EEE", { locale: tr });
+                        if (totalDays <= 14) return format(new Date(val), "d MMM", { locale: tr });
+                        return format(new Date(val), "d/M");
+                      }}
+                      interval={dailyData.length > 14 ? Math.floor(dailyData.length / 10) : 0}
+                    />
                     <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
                     <Tooltip
                       content={({ active, payload }) => {

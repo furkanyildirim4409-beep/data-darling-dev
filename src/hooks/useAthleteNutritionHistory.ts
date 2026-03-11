@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
 
 export interface ConsumedFood {
   id: string;
@@ -24,15 +29,18 @@ export interface DailyAggregation {
   foods: ConsumedFood[];
 }
 
-export function useAthleteNutritionHistory(athleteId: string, days = 7) {
+export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRange) {
   const [dailyData, setDailyData] = useState<DailyAggregation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [calorieTarget, setCalorieTarget] = useState<number>(2000);
 
+  const rangeFrom = dateRange?.from;
+  const rangeTo = dateRange?.to;
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const startDate = startOfDay(subDays(new Date(), days - 1));
-    const endDate = endOfDay(new Date());
+    const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
+    const endDate = endOfDay(rangeTo || new Date());
 
     const [foodsRes, targetsRes] = await Promise.all([
       supabase
@@ -65,15 +73,16 @@ export function useAthleteNutritionHistory(athleteId: string, days = 7) {
       logged_at: f.logged_at || "",
     }));
 
-    // Build daily buckets for the last N days
-    const buckets: DailyAggregation[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = subDays(new Date(), i);
+    // Build daily buckets for the date range
+    const bucketStart = rangeFrom || subDays(new Date(), 6);
+    const bucketEnd = rangeTo || new Date();
+    const allDays = eachDayOfInterval({ start: startOfDay(bucketStart), end: startOfDay(bucketEnd) });
+    const buckets: DailyAggregation[] = allDays.map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
       const dayFoods = foods.filter(
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
-      buckets.push({
+      return {
         date: dateStr,
         label: format(d, "EEE"),
         totalCalories: dayFoods.reduce((s, f) => s + f.calories, 0),
@@ -81,12 +90,12 @@ export function useAthleteNutritionHistory(athleteId: string, days = 7) {
         totalCarbs: dayFoods.reduce((s, f) => s + f.carbs, 0),
         totalFat: dayFoods.reduce((s, f) => s + f.fat, 0),
         foods: dayFoods,
-      });
-    }
+      };
+    });
 
     setDailyData(buckets);
     setIsLoading(false);
-  }, [athleteId, days]);
+  }, [athleteId, rangeFrom, rangeTo]);
 
   useEffect(() => {
     fetchData();
