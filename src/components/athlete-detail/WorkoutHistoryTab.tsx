@@ -87,6 +87,39 @@ function buildVolumeMap(logs: WorkoutLog[]): Record<string, { pctChange: number 
   return result;
 }
 
+function buildExerciseProgressionMap(logs: WorkoutLog[]): Record<string, { isGlobalPR: boolean; weightDiff: number | null }> {
+  const sorted = [...logs].sort((a, b) =>
+    new Date(a.logged_at || 0).getTime() - new Date(b.logged_at || 0).getTime()
+  );
+  const prevMaxByExercise: Record<string, number> = {};
+  const result: Record<string, { isGlobalPR: boolean; weightDiff: number | null }> = {};
+
+  for (const log of sorted) {
+    for (const ex of log.details ?? []) {
+      const name = (ex.name || ex.exerciseName || "").toLowerCase().trim();
+      if (!name) continue;
+      const sets = getPerformedSetsStatic(ex);
+      const maxWeight = Math.max(0, ...sets.map(s => s.weight || 0));
+      if (maxWeight === 0) continue;
+
+      const prev = prevMaxByExercise[name];
+      const key = `${log.id}:${name}`;
+
+      if (prev == null) {
+        result[key] = { isGlobalPR: true, weightDiff: null };
+      } else {
+        const diff = maxWeight - prev;
+        result[key] = {
+          isGlobalPR: maxWeight > prev,
+          weightDiff: diff !== 0 ? diff : null,
+        };
+      }
+      prevMaxByExercise[name] = Math.max(prev ?? 0, maxWeight);
+    }
+  }
+  return result;
+}
+
 // Parse details from various possible JSON shapes
 function parseDetails(raw: unknown): ExerciseDetail[] | null {
   if (!raw) return null;
