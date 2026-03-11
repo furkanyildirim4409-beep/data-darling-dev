@@ -152,6 +152,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [quickRange, setQuickRange] = useState<QuickRange>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const volumeMap = useMemo(() => buildVolumeMap(logs), [logs]);
+  const exerciseProgressionMap = useMemo(() => buildExerciseProgressionMap(logs), [logs]);
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const getDateRange = useCallback((): { from?: string; to?: string } => {
