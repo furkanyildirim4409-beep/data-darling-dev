@@ -180,6 +180,59 @@ export type Database = {
         }
         Relationships: []
       }
+      consumed_foods: {
+        Row: {
+          api_food_id: string | null
+          athlete_id: string
+          calories: number | null
+          carbs: number | null
+          fat: number | null
+          food_name: string
+          id: string
+          log_id: string | null
+          logged_at: string | null
+          meal_type: string
+          protein: number | null
+          serving_size: string | null
+        }
+        Insert: {
+          api_food_id?: string | null
+          athlete_id: string
+          calories?: number | null
+          carbs?: number | null
+          fat?: number | null
+          food_name: string
+          id?: string
+          log_id?: string | null
+          logged_at?: string | null
+          meal_type?: string
+          protein?: number | null
+          serving_size?: string | null
+        }
+        Update: {
+          api_food_id?: string | null
+          athlete_id?: string
+          calories?: number | null
+          carbs?: number | null
+          fat?: number | null
+          food_name?: string
+          id?: string
+          log_id?: string | null
+          logged_at?: string | null
+          meal_type?: string
+          protein?: number | null
+          serving_size?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumed_foods_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_checkins: {
         Row: {
           created_at: string | null
@@ -359,6 +412,42 @@ export type Database = {
           total_fat?: number | null
           total_protein?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_targets: {
+        Row: {
+          athlete_id: string
+          carbs_g: number
+          coach_id: string
+          created_at: string | null
+          daily_calories: number
+          fat_g: number
+          id: string
+          protein_g: number
+          updated_at: string | null
+        }
+        Insert: {
+          athlete_id: string
+          carbs_g?: number
+          coach_id: string
+          created_at?: string | null
+          daily_calories?: number
+          fat_g?: number
+          id?: string
+          protein_g?: number
+          updated_at?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          carbs_g?: number
+          coach_id?: string
+          created_at?: string | null
+          daily_calories?: number
+          fat_g?: number
+          id?: string
+          protein_g?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
