@@ -234,12 +234,8 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="text-base font-bold text-foreground truncate">{workout.workout_name}</h4>
-                    {workout.scheduled_date && (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(workout.scheduled_date + "T00:00:00").toLocaleDateString("tr-TR", {
-                          weekday: "long",
-                        })}
-                      </span>
+                    {workout.day_of_week && (
+                      <span className="text-xs text-muted-foreground">{workout.day_of_week}</span>
                     )}
                   </div>
                   <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-xs shrink-0">

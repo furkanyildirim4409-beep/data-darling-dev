@@ -394,20 +394,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           {step === 2 && (
             <>
-              {/* Date picker */}
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-sm">
-                  <CalendarDays className="w-4 h-4" />
-                  Başlangıç Tarihi
-                </Label>
-                <Input
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  className="bg-background/50"
-                />
-              </div>
-
               {/* Athlete search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

@@ -272,20 +272,6 @@ export function AssignProgramDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Date picker */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <CalendarDays className="w-4 h-4" />
-              Başlangıç Tarihi
-            </Label>
-            <Input
-              type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              className="bg-background/50"
-            />
-          </div>
-
           {/* Day preview */}
           {!loadingPreview && activeDayCount > 0 && (
             <div className="glass rounded-lg border border-border p-3 space-y-2">
@@ -296,7 +282,7 @@ export function AssignProgramDialog({
               <div className="flex flex-wrap gap-1.5">
                 {activeDays.map((day, i) => (
                   <Badge key={i} variant="outline" className="text-xs">
-                    {day.label} — {addDays(scheduledDate, day.dayIdx).split("-").reverse().join(".")}
+                    {day.label} — {DAY_NAMES[day.dayIdx]}
                   </Badge>
                 ))}
               </div>
