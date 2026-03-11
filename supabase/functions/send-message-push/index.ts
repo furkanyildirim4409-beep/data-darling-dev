@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       badge: "/favicon.ico",
       data: {
         coachUrl: `/messages?athleteId=${sender_id}`,
-        athleteUrl: `/?openChat=true&coachId=${sender_id}`,
+        athleteUrl: `/kokpit?openChat=true&coachId=${sender_id}`,
         senderId: sender_id,
       },
     });
