@@ -66,6 +66,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const [programSearch, setProgramSearch] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [step, setStep] = useState<1 | 2>(1);
+  const [startDate, setStartDate] = useState<Date>(getNextMonday());
 
   // Fetch all programs with active day counts
   useEffect(() => {
