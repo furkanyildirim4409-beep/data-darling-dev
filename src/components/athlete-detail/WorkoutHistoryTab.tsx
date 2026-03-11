@@ -52,6 +52,41 @@ interface WorkoutLog {
 
 const PAGE_SIZE = 20;
 
+function getPerformedSetsStatic(ex: ExerciseDetail): PerformedSet[] {
+  if (Array.isArray(ex.sets)) return ex.sets;
+  return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
+}
+
+function calcTonnageRaw(details: ExerciseDetail[] | null): number {
+  if (!details) return 0;
+  return details.reduce((total, ex) => {
+    const sets = getPerformedSetsStatic(ex);
+    return total + sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0);
+  }, 0);
+}
+
+function buildVolumeMap(logs: WorkoutLog[]): Record<string, { pctChange: number | null; isFirst: boolean }> {
+  const sorted = [...logs].sort((a, b) =>
+    new Date(a.logged_at || 0).getTime() - new Date(b.logged_at || 0).getTime()
+  );
+  const lastByName: Record<string, number> = {};
+  const result: Record<string, { pctChange: number | null; isFirst: boolean }> = {};
+
+  for (const log of sorted) {
+    const tonnage = calcTonnageRaw(log.details);
+    const prev = lastByName[log.workout_name];
+    if (prev == null) {
+      result[log.id] = { pctChange: null, isFirst: true };
+    } else if (prev > 0) {
+      result[log.id] = { pctChange: Math.round(((tonnage - prev) / prev) * 100), isFirst: false };
+    } else {
+      result[log.id] = { pctChange: null, isFirst: false };
+    }
+    lastByName[log.workout_name] = tonnage;
+  }
+  return result;
+}
+
 // Parse details from various possible JSON shapes
 function parseDetails(raw: unknown): ExerciseDetail[] | null {
   if (!raw) return null;

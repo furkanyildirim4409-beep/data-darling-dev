@@ -695,6 +695,7 @@ export type Database = {
       }
       workout_logs: {
         Row: {
+          assigned_workout_id: string | null
           bio_coins_earned: number | null
           completed: boolean | null
           details: Json | null
@@ -707,6 +708,7 @@ export type Database = {
           workout_name: string
         }
         Insert: {
+          assigned_workout_id?: string | null
           bio_coins_earned?: number | null
           completed?: boolean | null
           details?: Json | null
@@ -719,6 +721,7 @@ export type Database = {
           workout_name: string
         }
         Update: {
+          assigned_workout_id?: string | null
           bio_coins_earned?: number | null
           completed?: boolean | null
           details?: Json | null
@@ -730,7 +733,15 @@ export type Database = {
           user_id?: string
           workout_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_assigned_workout_id_fkey"
+            columns: ["assigned_workout_id"]
+            isOneToOne: false
+            referencedRelation: "assigned_workouts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workout_templates: {
         Row: {
