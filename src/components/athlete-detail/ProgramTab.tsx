@@ -32,11 +32,14 @@ interface AssignedWorkout {
   id: string;
   workout_name: string;
   day_notes: string | null;
+  day_of_week: string | null;
   scheduled_date: string | null;
   status: string | null;
   program_id: string | null;
   exercises: ExerciseJson[];
 }
+
+const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 interface ProgramInfo {
   id: string;
@@ -85,23 +88,30 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       supabase.from("programs").select("id, title, difficulty, target_goal, description").eq("id", apId).single(),
       supabase
         .from("assigned_workouts")
-        .select("id, workout_name, day_notes, scheduled_date, status, program_id, exercises")
+        .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
         .eq("athlete_id", athleteId)
-        .eq("program_id", apId)
-        .order("scheduled_date", { ascending: true }),
+        .eq("program_id", apId),
     ]);
 
     if (programRes.data) {
       setProgramInfo(programRes.data);
     }
 
-    setWorkouts(
-      (workoutsRes.data ?? []).map((d) => ({
-        ...d,
-        day_notes: (d as any).day_notes ?? null,
-        exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
-      }))
-    );
+    const mapped = (workoutsRes.data ?? []).map((d) => ({
+      ...d,
+      day_notes: (d as any).day_notes ?? null,
+      day_of_week: (d as any).day_of_week ?? null,
+      exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
+    }));
+
+    // Sort by day-of-week order
+    mapped.sort((a, b) => {
+      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
+      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
+      return aIdx - bIdx;
+    });
+
+    setWorkouts(mapped);
 
     setLoading(false);
   }, [athleteId]);
@@ -224,12 +234,8 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="text-base font-bold text-foreground truncate">{workout.workout_name}</h4>
-                    {workout.scheduled_date && (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(workout.scheduled_date + "T00:00:00").toLocaleDateString("tr-TR", {
-                          weekday: "long",
-                        })}
-                      </span>
+                    {workout.day_of_week && (
+                      <span className="text-xs text-muted-foreground">{workout.day_of_week}</span>
                     )}
                   </div>
                   <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-xs shrink-0">

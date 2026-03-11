@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Loader2, CalendarDays, Dumbbell, Search, Layers } from "lucide-react";
+import { Users, Loader2, Dumbbell, Search, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,11 +42,7 @@ interface WeekConfigDay {
   groups?: Array<{ id: string; type?: string; exerciseIndices?: number[] }>;
 }
 
-const addDays = (dateStr: string, days: number): string => {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
+const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
   const { user } = useAuth();
@@ -56,7 +52,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
-  const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [saving, setSaving] = useState(false);
   const [programSearch, setProgramSearch] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
@@ -186,7 +181,8 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
         coach_id: string;
         athlete_id: string;
         program_id: string;
-        scheduled_date: string;
+        scheduled_date: string | null;
+        day_of_week: string;
         workout_name: string;
         day_notes: string;
         exercises: Json;
@@ -216,7 +212,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
           const dayNotes = cfg?.notes || "";
-          const targetDate = addDays(scheduledDate, dayIdx);
           const dayGroups = cfg?.groups || [];
 
           const sortedExercises = (exs ?? []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
@@ -243,7 +238,8 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
               coach_id: user.id,
               athlete_id: athleteId,
               program_id: programId,
-              scheduled_date: targetDate,
+              scheduled_date: null,
+              day_of_week: DAY_NAMES[dayIdx],
               workout_name: dayLabel,
               day_notes: dayNotes,
               exercises: exercisesJson as Json,
@@ -398,20 +394,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           {step === 2 && (
             <>
-              {/* Date picker */}
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-sm">
-                  <CalendarDays className="w-4 h-4" />
-                  Başlangıç Tarihi
-                </Label>
-                <Input
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  className="bg-background/50"
-                />
-              </div>
-
               {/* Athlete search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

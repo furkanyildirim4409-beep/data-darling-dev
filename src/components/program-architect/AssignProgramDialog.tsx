@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Loader2, CalendarDays, Dumbbell } from "lucide-react";
+import { Users, Loader2, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,14 +49,7 @@ interface ExerciseRow {
   video_url: string | null;
 }
 
-const addDays = (dateStr: string, days: number): string => {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d + days);
-  const ny = date.getFullYear();
-  const nm = String(date.getMonth() + 1).padStart(2, "0");
-  const nd = String(date.getDate()).padStart(2, "0");
-  return `${ny}-${nm}-${nd}`;
-};
+const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function AssignProgramDialog({
   open,
@@ -67,9 +60,6 @@ export function AssignProgramDialog({
   const { user } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [scheduledDate, setScheduledDate] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
   const [saving, setSaving] = useState(false);
   const [activeDayCount, setActiveDayCount] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -158,7 +148,8 @@ export function AssignProgramDialog({
         coach_id: string;
         athlete_id: string;
         program_id: string;
-        scheduled_date: string;
+        scheduled_date: string | null;
+        day_of_week: string;
         workout_name: string;
         day_notes: string;
         exercises: Json;
@@ -175,7 +166,6 @@ export function AssignProgramDialog({
 
         const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
         const dayNotes = cfg?.notes || "";
-        const targetDate = addDays(scheduledDate, dayIdx);
 
         const dayGroups = cfg?.groups || [];
 
@@ -208,7 +198,8 @@ export function AssignProgramDialog({
             coach_id: user.id,
             athlete_id: athleteId,
             program_id: programId,
-            scheduled_date: targetDate,
+            scheduled_date: null,
+            day_of_week: DAY_NAMES[dayIdx],
             workout_name: dayLabel,
             day_notes: dayNotes,
             exercises: exercisesJson as Json,
@@ -281,20 +272,6 @@ export function AssignProgramDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Date picker */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <CalendarDays className="w-4 h-4" />
-              Başlangıç Tarihi
-            </Label>
-            <Input
-              type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              className="bg-background/50"
-            />
-          </div>
-
           {/* Day preview */}
           {!loadingPreview && activeDayCount > 0 && (
             <div className="glass rounded-lg border border-border p-3 space-y-2">
@@ -305,7 +282,7 @@ export function AssignProgramDialog({
               <div className="flex flex-wrap gap-1.5">
                 {activeDays.map((day, i) => (
                   <Badge key={i} variant="outline" className="text-xs">
-                    {day.label} — {addDays(scheduledDate, day.dayIdx).split("-").reverse().join(".")}
+                    {day.label} — {DAY_NAMES[day.dayIdx]}
                   </Badge>
                 ))}
               </div>
