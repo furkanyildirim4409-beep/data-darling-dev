@@ -558,12 +558,29 @@ export default function Programs() {
   // Dashboard View
   if (viewMode === "dashboard") {
     return (
-      <ProgramDashboard
-        key={dashboardKey}
-        onCreateProgram={handleCreateProgram}
-        onEditProgram={handleEditProgram}
-        onSaveAsTemplate={handleSaveProgramAsTemplate}
-      />
+      <Tabs defaultValue="workouts" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="workouts" className="gap-2">
+            <Dumbbell className="w-4 h-4" />
+            Antrenman Programları
+          </TabsTrigger>
+          <TabsTrigger value="nutrition" className="gap-2">
+            <Apple className="w-4 h-4" />
+            Beslenme Şablonları
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="workouts">
+          <ProgramDashboard
+            key={dashboardKey}
+            onCreateProgram={handleCreateProgram}
+            onEditProgram={handleEditProgram}
+            onSaveAsTemplate={handleSaveProgramAsTemplate}
+          />
+        </TabsContent>
+        <TabsContent value="nutrition">
+          <DietTemplatesList />
+        </TabsContent>
+      </Tabs>
     );
   }
 
