@@ -54,9 +54,28 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [hasExisting, setHasExisting] = useState(false);
 
   // ─── History State ───
+  const RANGE_PRESETS = [
+    { label: "7 Gün", days: 7 },
+    { label: "14 Gün", days: 14 },
+    { label: "30 Gün", days: 30 },
+  ];
+  const [activePreset, setActivePreset] = useState(7);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 6),
+    to: new Date(),
+  });
+  const [customRange, setCustomRange] = useState(false);
+
   const { dailyData, isLoading: historyLoading, calorieTarget, averageAdherence, macroAverages } =
-    useAthleteNutritionHistory(athleteId);
+    useAthleteNutritionHistory(athleteId, dateRange);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const handlePreset = (days: number) => {
+    setActivePreset(days);
+    setCustomRange(false);
+    setDateRange({ from: subDays(new Date(), days - 1), to: new Date() });
+    setSelectedDate(null);
+  };
 
   // ─── Fetch Targets ───
   const fetchTargets = useCallback(async () => {
