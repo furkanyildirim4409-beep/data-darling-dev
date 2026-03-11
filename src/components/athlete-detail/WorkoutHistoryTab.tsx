@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, Clock, Dumbbell, Flame, Target, Link2, Loader2, CalendarIcon, X, TrendingUp, TrendingDown, AlertTriangle, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PerformedSet {
@@ -87,6 +87,39 @@ function buildVolumeMap(logs: WorkoutLog[]): Record<string, { pctChange: number 
   return result;
 }
 
+function buildExerciseProgressionMap(logs: WorkoutLog[]): Record<string, { isGlobalPR: boolean; weightDiff: number | null }> {
+  const sorted = [...logs].sort((a, b) =>
+    new Date(a.logged_at || 0).getTime() - new Date(b.logged_at || 0).getTime()
+  );
+  const prevMaxByExercise: Record<string, number> = {};
+  const result: Record<string, { isGlobalPR: boolean; weightDiff: number | null }> = {};
+
+  for (const log of sorted) {
+    for (const ex of log.details ?? []) {
+      const name = (ex.name || ex.exerciseName || "").toLowerCase().trim();
+      if (!name) continue;
+      const sets = getPerformedSetsStatic(ex);
+      const maxWeight = Math.max(0, ...sets.map(s => s.weight || 0));
+      if (maxWeight === 0) continue;
+
+      const prev = prevMaxByExercise[name];
+      const key = `${log.id}:${name}`;
+
+      if (prev == null) {
+        result[key] = { isGlobalPR: true, weightDiff: null };
+      } else {
+        const diff = maxWeight - prev;
+        result[key] = {
+          isGlobalPR: maxWeight > prev,
+          weightDiff: diff !== 0 ? diff : null,
+        };
+      }
+      prevMaxByExercise[name] = Math.max(prev ?? 0, maxWeight);
+    }
+  }
+  return result;
+}
+
 // Parse details from various possible JSON shapes
 function parseDetails(raw: unknown): ExerciseDetail[] | null {
   if (!raw) return null;
@@ -119,6 +152,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   const [quickRange, setQuickRange] = useState<QuickRange>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const volumeMap = useMemo(() => buildVolumeMap(logs), [logs]);
+  const exerciseProgressionMap = useMemo(() => buildExerciseProgressionMap(logs), [logs]);
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const getDateRange = useCallback((): { from?: string; to?: string } => {
@@ -398,15 +432,29 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 <Target className="w-3.5 h-3.5 mr-0.5" />RIR: {ex.rir}
                               </Badge>
                             )}
-                            {ex.weightDiff != null && ex.weightDiff !== 0 && (
-                              <span className={cn(
-                                "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
-                                ex.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
-                              )}>
-                                {ex.weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                                {ex.weightDiff > 0 ? `+${ex.weightDiff}kg` : `${ex.weightDiff}kg`}
-                              </span>
-                            )}
+                            {(() => {
+                              const exName = (ex.name || ex.exerciseName || "").toLowerCase().trim();
+                              const prog = exName ? exerciseProgressionMap[`${log.id}:${exName}`] : null;
+                              if (!prog) return null;
+                              return (
+                                <>
+                                  {prog.isGlobalPR && (
+                                    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[11px] px-2 py-0.5">
+                                      <Trophy className="w-3.5 h-3.5 mr-0.5" />YENİ REKOR
+                                    </Badge>
+                                  )}
+                                  {!prog.isGlobalPR && prog.weightDiff != null && (
+                                    <span className={cn(
+                                      "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
+                                      prog.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
+                                    )}>
+                                      {prog.weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                      {prog.weightDiff > 0 ? `+${prog.weightDiff}kg` : `${prog.weightDiff}kg`}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
