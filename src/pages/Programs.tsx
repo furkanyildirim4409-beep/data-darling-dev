@@ -5,6 +5,8 @@ import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, Ex
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
+import { DietTemplatesList } from "@/components/diet-templates/DietTemplatesList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -556,12 +558,29 @@ export default function Programs() {
   // Dashboard View
   if (viewMode === "dashboard") {
     return (
-      <ProgramDashboard
-        key={dashboardKey}
-        onCreateProgram={handleCreateProgram}
-        onEditProgram={handleEditProgram}
-        onSaveAsTemplate={handleSaveProgramAsTemplate}
-      />
+      <Tabs defaultValue="workouts" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="workouts" className="gap-2">
+            <Dumbbell className="w-4 h-4" />
+            Antrenman Programları
+          </TabsTrigger>
+          <TabsTrigger value="nutrition" className="gap-2">
+            <Apple className="w-4 h-4" />
+            Beslenme Şablonları
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="workouts">
+          <ProgramDashboard
+            key={dashboardKey}
+            onCreateProgram={handleCreateProgram}
+            onEditProgram={handleEditProgram}
+            onSaveAsTemplate={handleSaveProgramAsTemplate}
+          />
+        </TabsContent>
+        <TabsContent value="nutrition">
+          <DietTemplatesList />
+        </TabsContent>
+      </Tabs>
     );
   }
 
