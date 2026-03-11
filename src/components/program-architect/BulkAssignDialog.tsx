@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -15,12 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Loader2, Dumbbell, Search, Layers } from "lucide-react";
+import { Users, Loader2, Dumbbell, Search, Layers, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
 import { cn } from "@/lib/utils";
+import { addDays, format, startOfWeek } from "date-fns";
+import { tr } from "date-fns/locale";
+
+const getNextMonday = () => {
+  const now = new Date();
+  const start = startOfWeek(now, { weekStartsOn: 1 });
+  return addDays(start, 7);
+};
 
 interface BulkAssignDialogProps {
   open: boolean;
@@ -56,6 +66,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const [programSearch, setProgramSearch] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [step, setStep] = useState<1 | 2>(1);
+  const [startDate, setStartDate] = useState<Date>(getNextMonday());
 
   // Fetch all programs with active day counts
   useEffect(() => {
@@ -125,6 +136,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
       setProgramSearch("");
       setAthleteSearch("");
       setStep(1);
+      setStartDate(getNextMonday());
     }
   }, [open]);
 
@@ -238,8 +250,8 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
               coach_id: user.id,
               athlete_id: athleteId,
               program_id: programId,
-              scheduled_date: null,
-              day_of_week: DAY_NAMES[dayIdx],
+            scheduled_date: format(addDays(startDate, dayIdx), "yyyy-MM-dd"),
+            day_of_week: DAY_NAMES[dayIdx],
               workout_name: dayLabel,
               day_notes: dayNotes,
               exercises: exercisesJson as Json,
@@ -394,6 +406,37 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           {step === 2 && (
             <>
+              {/* Start Date Picker */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Başlangıç Tarihi (Pazartesi)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(startDate, "d MMMM yyyy, EEEE", { locale: tr })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => date && setStartDate(startOfWeek(date, { weekStartsOn: 1 }))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[10px] text-muted-foreground">
+                  Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır
+                </p>
+              </div>
+
               {/* Athlete search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
