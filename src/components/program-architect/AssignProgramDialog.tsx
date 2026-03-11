@@ -148,7 +148,8 @@ export function AssignProgramDialog({
         coach_id: string;
         athlete_id: string;
         program_id: string;
-        scheduled_date: string;
+        scheduled_date: string | null;
+        day_of_week: string;
         workout_name: string;
         day_notes: string;
         exercises: Json;
@@ -165,7 +166,6 @@ export function AssignProgramDialog({
 
         const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
         const dayNotes = cfg?.notes || "";
-        const targetDate = addDays(scheduledDate, dayIdx);
 
         const dayGroups = cfg?.groups || [];
 
@@ -198,7 +198,8 @@ export function AssignProgramDialog({
             coach_id: user.id,
             athlete_id: athleteId,
             program_id: programId,
-            scheduled_date: targetDate,
+            scheduled_date: null,
+            day_of_week: DAY_NAMES[dayIdx],
             workout_name: dayLabel,
             day_notes: dayNotes,
             exercises: exercisesJson as Json,
