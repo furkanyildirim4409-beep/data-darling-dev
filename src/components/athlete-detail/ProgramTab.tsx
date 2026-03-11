@@ -32,11 +32,14 @@ interface AssignedWorkout {
   id: string;
   workout_name: string;
   day_notes: string | null;
+  day_of_week: string | null;
   scheduled_date: string | null;
   status: string | null;
   program_id: string | null;
   exercises: ExerciseJson[];
 }
+
+const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 interface ProgramInfo {
   id: string;
