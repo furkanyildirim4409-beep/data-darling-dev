@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -15,12 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Loader2, Dumbbell, Search, Layers } from "lucide-react";
+import { Users, Loader2, Dumbbell, Search, Layers, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
 import { cn } from "@/lib/utils";
+import { addDays, format, startOfWeek } from "date-fns";
+import { tr } from "date-fns/locale";
+
+const getNextMonday = () => {
+  const now = new Date();
+  const start = startOfWeek(now, { weekStartsOn: 1 });
+  return addDays(start, 7);
+};
 
 interface BulkAssignDialogProps {
   open: boolean;
