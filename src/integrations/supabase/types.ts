@@ -266,6 +266,77 @@ export type Database = {
         }
         Relationships: []
       }
+      diet_template_foods: {
+        Row: {
+          calories: number | null
+          carbs: number | null
+          fat: number | null
+          food_name: string
+          id: string
+          meal_type: string
+          protein: number | null
+          serving_size: string | null
+          template_id: string
+        }
+        Insert: {
+          calories?: number | null
+          carbs?: number | null
+          fat?: number | null
+          food_name: string
+          id?: string
+          meal_type?: string
+          protein?: number | null
+          serving_size?: string | null
+          template_id: string
+        }
+        Update: {
+          calories?: number | null
+          carbs?: number | null
+          fat?: number | null
+          food_name?: string
+          id?: string
+          meal_type?: string
+          protein?: number | null
+          serving_size?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diet_template_foods_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "diet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diet_templates: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          target_calories: number | null
+          title: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          target_calories?: number | null
+          title: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          target_calories?: number | null
+          title?: string
+        }
+        Relationships: []
+      }
       exercise_library: {
         Row: {
           category: string | null
