@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.get-vapid-public-key]
 verify_jwt = false
+
+[functions.send-chat-push]
+verify_jwt = false
