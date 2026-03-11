@@ -258,17 +258,59 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       {/* ═══ Weekly Compliance Chart ═══ */}
       <Card className="border-border">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <CardTitle className="text-lg">Beslenme Geçmişi & Uyum</CardTitle>
-                <p className="text-sm text-muted-foreground">Son 7 günlük kalori takibi</p>
+                <p className="text-sm text-muted-foreground">
+                  {format(dateRange.from, "d MMM", { locale: tr })} – {format(dateRange.to, "d MMM yyyy", { locale: tr })}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {RANGE_PRESETS.map((p) => (
+                <Button
+                  key={p.days}
+                  size="sm"
+                  variant={!customRange && activePreset === p.days ? "default" : "outline"}
+                  onClick={() => handlePreset(p.days)}
+                  className="h-8 text-xs"
+                >
+                  {p.label}
+                </Button>
+              ))}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={customRange ? "default" : "outline"}
+                    className="h-8 text-xs"
+                  >
+                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                    Özel
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => {
+                      if (range?.from) {
+                        setDateRange({ from: range.from, to: range.to || range.from });
+                        setCustomRange(true);
+                        setActivePreset(0);
+                        setSelectedDate(null);
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
               <Badge variant={averageAdherence >= 80 ? "default" : averageAdherence >= 50 ? "secondary" : "destructive"}>
                 Uyum: %{averageAdherence}
               </Badge>
