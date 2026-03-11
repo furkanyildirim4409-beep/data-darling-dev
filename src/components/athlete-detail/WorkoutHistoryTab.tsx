@@ -91,7 +91,8 @@ function buildExerciseProgressionMap(logs: WorkoutLog[]): Record<string, { isGlo
   const sorted = [...logs].sort((a, b) =>
     new Date(a.logged_at || 0).getTime() - new Date(b.logged_at || 0).getTime()
   );
-  const prevMaxByExercise: Record<string, number> = {};
+  const absoluteMaxMap: Record<string, number> = {};
+  const prevSessionMaxMap: Record<string, number> = {};
   const result: Record<string, { isGlobalPR: boolean; weightDiff: number | null }> = {};
 
   for (const log of sorted) {
@@ -99,22 +100,24 @@ function buildExerciseProgressionMap(logs: WorkoutLog[]): Record<string, { isGlo
       const name = (ex.name || ex.exerciseName || "").toLowerCase().trim();
       if (!name) continue;
       const sets = getPerformedSetsStatic(ex);
-      const maxWeight = Math.max(0, ...sets.map(s => s.weight || 0));
-      if (maxWeight === 0) continue;
+      const sessionMax = Math.max(0, ...sets.map(s => s.weight || 0));
+      if (sessionMax === 0) continue;
 
-      const prev = prevMaxByExercise[name];
+      const prevSessionMax = prevSessionMaxMap[name];
+      const absoluteMax = absoluteMaxMap[name] || 0;
       const key = `${log.id}:${name}`;
 
-      if (prev == null) {
+      if (prevSessionMax == null) {
         result[key] = { isGlobalPR: true, weightDiff: null };
       } else {
-        const diff = maxWeight - prev;
+        const diff = sessionMax - prevSessionMax;
         result[key] = {
-          isGlobalPR: maxWeight > prev,
+          isGlobalPR: sessionMax > absoluteMax,
           weightDiff: diff !== 0 ? diff : null,
         };
       }
-      prevMaxByExercise[name] = Math.max(prev ?? 0, maxWeight);
+      prevSessionMaxMap[name] = sessionMax;
+      absoluteMaxMap[name] = Math.max(absoluteMax, sessionMax);
     }
   }
   return result;
