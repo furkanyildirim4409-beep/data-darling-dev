@@ -29,15 +29,18 @@ export interface DailyAggregation {
   foods: ConsumedFood[];
 }
 
-export function useAthleteNutritionHistory(athleteId: string, days = 7) {
+export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRange) {
   const [dailyData, setDailyData] = useState<DailyAggregation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [calorieTarget, setCalorieTarget] = useState<number>(2000);
 
+  const rangeFrom = dateRange?.from;
+  const rangeTo = dateRange?.to;
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const startDate = startOfDay(subDays(new Date(), days - 1));
-    const endDate = endOfDay(new Date());
+    const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
+    const endDate = endOfDay(rangeTo || new Date());
 
     const [foodsRes, targetsRes] = await Promise.all([
       supabase
