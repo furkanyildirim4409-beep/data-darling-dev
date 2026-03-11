@@ -1,0 +1,1 @@
+ALTER TABLE public.assigned_workouts ADD COLUMN day_of_week text;

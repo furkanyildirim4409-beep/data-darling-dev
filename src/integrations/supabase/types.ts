@@ -20,6 +20,7 @@ export type Database = {
           coach_id: string | null
           created_at: string | null
           day_notes: string | null
+          day_of_week: string | null
           exercises: Json
           id: string
           program_id: string | null
@@ -32,6 +33,7 @@ export type Database = {
           coach_id?: string | null
           created_at?: string | null
           day_notes?: string | null
+          day_of_week?: string | null
           exercises?: Json
           id?: string
           program_id?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           coach_id?: string | null
           created_at?: string | null
           day_notes?: string | null
+          day_of_week?: string | null
           exercises?: Json
           id?: string
           program_id?: string | null
