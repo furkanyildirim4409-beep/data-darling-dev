@@ -196,14 +196,6 @@ export function useCoachChat() {
 
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-    } else {
-      supabase.functions.invoke('send-message-push', {
-        body: {
-          receiver_id: selectedAthleteId,
-          sender_id: coachId,
-          content: previewText,
-        },
-      }).catch(() => {});
     }
   }, [coachId, selectedAthleteId]);
 
