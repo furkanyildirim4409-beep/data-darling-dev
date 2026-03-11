@@ -136,6 +136,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
       setProgramSearch("");
       setAthleteSearch("");
       setStep(1);
+      setStartDate(getNextMonday());
     }
   }, [open]);
 
