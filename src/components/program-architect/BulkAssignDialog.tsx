@@ -42,11 +42,7 @@ interface WeekConfigDay {
   groups?: Array<{ id: string; type?: string; exerciseIndices?: number[] }>;
 }
 
-const addDays = (dateStr: string, days: number): string => {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
+const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
   const { user } = useAuth();
