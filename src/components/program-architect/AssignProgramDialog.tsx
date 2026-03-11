@@ -60,9 +60,6 @@ export function AssignProgramDialog({
   const { user } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [scheduledDate, setScheduledDate] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
   const [saving, setSaving] = useState(false);
   const [activeDayCount, setActiveDayCount] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
