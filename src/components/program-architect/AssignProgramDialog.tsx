@@ -223,9 +223,25 @@ export function AssignProgramDialog({
         return;
       }
 
-      // 4. Batch insert
+      // 4. Delete any old assignments for this program per athlete, then insert fresh
+      for (const athleteId of selectedIds) {
+        await supabase
+          .from("assigned_workouts")
+          .delete()
+          .eq("athlete_id", athleteId)
+          .eq("program_id", programId);
+      }
+
       const { error } = await supabase.from("assigned_workouts").insert(payload);
       if (error) throw error;
+
+      // 5. Set active_program_id on each athlete's profile
+      for (const athleteId of selectedIds) {
+        await supabase
+          .from("profiles")
+          .update({ active_program_id: programId } as any)
+          .eq("id", athleteId);
+      }
 
       toast.success(
         `Program başarıyla atandı! Sporcunun takvimi güncellendi. 🚀`
