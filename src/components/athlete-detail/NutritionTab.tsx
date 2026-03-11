@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useAthleteNutritionHistory, type ConsumedFood } from "@/hooks/useAthleteNutritionHistory";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
 interface NutritionTabProps {
   athleteId: string;
@@ -29,7 +35,15 @@ const DEFAULT_TARGETS: NutritionTargets = {
   fat_g: 70,
 };
 
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: "☀️ Kahvaltı",
+  lunch: "🍽️ Öğle Yemeği",
+  dinner: "🌙 Akşam Yemeği",
+  snack: "🍎 Atıştırmalık",
+};
+
 export function NutritionTab({ athleteId }: NutritionTabProps) {
+  // ─── Target State ───
   const [targets, setTargets] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [formValues, setFormValues] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [isEditing, setIsEditing] = useState(false);
@@ -37,9 +51,15 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
 
+  // ─── History State ───
+  const { dailyData, isLoading: historyLoading, calorieTarget, averageAdherence, macroAverages } =
+    useAthleteNutritionHistory(athleteId);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // ─── Fetch Targets ───
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("nutrition_targets")
       .select("daily_calories, protein_g, carbs_g, fat_g")
       .eq("athlete_id", athleteId)
@@ -73,7 +93,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setIsSaving(false);
       return;
     }
-
     const { error } = await supabase
       .from("nutrition_targets")
       .upsert(
@@ -88,7 +107,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         },
         { onConflict: "athlete_id" }
       );
-
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
@@ -104,6 +122,23 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setFormValues(targets);
     setIsEditing(false);
   };
+
+  // ─── Selected Day Detail ───
+  const selectedDayData = useMemo(() => {
+    if (!selectedDate) return null;
+    return dailyData.find((d) => d.date === selectedDate) || null;
+  }, [selectedDate, dailyData]);
+
+  const groupedFoods = useMemo(() => {
+    if (!selectedDayData) return {};
+    const groups: Record<string, ConsumedFood[]> = {};
+    for (const f of selectedDayData.foods) {
+      const key = f.meal_type || "snack";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(f);
+    }
+    return groups;
+  }, [selectedDayData]);
 
   const macroCards = [
     { label: "Kalori", value: targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
@@ -122,7 +157,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ═══ Targets Section ═══ */}
       <div className="glass rounded-xl border border-success/30 p-5">
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-4">
@@ -154,7 +189,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
           )}
         </div>
 
-        {/* Edit Form */}
         {isEditing && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 rounded-xl bg-secondary/30 border border-border">
             {[
@@ -180,7 +214,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
           </div>
         )}
 
-        {/* Macro Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {macroCards.map((card) => {
             const colorMap: Record<string, string> = {
@@ -201,17 +234,202 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         </div>
       </div>
 
-      {/* Meal Plan Placeholder */}
-      <div className="glass rounded-xl border border-border p-8 text-center">
-        <UtensilsCrossed className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-        <h4 className="text-lg font-semibold text-foreground mb-1">Günlük Beslenme Planı</h4>
-        <p className="text-sm text-muted-foreground">
-          Besin API entegrasyonu ile öğün takibi yakında eklenecek.
-        </p>
-        <Badge variant="outline" className="mt-3 border-muted-foreground/20 text-muted-foreground">
-          Yakında
-        </Badge>
-      </div>
+      {/* ═══ Weekly Compliance Chart ═══ */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Beslenme Geçmişi & Uyum</CardTitle>
+                <p className="text-sm text-muted-foreground">Son 7 günlük kalori takibi</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant={averageAdherence >= 80 ? "default" : averageAdherence >= 50 ? "secondary" : "destructive"}>
+                Uyum: %{averageAdherence}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              {/* Bar Chart */}
+              <div className="h-64 mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dailyData}
+                    onClick={(e) => {
+                      if (e?.activePayload?.[0]?.payload?.date) {
+                        const clickedDate = e.activePayload[0].payload.date;
+                        setSelectedDate(selectedDate === clickedDate ? null : clickedDate);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                    <XAxis dataKey="label" className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+                    <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        const pct = calorieTarget ? Math.round((d.totalCalories / calorieTarget) * 100) : 0;
+                        return (
+                          <div className="rounded-lg border border-border bg-background p-3 shadow-xl text-sm">
+                            <p className="font-semibold text-foreground mb-1">
+                              {format(new Date(d.date), "d MMMM", { locale: tr })}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Kalori: <span className="font-mono text-foreground">{d.totalCalories}</span> / {calorieTarget} kcal
+                            </p>
+                            <p className="text-muted-foreground">Uyum: <span className="font-mono text-foreground">%{pct}</span></p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <ReferenceLine
+                      y={calorieTarget}
+                      stroke="hsl(var(--success))"
+                      strokeDasharray="6 4"
+                      strokeWidth={2}
+                      label={{ value: `Hedef: ${calorieTarget}`, position: "insideTopRight", className: "fill-success text-xs" }}
+                    />
+                    <Bar dataKey="totalCalories" radius={[6, 6, 0, 0]} cursor="pointer">
+                      {dailyData.map((entry) => {
+                        const pct = calorieTarget ? entry.totalCalories / calorieTarget : 0;
+                        const isSelected = selectedDate === entry.date;
+                        let fill = "hsl(var(--primary))";
+                        if (pct > 1.15) fill = "hsl(var(--destructive))";
+                        else if (pct >= 0.85) fill = "hsl(var(--success))";
+                        else if (pct > 0) fill = "hsl(var(--warning))";
+                        else fill = "hsl(var(--muted))";
+                        return (
+                          <Cell
+                            key={entry.date}
+                            fill={fill}
+                            opacity={isSelected ? 1 : 0.75}
+                            stroke={isSelected ? "hsl(var(--foreground))" : "none"}
+                            strokeWidth={isSelected ? 2 : 0}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Macro Averages Row */}
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                {[
+                  { label: "Ort. Kalori", value: `${macroAverages.calories}`, unit: "kcal", color: "text-primary" },
+                  { label: "Ort. Protein", value: `${macroAverages.protein}`, unit: "g", color: "text-destructive" },
+                  { label: "Ort. Karb", value: `${macroAverages.carbs}`, unit: "g", color: "text-warning" },
+                  { label: "Ort. Yağ", value: `${macroAverages.fat}`, unit: "g", color: "text-accent-foreground" },
+                ].map((m) => (
+                  <div key={m.label} className="text-center p-2 rounded-lg bg-secondary/30">
+                    <p className={cn("text-lg font-bold font-mono", m.color)}>{m.value}</p>
+                    <p className="text-[11px] text-muted-foreground">{m.unit} · {m.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Click hint */}
+              <p className="text-xs text-muted-foreground text-center mt-3 flex items-center justify-center gap-1">
+                {selectedDate ? (
+                  <><ChevronUp className="w-3 h-3" /> Detayı kapatmak için tekrar tıklayın</>
+                ) : (
+                  <><ChevronDown className="w-3 h-3" /> Günlük detay için bir sütuna tıklayın</>
+                )}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ═══ Daily Detail Panel ═══ */}
+      {selectedDate && selectedDayData && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                📋 {format(new Date(selectedDate), "d MMMM yyyy, EEEE", { locale: tr })}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono border-primary/30">
+                  {selectedDayData.totalCalories} kcal
+                </Badge>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {selectedDayData.foods.length === 0 ? (
+              <div className="text-center py-8">
+                <UtensilsCrossed className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Bu gün için besin kaydı bulunamadı.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(["breakfast", "lunch", "dinner", "snack"] as const).map((mealKey) => {
+                  const foods = groupedFoods[mealKey];
+                  if (!foods?.length) return null;
+                  return (
+                    <div key={mealKey} className="space-y-1">
+                      <h4 className="text-sm font-semibold text-foreground">
+                        {MEAL_LABELS[mealKey] || mealKey}
+                      </h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-border/30">
+                            <TableHead className="text-xs">Besin</TableHead>
+                            <TableHead className="text-xs text-right">Porsiyon</TableHead>
+                            <TableHead className="text-xs text-right">Kal</TableHead>
+                            <TableHead className="text-xs text-right">P</TableHead>
+                            <TableHead className="text-xs text-right">K</TableHead>
+                            <TableHead className="text-xs text-right">Y</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {foods.map((f) => (
+                            <TableRow key={f.id} className="border-border/20">
+                              <TableCell className="text-sm font-medium">{f.food_name}</TableCell>
+                              <TableCell className="text-sm text-right text-muted-foreground">{f.serving_size || "—"}</TableCell>
+                              <TableCell className="text-sm text-right font-mono">{f.calories}</TableCell>
+                              <TableCell className="text-sm text-right font-mono text-destructive">{f.protein}</TableCell>
+                              <TableCell className="text-sm text-right font-mono text-warning">{f.carbs}</TableCell>
+                              <TableCell className="text-sm text-right font-mono text-accent-foreground">{f.fat}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  );
+                })}
+
+                {/* Daily total row */}
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <span className="text-sm font-semibold text-foreground">Günlük Toplam</span>
+                  <div className="flex items-center gap-4 text-sm font-mono">
+                    <span>{selectedDayData.totalCalories} kcal</span>
+                    <span className="text-destructive">{Math.round(selectedDayData.totalProtein)}g P</span>
+                    <span className="text-warning">{Math.round(selectedDayData.totalCarbs)}g K</span>
+                    <span className="text-accent-foreground">{Math.round(selectedDayData.totalFat)}g Y</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
