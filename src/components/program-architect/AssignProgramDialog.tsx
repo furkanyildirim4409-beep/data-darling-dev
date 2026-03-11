@@ -75,6 +75,7 @@ export function AssignProgramDialog({
   const [activeDayCount, setActiveDayCount] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [activeDays, setActiveDays] = useState<Array<{ label: string; dayIdx: number }>>([]);
+  const [startDate, setStartDate] = useState<Date>(getNextMonday());
 
   // Fetch program structure for preview when dialog opens
   useEffect(() => {
