@@ -337,7 +337,18 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis dataKey="label" className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+                    <XAxis
+                      dataKey="date"
+                      className="text-xs fill-muted-foreground"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(val) => {
+                        const totalDays = dailyData.length;
+                        if (totalDays <= 7) return format(new Date(val), "EEE", { locale: tr });
+                        if (totalDays <= 14) return format(new Date(val), "d MMM", { locale: tr });
+                        return format(new Date(val), "d/M");
+                      }}
+                      interval={dailyData.length > 14 ? Math.floor(dailyData.length / 10) : 0}
+                    />
                     <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
                     <Tooltip
                       content={({ active, payload }) => {
