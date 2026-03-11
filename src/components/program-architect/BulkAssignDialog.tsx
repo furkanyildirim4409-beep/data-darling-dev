@@ -406,6 +406,37 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           {step === 2 && (
             <>
+              {/* Start Date Picker */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Başlangıç Tarihi (Pazartesi)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(startDate, "d MMMM yyyy, EEEE", { locale: tr })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => date && setStartDate(startOfWeek(date, { weekStartsOn: 1 }))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[10px] text-muted-foreground">
+                  Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır
+                </p>
+              </div>
+
               {/* Athlete search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
