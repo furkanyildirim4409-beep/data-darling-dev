@@ -432,15 +432,29 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 <Target className="w-3.5 h-3.5 mr-0.5" />RIR: {ex.rir}
                               </Badge>
                             )}
-                            {ex.weightDiff != null && ex.weightDiff !== 0 && (
-                              <span className={cn(
-                                "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
-                                ex.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
-                              )}>
-                                {ex.weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                                {ex.weightDiff > 0 ? `+${ex.weightDiff}kg` : `${ex.weightDiff}kg`}
-                              </span>
-                            )}
+                            {(() => {
+                              const exName = (ex.name || ex.exerciseName || "").toLowerCase().trim();
+                              const prog = exName ? exerciseProgressionMap[`${log.id}:${exName}`] : null;
+                              if (!prog) return null;
+                              return (
+                                <>
+                                  {prog.isGlobalPR && (
+                                    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[11px] px-2 py-0.5">
+                                      <Trophy className="w-3.5 h-3.5 mr-0.5" />YENİ REKOR
+                                    </Badge>
+                                  )}
+                                  {!prog.isGlobalPR && prog.weightDiff != null && (
+                                    <span className={cn(
+                                      "text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5",
+                                      prog.weightDiff > 0 ? "text-emerald-400 bg-emerald-400/10" : "text-orange-400 bg-orange-400/10"
+                                    )}>
+                                      {prog.weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                      {prog.weightDiff > 0 ? `+${prog.weightDiff}kg` : `${prog.weightDiff}kg`}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-3">
