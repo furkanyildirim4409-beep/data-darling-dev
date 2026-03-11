@@ -52,7 +52,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
-  const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [saving, setSaving] = useState(false);
   const [programSearch, setProgramSearch] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
