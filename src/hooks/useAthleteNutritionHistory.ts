@@ -73,15 +73,16 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
       logged_at: f.logged_at || "",
     }));
 
-    // Build daily buckets for the last N days
-    const buckets: DailyAggregation[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = subDays(new Date(), i);
+    // Build daily buckets for the date range
+    const bucketStart = rangeFrom || subDays(new Date(), 6);
+    const bucketEnd = rangeTo || new Date();
+    const allDays = eachDayOfInterval({ start: startOfDay(bucketStart), end: startOfDay(bucketEnd) });
+    const buckets: DailyAggregation[] = allDays.map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
       const dayFoods = foods.filter(
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
-      buckets.push({
+      return {
         date: dateStr,
         label: format(d, "EEE"),
         totalCalories: dayFoods.reduce((s, f) => s + f.calories, 0),
@@ -89,12 +90,12 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         totalCarbs: dayFoods.reduce((s, f) => s + f.carbs, 0),
         totalFat: dayFoods.reduce((s, f) => s + f.fat, 0),
         foods: dayFoods,
-      });
-    }
+      };
+    });
 
     setDailyData(buckets);
     setIsLoading(false);
-  }, [athleteId, days]);
+  }, [athleteId, rangeFrom, rangeTo]);
 
   useEffect(() => {
     fetchData();
