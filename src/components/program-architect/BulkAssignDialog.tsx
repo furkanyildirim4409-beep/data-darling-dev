@@ -212,7 +212,6 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
           const dayNotes = cfg?.notes || "";
-          const targetDate = addDays(scheduledDate, dayIdx);
           const dayGroups = cfg?.groups || [];
 
           const sortedExercises = (exs ?? []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
