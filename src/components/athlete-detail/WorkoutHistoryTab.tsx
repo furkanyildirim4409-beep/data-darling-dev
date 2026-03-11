@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 import { tr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +52,41 @@ interface WorkoutLog {
 
 const PAGE_SIZE = 20;
 
+function getPerformedSetsStatic(ex: ExerciseDetail): PerformedSet[] {
+  if (Array.isArray(ex.sets)) return ex.sets;
+  return ex.actualSets || ex.completedSets || ex.sets_completed || ex.performed || [];
+}
+
+function calcTonnageRaw(details: ExerciseDetail[] | null): number {
+  if (!details) return 0;
+  return details.reduce((total, ex) => {
+    const sets = getPerformedSetsStatic(ex);
+    return total + sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0);
+  }, 0);
+}
+
+function buildVolumeMap(logs: WorkoutLog[]): Record<string, { pctChange: number | null; isFirst: boolean }> {
+  const sorted = [...logs].sort((a, b) =>
+    new Date(a.logged_at || 0).getTime() - new Date(b.logged_at || 0).getTime()
+  );
+  const lastByName: Record<string, number> = {};
+  const result: Record<string, { pctChange: number | null; isFirst: boolean }> = {};
+
+  for (const log of sorted) {
+    const tonnage = calcTonnageRaw(log.details);
+    const prev = lastByName[log.workout_name];
+    if (prev == null) {
+      result[log.id] = { pctChange: null, isFirst: true };
+    } else if (prev > 0) {
+      result[log.id] = { pctChange: Math.round(((tonnage - prev) / prev) * 100), isFirst: false };
+    } else {
+      result[log.id] = { pctChange: null, isFirst: false };
+    }
+    lastByName[log.workout_name] = tonnage;
+  }
+  return result;
+}
+
 // Parse details from various possible JSON shapes
 function parseDetails(raw: unknown): ExerciseDetail[] | null {
   if (!raw) return null;
@@ -83,6 +118,7 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
   // Date filtering
   const [quickRange, setQuickRange] = useState<QuickRange>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const volumeMap = useMemo(() => buildVolumeMap(logs), [logs]);
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const getDateRange = useCallback((): { from?: string; to?: string } => {
@@ -262,9 +298,31 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
           <Collapsible key={log.id} open={isOpen} onOpenChange={() => toggle(log.id)}>
             <div className="glass rounded-xl border border-border overflow-hidden">
               <CollapsibleTrigger className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-4 text-left">
-                  <div>
-                    <p className="font-semibold text-foreground text-base">{log.workout_name}</p>
+                <div className="flex items-center gap-3 text-left min-w-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-foreground text-base">{log.workout_name}</p>
+                      {(() => {
+                        const vol = volumeMap[log.id];
+                        if (!vol) return null;
+                        if (vol.isFirst) return (
+                          <Badge variant="outline" className="text-[11px] px-2 py-0.5 border-border text-muted-foreground">
+                            İlk Kayıt
+                          </Badge>
+                        );
+                        if (vol.pctChange != null && vol.pctChange > 0) return (
+                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[11px] px-2 py-0.5">
+                            <TrendingUp className="w-3.5 h-3.5 mr-0.5" />↑ +%{vol.pctChange} Hacim
+                          </Badge>
+                        );
+                        if (vol.pctChange != null && vol.pctChange < 0) return (
+                          <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[11px] px-2 py-0.5">
+                            <TrendingDown className="w-3.5 h-3.5 mr-0.5" />↓ %{vol.pctChange} Hacim
+                          </Badge>
+                        );
+                        return null;
+                      })()}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {log.logged_at ? new Date(log.logged_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
                     </p>
