@@ -97,13 +97,21 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       setProgramInfo(programRes.data);
     }
 
-    setWorkouts(
-      (workoutsRes.data ?? []).map((d) => ({
-        ...d,
-        day_notes: (d as any).day_notes ?? null,
-        exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
-      }))
-    );
+    const mapped = (workoutsRes.data ?? []).map((d) => ({
+      ...d,
+      day_notes: (d as any).day_notes ?? null,
+      day_of_week: (d as any).day_of_week ?? null,
+      exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
+    }));
+
+    // Sort by day-of-week order
+    mapped.sort((a, b) => {
+      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
+      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
+      return aIdx - bIdx;
+    });
+
+    setWorkouts(mapped);
 
     setLoading(false);
   }, [athleteId]);
