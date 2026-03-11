@@ -88,10 +88,9 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       supabase.from("programs").select("id, title, difficulty, target_goal, description").eq("id", apId).single(),
       supabase
         .from("assigned_workouts")
-        .select("id, workout_name, day_notes, scheduled_date, status, program_id, exercises")
+        .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
         .eq("athlete_id", athleteId)
-        .eq("program_id", apId)
-        .order("scheduled_date", { ascending: true }),
+        .eq("program_id", apId),
     ]);
 
     if (programRes.data) {
