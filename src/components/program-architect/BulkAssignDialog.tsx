@@ -181,7 +181,8 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
         coach_id: string;
         athlete_id: string;
         program_id: string;
-        scheduled_date: string;
+        scheduled_date: string | null;
+        day_of_week: string;
         workout_name: string;
         day_notes: string;
         exercises: Json;
