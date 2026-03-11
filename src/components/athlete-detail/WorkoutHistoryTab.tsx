@@ -298,9 +298,31 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
           <Collapsible key={log.id} open={isOpen} onOpenChange={() => toggle(log.id)}>
             <div className="glass rounded-xl border border-border overflow-hidden">
               <CollapsibleTrigger className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-4 text-left">
-                  <div>
-                    <p className="font-semibold text-foreground text-base">{log.workout_name}</p>
+                <div className="flex items-center gap-3 text-left min-w-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-foreground text-base">{log.workout_name}</p>
+                      {(() => {
+                        const vol = volumeMap[log.id];
+                        if (!vol) return null;
+                        if (vol.isFirst) return (
+                          <Badge variant="outline" className="text-[11px] px-2 py-0.5 border-border text-muted-foreground">
+                            İlk Kayıt
+                          </Badge>
+                        );
+                        if (vol.pctChange != null && vol.pctChange > 0) return (
+                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[11px] px-2 py-0.5">
+                            <TrendingUp className="w-3.5 h-3.5 mr-0.5" />↑ +%{vol.pctChange} Hacim
+                          </Badge>
+                        );
+                        if (vol.pctChange != null && vol.pctChange < 0) return (
+                          <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[11px] px-2 py-0.5">
+                            <TrendingDown className="w-3.5 h-3.5 mr-0.5" />↓ %{vol.pctChange} Hacim
+                          </Badge>
+                        );
+                        return null;
+                      })()}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {log.logged_at ? new Date(log.logged_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
                     </p>
