@@ -210,7 +210,7 @@ export function AssignProgramDialog({
             coach_id: user.id,
             athlete_id: athleteId,
             program_id: programId,
-            scheduled_date: null,
+            scheduled_date: format(addDays(startDate, dayIdx), "yyyy-MM-dd"),
             day_of_week: DAY_NAMES[dayIdx],
             workout_name: dayLabel,
             day_notes: dayNotes,
