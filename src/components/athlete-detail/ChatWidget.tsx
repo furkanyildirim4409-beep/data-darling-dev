@@ -104,25 +104,36 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
     };
   }, [coachId, athleteId]);
 
-  // Auto-scroll only when near bottom
+  // Reset on athlete change
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-      if (isNearBottom || prevScrollHeightRef.current === 0) {
-        el.scrollTop = el.scrollHeight;
-      }
-    }
-  }, [messages]);
+    initialScrollDoneRef.current = false;
+    prevScrollHeightRef.current = 0;
+  }, [athleteId]);
 
-  // Preserve scroll after loading older
   useEffect(() => {
-    if (scrollRef.current && prevScrollHeightRef.current > 0) {
-      const el = scrollRef.current;
+    if (!scrollRef.current || messages.length === 0) return;
+    const el = scrollRef.current;
+
+    // Restore scroll after loading older
+    if (prevScrollHeightRef.current > 0) {
       el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
       prevScrollHeightRef.current = 0;
+      return;
     }
-  }, [isLoadingOlder]);
+
+    // First load
+    if (!initialScrollDoneRef.current) {
+      el.scrollTop = el.scrollHeight;
+      initialScrollDoneRef.current = true;
+      return;
+    }
+
+    // New message: only if near bottom
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
 
   const loadOlder = async () => {
     if (!coachId || !athleteId || isLoadingOlder || !hasMore) return;

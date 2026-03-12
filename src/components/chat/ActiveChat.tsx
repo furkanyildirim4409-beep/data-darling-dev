@@ -61,7 +61,8 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
-  const prevScrollHeightRef = useRef<number>(0);
+  const initialScrollDoneRef = useRef(false);
+  const isLoadingOlderRef = useRef(false);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
     onSendMessage('', mediaUrl, mediaType);
@@ -72,26 +73,41 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
     onUploadComplete: handleMediaSent,
   });
 
-  // Scroll to bottom on new messages (only if already near bottom)
+  // Track loading older state
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-      if (isNearBottom || prevScrollHeightRef.current === 0) {
-        el.scrollTop = el.scrollHeight;
-      }
+    isLoadingOlderRef.current = !!isLoadingOlder;
+  }, [isLoadingOlder]);
+
+  // Reset initial flag when athlete changes
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+    prevScrollHeightRef.current = 0;
+  }, [athlete?.id]);
+
+  useEffect(() => {
+    if (!scrollRef.current || messages.length === 0) return;
+    const el = scrollRef.current;
+
+    // Restore scroll position after loading older messages
+    if (prevScrollHeightRef.current > 0) {
+      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+      return;
+    }
+
+    // First load: scroll to bottom
+    if (!initialScrollDoneRef.current) {
+      el.scrollTop = el.scrollHeight;
+      initialScrollDoneRef.current = true;
+      return;
+    }
+
+    // New message: only scroll if near bottom
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
-
-  // Preserve scroll position after loading older messages
-  useEffect(() => {
-    if (scrollRef.current && prevScrollHeightRef.current > 0) {
-      const el = scrollRef.current;
-      const newScrollHeight = el.scrollHeight;
-      el.scrollTop = newScrollHeight - prevScrollHeightRef.current;
-      prevScrollHeightRef.current = 0;
-    }
-  }, [isLoadingOlder]);
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current || !onLoadOlder || !hasMoreMessages || isLoadingOlder) return;
