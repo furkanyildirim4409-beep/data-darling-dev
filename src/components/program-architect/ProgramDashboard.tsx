@@ -493,6 +493,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Şablon Olarak Kaydet
                             </DropdownMenuItem>
                           )}
+                        </>
                       )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
