@@ -1,0 +1,1 @@
+ALTER TABLE public.nutrition_targets ADD COLUMN IF NOT EXISTS active_diet_template_id uuid REFERENCES public.diet_templates(id);
