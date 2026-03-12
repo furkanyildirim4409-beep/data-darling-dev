@@ -127,12 +127,13 @@ function DraggableCardItem({
 }
 
 /* ── Main Layout Engine ── */
-export function DraggableCardLayout({ cards }: DraggableCardLayoutProps) {
+export function DraggableCardLayout({ cards, athleteId }: DraggableCardLayoutProps) {
   const cardIds = useMemo(() => Object.keys(cards), [cards]);
+  const storageKey = `${STORAGE_KEY_PREFIX}${athleteId || "default"}`;
 
   const [layout, setLayout] = useState<LayoutState>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as LayoutState;
         const allSavedIds = parsed.columns.flat();
