@@ -223,6 +223,7 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
             <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
           </div>
         )}
+        {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className={cn("h-10 rounded-xl", i % 2 === 0 ? "w-3/4 ml-auto" : "w-3/4")} />
