@@ -185,6 +185,116 @@ export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: Exercise
     }
   };
 
+  // CSV Export
+  const handleCsvExport = async () => {
+    setCsvExporting(true);
+    try {
+      const PAGE_SIZE = 1000;
+      const allRows: any[] = [];
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data } = await supabase
+          .from("exercise_library")
+          .select("name, category, target_muscle, video_url")
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (data && data.length > 0) allRows.push(...data);
+        hasMore = (data?.length ?? 0) === PAGE_SIZE;
+        page++;
+      }
+      const header = "name,category,target_muscle,video_url";
+      const escape = (v: string | null) => {
+        if (!v) return "";
+        if (v.includes(",") || v.includes('"') || v.includes("\n")) return `"${v.replace(/"/g, '""')}"`;
+        return v;
+      };
+      const csvRows = allRows.map(r => [escape(r.name), escape(r.category), escape(r.target_muscle), escape(r.video_url)].join(","));
+      const csv = [header, ...csvRows].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `exercise_library_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${allRows.length} egzersiz dışa aktarıldı 📤`);
+    } catch {
+      toast.error("CSV dışa aktarma başarısız");
+    } finally {
+      setCsvExporting(false);
+    }
+  };
+
+  // CSV Import
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error("CSV dosyası boş"); return; }
+
+      // Parse header
+      const headerLine = lines[0].toLowerCase();
+      const headers = headerLine.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+      const nameIdx = headers.indexOf("name");
+      if (nameIdx === -1) { toast.error("CSV'de 'name' sütunu bulunamadı"); return; }
+      const catIdx = headers.indexOf("category");
+      const muscleIdx = headers.indexOf("target_muscle");
+      const urlIdx = headers.indexOf("video_url");
+
+      // Simple CSV line parser (handles quoted fields)
+      const parseLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { inQuotes = !inQuotes; continue; }
+          if (ch === "," && !inQuotes) { result.push(current.trim()); current = ""; continue; }
+          current += ch;
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const rows = lines.slice(1).map(parseLine).filter(cols => cols[nameIdx]?.trim());
+
+      // Fetch existing names for duplicate check
+      const { data: existingRows } = await supabase.from("exercise_library").select("name").limit(10000);
+      const existingNames = new Set((existingRows || []).map(r => r.name.toLowerCase()));
+
+      const newRows = rows
+        .filter(cols => !existingNames.has(cols[nameIdx].toLowerCase()))
+        .map(cols => ({
+          name: cols[nameIdx],
+          category: catIdx >= 0 ? cols[catIdx] || null : null,
+          target_muscle: muscleIdx >= 0 ? cols[muscleIdx] || null : null,
+          video_url: urlIdx >= 0 ? cols[urlIdx] || null : null,
+        }));
+
+      if (newRows.length === 0) {
+        toast.info("Tüm egzersizler zaten mevcut, yeni ekleme yapılmadı ℹ️");
+      } else {
+        const CHUNK = 500;
+        let inserted = 0;
+        for (let i = 0; i < newRows.length; i += CHUNK) {
+          const { error } = await supabase.from("exercise_library").insert(newRows.slice(i, i + CHUNK));
+          if (error) { console.error("CSV chunk insert error:", error); }
+          else inserted += Math.min(CHUNK, newRows.length - i);
+        }
+        onRefresh();
+        toast.success(`${inserted} yeni egzersiz içe aktarıldı 📥 (${rows.length - newRows.length} mükerrer atlandı)`);
+      }
+    } catch (err: any) {
+      toast.error("CSV içe aktarma başarısız: " + err.message);
+    } finally {
+      setCsvImporting(false);
+      e.target.value = "";
+    }
+  };
+
   const filtered = exercises.filter(ex =>
     ex.name.toLowerCase().includes(search.toLowerCase()) ||
     ex.category.toLowerCase().includes(search.toLowerCase())
