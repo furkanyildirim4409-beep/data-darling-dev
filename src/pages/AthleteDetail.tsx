@@ -133,11 +133,11 @@ export default function AthleteDetail() {
   const isVaultSecure = missedWorkouts <= 2;
 
   const wellnessData = {
-    sleep: latestCheckIn?.sleep || 7,
-    stress: latestCheckIn?.stress || 4,
-    digestion: 8,
-    mood: latestCheckIn?.mood || 7,
-    soreness: latestCheckIn?.soreness || 3,
+    sleep: latestCheckIn?.sleep ?? null,
+    stress: latestCheckIn?.stress ?? null,
+    digestion: latestCheckIn?.digestion ?? null,
+    mood: latestCheckIn?.mood ?? null,
+    soreness: latestCheckIn?.soreness ?? null,
   };
 
 
