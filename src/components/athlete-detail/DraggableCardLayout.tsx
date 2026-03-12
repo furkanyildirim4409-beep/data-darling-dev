@@ -198,7 +198,7 @@ export function DraggableCardLayout({ cards, athleteId }: DraggableCardLayoutPro
 
       const newLayout: LayoutState = { columns: newCols };
       setLayout(newLayout);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayout));
+      localStorage.setItem(storageKey, JSON.stringify(newLayout));
     },
     [layout]
   );
