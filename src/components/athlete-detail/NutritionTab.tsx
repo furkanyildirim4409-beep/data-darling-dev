@@ -213,18 +213,10 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   };
 
   // ─── Combined macro totals from all assigned templates ───
-  const combinedMacros = useMemo(() => {
-    if (assignedTemplates.length === 0) return null;
-    return assignedTemplates.reduce(
-      (acc, t) => ({
-        calories: acc.calories + t.dailyAvg.calories,
-        protein: acc.protein + t.dailyAvg.protein,
-        carbs: acc.carbs + t.dailyAvg.carbs,
-        fat: acc.fat + t.dailyAvg.fat,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-  }, [assignedTemplates]);
+  const activeMacros = useMemo(() => {
+    if (!activeTemplate) return null;
+    return activeTemplate.dailyAvg;
+  }, [activeTemplate]);
 
 
   // ─── Selected Day Detail ───
