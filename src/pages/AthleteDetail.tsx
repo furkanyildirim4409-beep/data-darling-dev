@@ -15,6 +15,7 @@ import { BloodworkPanel } from "@/components/athlete-detail/BloodworkPanel";
 import { MetabolicFlux } from "@/components/athlete-detail/MetabolicFlux";
 import { TimelineAI } from "@/components/athlete-detail/TimelineAI";
 import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
+import { AthleteProgressChart } from "@/components/athlete-detail/AthleteProgressChart";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
