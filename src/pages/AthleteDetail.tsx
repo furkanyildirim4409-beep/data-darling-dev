@@ -17,10 +17,10 @@ import { TimelineAI } from "@/components/athlete-detail/TimelineAI";
 import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
 import { AthleteProgressChart } from "@/components/athlete-detail/AthleteProgressChart";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
+import { DraggableCardLayout } from "@/components/athlete-detail/DraggableCardLayout";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
-import { cn } from "@/lib/utils";
 
 interface AthleteProfile {
   id: string;
@@ -198,31 +198,19 @@ export default function AthleteDetail() {
           <TabsTrigger value="history" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><History className="w-4 h-4" />Antrenman Geçmişi</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-6 space-y-6">
-          {/* Top row: BodyModel3D + WellnessRadar side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <BodyModel3D />
-            <WellnessRadar data={wellnessData} />
-          </div>
-
-          {/* Bottom row: 3-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-primary" />Fiziksel Gelişim</div>
-              <AthleteProgressChart athleteId={athlete.id} />
-            </div>
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-warning" />Performans</div>
-              <MetabolicFlux />
-              <TimelineAI athleteId={athlete.id} />
-            </div>
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-success" />Yönetim</div>
-              <ActiveBlocks athleteId={athlete.id} />
-              <ChatWidget athleteName={name} athleteInitials={initials} />
-              <BloodworkPanel />
-            </div>
-          </div>
+        <TabsContent value="general" className="mt-6">
+          <DraggableCardLayout
+            cards={{
+              "body-model": <BodyModel3D />,
+              "wellness-radar": <WellnessRadar data={wellnessData} />,
+              "progress-chart": <AthleteProgressChart athleteId={athlete.id} />,
+              "metabolic-flux": <MetabolicFlux />,
+              "timeline-ai": <TimelineAI athleteId={athlete.id} />,
+              "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
+              "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} />,
+              "bloodwork-panel": <BloodworkPanel />,
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="program" className="mt-6">
