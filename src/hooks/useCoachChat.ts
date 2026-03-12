@@ -317,8 +317,11 @@ export function useCoachChat() {
     totalUnread,
     isLoadingAthletes,
     isLoadingMessages,
+    isLoadingOlder,
+    hasMoreMessages,
     selectAthlete,
     sendMessage,
+    loadOlderMessages,
     refetch: fetchAthletes,
   };
 }
