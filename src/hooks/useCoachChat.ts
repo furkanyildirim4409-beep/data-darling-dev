@@ -121,10 +121,13 @@ export function useCoachChat() {
     setIsLoadingAthletes(false);
   }, [coachId]);
 
+  const MSG_PAGE_SIZE = 50;
+
   // Fetch messages for selected athlete
   const fetchMessages = useCallback(async (athleteId: string) => {
     if (!coachId) return;
     setIsLoadingMessages(true);
+    setHasMoreMessages(true);
 
     const { data } = await supabase
       .from('messages')
@@ -133,9 +136,11 @@ export function useCoachChat() {
         `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
       )
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(MSG_PAGE_SIZE);
 
-    setMessages(((data as ChatMessage[]) || []).reverse());
+    const fetched = ((data as ChatMessage[]) || []).reverse();
+    setMessages(fetched);
+    setHasMoreMessages(fetched.length >= MSG_PAGE_SIZE);
     setIsLoadingMessages(false);
 
     await supabase
@@ -155,6 +160,31 @@ export function useCoachChat() {
       return Math.max(0, prev - athleteUnread);
     });
   }, [coachId, athletes]);
+
+  // Load older messages
+  const loadOlderMessages = useCallback(async () => {
+    if (!coachId || !selectedAthleteId || isLoadingOlder || !hasMoreMessages) return;
+    const oldestMsg = messages[0];
+    if (!oldestMsg) return;
+
+    setIsLoadingOlder(true);
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .or(
+        `and(sender_id.eq.${coachId},receiver_id.eq.${selectedAthleteId}),and(sender_id.eq.${selectedAthleteId},receiver_id.eq.${coachId})`
+      )
+      .lt('created_at', oldestMsg.created_at)
+      .order('created_at', { ascending: false })
+      .limit(MSG_PAGE_SIZE);
+
+    const older = ((data as ChatMessage[]) || []).reverse();
+    if (older.length > 0) {
+      setMessages(prev => [...older, ...prev]);
+    }
+    setHasMoreMessages(older.length >= MSG_PAGE_SIZE);
+    setIsLoadingOlder(false);
+  }, [coachId, selectedAthleteId, isLoadingOlder, hasMoreMessages, messages]);
 
   const selectAthlete = useCallback((athleteId: string) => {
     setSelectedAthleteId(athleteId);
