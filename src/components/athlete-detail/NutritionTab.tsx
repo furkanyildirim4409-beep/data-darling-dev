@@ -45,8 +45,7 @@ const MEAL_LABELS: Record<string, string> = {
   snack: "🍎 Atıştırmalık",
 };
 
-interface AssignedTemplate {
-  assignmentId: string;
+interface ActiveTemplate {
   templateId: string;
   title: string;
   dailyAvg: { calories: number; protein: number; carbs: number; fat: number };
@@ -61,8 +60,8 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [assignedTemplates, setAssignedTemplates] = useState<AssignedTemplate[]>([]);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [activeTemplate, setActiveTemplate] = useState<ActiveTemplate | null>(null);
+  const [removingTemplate, setRemovingTemplate] = useState(false);
 
   // ─── History State ───
   const RANGE_PRESETS = [
@@ -91,18 +90,11 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   // ─── Fetch Targets + Assignments ───
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
-    const [targetsRes, assignRes] = await Promise.all([
-      supabase
-        .from("nutrition_targets")
-        .select("daily_calories, protein_g, carbs_g, fat_g")
-        .eq("athlete_id", athleteId)
-        .maybeSingle(),
-      supabase
-        .from("athlete_diet_assignments")
-        .select("id, template_id")
-        .eq("athlete_id", athleteId)
-        .order("assigned_at", { ascending: true }),
-    ]);
+    const targetsRes = await supabase
+      .from("nutrition_targets")
+      .select("daily_calories, protein_g, carbs_g, fat_g, active_diet_template_id")
+      .eq("athlete_id", athleteId)
+      .maybeSingle();
 
     if (targetsRes.data) {
       const t: NutritionTargets = {
@@ -114,55 +106,47 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setTargets(t);
       setFormValues(t);
       setHasExisting(true);
+
+      // Fetch active template details if set
+      const activeId = targetsRes.data.active_diet_template_id;
+      if (activeId) {
+        const [tplRes, foodsRes] = await Promise.all([
+          supabase.from("diet_templates").select("id, title").eq("id", activeId).maybeSingle(),
+          supabase.from("diet_template_foods").select("calories, protein, carbs, fat, day_number").eq("template_id", activeId),
+        ]);
+
+        if (tplRes.data) {
+          const foods = foodsRes.data || [];
+          const daySet = new Set(foods.map((f) => f.day_number || 1));
+          const numDays = daySet.size || 1;
+          const totals = foods.reduce(
+            (acc, f) => ({
+              cal: acc.cal + (Number(f.calories) || 0),
+              pro: acc.pro + (Number(f.protein) || 0),
+              carb: acc.carb + (Number(f.carbs) || 0),
+              fat: acc.fat + (Number(f.fat) || 0),
+            }),
+            { cal: 0, pro: 0, carb: 0, fat: 0 }
+          );
+          setActiveTemplate({
+            templateId: tplRes.data.id,
+            title: tplRes.data.title,
+            dailyAvg: {
+              calories: Math.round(totals.cal / numDays),
+              protein: Math.round(totals.pro / numDays),
+              carbs: Math.round(totals.carb / numDays),
+              fat: Math.round(totals.fat / numDays),
+            },
+          });
+        } else {
+          setActiveTemplate(null);
+        }
+      } else {
+        setActiveTemplate(null);
+      }
     } else {
       setHasExisting(false);
-    }
-
-    // Fetch template titles + foods for assigned templates
-    const assignments = assignRes.data || [];
-    if (assignments.length > 0) {
-      const templateIds = assignments.map((a) => a.template_id);
-      const [tplsRes, foodsRes] = await Promise.all([
-        supabase.from("diet_templates").select("id, title").in("id", templateIds),
-        supabase.from("diet_template_foods").select("template_id, calories, protein, carbs, fat, day_number").in("template_id", templateIds),
-      ]);
-
-      const tplMap = new Map((tplsRes.data || []).map((t) => [t.id, t.title]));
-      const foodsByTemplate = new Map<string, typeof foodsRes.data>();
-      for (const f of foodsRes.data || []) {
-        const arr = foodsByTemplate.get(f.template_id) || [];
-        arr.push(f);
-        foodsByTemplate.set(f.template_id, arr);
-      }
-
-      const mapped: AssignedTemplate[] = assignments.map((a) => {
-        const foods = foodsByTemplate.get(a.template_id) || [];
-        const daySet = new Set(foods.map((f) => f.day_number || 1));
-        const numDays = daySet.size || 1;
-        const totals = foods.reduce(
-          (acc, f) => ({
-            cal: acc.cal + (Number(f.calories) || 0),
-            pro: acc.pro + (Number(f.protein) || 0),
-            carb: acc.carb + (Number(f.carbs) || 0),
-            fat: acc.fat + (Number(f.fat) || 0),
-          }),
-          { cal: 0, pro: 0, carb: 0, fat: 0 }
-        );
-        return {
-          assignmentId: a.id,
-          templateId: a.template_id,
-          title: tplMap.get(a.template_id) || "Şablon",
-          dailyAvg: {
-            calories: Math.round(totals.cal / numDays),
-            protein: Math.round(totals.pro / numDays),
-            carbs: Math.round(totals.carb / numDays),
-            fat: Math.round(totals.fat / numDays),
-          },
-        };
-      });
-      setAssignedTemplates(mapped);
-    } else {
-      setAssignedTemplates([]);
+      setActiveTemplate(null);
     }
 
     setIsLoading(false);
@@ -205,19 +189,22 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setIsSaving(false);
   };
 
-  const handleRemoveAssignment = async (assignmentId: string) => {
-    setRemovingId(assignmentId);
+  const handleRemoveTemplate = async () => {
+    setRemovingTemplate(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRemovingTemplate(false); return; }
     const { error } = await supabase
-      .from("athlete_diet_assignments")
-      .delete()
-      .eq("id", assignmentId);
+      .from("nutrition_targets")
+      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .eq("athlete_id", athleteId)
+      .eq("coach_id", user.id);
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Başarılı", description: "Beslenme programı kaldırıldı." });
       await fetchTargets();
     }
-    setRemovingId(null);
+    setRemovingTemplate(false);
   };
 
   const handleCancel = () => {
@@ -226,18 +213,10 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   };
 
   // ─── Combined macro totals from all assigned templates ───
-  const combinedMacros = useMemo(() => {
-    if (assignedTemplates.length === 0) return null;
-    return assignedTemplates.reduce(
-      (acc, t) => ({
-        calories: acc.calories + t.dailyAvg.calories,
-        protein: acc.protein + t.dailyAvg.protein,
-        carbs: acc.carbs + t.dailyAvg.carbs,
-        fat: acc.fat + t.dailyAvg.fat,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-  }, [assignedTemplates]);
+  const activeMacros = useMemo(() => {
+    if (!activeTemplate) return null;
+    return activeTemplate.dailyAvg;
+  }, [activeTemplate]);
 
 
   // ─── Selected Day Detail ───
@@ -269,10 +248,10 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   }, [selectedDayData]);
 
   const macroCards = [
-    { label: "Kalori", value: combinedMacros?.calories ?? targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
-    { label: "Protein", value: combinedMacros?.protein ?? targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
-    { label: "Karbonhidrat", value: combinedMacros?.carbs ?? targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
-    { label: "Yağ", value: combinedMacros?.fat ?? targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
+    { label: "Kalori", value: activeMacros?.calories ?? targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
+    { label: "Protein", value: activeMacros?.protein ?? targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
+    { label: "Karbonhidrat", value: activeMacros?.carbs ?? targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
+    { label: "Yağ", value: activeMacros?.fat ?? targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
   ];
 
   if (isLoading) {
@@ -294,24 +273,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground">Beslenme Hedefleri</h3>
-              {assignedTemplates.length > 0 ? (
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {assignedTemplates.map((at) => (
-                    <Badge key={at.assignmentId} variant="outline" className="border-success/30 text-success text-xs gap-1">
-                      <FileDown className="w-3 h-3" />
-                      {at.title}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 ml-0.5 text-destructive hover:bg-destructive/10 rounded-full"
-                        onClick={() => handleRemoveAssignment(at.assignmentId)}
-                        disabled={removingId === at.assignmentId}
-                      >
-                        {removingId === at.assignmentId ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-2.5 h-2.5" />}
-                      </Button>
-                    </Badge>
-                  ))}
-                  <span className="text-[10px] text-muted-foreground">{assignedTemplates.length}/7</span>
+              {activeTemplate ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="border-success/30 text-success text-xs gap-1">
+                    <FileDown className="w-3 h-3" />
+                    {activeTemplate.title}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 ml-0.5 text-destructive hover:bg-destructive/10 rounded-full"
+                      onClick={handleRemoveTemplate}
+                      disabled={removingTemplate}
+                    >
+                      {removingTemplate ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-2.5 h-2.5" />}
+                    </Button>
+                  </Badge>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -805,7 +781,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         onOpenChange={setShowTemplateDialog}
         athleteId={athleteId}
         onAssigned={fetchTargets}
-        assignedTemplateIds={assignedTemplates.map((a) => a.templateId)}
+        activeTemplateId={activeTemplate?.templateId}
       />
     </div>
   );

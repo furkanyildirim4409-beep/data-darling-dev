@@ -31,7 +31,7 @@ interface AssignDietTemplateDialogProps {
   onOpenChange: (open: boolean) => void;
   athleteId: string;
   onAssigned: () => void;
-  assignedTemplateIds?: string[];
+  activeTemplateId?: string | null;
 }
 
 export function AssignDietTemplateDialog({
@@ -39,14 +39,12 @@ export function AssignDietTemplateDialog({
   onOpenChange,
   athleteId,
   onAssigned,
-  assignedTemplateIds = [],
+  activeTemplateId,
 }: AssignDietTemplateDialogProps) {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<TemplateWithMacros[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
-
-  const atLimit = assignedTemplateIds.length >= 7;
 
   useEffect(() => {
     if (!open || !user) return;
@@ -87,26 +85,23 @@ export function AssignDietTemplateDialog({
 
   const handleAssign = async (tpl: TemplateWithMacros) => {
     if (!user) return;
-    if (atLimit) {
-      toast({ title: "Limit", description: "En fazla 7 beslenme programı atanabilir.", variant: "destructive" });
-      return;
-    }
     setAssigning(tpl.id);
 
+    // UPSERT into nutrition_targets — single source of truth
     const { error } = await supabase
-      .from("athlete_diet_assignments")
-      .insert({
-        athlete_id: athleteId,
-        template_id: tpl.id,
-        coach_id: user.id,
-      });
+      .from("nutrition_targets")
+      .upsert(
+        {
+          athlete_id: athleteId,
+          coach_id: user.id,
+          active_diet_template_id: tpl.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "athlete_id" }
+      );
 
     if (error) {
-      if (error.code === "23505") {
-        toast({ title: "Bilgi", description: "Bu şablon zaten atanmış.", variant: "destructive" });
-      } else {
-        toast({ title: "Hata", description: error.message, variant: "destructive" });
-      }
+      toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
       onAssigned();
@@ -124,15 +119,7 @@ export function AssignDietTemplateDialog({
             Beslenme Programı Ata
           </DialogTitle>
           <DialogDescription>
-            Bir diyet şablonu seçerek beslenme programını sporcuya atayın.
-            {atLimit && (
-              <span className="block text-destructive mt-1">Maksimum 7 program limitine ulaşıldı.</span>
-            )}
-            {!atLimit && assignedTemplateIds.length > 0 && (
-              <span className="block text-muted-foreground mt-1">
-                {assignedTemplateIds.length}/7 program atanmış.
-              </span>
-            )}
+            Bir diyet şablonu seçerek beslenme programını sporcuya atayın. Tek aktif program olarak ayarlanır.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,12 +136,12 @@ export function AssignDietTemplateDialog({
           ) : (
             <div className="space-y-3 pb-2">
               {templates.map((tpl) => {
-                const alreadyAssigned = assignedTemplateIds.includes(tpl.id);
+                const isActive = activeTemplateId === tpl.id;
                 return (
                   <div
                     key={tpl.id}
                     className={`rounded-xl border p-4 transition-colors ${
-                      alreadyAssigned
+                      isActive
                         ? "border-success/40 bg-success/5 opacity-60"
                         : "border-border hover:border-success/40"
                     }`}
@@ -187,13 +174,13 @@ export function AssignDietTemplateDialog({
                     <Button
                       size="sm"
                       className="w-full bg-success text-success-foreground hover:bg-success/90"
-                      disabled={assigning === tpl.id || alreadyAssigned || atLimit}
+                      disabled={assigning === tpl.id || isActive}
                       onClick={() => handleAssign(tpl)}
                     >
-                      {alreadyAssigned ? (
+                      {isActive ? (
                         <>
                           <Check className="w-4 h-4 mr-1.5" />
-                          Zaten Atanmış
+                          Aktif Program
                         </>
                       ) : assigning === tpl.id ? (
                         <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
