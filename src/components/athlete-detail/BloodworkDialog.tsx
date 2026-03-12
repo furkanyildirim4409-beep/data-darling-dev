@@ -244,8 +244,9 @@ function HormonalComparisonChart({
 
 export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDialogProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const { data: tests = [], isLoading } = useQuery({
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const queryClient = useQueryClient();
     queryKey: ["blood-tests", athleteId],
     queryFn: async () => {
       const { data, error } = await supabase
