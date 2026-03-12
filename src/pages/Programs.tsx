@@ -155,6 +155,7 @@ export default function Programs() {
           amount: 100,
           unit: item.name.includes("(Adet)") ? "adet" : "g",
           mealId: activeMealId,
+          dayIndex: activeNutritionDay,
         };
         setSelectedNutrition((prev) => [...prev, newNutrition]);
         toast.success(`${item.name} listeye eklendi.`);
