@@ -40,6 +40,7 @@ interface CheckInData {
   sleep: number | null;
   soreness: number | null;
   stress: number | null;
+  digestion: number | null;
 }
 
 interface WorkoutSummary {
@@ -63,7 +64,7 @@ export default function AthleteDetail() {
 
     const [profileRes, checkInRes, workoutRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
-      supabase.from("daily_checkins").select("mood, sleep, soreness, stress").eq("user_id", id).order("created_at", { ascending: false }).limit(1),
+      supabase.from("daily_checkins").select("mood, sleep, soreness, stress, digestion").eq("user_id", id).order("created_at", { ascending: false }).limit(1),
       supabase.from("workout_logs").select("completed, tonnage").eq("user_id", id),
     ]);
 
@@ -132,11 +133,11 @@ export default function AthleteDetail() {
   const isVaultSecure = missedWorkouts <= 2;
 
   const wellnessData = {
-    sleep: latestCheckIn?.sleep || 7,
-    stress: latestCheckIn?.stress || 4,
-    digestion: 8,
-    mood: latestCheckIn?.mood || 7,
-    soreness: latestCheckIn?.soreness || 3,
+    sleep: latestCheckIn?.sleep ?? null,
+    stress: latestCheckIn?.stress ?? null,
+    digestion: latestCheckIn?.digestion ?? null,
+    mood: latestCheckIn?.mood ?? null,
+    soreness: latestCheckIn?.soreness ?? null,
   };
 
 

@@ -271,6 +271,7 @@ export type Database = {
       daily_checkins: {
         Row: {
           created_at: string | null
+          digestion: number | null
           id: string
           mood: number | null
           notes: string | null
@@ -281,6 +282,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          digestion?: number | null
           id?: string
           mood?: number | null
           notes?: string | null
@@ -291,6 +293,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          digestion?: number | null
           id?: string
           mood?: number | null
           notes?: string | null
