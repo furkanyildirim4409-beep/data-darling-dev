@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, Send, ImagePlus, Mic, Square, Loader2, Bell, BellOff, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCoachChat } from "@/hooks/useCoachChat";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutedChats } from "@/hooks/useMutedChats";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
+import type { ChatMessage } from "@/hooks/useCoachChat";
 
 interface QuickChatPopoverProps {
   athlete: { id: string; name: string; avatar?: string; sport?: string };
@@ -42,29 +43,116 @@ function MiniAudioPlayer({ src }: { src: string }) {
 
 export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [input, setInput] = useState("");
-  const { messages, selectAthlete, sendMessage, isLoadingMessages } = useCoachChat();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const { user } = useAuth();
+  const coachId = user?.id;
   const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
-  const initializedAthleteId = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
-    sendMessage('', mediaUrl, mediaType);
-  }, [sendMessage]);
+    if (!coachId) return;
+    const content = mediaType === 'image' ? '📷 Fotoğraf' : '🎤 Ses kaydı';
+    const optimistic: ChatMessage = {
+      id: crypto.randomUUID(),
+      sender_id: coachId,
+      receiver_id: athlete.id,
+      content,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      media_url: mediaUrl,
+      media_type: mediaType,
+    };
+    setMessages(prev => [...prev, optimistic]);
+    supabase.from('messages').insert({
+      sender_id: coachId,
+      receiver_id: athlete.id,
+      content,
+      media_url: mediaUrl,
+      media_type: mediaType,
+    });
+  }, [coachId, athlete.id]);
 
   const { isUploading, isRecording, recordingDuration, handleImageSelect, startRecording, stopRecording, cancelRecording } = useMediaUpload({
-    userId: user?.id || '',
+    userId: coachId || '',
     onUploadComplete: handleMediaSent,
   });
 
+  // Fetch messages directly
   useEffect(() => {
-    if (athlete.id && initializedAthleteId.current !== athlete.id) {
-      initializedAthleteId.current = athlete.id;
-      selectAthlete(athlete.id);
-    }
-  }, [athlete.id, selectAthlete]);
+    if (!coachId || !athlete.id) return;
 
+    const fetchMessages = async () => {
+      setIsLoadingMessages(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(
+          `and(sender_id.eq.${coachId},receiver_id.eq.${athlete.id}),and(sender_id.eq.${athlete.id},receiver_id.eq.${coachId})`
+        )
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('QuickChat fetch error:', error);
+      }
+
+      setMessages(((data as ChatMessage[]) || []).reverse());
+      setIsLoadingMessages(false);
+
+      // Mark unread as read
+      supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('sender_id', athlete.id)
+        .eq('receiver_id', coachId)
+        .eq('is_read', false)
+        .then();
+    };
+
+    fetchMessages();
+  }, [coachId, athlete.id]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!coachId || !athlete.id) return;
+
+    const channel = supabase
+      .channel(`quick-chat-${athlete.id}-${coachId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const msg = payload.new as ChatMessage;
+          if (
+            (msg.sender_id === athlete.id && msg.receiver_id === coachId) ||
+            (msg.sender_id === coachId && msg.receiver_id === athlete.id)
+          ) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+
+            // Auto-mark as read if from athlete
+            if (msg.sender_id === athlete.id) {
+              supabase
+                .from('messages')
+                .update({ is_read: true })
+                .eq('id', msg.id)
+                .then();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [coachId, athlete.id]);
+
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -76,10 +164,33 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     .toUpperCase();
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    const text = input;
+    if (!input.trim() || !coachId) return;
+    const text = input.trim();
     setInput("");
-    await sendMessage(text);
+
+    // Optimistic
+    const optimistic: ChatMessage = {
+      id: crypto.randomUUID(),
+      sender_id: coachId,
+      receiver_id: athlete.id,
+      content: text,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      media_url: null,
+      media_type: null,
+    };
+    setMessages(prev => [...prev, optimistic]);
+
+    const { error } = await supabase.from('messages').insert({
+      sender_id: coachId,
+      receiver_id: athlete.id,
+      content: text,
+    });
+
+    if (error) {
+      console.error('QuickChat send error:', error);
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -105,7 +216,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
 
   // Determine if last message is from athlete (unanswered)
   const lastMsg = messages[messages.length - 1];
-  const isUnanswered = lastMsg && lastMsg.sender_id !== user?.id;
+  const isUnanswered = lastMsg && lastMsg.sender_id !== coachId;
 
   return (
     <div className="fixed bottom-6 right-6 w-80 h-[450px] bg-card border border-border rounded-xl shadow-2xl flex flex-col z-50 overflow-hidden">
@@ -165,7 +276,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
           <p className="text-center text-xs text-muted-foreground mt-8">Henüz mesaj yok</p>
         ) : (
           messages.map((msg) => {
-            const isCoach = msg.sender_id === user?.id;
+            const isCoach = msg.sender_id === coachId;
             return (
               <div
                 key={msg.id}
