@@ -209,7 +209,28 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setDeleteDialog({ open: false, program: null });
   };
 
-  const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
+  const handleDuplicateDiet = async (item: ProgramData) => {
+    if (!user) return;
+    const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
+    if (!tpl) { toast.error("Şablon bulunamadı"); return; }
+
+    const { data: newTpl, error } = await supabase
+      .from("diet_templates")
+      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: user.id })
+      .select().single();
+    if (error || !newTpl) { toast.error("Kopyalama başarısız"); return; }
+
+    const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
+    if (foods && foods.length > 0) {
+      await supabase.from("diet_template_foods").insert(
+        foods.map((f) => ({ template_id: newTpl.id, food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, serving_size: f.serving_size }))
+      );
+    }
+    toast.success(`"${item.name}" kopyalandı`);
+    fetchDietTemplates();
+  };
+
+
     if (!user) return;
 
     // Fetch full program data + exercises in parallel
