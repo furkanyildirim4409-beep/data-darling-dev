@@ -199,27 +199,28 @@ export default function AthleteDetail() {
         </TabsList>
 
         <TabsContent value="general" className="mt-6 space-y-6">
-          {/* Top row: charts side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <AthleteProgressChart athleteId={athlete.id} />
+          {/* Top row: BodyModel3D + WellnessRadar side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <BodyModel3D />
             <WellnessRadar data={wellnessData} />
-            <BloodworkPanel />
           </div>
 
           {/* Bottom row: 3-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-6">
-              <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-primary" />Biyo-Veri</div>
-              <BodyModel3D />
+              <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-primary" />Fiziksel Gelişim</div>
+              <AthleteProgressChart athleteId={athlete.id} />
             </div>
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-warning" />Performans</div>
-              <MetabolicFlux /><TimelineAI currentStats={currentStats} startStats={startStats} />
+              <MetabolicFlux />
+              <TimelineAI athleteId={athlete.id} />
             </div>
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-success" />Yönetim</div>
               <ActiveBlocks trainingBlock={{ name: "Program", week: 4, totalWeeks: 8, phase: "Hipertrofi Fazı" }} dietBlock={{ name: "Beslenme", calories: 0, protein: 0, type: "Kütle Kazanım Fazı" }} />
               <ChatWidget athleteName={name} athleteInitials={initials} />
+              <BloodworkPanel />
             </div>
           </div>
         </TabsContent>
