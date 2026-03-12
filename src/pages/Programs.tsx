@@ -379,6 +379,7 @@ export default function Programs() {
           .filter((item) => item.name.trim())
           .map((item) => ({
             template_id: template.id,
+            day_number: item.dayIndex + 1,
             meal_type: mealTypeMap[item.mealId] || "snack",
             food_name: item.name.trim(),
             serving_size: `${item.amount}${item.unit}`,
