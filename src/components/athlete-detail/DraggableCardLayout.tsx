@@ -34,6 +34,7 @@ const DEFAULT_LAYOUT: LayoutState = {
 interface DraggableCardLayoutProps {
   cards: Record<string, React.ReactNode>;
   cardLabels?: Record<string, string>;
+  athleteId?: string;
 }
 
 /* ── Droppable Column ── */
