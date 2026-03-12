@@ -59,6 +59,57 @@ export default function Programs() {
     setEditingProgram(program);
     setViewMode("builder");
 
+    if (program.type === "nutrition") {
+      // Load diet_template_foods into selectedNutrition
+      const { data: foods, error } = await supabase
+        .from("diet_template_foods")
+        .select("*")
+        .eq("template_id", program.id)
+        .order("id");
+
+      if (error) {
+        toast.error("Besinler yüklenemedi: " + error.message);
+        return;
+      }
+
+      const reverseMealMap: Record<string, string> = {
+        breakfast: "meal-1",
+        snack: "meal-2",
+        lunch: "meal-3",
+        dinner: "meal-5",
+      };
+
+      const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
+        // Parse serving_size to get amount and unit
+        const servingMatch = (f.serving_size || "100g").match(/^(\d+\.?\d*)(.*)/);
+        const amount = servingMatch ? parseFloat(servingMatch[1]) : 100;
+        const unit = servingMatch && servingMatch[2]?.trim() ? servingMatch[2].trim() : "g";
+        const factor = unit === "adet" ? amount : amount / 100;
+
+        return {
+          id: f.id,
+          name: f.food_name,
+          category: "Genel",
+          type: "nutrition",
+          kcal: factor > 0 ? Math.round((f.calories || 0) / factor) : 0,
+          protein: factor > 0 ? Math.round((f.protein || 0) / factor) : 0,
+          carbs: factor > 0 ? Math.round((f.carbs || 0) / factor) : 0,
+          fats: factor > 0 ? Math.round((f.fat || 0) / factor) : 0,
+          amount,
+          unit,
+          mealId: reverseMealMap[f.meal_type] || "meal-2",
+          dayIndex: (f.day_number || 1) - 1,
+        };
+      });
+
+      setSelectedNutrition(nutritionItems);
+      setActiveNutritionDay(0);
+      setActiveMealId("meal-1");
+      toast.info(`"${program.name}" düzenleme modunda açıldı.`);
+      return;
+    }
+
+    // Exercise mode
     const { data: exercises, error } = await supabase
       .from("exercises")
       .select("*")
@@ -408,26 +459,52 @@ export default function Programs() {
         const daysWithItems = new Set(selectedNutrition.map(i => i.dayIndex)).size;
         const avgDailyCals = daysWithItems > 0 ? Math.round(totalCals / daysWithItems) : 0;
 
-        const { data: template, error: tErr } = await supabase
-          .from("diet_templates")
-          .insert({
-            coach_id: user.id,
-            title: meta.title,
-            description: meta.description || null,
-            target_calories: avgDailyCals,
-          })
-          .select("id")
-          .single();
+        const isEditing = !!editingProgram;
+        let templateId: string;
 
-        if (tErr || !template) {
-          toast.error("Diyet şablonu kaydedilemedi: " + (tErr?.message ?? "Bilinmeyen hata"));
-          return;
+        if (isEditing) {
+          // Update existing template
+          const { error: tErr } = await supabase
+            .from("diet_templates")
+            .update({
+              title: meta.title,
+              description: meta.description || null,
+              target_calories: avgDailyCals,
+            })
+            .eq("id", editingProgram.id);
+
+          if (tErr) {
+            toast.error("Diyet şablonu güncellenemedi: " + tErr.message);
+            return;
+          }
+          templateId = editingProgram.id;
+
+          // Delete old foods before re-inserting
+          await supabase.from("diet_template_foods").delete().eq("template_id", templateId);
+        } else {
+          // Insert new template
+          const { data: template, error: tErr } = await supabase
+            .from("diet_templates")
+            .insert({
+              coach_id: user.id,
+              title: meta.title,
+              description: meta.description || null,
+              target_calories: avgDailyCals,
+            })
+            .select("id")
+            .single();
+
+          if (tErr || !template) {
+            toast.error("Diyet şablonu kaydedilemedi: " + (tErr?.message ?? "Bilinmeyen hata"));
+            return;
+          }
+          templateId = template.id;
         }
 
         const foodRows = selectedNutrition
           .filter((item) => item.name.trim())
           .map((item) => ({
-            template_id: template.id,
+            template_id: templateId,
             day_number: item.dayIndex + 1,
             meal_type: mealTypeMap[item.mealId] || "snack",
             food_name: item.name.trim(),
@@ -441,13 +518,15 @@ export default function Programs() {
         if (foodRows.length > 0) {
           const { error: fErr } = await supabase.from("diet_template_foods").insert(foodRows);
           if (fErr) {
-            await supabase.from("diet_templates").delete().eq("id", template.id);
+            if (!isEditing) {
+              await supabase.from("diet_templates").delete().eq("id", templateId);
+            }
             toast.error("Besinler kaydedilemedi: " + fErr.message);
             return;
           }
         }
 
-        toast.success(`"${meta.title}" beslenme şablonu kaydedildi!`);
+        toast.success(isEditing ? `"${meta.title}" beslenme şablonu güncellendi!` : `"${meta.title}" beslenme şablonu kaydedildi!`);
         setSelectedNutrition([]);
         setDashboardKey((k) => k + 1);
         setViewMode("dashboard");
