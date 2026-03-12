@@ -273,24 +273,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground">Beslenme Hedefleri</h3>
-              {assignedTemplates.length > 0 ? (
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {assignedTemplates.map((at) => (
-                    <Badge key={at.assignmentId} variant="outline" className="border-success/30 text-success text-xs gap-1">
-                      <FileDown className="w-3 h-3" />
-                      {at.title}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 ml-0.5 text-destructive hover:bg-destructive/10 rounded-full"
-                        onClick={() => handleRemoveAssignment(at.assignmentId)}
-                        disabled={removingId === at.assignmentId}
-                      >
-                        {removingId === at.assignmentId ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-2.5 h-2.5" />}
-                      </Button>
-                    </Badge>
-                  ))}
-                  <span className="text-[10px] text-muted-foreground">{assignedTemplates.length}/7</span>
+              {activeTemplate ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="border-success/30 text-success text-xs gap-1">
+                    <FileDown className="w-3 h-3" />
+                    {activeTemplate.title}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 ml-0.5 text-destructive hover:bg-destructive/10 rounded-full"
+                      onClick={handleRemoveTemplate}
+                      disabled={removingTemplate}
+                    >
+                      {removingTemplate ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-2.5 h-2.5" />}
+                    </Button>
+                  </Badge>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
