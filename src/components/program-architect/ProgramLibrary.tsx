@@ -110,6 +110,7 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
               <CheckCircle2 className="w-2.5 h-2.5 text-success absolute -top-1 -right-1" />
             )}
           </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
           <div className="flex items-center gap-2 mt-0.5">
