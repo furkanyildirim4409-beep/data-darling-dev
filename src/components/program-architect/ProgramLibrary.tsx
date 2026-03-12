@@ -64,6 +64,9 @@ export interface LibraryItem {
   type: string;
   muscleGroup?: string;
   kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fats?: number;
   gifUrl?: string;
 }
 

@@ -333,6 +333,73 @@ export default function Programs() {
         return;
       }
 
+      // ─── Nutrition mode: save to diet_templates ───
+      if (builderMode === "nutrition") {
+        if (selectedNutrition.length === 0) {
+          toast.error("En az bir besin ekleyin.");
+          return;
+        }
+
+        const mealTypeMap: Record<string, string> = {
+          "meal-1": "breakfast",
+          "meal-2": "snack",
+          "meal-3": "lunch",
+          "meal-4": "snack",
+          "meal-5": "dinner",
+          "meal-6": "snack",
+        };
+
+        const totalCals = selectedNutrition.reduce((sum, item) => {
+          const factor = item.unit === "adet" ? item.amount : item.amount / 100;
+          return sum + (item.kcal || 0) * factor;
+        }, 0);
+
+        const { data: template, error: tErr } = await supabase
+          .from("diet_templates")
+          .insert({
+            coach_id: user.id,
+            title: meta.title,
+            description: meta.description || null,
+            target_calories: Math.round(totalCals),
+          })
+          .select("id")
+          .single();
+
+        if (tErr || !template) {
+          toast.error("Diyet şablonu kaydedilemedi: " + (tErr?.message ?? "Bilinmeyen hata"));
+          return;
+        }
+
+        const foodRows = selectedNutrition
+          .filter((item) => item.name.trim())
+          .map((item) => ({
+            template_id: template.id,
+            meal_type: mealTypeMap[item.mealId] || "snack",
+            food_name: item.name.trim(),
+            serving_size: `${item.amount}${item.unit}`,
+            calories: Math.round((item.kcal || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
+            protein: Math.round((item.protein || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
+            carbs: Math.round((item.carbs || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
+            fat: Math.round((item.fats || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
+          }));
+
+        if (foodRows.length > 0) {
+          const { error: fErr } = await supabase.from("diet_template_foods").insert(foodRows);
+          if (fErr) {
+            await supabase.from("diet_templates").delete().eq("id", template.id);
+            toast.error("Besinler kaydedilemedi: " + fErr.message);
+            return;
+          }
+        }
+
+        toast.success(`"${meta.title}" beslenme şablonu kaydedildi!`);
+        setSelectedNutrition([]);
+        setDashboardKey((k) => k + 1);
+        setViewMode("dashboard");
+        return;
+      }
+
+      // ─── Exercise mode (existing logic) ───
       const isEditing = !!editingProgram;
       let programId: string;
 
@@ -437,7 +504,7 @@ export default function Programs() {
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, weekPlan, editingProgram, automationRules, dayGroups]
+    [user, weekPlan, editingProgram, automationRules, dayGroups, builderMode, selectedNutrition]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
