@@ -32,7 +32,7 @@ const riskStyles = {
   High: "bg-destructive/10 text-destructive border-destructive/20 animate-pulse",
 };
 
-export function AthleteTableRow({ athlete, onMessage, onViewProfile }: AthleteTableRowProps) {
+export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswered }: AthleteTableRowProps) {
   const navigate = useNavigate();
   
   const initials = athlete.name
