@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon, FileDown, Check, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useAthleteNutritionHistory, type ConsumedFood, type DateRange } from "@/hooks/useAthleteNutritionHistory";
+import { useAthleteNutritionHistory, type ConsumedFood, type DateRange, type UnifiedFoodItem } from "@/hooks/useAthleteNutritionHistory";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
 import { format, subDays } from "date-fns";
 import { tr } from "date-fns/locale";
