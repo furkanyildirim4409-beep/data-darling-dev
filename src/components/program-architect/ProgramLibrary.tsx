@@ -649,7 +649,7 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {(loadingExercises && builderMode === "exercise") || (loadingNutrition && builderMode === "nutrition") ? (
+              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
