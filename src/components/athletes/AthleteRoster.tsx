@@ -167,6 +167,7 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
                       athlete={athlete}
                       onMessage={(a) => setChatAthlete(a)}
                       onViewProfile={(a) => console.log("View", a.name)}
+                      hasUnanswered={unansweredIds.has(athlete.id)}
                     />
                   ))}
             </tbody>
