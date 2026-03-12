@@ -215,6 +215,10 @@ export function ProgramLibrary({
   const [offset, setOffset] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Nutrition API search state
+  const [nutritionResults, setNutritionResults] = useState<LibraryItem[]>([]);
+  const [loadingNutrition, setLoadingNutrition] = useState(false);
+
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
