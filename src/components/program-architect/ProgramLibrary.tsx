@@ -104,8 +104,12 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
         {item.type === "exercise" ? (
           <Dumbbell className="w-4 h-4 text-primary/60 shrink-0" />
         ) : (
-          <Apple className="w-4 h-4 text-success/60 shrink-0" />
-        )}
+          <div className="relative shrink-0">
+            <Apple className="w-4 h-4 text-success/60" />
+            {item.type === "nutrition" && !item.id.startsWith("api-") && !item.id.startsWith("nut-") && (
+              <CheckCircle2 className="w-2.5 h-2.5 text-success absolute -top-1 -right-1" />
+            )}
+          </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
           <div className="flex items-center gap-2 mt-0.5">
