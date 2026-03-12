@@ -90,18 +90,11 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   // ─── Fetch Targets + Assignments ───
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
-    const [targetsRes, assignRes] = await Promise.all([
-      supabase
-        .from("nutrition_targets")
-        .select("daily_calories, protein_g, carbs_g, fat_g")
-        .eq("athlete_id", athleteId)
-        .maybeSingle(),
-      supabase
-        .from("athlete_diet_assignments")
-        .select("id, template_id")
-        .eq("athlete_id", athleteId)
-        .order("assigned_at", { ascending: true }),
-    ]);
+    const targetsRes = await supabase
+      .from("nutrition_targets")
+      .select("daily_calories, protein_g, carbs_g, fat_g, active_diet_template_id")
+      .eq("athlete_id", athleteId)
+      .maybeSingle();
 
     if (targetsRes.data) {
       const t: NutritionTargets = {
@@ -113,55 +106,47 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setTargets(t);
       setFormValues(t);
       setHasExisting(true);
+
+      // Fetch active template details if set
+      const activeId = targetsRes.data.active_diet_template_id;
+      if (activeId) {
+        const [tplRes, foodsRes] = await Promise.all([
+          supabase.from("diet_templates").select("id, title").eq("id", activeId).maybeSingle(),
+          supabase.from("diet_template_foods").select("calories, protein, carbs, fat, day_number").eq("template_id", activeId),
+        ]);
+
+        if (tplRes.data) {
+          const foods = foodsRes.data || [];
+          const daySet = new Set(foods.map((f) => f.day_number || 1));
+          const numDays = daySet.size || 1;
+          const totals = foods.reduce(
+            (acc, f) => ({
+              cal: acc.cal + (Number(f.calories) || 0),
+              pro: acc.pro + (Number(f.protein) || 0),
+              carb: acc.carb + (Number(f.carbs) || 0),
+              fat: acc.fat + (Number(f.fat) || 0),
+            }),
+            { cal: 0, pro: 0, carb: 0, fat: 0 }
+          );
+          setActiveTemplate({
+            templateId: tplRes.data.id,
+            title: tplRes.data.title,
+            dailyAvg: {
+              calories: Math.round(totals.cal / numDays),
+              protein: Math.round(totals.pro / numDays),
+              carbs: Math.round(totals.carb / numDays),
+              fat: Math.round(totals.fat / numDays),
+            },
+          });
+        } else {
+          setActiveTemplate(null);
+        }
+      } else {
+        setActiveTemplate(null);
+      }
     } else {
       setHasExisting(false);
-    }
-
-    // Fetch template titles + foods for assigned templates
-    const assignments = assignRes.data || [];
-    if (assignments.length > 0) {
-      const templateIds = assignments.map((a) => a.template_id);
-      const [tplsRes, foodsRes] = await Promise.all([
-        supabase.from("diet_templates").select("id, title").in("id", templateIds),
-        supabase.from("diet_template_foods").select("template_id, calories, protein, carbs, fat, day_number").in("template_id", templateIds),
-      ]);
-
-      const tplMap = new Map((tplsRes.data || []).map((t) => [t.id, t.title]));
-      const foodsByTemplate = new Map<string, typeof foodsRes.data>();
-      for (const f of foodsRes.data || []) {
-        const arr = foodsByTemplate.get(f.template_id) || [];
-        arr.push(f);
-        foodsByTemplate.set(f.template_id, arr);
-      }
-
-      const mapped: AssignedTemplate[] = assignments.map((a) => {
-        const foods = foodsByTemplate.get(a.template_id) || [];
-        const daySet = new Set(foods.map((f) => f.day_number || 1));
-        const numDays = daySet.size || 1;
-        const totals = foods.reduce(
-          (acc, f) => ({
-            cal: acc.cal + (Number(f.calories) || 0),
-            pro: acc.pro + (Number(f.protein) || 0),
-            carb: acc.carb + (Number(f.carbs) || 0),
-            fat: acc.fat + (Number(f.fat) || 0),
-          }),
-          { cal: 0, pro: 0, carb: 0, fat: 0 }
-        );
-        return {
-          assignmentId: a.id,
-          templateId: a.template_id,
-          title: tplMap.get(a.template_id) || "Şablon",
-          dailyAvg: {
-            calories: Math.round(totals.cal / numDays),
-            protein: Math.round(totals.pro / numDays),
-            carbs: Math.round(totals.carb / numDays),
-            fat: Math.round(totals.fat / numDays),
-          },
-        };
-      });
-      setAssignedTemplates(mapped);
-    } else {
-      setAssignedTemplates([]);
+      setActiveTemplate(null);
     }
 
     setIsLoading(false);
