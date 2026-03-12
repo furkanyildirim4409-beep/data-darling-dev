@@ -270,6 +270,7 @@ export type Database = {
         Row: {
           calories: number | null
           carbs: number | null
+          day_number: number | null
           fat: number | null
           food_name: string
           id: string
@@ -281,6 +282,7 @@ export type Database = {
         Insert: {
           calories?: number | null
           carbs?: number | null
+          day_number?: number | null
           fat?: number | null
           food_name: string
           id?: string
@@ -292,6 +294,7 @@ export type Database = {
         Update: {
           calories?: number | null
           carbs?: number | null
+          day_number?: number | null
           fat?: number | null
           food_name?: string
           id?: string
