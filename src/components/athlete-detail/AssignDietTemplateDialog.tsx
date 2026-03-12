@@ -31,6 +31,7 @@ interface AssignDietTemplateDialogProps {
   onOpenChange: (open: boolean) => void;
   athleteId: string;
   onAssigned: () => void;
+  assignedTemplateIds?: string[];
 }
 
 export function AssignDietTemplateDialog({
@@ -38,11 +39,14 @@ export function AssignDietTemplateDialog({
   onOpenChange,
   athleteId,
   onAssigned,
+  assignedTemplateIds = [],
 }: AssignDietTemplateDialogProps) {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<TemplateWithMacros[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
+
+  const atLimit = assignedTemplateIds.length >= 7;
 
   useEffect(() => {
     if (!open || !user) return;
@@ -83,23 +87,26 @@ export function AssignDietTemplateDialog({
 
   const handleAssign = async (tpl: TemplateWithMacros) => {
     if (!user) return;
+    if (atLimit) {
+      toast({ title: "Limit", description: "En fazla 7 beslenme programı atanabilir.", variant: "destructive" });
+      return;
+    }
     setAssigning(tpl.id);
 
-    // Link the template to the athlete instead of averaging macros
     const { error } = await supabase
-      .from("nutrition_targets")
-      .upsert(
-        {
-          athlete_id: athleteId,
-          coach_id: user.id,
-          active_diet_template_id: tpl.id,
-          updated_at: new Date().toISOString(),
-        } as any,
-        { onConflict: "athlete_id" }
-      );
+      .from("athlete_diet_assignments")
+      .insert({
+        athlete_id: athleteId,
+        template_id: tpl.id,
+        coach_id: user.id,
+      });
 
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      if (error.code === "23505") {
+        toast({ title: "Bilgi", description: "Bu şablon zaten atanmış.", variant: "destructive" });
+      } else {
+        toast({ title: "Hata", description: error.message, variant: "destructive" });
+      }
     } else {
       toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
       onAssigned();
@@ -114,10 +121,18 @@ export function AssignDietTemplateDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Apple className="w-5 h-5 text-success" />
-            Şablondan Hedef Ata
+            Beslenme Programı Ata
           </DialogTitle>
           <DialogDescription>
             Bir diyet şablonu seçerek beslenme programını sporcuya atayın.
+            {atLimit && (
+              <span className="block text-destructive mt-1">Maksimum 7 program limitine ulaşıldı.</span>
+            )}
+            {!atLimit && assignedTemplateIds.length > 0 && (
+              <span className="block text-muted-foreground mt-1">
+                {assignedTemplateIds.length}/7 program atanmış.
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -133,51 +148,65 @@ export function AssignDietTemplateDialog({
             </div>
           ) : (
             <div className="space-y-3 pb-2">
-              {templates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="rounded-xl border border-border p-4 hover:border-success/40 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-foreground">{tpl.title}</h4>
-                      {tpl.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
-                      )}
-                    </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {tpl.foodCount} besin
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    {[
-                      { icon: Flame, value: tpl.totalCalories, label: "kcal", color: "text-primary" },
-                      { icon: Beef, value: Math.round(tpl.totalProtein), label: "g P", color: "text-destructive" },
-                      { icon: Wheat, value: Math.round(tpl.totalCarbs), label: "g C", color: "text-warning" },
-                      { icon: Droplets, value: Math.round(tpl.totalFat), label: "g F", color: "text-accent-foreground" },
-                    ].map((m) => (
-                      <div key={m.label} className="text-center p-2 rounded-lg bg-secondary/30">
-                        <m.icon className={`w-3.5 h-3.5 mx-auto mb-0.5 ${m.color}`} />
-                        <p className={`text-sm font-bold font-mono ${m.color}`}>{m.value}</p>
-                        <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    size="sm"
-                    className="w-full bg-success text-success-foreground hover:bg-success/90"
-                    disabled={assigning === tpl.id}
-                    onClick={() => handleAssign(tpl)}
+              {templates.map((tpl) => {
+                const alreadyAssigned = assignedTemplateIds.includes(tpl.id);
+                return (
+                  <div
+                    key={tpl.id}
+                    className={`rounded-xl border p-4 transition-colors ${
+                      alreadyAssigned
+                        ? "border-success/40 bg-success/5 opacity-60"
+                        : "border-border hover:border-success/40"
+                    }`}
                   >
-                    {assigning === tpl.id ? (
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    ) : (
-                      <Check className="w-4 h-4 mr-1.5" />
-                    )}
-                    Ata
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-semibold text-foreground">{tpl.title}</h4>
+                        {tpl.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {tpl.foodCount} besin
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {[
+                        { icon: Flame, value: tpl.totalCalories, label: "kcal", color: "text-primary" },
+                        { icon: Beef, value: Math.round(tpl.totalProtein), label: "g P", color: "text-destructive" },
+                        { icon: Wheat, value: Math.round(tpl.totalCarbs), label: "g C", color: "text-warning" },
+                        { icon: Droplets, value: Math.round(tpl.totalFat), label: "g F", color: "text-accent-foreground" },
+                      ].map((m) => (
+                        <div key={m.label} className="text-center p-2 rounded-lg bg-secondary/30">
+                          <m.icon className={`w-3.5 h-3.5 mx-auto mb-0.5 ${m.color}`} />
+                          <p className={`text-sm font-bold font-mono ${m.color}`}>{m.value}</p>
+                          <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-success text-success-foreground hover:bg-success/90"
+                      disabled={assigning === tpl.id || alreadyAssigned || atLimit}
+                      onClick={() => handleAssign(tpl)}
+                    >
+                      {alreadyAssigned ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1.5" />
+                          Zaten Atanmış
+                        </>
+                      ) : assigning === tpl.id ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-1.5" />
+                          Ata
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </ScrollArea>

@@ -30,6 +30,7 @@ export interface PlannedFood {
   carbs: number;
   fat: number;
   day_number: number;
+  template_id: string;
 }
 
 export type UnifiedFoodStatus = "consumed" | "missed" | "manual";
@@ -78,8 +79,8 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
     const endDate = endOfDay(rangeTo || new Date());
 
-    // Fetch consumed foods, nutrition targets (with template id), and template foods
-    const [foodsRes, targetsRes] = await Promise.all([
+    // Fetch consumed foods & nutrition targets
+    const [foodsRes, targetsRes, assignmentsRes] = await Promise.all([
       supabase
         .from("consumed_foods")
         .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at, planned_food_id")
@@ -89,24 +90,28 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         .order("logged_at", { ascending: true }),
       supabase
         .from("nutrition_targets")
-        .select("daily_calories, active_diet_template_id")
+        .select("daily_calories")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
+      supabase
+        .from("athlete_diet_assignments")
+        .select("template_id")
+        .eq("athlete_id", athleteId),
     ]);
 
     if (targetsRes.data?.daily_calories) {
       setCalorieTarget(targetsRes.data.daily_calories);
     }
 
-    const activeTemplateId = targetsRes.data?.active_diet_template_id || null;
+    const assignedTemplateIds = (assignmentsRes.data || []).map((a) => a.template_id);
 
-    // Fetch template foods if a template is assigned
+    // Fetch template foods from ALL assigned templates
     let templateFoods: PlannedFood[] = [];
-    if (activeTemplateId) {
+    if (assignedTemplateIds.length > 0) {
       const { data: tplFoods } = await supabase
         .from("diet_template_foods")
-        .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, day_number")
-        .eq("template_id", activeTemplateId);
+        .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, day_number, template_id")
+        .in("template_id", assignedTemplateIds);
 
       templateFoods = (tplFoods || []).map((f) => ({
         id: f.id,
@@ -118,6 +123,7 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         carbs: Number(f.carbs) || 0,
         fat: Number(f.fat) || 0,
         day_number: f.day_number || 1,
+        template_id: f.template_id,
       }));
     }
 
@@ -145,19 +151,17 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
 
-      // Compute day_number (1-7 cycling) based on day offset from start of range
+      // Compute day_number (1-7 cycling)
       const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
       const dayNumber = (dayOffset % 7) + 1;
 
-      // Get planned foods for this day_number
+      // Get planned foods for this day_number from ALL templates
       const plannedForDay = templateFoods.filter((tf) => tf.day_number === dayNumber);
 
       // Build unified foods list
       const unifiedFoods: UnifiedFoodItem[] = [];
       const matchedPlannedIds = new Set<string>();
 
-      // 1. Consumed foods with planned_food_id → "consumed"
-      // 2. Consumed foods without planned_food_id → "manual"
       for (const cf of dayFoods) {
         if (cf.planned_food_id) {
           matchedPlannedIds.add(cf.planned_food_id);
@@ -196,7 +200,6 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         }
       }
 
-      // 3. Planned foods not matched → "missed"
       for (const pf of plannedForDay) {
         if (!matchedPlannedIds.has(pf.id)) {
           unifiedFoods.push({
