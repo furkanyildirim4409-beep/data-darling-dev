@@ -214,8 +214,8 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
-      setAssignedTemplates((prev) => prev.filter((a) => a.assignmentId !== assignmentId));
       toast({ title: "Başarılı", description: "Beslenme programı kaldırıldı." });
+      await fetchTargets();
     }
     setRemovingId(null);
   };
