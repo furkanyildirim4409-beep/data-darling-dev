@@ -61,6 +61,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
+  const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
   const isLoadingOlderRef = useRef(false);
 
