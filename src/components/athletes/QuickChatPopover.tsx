@@ -49,8 +49,13 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [hasMore, setHasMore] = useState(true);
   const MSG_LIMIT = 50;
   const coachId = user?.id;
+  const { user } = useAuth();
+  const coachId = user?.id;
   const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
