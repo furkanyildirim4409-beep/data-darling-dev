@@ -106,7 +106,9 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
         console.error('QuickChat fetch error:', error);
       }
 
-      setMessages(((data as ChatMessage[]) || []).reverse());
+      const fetched = ((data as ChatMessage[]) || []).reverse();
+      setMessages(fetched);
+      setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoadingMessages(false);
 
       // Mark unread as read
