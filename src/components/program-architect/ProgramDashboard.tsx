@@ -327,6 +327,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           supabase.from("programs").select("week_config, automation_rules, difficulty, target_goal, description").eq("id", item.id).single(),
           supabase.from("exercises").select("name, sets, reps, rir, failure_set, notes, order_index, video_url, rest_time, rir_per_set").eq("program_id", item.id),
         ]);
+
+        // Resolve exercise_library IDs by name matching
+        const exerciseNames = (exercises ?? []).map(e => e.name);
+        const { data: libMatches } = await supabase
+          .from("exercise_library")
+          .select("id, name")
+          .in("name", exerciseNames);
+        const nameToLibId = new Map((libMatches ?? []).map(r => [r.name, r.id]));
+
         const json = {
           name: item.name,
           type: "exercise",
@@ -339,11 +348,21 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             name: e.name, sets: e.sets, reps: e.reps, rir: e.rir,
             failure_set: e.failure_set, notes: e.notes, order_index: e.order_index,
             video_url: e.video_url, rest_time: e.rest_time, rir_per_set: e.rir_per_set,
+            library_id: nameToLibId.get(e.name) ?? null,
           })),
         };
         triggerDownload(json, item.name);
       } else {
         const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
+
+        // Resolve food_items IDs by name matching
+        const foodNames = (foods ?? []).map(f => f.food_name);
+        const { data: foodMatches } = await supabase
+          .from("food_items")
+          .select("id, name")
+          .in("name", foodNames);
+        const nameToFoodId = new Map((foodMatches ?? []).map(r => [r.name, r.id]));
+
         const json = {
           name: item.name,
           type: "nutrition",
@@ -352,6 +371,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           foods: (foods ?? []).map((f) => ({
             food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number,
             calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, serving_size: f.serving_size,
+            food_item_id: nameToFoodId.get(f.food_name) ?? null,
           })),
         };
         triggerDownload(json, item.name);
