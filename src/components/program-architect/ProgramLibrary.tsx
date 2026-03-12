@@ -115,10 +115,13 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
                 {item.muscleGroup}
               </Badge>
             )}
-            {item.kcal && (
+            {item.kcal !== undefined && (
               <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-success/30 text-success/70">
                 {item.kcal} kcal
               </Badge>
+            )}
+            {item.protein !== undefined && (
+              <span className="text-[9px] text-muted-foreground">P:{item.protein}g C:{item.carbs}g F:{item.fats}g</span>
             )}
           </div>
         </div>
