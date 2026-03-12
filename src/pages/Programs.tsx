@@ -5,8 +5,6 @@ import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, Ex
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
-import { DietTemplatesList } from "@/components/diet-templates/DietTemplatesList";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
