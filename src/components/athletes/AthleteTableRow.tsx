@@ -133,9 +133,15 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
             variant="ghost"
             size="sm"
             onClick={() => onMessage?.(athlete)}
-            className="h-8 px-2 text-muted-foreground hover:text-primary"
+            className="h-8 px-2 text-muted-foreground hover:text-primary relative"
           >
             <MessageSquare className="w-4 h-4" />
+            {hasUnanswered && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-warning" />
+              </span>
+            )}
           </Button>
           <Button
             variant="ghost"
