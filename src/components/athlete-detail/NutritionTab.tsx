@@ -195,10 +195,20 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
           </div>
           {!isEditing ? (
-            <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
-              <Edit className="w-4 h-4 mr-2" />
-              {hasExisting ? "Düzenle" : "Hedef Ata"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="border-success/30 text-success hover:bg-success/10"
+                onClick={() => setShowTemplateDialog(true)}
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Şablondan Ata
+              </Button>
+              <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
+                <Edit className="w-4 h-4 mr-2" />
+                {hasExisting ? "Düzenle" : "Hedef Ata"}
+              </Button>
+            </div>
           ) : (
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={isSaving} className="bg-success text-success-foreground hover:bg-success/90">
