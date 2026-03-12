@@ -137,6 +137,42 @@ export type Database = {
         }
         Relationships: []
       }
+      blood_tests: {
+        Row: {
+          coach_notes: string | null
+          created_at: string
+          date: string
+          document_url: string
+          extracted_data: Json | null
+          file_name: string
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          coach_notes?: string | null
+          created_at?: string
+          date?: string
+          document_url: string
+          extracted_data?: Json | null
+          file_name: string
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          coach_notes?: string | null
+          created_at?: string
+          date?: string
+          document_url?: string
+          extracted_data?: Json | null
+          file_name?: string
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       body_measurements: {
         Row: {
           arm: number | null
@@ -181,6 +217,41 @@ export type Database = {
           waist?: number | null
         }
         Relationships: []
+      }
+      checkin_edit_logs: {
+        Row: {
+          checkin_id: string
+          edited_at: string
+          id: string
+          new_values: Json
+          previous_values: Json
+          user_id: string
+        }
+        Insert: {
+          checkin_id: string
+          edited_at?: string
+          id?: string
+          new_values: Json
+          previous_values: Json
+          user_id: string
+        }
+        Update: {
+          checkin_id?: string
+          edited_at?: string
+          id?: string
+          new_values?: Json
+          previous_values?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_edit_logs_checkin_id_fkey"
+            columns: ["checkin_id"]
+            isOneToOne: false
+            referencedRelation: "daily_checkins"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coach_invites: {
         Row: {
@@ -790,6 +861,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      progress_photos: {
+        Row: {
+          body_fat_pct: number | null
+          created_at: string
+          date: string
+          id: string
+          note: string | null
+          photo_url: string
+          user_id: string
+          view: string | null
+          weight: number | null
+        }
+        Insert: {
+          body_fat_pct?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          note?: string | null
+          photo_url: string
+          user_id: string
+          view?: string | null
+          weight?: number | null
+        }
+        Update: {
+          body_fat_pct?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          note?: string | null
+          photo_url?: string
+          user_id?: string
+          view?: string | null
+          weight?: number | null
+        }
+        Relationships: []
       }
       push_subscriptions: {
         Row: {
