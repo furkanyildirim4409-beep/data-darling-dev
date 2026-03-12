@@ -33,6 +33,8 @@ import {
   RotateCcw,
   Layers,
   Copy,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -166,6 +168,8 @@ interface WorkoutBuilderProps {
   onSetRules: (rules: AutomationRule[]) => void;
   dayGroups: Record<number, ExerciseGroup[]>;
   onSetDayGroups: (groups: Record<number, ExerciseGroup[]>) => void;
+  onAIGenerate?: () => void;
+  isAIGenerating?: boolean;
 }
 
 export function WorkoutBuilder({
@@ -185,6 +189,8 @@ export function WorkoutBuilder({
   onSetRules,
   dayGroups,
   onSetDayGroups,
+  onAIGenerate,
+  isAIGenerating,
 }: WorkoutBuilderProps) {
   const [showRules, setShowRules] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -262,17 +268,37 @@ export function WorkoutBuilder({
   };
 
   return (
-    <div className="glass rounded-xl border border-border h-full flex flex-col">
+    <div className="glass rounded-xl border border-border h-full flex flex-col relative">
+      {/* AI Loading Overlay */}
+      {isAIGenerating && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-primary/20 animate-pulse flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-semibold text-foreground">🤖 Yapay Zeka Çalışıyor...</p>
+            <p className="text-xs text-muted-foreground max-w-[240px]">Sporcu verilerini analiz edip optimum programı yazıyor</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-foreground">7 Günlük Program</h2>
-          {totalExercises > 0 && (
-            <Button variant="ghost" size="sm" onClick={onClearAll}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10">
-              <Trash2 className="w-4 h-4 mr-1.5" />Tümünü Temizle
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {onAIGenerate && (
+              <Button size="sm" onClick={onAIGenerate} disabled={isAIGenerating}
+                className="bg-gradient-to-r from-primary to-primary/70 text-primary-foreground hover:from-primary/90 hover:to-primary/60 shadow-lg shadow-primary/25">
+                <Sparkles className="w-4 h-4 mr-1.5" />AI ile Üret
+              </Button>
+            )}
+            {totalExercises > 0 && (
+              <Button variant="ghost" size="sm" onClick={onClearAll}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="w-4 h-4 mr-1.5" />Tümünü Temizle
+              </Button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Bir gün seçin, ardından kütüphaneden egzersiz ekleyin
