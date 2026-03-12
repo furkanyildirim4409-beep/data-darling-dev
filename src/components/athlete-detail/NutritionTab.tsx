@@ -781,7 +781,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         onOpenChange={setShowTemplateDialog}
         athleteId={athleteId}
         onAssigned={fetchTargets}
-        assignedTemplateIds={assignedTemplates.map((a) => a.templateId)}
+        activeTemplateId={activeTemplate?.templateId}
       />
     </div>
   );
