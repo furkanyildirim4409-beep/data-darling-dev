@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Athlete } from "@/types/shared-models";
 import { AthleteTableRow } from "./AthleteTableRow";
 import { QuickChatPopover } from "./QuickChatPopover";
+import { useUnansweredChats } from "@/hooks/useUnansweredChats";
 import { Search, AlertTriangle, Clock, Calendar, X } from "lucide-react";
 
 type FilterType = "all" | "high-risk" | "missed-checkin" | "expiring";
