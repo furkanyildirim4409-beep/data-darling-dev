@@ -38,6 +38,7 @@ export default function Programs() {
 
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
 
   // Flatten all exercises for compatibility
   const allExercises = weekPlan.flatMap((d) => d.exercises);
