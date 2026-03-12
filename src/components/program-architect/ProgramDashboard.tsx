@@ -209,6 +209,27 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setDeleteDialog({ open: false, program: null });
   };
 
+  const handleDuplicateDiet = async (item: ProgramData) => {
+    if (!user) return;
+    const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
+    if (!tpl) { toast.error("Şablon bulunamadı"); return; }
+
+    const { data: newTpl, error } = await supabase
+      .from("diet_templates")
+      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: user.id })
+      .select().single();
+    if (error || !newTpl) { toast.error("Kopyalama başarısız"); return; }
+
+    const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
+    if (foods && foods.length > 0) {
+      await supabase.from("diet_template_foods").insert(
+        foods.map((f) => ({ template_id: newTpl.id, food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, serving_size: f.serving_size }))
+      );
+    }
+    toast.success(`"${item.name}" kopyalandı`);
+    fetchDietTemplates();
+  };
+
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
     if (!user) return;
 
@@ -443,10 +464,20 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                         </>
                       )}
                       {item.type === "nutrition" && (
-                        <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
-                          <Users className="w-4 h-4 mr-2" />
-                          Sporculara Ata
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Düzenle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                            <Users className="w-4 h-4 mr-2" />
+                            Sporculara Ata
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Kopyala
+                          </DropdownMenuItem>
+                        </>
                       )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
