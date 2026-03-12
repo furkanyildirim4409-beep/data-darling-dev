@@ -81,6 +81,9 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setSelectedDate(null);
   };
 
+  // ─── Template-derived macro averages ───
+  const [templateMacros, setTemplateMacros] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+
   // ─── Fetch Targets ───
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
@@ -101,20 +104,51 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setFormValues(t);
       setHasExisting(true);
 
-      // Fetch active template title
+      // Fetch active template title + foods for daily averages
       if (data.active_diet_template_id) {
-        const { data: tpl } = await supabase
-          .from("diet_templates")
-          .select("id, title")
-          .eq("id", data.active_diet_template_id)
-          .maybeSingle();
-        setActiveTemplate(tpl ? { id: tpl.id, title: tpl.title } : null);
+        const [tplRes, foodsRes] = await Promise.all([
+          supabase
+            .from("diet_templates")
+            .select("id, title")
+            .eq("id", data.active_diet_template_id)
+            .maybeSingle(),
+          supabase
+            .from("diet_template_foods")
+            .select("calories, protein, carbs, fat, day_number")
+            .eq("template_id", data.active_diet_template_id),
+        ]);
+        setActiveTemplate(tplRes.data ? { id: tplRes.data.id, title: tplRes.data.title } : null);
+
+        // Compute daily averages from template foods
+        if (foodsRes.data && foodsRes.data.length > 0) {
+          const daySet = new Set(foodsRes.data.map((f) => f.day_number || 1));
+          const numDays = daySet.size || 1;
+          const totals = foodsRes.data.reduce(
+            (acc, f) => ({
+              cal: acc.cal + (Number(f.calories) || 0),
+              pro: acc.pro + (Number(f.protein) || 0),
+              carb: acc.carb + (Number(f.carbs) || 0),
+              fat: acc.fat + (Number(f.fat) || 0),
+            }),
+            { cal: 0, pro: 0, carb: 0, fat: 0 }
+          );
+          setTemplateMacros({
+            calories: Math.round(totals.cal / numDays),
+            protein: Math.round(totals.pro / numDays),
+            carbs: Math.round(totals.carb / numDays),
+            fat: Math.round(totals.fat / numDays),
+          });
+        } else {
+          setTemplateMacros(null);
+        }
       } else {
         setActiveTemplate(null);
+        setTemplateMacros(null);
       }
     } else {
       setHasExisting(false);
       setActiveTemplate(null);
+      setTemplateMacros(null);
     }
     setIsLoading(false);
   }, [athleteId]);
