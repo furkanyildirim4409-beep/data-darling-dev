@@ -1,119 +1,228 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Mic, Paperclip, MoreVertical } from "lucide-react";
-
-interface Message {
-  id: number;
-  sender: "coach" | "athlete";
-  text: string;
-  time: string;
-}
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Send, MessageSquare } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import type { ChatMessage } from "@/hooks/useCoachChat";
+import { format, isToday, isYesterday } from "date-fns";
+import { tr } from "date-fns/locale";
 
 interface ChatWidgetProps {
   athleteName: string;
   athleteInitials: string;
+  athleteId?: string;
 }
 
-const mockMessages: Message[] = [
-  { id: 1, sender: "athlete", text: "Koçum, dünkü antrenmandan sonra bel bölgemde hafif bir sertlik hissediyorum", time: "Dün 16:32" },
-  { id: 2, sender: "coach", text: "Bildirdiğin için teşekkürler. Bu hafta deadlift hacmini azaltalım. Antrenman öncesi mobilite çalışmalarına odaklan.", time: "Dün 17:15" },
-  { id: 3, sender: "athlete", text: "Anladım! Özel esneme hareketleri eklemeli miyim?", time: "Dün 17:18" },
-  { id: 4, sender: "coach", text: "Evet, antrenman öncesi 5 dakika kalça fleksör germeleri ve kedi-inek hareketi ekle. Ayrıca torasik omurganı foam roller ile çalış.", time: "Dün 17:22" },
-  { id: 5, sender: "athlete", text: "Tamam, yapacağım! Bir de beslenme hakkında sormak istedim - yoğun günlerde karbonhidratı artırsam olur mu?", time: "Bugün 09:45" },
-  { id: 6, sender: "coach", text: "Kesinlikle. Ağır antrenman günlerinde antrenman etrafında 50g ekstra karbonhidrat al. Pirinç veya yulafa odaklan.", time: "Bugün 10:02" },
-];
+export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidgetProps) {
+  const { user } = useAuth();
+  const coachId = user?.id;
 
-export function ChatWidget({ athleteName, athleteInitials }: ChatWidgetProps) {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
-    
-    const message: Message = {
-      id: Date.now(),
-      sender: "coach",
-      text: newMessage,
-      time: "Şimdi",
+  // Fetch messages
+  useEffect(() => {
+    if (!coachId || !athleteId) return;
+
+    const fetchMessages = async () => {
+      setIsLoading(true);
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .or(
+          `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
+        )
+        .order("created_at", { ascending: true })
+        .limit(50);
+
+      setMessages((data as ChatMessage[]) || []);
+      setIsLoading(false);
     };
-    
-    setMessages([...messages, message]);
+
+    fetchMessages();
+
+    // Mark unread as read
+    supabase
+      .from("messages")
+      .update({ is_read: true })
+      .eq("sender_id", athleteId)
+      .eq("receiver_id", coachId)
+      .eq("is_read", false)
+      .then();
+  }, [coachId, athleteId]);
+
+  // Realtime subscription for this conversation
+  useEffect(() => {
+    if (!coachId || !athleteId) return;
+
+    const channel = supabase
+      .channel(`chat-widget-${athleteId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const msg = payload.new as ChatMessage;
+          if (
+            (msg.sender_id === athleteId && msg.receiver_id === coachId) ||
+            (msg.sender_id === coachId && msg.receiver_id === athleteId)
+          ) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+
+            // Auto-mark as read if from athlete
+            if (msg.sender_id === athleteId) {
+              supabase
+                .from("messages")
+                .update({ is_read: true })
+                .eq("id", msg.id)
+                .then();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [coachId, athleteId]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !coachId || !athleteId || sending) return;
+    const content = newMessage.trim();
     setNewMessage("");
+    setSending(true);
+
+    // Optimistic
+    const optimistic: ChatMessage = {
+      id: crypto.randomUUID(),
+      sender_id: coachId,
+      receiver_id: athleteId,
+      content,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      media_url: null,
+      media_type: null,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
+    const { error } = await supabase.from("messages").insert({
+      sender_id: coachId,
+      receiver_id: athleteId,
+      content,
+    });
+
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+    }
+    setSending(false);
   };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (isToday(date)) return format(date, "HH:mm");
+    if (isYesterday(date)) return "Dün " + format(date, "HH:mm");
+    return format(date, "dd MMM HH:mm", { locale: tr });
+  };
+
+  if (!athleteId || !coachId) {
+    return (
+      <div className="glass rounded-xl border border-border p-5 flex items-center justify-center h-[400px]">
+        <p className="text-sm text-muted-foreground">Sohbet yüklenemiyor.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="glass rounded-xl border border-border flex flex-col h-[400px]">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-8 h-8 border border-border">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">
-              {athleteInitials}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium text-foreground text-sm">{athleteName}</p>
-            <p className="text-xs text-success">Çevrimiçi</p>
-          </div>
+      <div className="p-4 border-b border-border flex items-center gap-3 flex-shrink-0">
+        <Avatar className="w-8 h-8 border border-border">
+          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+            {athleteInitials}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <p className="font-medium text-foreground text-sm">{athleteName}</p>
+          <p className="text-xs text-muted-foreground">Hızlı sohbet</p>
         </div>
-        <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground">
-          <MoreVertical className="w-4 h-4" />
-        </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn("flex", message.sender === "coach" ? "justify-end" : "justify-start")}
-          >
-            <div
-              className={cn(
-                "max-w-[80%] rounded-xl px-3 py-2",
-                message.sender === "coach"
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : "bg-secondary text-foreground rounded-bl-sm"
-              )}
-            >
-              <p className="text-sm">{message.text}</p>
-              <p
-                className={cn(
-                  "text-[10px] mt-1",
-                  message.sender === "coach" ? "text-primary-foreground/70" : "text-muted-foreground"
-                )}
-              >
-                {message.time}
-              </p>
-            </div>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className={cn("h-10 rounded-xl", i % 2 === 0 ? "w-3/4 ml-auto" : "w-3/4")} />
+            ))}
           </div>
-        ))}
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-2" />
+            <p className="text-xs text-muted-foreground">Henüz mesaj yok. İlk mesajı gönderin!</p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isCoach = msg.sender_id === coachId;
+            return (
+              <div key={msg.id} className={cn("flex", isCoach ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-xl px-3 py-2",
+                    isCoach
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-secondary text-foreground rounded-bl-sm"
+                  )}
+                >
+                  {msg.media_type === "image" && msg.media_url && (
+                    <img src={msg.media_url} alt="" className="rounded-lg mb-1 max-h-32 object-cover" />
+                  )}
+                  <p className="text-sm">{msg.content}</p>
+                  <p
+                    className={cn(
+                      "text-[10px] mt-1",
+                      isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                    )}
+                  >
+                    {formatTime(msg.created_at)}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Input */}
       <div className="p-3 border-t border-border flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground flex-shrink-0">
-            <Paperclip className="w-4 h-4" />
-          </Button>
           <Input
             placeholder="Mesaj yazın..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
             className="flex-1 bg-secondary border-border focus:border-primary h-9"
           />
-          <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground flex-shrink-0">
-            <Mic className="w-4 h-4" />
-          </Button>
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || sending}
             className="w-8 h-8 bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0"
           >
             <Send className="w-4 h-4" />
