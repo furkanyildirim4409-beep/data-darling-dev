@@ -16,8 +16,11 @@ export default function Messages() {
     messages,
     isLoadingAthletes,
     isLoadingMessages,
+    isLoadingOlder,
+    hasMoreMessages,
     selectAthlete,
     sendMessage,
+    loadOlderMessages,
   } = useCoachChat();
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
