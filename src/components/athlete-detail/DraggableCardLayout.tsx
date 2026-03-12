@@ -15,7 +15,7 @@ import { GripVertical, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "athlete-card-layout-v1";
+const STORAGE_KEY_PREFIX = "athlete-card-layout-v2-";
 
 type LayoutColumns = [string[], string[], string[]];
 
