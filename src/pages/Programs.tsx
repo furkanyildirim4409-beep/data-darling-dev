@@ -161,7 +161,7 @@ export default function Programs() {
         toast.success(`${item.name} listeye eklendi.`);
       }
     },
-    [builderMode, weekPlan, activeDay, activeMealId]
+    [builderMode, weekPlan, activeDay, activeMealId, activeNutritionDay]
   );
 
   const handleRemoveExercise = useCallback((dayIndex: number, id: string) => {
