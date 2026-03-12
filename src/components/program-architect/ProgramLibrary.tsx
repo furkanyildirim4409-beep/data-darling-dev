@@ -557,7 +557,7 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {loadingExercises && builderMode === "exercise" ? (
+              {(loadingExercises && builderMode === "exercise") || (loadingNutrition && builderMode === "nutrition") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
@@ -577,9 +577,10 @@ export function ProgramLibrary({
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
+                      {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
+                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : "Besin aramak için en az 2 karakter yazın"}
                     </p>
                   )}
                 </>
