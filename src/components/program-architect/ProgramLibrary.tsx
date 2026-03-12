@@ -420,11 +420,51 @@ export function ProgramLibrary({
     }
   };
 
-  const filteredNutrition = nutrition.filter(
-    (nut) =>
-      nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      nut.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Nutrition API search when in nutrition mode
+  useEffect(() => {
+    if (builderMode !== "nutrition") return;
+    if (debouncedSearch.length < 2) {
+      setNutritionResults([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingNutrition(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("search-food", {
+          body: { query: debouncedSearch },
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        const items: any[] = Array.isArray(data) ? data : data?.items || [];
+        setNutritionResults(
+          items.slice(0, 20).map((item: any, i: number) => ({
+            id: `api-${Date.now()}-${i}`,
+            name: item.name || item.food_name || "",
+            category: item.brand || "API",
+            type: "nutrition",
+            kcal: Math.round(item.calories || 0),
+            protein: Math.round(item.protein || 0),
+            carbs: Math.round(item.carbs || 0),
+            fats: Math.round(item.fat || 0),
+          }))
+        );
+      } catch {
+        if (!cancelled) setNutritionResults([]);
+      } finally {
+        if (!cancelled) setLoadingNutrition(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedSearch, builderMode]);
+
+  const filteredNutrition = debouncedSearch.length >= 2
+    ? nutritionResults
+    : nutrition.filter(
+        (nut) =>
+          nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          nut.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
   const filteredTemplates = templates.filter(
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
