@@ -23,9 +23,13 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const MSG_LIMIT = 50;
 
   // Fetch messages
   useEffect(() => {
