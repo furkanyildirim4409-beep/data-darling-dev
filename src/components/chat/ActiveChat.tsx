@@ -55,12 +55,13 @@ function MiniAudioPlayer({ src }: { src: string }) {
   );
 }
 
-export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessage, onBack, showBackButton }: ActiveChatProps) {
+export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
+  const prevScrollHeightRef = useRef<number>(0);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
     onSendMessage('', mediaUrl, mediaType);
@@ -71,11 +72,34 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, onSendMessag
     onUploadComplete: handleMediaSent,
   });
 
+  // Scroll to bottom on new messages (only if already near bottom)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const el = scrollRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (isNearBottom || prevScrollHeightRef.current === 0) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages]);
+
+  // Preserve scroll position after loading older messages
+  useEffect(() => {
+    if (scrollRef.current && prevScrollHeightRef.current > 0) {
+      const el = scrollRef.current;
+      const newScrollHeight = el.scrollHeight;
+      el.scrollTop = newScrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isLoadingOlder]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current || !onLoadOlder || !hasMoreMessages || isLoadingOlder) return;
+    if (scrollRef.current.scrollTop < 60) {
+      prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+      onLoadOlder();
+    }
+  }, [onLoadOlder, hasMoreMessages, isLoadingOlder]);
 
   const handleSend = () => {
     if (!input.trim()) return;
