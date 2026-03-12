@@ -169,7 +169,12 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+        {isLoadingOlder && (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />

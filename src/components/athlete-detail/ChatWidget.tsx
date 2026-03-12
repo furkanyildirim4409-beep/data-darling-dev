@@ -217,8 +217,12 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-        {isLoading ? (
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+        {isLoadingOlder && (
+          <div className="flex items-center justify-center py-2">
+            <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        )}
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className={cn("h-10 rounded-xl", i % 2 === 0 ? "w-3/4 ml-auto" : "w-3/4")} />
