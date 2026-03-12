@@ -32,6 +32,8 @@ import {
   Save,
   Layers,
   Flame,
+  Download,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
