@@ -443,10 +443,20 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                         </>
                       )}
                       {item.type === "nutrition" && (
-                        <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
-                          <Users className="w-4 h-4 mr-2" />
-                          Sporculara Ata
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Düzenle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                            <Users className="w-4 h-4 mr-2" />
+                            Sporculara Ata
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Kopyala
+                          </DropdownMenuItem>
+                        </>
                       )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
