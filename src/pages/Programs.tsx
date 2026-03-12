@@ -150,6 +150,7 @@ export default function Programs() {
       } else {
         const newNutrition: NutritionItem = {
           ...item,
+          id: `${item.id}-${Date.now()}`,
           amount: 100,
           unit: item.name.includes("(Adet)") ? "adet" : "g",
           mealId: activeMealId,
