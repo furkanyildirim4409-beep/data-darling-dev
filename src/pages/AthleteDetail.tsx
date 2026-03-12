@@ -15,6 +15,7 @@ import { BloodworkPanel } from "@/components/athlete-detail/BloodworkPanel";
 import { MetabolicFlux } from "@/components/athlete-detail/MetabolicFlux";
 import { TimelineAI } from "@/components/athlete-detail/TimelineAI";
 import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
+import { AthleteProgressChart } from "@/components/athlete-detail/AthleteProgressChart";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
@@ -203,7 +204,9 @@ export default function AthleteDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-primary" />Biyo-Veri</div>
-              <BodyModel3D /><WellnessRadar data={wellnessData} /><BloodworkPanel />
+              <BodyModel3D />
+              <AthleteProgressChart athleteId={athlete.id} />
+              <WellnessRadar data={wellnessData} /><BloodworkPanel />
             </div>
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-warning" />Performans</div>
