@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 type ViewMode = "dashboard" | "builder";
+const [isAIGenerating, setIsAIGenerating] = useState(false);
 
 const createEmptyWeek = (): DayPlan[] =>
   Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", notes: "", blockType: "none" as BlockType, exercises: [] }));
