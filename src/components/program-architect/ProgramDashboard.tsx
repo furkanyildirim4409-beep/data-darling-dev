@@ -509,6 +509,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           )}
 
           <Button
+            variant="outline"
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            className="border-border"
+          >
+            {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+            İçe Aktar
+          </Button>
+
+          <Button
             onClick={() => onCreateProgram(viewMode)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
           >
