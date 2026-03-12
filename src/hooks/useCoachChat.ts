@@ -130,9 +130,10 @@ export function useCoachChat() {
       .or(
         `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
       )
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    setMessages((data as ChatMessage[]) || []);
+    setMessages(((data as ChatMessage[]) || []).reverse());
     setIsLoadingMessages(false);
 
     await supabase
