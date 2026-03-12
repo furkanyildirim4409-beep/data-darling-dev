@@ -66,7 +66,7 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
         .eq("user_id", athleteId)
         .order("date", { ascending: false });
       if (error) throw error;
-      return (data || []) as BloodTest[];
+      return (data || []) as unknown as BloodTest[];
     },
     enabled: !!athleteId && open,
   });

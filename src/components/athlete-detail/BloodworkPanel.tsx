@@ -76,7 +76,7 @@ export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
         .eq("user_id", athleteId)
         .order("date", { ascending: true });
       if (error) throw error;
-      return (data || []) as BloodTest[];
+      return (data || []) as unknown as BloodTest[];
     },
     enabled: !!athleteId,
   });
