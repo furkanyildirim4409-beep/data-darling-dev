@@ -40,6 +40,7 @@ interface CheckInData {
   sleep: number | null;
   soreness: number | null;
   stress: number | null;
+  digestion: number | null;
 }
 
 interface WorkoutSummary {
