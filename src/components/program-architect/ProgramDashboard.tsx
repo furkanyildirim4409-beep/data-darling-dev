@@ -77,6 +77,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     program: null,
   });
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [dietAssignDialog, setDietAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
+    open: false, templateId: "", templateName: "",
+  });
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
