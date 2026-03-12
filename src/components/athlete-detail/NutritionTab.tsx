@@ -86,7 +86,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setIsLoading(true);
     const { data } = await supabase
       .from("nutrition_targets")
-      .select("daily_calories, protein_g, carbs_g, fat_g")
+      .select("daily_calories, protein_g, carbs_g, fat_g, active_diet_template_id")
       .eq("athlete_id", athleteId)
       .maybeSingle();
 
@@ -100,8 +100,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setTargets(t);
       setFormValues(t);
       setHasExisting(true);
+
+      // Fetch active template title
+      if (data.active_diet_template_id) {
+        const { data: tpl } = await supabase
+          .from("diet_templates")
+          .select("id, title")
+          .eq("id", data.active_diet_template_id)
+          .maybeSingle();
+        setActiveTemplate(tpl ? { id: tpl.id, title: tpl.title } : null);
+      } else {
+        setActiveTemplate(null);
+      }
     } else {
       setHasExisting(false);
+      setActiveTemplate(null);
     }
     setIsLoading(false);
   }, [athleteId]);
