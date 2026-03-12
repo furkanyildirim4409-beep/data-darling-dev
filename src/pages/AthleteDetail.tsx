@@ -218,7 +218,7 @@ export default function AthleteDetail() {
             </div>
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-success" />Yönetim</div>
-              <ActiveBlocks trainingBlock={{ name: "Program", week: 4, totalWeeks: 8, phase: "Hipertrofi Fazı" }} dietBlock={{ name: "Beslenme", calories: 0, protein: 0, type: "Kütle Kazanım Fazı" }} />
+              <ActiveBlocks athleteId={athlete.id} />
               <ChatWidget athleteName={name} athleteInitials={initials} />
               <BloodworkPanel />
             </div>
