@@ -543,7 +543,7 @@ export function ProgramLibrary({
               ) : (
                 <>
                   <Apple className="w-3 h-3 mr-1.5" />
-                  Besinler ({nutrition.length})
+                  Besinler ({filteredNutrition.length})
                 </>
               )}
             </TabsTrigger>
