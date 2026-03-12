@@ -230,7 +230,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     fetchDietTemplates();
   };
 
-
+  const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
     if (!user) return;
 
     // Fetch full program data + exercises in parallel
