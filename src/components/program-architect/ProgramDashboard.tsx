@@ -209,7 +209,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setDeleteDialog({ open: false, program: null });
   };
 
-  const handleDuplicateDiet = async (item: ProgramData) => {
+  const handleDuplicateDiet = async (item: ProgramData, openInEditor = false) => {
     if (!user) return;
     const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
     if (!tpl) { toast.error("Şablon bulunamadı"); return; }
@@ -227,7 +227,13 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       );
     }
     toast.success(`"${item.name}" kopyalandı`);
-    fetchDietTemplates();
+
+    if (openInEditor) {
+      const cloned: ProgramData = { ...item, id: newTpl.id, name: newTpl.title, createdAt: new Date(newTpl.created_at ?? Date.now()) };
+      onEditProgram(cloned);
+    } else {
+      fetchDietTemplates();
+    }
   };
 
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
@@ -473,10 +479,20 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                             <Users className="w-4 h-4 mr-2" />
                             Sporculara Ata
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item)}>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, false)}>
                             <Copy className="w-4 h-4 mr-2" />
                             Kopyala
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, true)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Klonla &amp; Düzenle
+                          </DropdownMenuItem>
+                          {onSaveAsTemplate && (
+                            <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
+                              <Save className="w-4 h-4 mr-2" />
+                              Şablon Olarak Kaydet
+                            </DropdownMenuItem>
+                          )}
                         </>
                       )}
                       <DropdownMenuItem
