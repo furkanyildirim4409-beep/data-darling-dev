@@ -545,4 +545,3 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     </div>
   );
 }
-}
