@@ -16,7 +16,10 @@ interface ActiveChatProps {
   messages: ChatMessage[];
   coachId: string;
   isLoading: boolean;
+  isLoadingOlder?: boolean;
+  hasMoreMessages?: boolean;
   onSendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => void;
+  onLoadOlder?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
 }
