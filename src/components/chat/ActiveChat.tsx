@@ -63,7 +63,6 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const { isMuted, toggleMute } = useMutedChats();
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
-  const isLoadingOlderRef = useRef(false);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
     onSendMessage('', mediaUrl, mediaType);
@@ -73,11 +72,6 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
     userId: coachId,
     onUploadComplete: handleMediaSent,
   });
-
-  // Track loading older state
-  useEffect(() => {
-    isLoadingOlderRef.current = !!isLoadingOlder;
-  }, [isLoadingOlder]);
 
   // Reset initial flag when athlete changes
   useEffect(() => {
