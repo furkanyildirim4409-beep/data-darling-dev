@@ -658,7 +658,7 @@ export function ProgramLibrary({
                     <LibraryItemCard
                       key={item.id}
                       item={item}
-                      onAdd={onAddItem}
+                      onAdd={handleAddWithSync}
                       isAdded={addedItemIds.includes(item.id)}
                       onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
                     />
