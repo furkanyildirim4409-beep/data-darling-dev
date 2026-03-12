@@ -40,7 +40,7 @@ export function BodyModel3D() {
           <div className="relative aspect-[3/4] bg-gradient-to-b from-primary/5 to-transparent rounded-lg overflow-hidden flex items-center justify-center">
             <svg
               viewBox="0 0 100 180"
-              className="h-full w-auto opacity-40"
+              className="h-[85%] w-auto opacity-40"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
