@@ -144,6 +144,17 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
         </div>
       </div>
 
+      {/* Unanswered banner */}
+      {isUnanswered && (
+        <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-warning" />
+          </span>
+          <span className="text-xs text-warning font-medium">Cevap bekliyor</span>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {isLoadingMessages ? (
