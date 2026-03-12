@@ -187,6 +187,8 @@ export function WorkoutBuilder({
   onSetRules,
   dayGroups,
   onSetDayGroups,
+  onAIGenerate,
+  isAIGenerating,
 }: WorkoutBuilderProps) {
   const [showRules, setShowRules] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
