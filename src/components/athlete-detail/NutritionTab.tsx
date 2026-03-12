@@ -444,8 +444,13 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                             <p className="font-semibold text-foreground mb-1">
                               {format(new Date(d.date), "d MMMM", { locale: tr })}
                             </p>
+                            {d.plannedCalories > 0 && (
+                              <p className="text-muted-foreground">
+                                📋 Planlanan: <span className="font-mono text-foreground">{d.plannedCalories}</span> kcal
+                              </p>
+                            )}
                             <p className="text-muted-foreground">
-                              Kalori: <span className="font-mono text-foreground">{d.totalCalories}</span> / {calorieTarget} kcal
+                              ✅ Tüketilen: <span className="font-mono text-foreground">{d.totalCalories}</span> / {calorieTarget} kcal
                             </p>
                             <p className="text-muted-foreground">Uyum: <span className="font-mono text-foreground">%{pct}</span></p>
                           </div>
