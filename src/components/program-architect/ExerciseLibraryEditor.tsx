@@ -44,6 +44,9 @@ export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: Exercise
   const [newGifUrl, setNewGifUrl] = useState("");
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvExporting, setCsvExporting] = useState(false);
+  const csvInputRef = useState<HTMLInputElement | null>(null);
 
   // RapidAPI Import state
   const [importOpen, setImportOpen] = useState(false);
