@@ -31,6 +31,7 @@ import {
   Loader2,
   Save,
   Layers,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -50,6 +51,8 @@ export interface ProgramData {
   blockType?: "hypertrophy" | "strength" | "endurance";
   difficulty?: string;
   targetGoal?: string;
+  targetCalories?: number;
+  foodCount?: number;
 }
 
 interface ProgramDashboardProps {
@@ -62,6 +65,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
+  const [dietTemplates, setDietTemplates] = useState<ProgramData[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
     open: false,
@@ -110,11 +114,64 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchPrograms();
-  }, [fetchPrograms]);
+  const fetchDietTemplates = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
 
-  const currentPrograms = programs.filter((p) => p.type === viewMode || viewMode === "exercise");
+    const { data: tpls, error } = await supabase
+      .from("diet_templates")
+      .select("id, title, description, target_calories, created_at")
+      .eq("coach_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Beslenme şablonları yüklenemedi");
+      setLoading(false);
+      return;
+    }
+
+    if (!tpls?.length) {
+      setDietTemplates([]);
+      setLoading(false);
+      return;
+    }
+
+    // Get food counts per template
+    const { data: foods } = await supabase
+      .from("diet_template_foods")
+      .select("template_id")
+      .in("template_id", tpls.map((t) => t.id));
+
+    const foodCountMap: Record<string, number> = {};
+    (foods || []).forEach((f) => {
+      foodCountMap[f.template_id] = (foodCountMap[f.template_id] || 0) + 1;
+    });
+
+    const mapped: ProgramData[] = tpls.map((t) => ({
+      id: t.id,
+      name: t.title,
+      type: "nutrition" as const,
+      description: t.description ?? "",
+      duration: "",
+      assignedCount: 0,
+      createdAt: new Date(t.created_at ?? Date.now()),
+      targetCalories: t.target_calories ?? undefined,
+      foodCount: foodCountMap[t.id] || 0,
+    }));
+
+    setDietTemplates(mapped);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (viewMode === "exercise") {
+      fetchPrograms();
+    } else {
+      fetchDietTemplates();
+    }
+  }, [viewMode, fetchPrograms, fetchDietTemplates]);
+
+  const currentItems = viewMode === "exercise" ? programs : dietTemplates;
 
   const handleDelete = (program: ProgramData) => {
     setDeleteDialog({ open: true, program });
@@ -122,15 +179,28 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
   const confirmDelete = async () => {
     if (!deleteDialog.program) return;
-    const id = deleteDialog.program.id;
-    // Delete exercises first, then program
-    await supabase.from("exercises").delete().eq("program_id", id);
-    const { error } = await supabase.from("programs").delete().eq("id", id);
-    if (error) {
-      toast.error("Program silinemedi");
+    const item = deleteDialog.program;
+
+    if (item.type === "nutrition") {
+      // Delete foods first, then template
+      await supabase.from("diet_template_foods").delete().eq("template_id", item.id);
+      const { error } = await supabase.from("diet_templates").delete().eq("id", item.id);
+      if (error) {
+        toast.error("Şablon silinemedi");
+      } else {
+        toast.success(`"${item.name}" silindi`);
+        setDietTemplates((prev) => prev.filter((p) => p.id !== item.id));
+      }
     } else {
-      toast.success(`"${deleteDialog.program.name}" silindi`);
-      setPrograms((prev) => prev.filter((p) => p.id !== id));
+      // Delete exercises first, then program
+      await supabase.from("exercises").delete().eq("program_id", item.id);
+      const { error } = await supabase.from("programs").delete().eq("id", item.id);
+      if (error) {
+        toast.error("Program silinemedi");
+      } else {
+        toast.success(`"${item.name}" silindi`);
+        setPrograms((prev) => prev.filter((p) => p.id !== item.id));
+      }
     }
     setDeleteDialog({ open: false, program: null });
   };
@@ -190,7 +260,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     toast.success(`"${program.name}" kopyalandı`);
 
     if (openInEditor) {
-      // Open clone in builder for customization
       const clonedProgram: ProgramData = {
         ...program,
         id: newProg.id,
@@ -249,21 +318,23 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => setBulkAssignOpen(true)}
-            className="border-border"
-          >
-            <Layers className="w-4 h-4 mr-1.5" />
-            Toplu Ata
-          </Button>
+          {viewMode === "exercise" && (
+            <Button
+              variant="outline"
+              onClick={() => setBulkAssignOpen(true)}
+              className="border-border"
+            >
+              <Layers className="w-4 h-4 mr-1.5" />
+              Toplu Ata
+            </Button>
+          )}
 
           <Button
             onClick={() => onCreateProgram(viewMode)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
           >
             <Plus className="w-4 h-4 mr-1.5" />
-            Program Oluştur
+            {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
           </Button>
         </div>
       </div>
@@ -275,12 +346,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         </div>
       )}
 
-      {/* Programs Grid */}
+      {/* Items Grid */}
       {!loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {currentPrograms.map((program) => (
+          {currentItems.map((item) => (
             <Card
-              key={program.id}
+              key={item.id}
               className="glass border-border group hover:border-primary/50 transition-all cursor-pointer"
             >
               <CardHeader className="pb-3">
@@ -289,28 +360,43 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                     <div
                       className={cn(
                         "p-2 rounded-lg",
-                        program.type === "exercise" ? "bg-primary/20" : "bg-success/20"
+                        item.type === "exercise" ? "bg-primary/20" : "bg-success/20"
                       )}
                     >
-                      {program.type === "exercise" ? (
+                      {item.type === "exercise" ? (
                         <Dumbbell className="w-5 h-5 text-primary" />
                       ) : (
                         <Apple className="w-5 h-5 text-success" />
                       )}
                     </div>
                     <div>
-                      <CardTitle className="text-base font-semibold">{program.name}</CardTitle>
-                      {program.blockType && (
+                      <CardTitle className="text-base font-semibold">{item.name}</CardTitle>
+                      {item.type === "exercise" && item.blockType && (
                         <Badge
                           variant="outline"
-                          className={cn("text-[10px] mt-1", getBlockColor(program.blockType))}
+                          className={cn("text-[10px] mt-1", getBlockColor(item.blockType))}
                         >
-                          {program.blockType === "hypertrophy"
+                          {item.blockType === "hypertrophy"
                             ? "Hipertrofi"
-                            : program.blockType === "strength"
+                            : item.blockType === "strength"
                               ? "Güç"
                               : "Dayanıklılık"}
                         </Badge>
+                      )}
+                      {item.type === "nutrition" && (
+                        <div className="flex items-center gap-2 mt-1">
+                          {item.targetCalories && (
+                            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                              <Flame className="w-3 h-3 mr-0.5" />
+                              {item.targetCalories} kcal
+                            </Badge>
+                          )}
+                          {item.foodCount !== undefined && item.foodCount > 0 && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {item.foodCount} besin
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -326,30 +412,34 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-card border-border">
-                      <DropdownMenuItem onClick={() => onEditProgram(program)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Düzenle
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program })}>
-                        <Users className="w-4 h-4 mr-2" />
-                        Sporculara Ata
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(program, false)}>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Kopyala
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(program, true)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Klonla &amp; Düzenle
-                      </DropdownMenuItem>
-                      {onSaveAsTemplate && (
-                        <DropdownMenuItem onClick={() => onSaveAsTemplate(program)}>
-                          <Save className="w-4 h-4 mr-2" />
-                          Şablon Olarak Kaydet
-                        </DropdownMenuItem>
+                      {item.type === "exercise" && (
+                        <>
+                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Düzenle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program: item })}>
+                            <Users className="w-4 h-4 mr-2" />
+                            Sporculara Ata
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicate(item, false)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Kopyala
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicate(item, true)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Klonla &amp; Düzenle
+                          </DropdownMenuItem>
+                          {onSaveAsTemplate && (
+                            <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
+                              <Save className="w-4 h-4 mr-2" />
+                              Şablon Olarak Kaydet
+                            </DropdownMenuItem>
+                          )}
+                        </>
                       )}
                       <DropdownMenuItem
-                        onClick={() => handleDelete(program)}
+                        onClick={() => handleDelete(item)}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
@@ -361,16 +451,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {program.description}
+                  {item.description || (item.type === "nutrition" ? "Beslenme şablonu" : "")}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    {program.createdAt.toLocaleDateString("tr-TR")}
+                    {item.createdAt.toLocaleDateString("tr-TR")}
                   </div>
-                  {program.difficulty && (
+                  {item.type === "exercise" && item.difficulty && (
                     <Badge variant="outline" className="text-[10px]">
-                      {program.difficulty === "beginner" ? "Başlangıç" : program.difficulty === "intermediate" ? "Orta" : "İleri"}
+                      {item.difficulty === "beginner" ? "Başlangıç" : item.difficulty === "intermediate" ? "Orta" : "İleri"}
                     </Badge>
                   )}
                 </div>
@@ -378,7 +468,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </Card>
           ))}
 
-          {currentPrograms.length === 0 && (
+          {currentItems.length === 0 && (
             <div className="col-span-full glass rounded-xl border border-border p-12 text-center">
               <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                 {viewMode === "exercise" ? (
@@ -388,14 +478,14 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                 )}
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                Henüz {viewMode === "exercise" ? "antrenman" : "beslenme"} programı yok
+                Henüz {viewMode === "exercise" ? "antrenman programı" : "beslenme şablonu"} yok
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                İlk programınızı oluşturmak için aşağıdaki butona tıklayın
+                İlk {viewMode === "exercise" ? "programınızı" : "şablonunuzu"} oluşturmak için aşağıdaki butona tıklayın
               </p>
               <Button onClick={() => onCreateProgram(viewMode)}>
                 <Plus className="w-4 h-4 mr-1.5" />
-                Program Oluştur
+                {viewMode === "exercise" ? "Program Oluştur" : "Şablon Oluştur"}
               </Button>
             </div>
           )}
@@ -406,10 +496,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, program: null })}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>Programı Sil</DialogTitle>
+            <DialogTitle>{deleteDialog.program?.type === "nutrition" ? "Şablonu Sil" : "Programı Sil"}</DialogTitle>
             <DialogDescription>
-              "{deleteDialog.program?.name}" programını silmek istediğinizden emin misiniz? Bu işlem
-              geri alınamaz.
+              "{deleteDialog.program?.name}" {deleteDialog.program?.type === "nutrition" ? "şablonunu" : "programını"} silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
