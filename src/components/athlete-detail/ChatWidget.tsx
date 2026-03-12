@@ -39,10 +39,10 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
         .or(
           `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
         )
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(50);
 
-      setMessages((data as ChatMessage[]) || []);
+      setMessages(((data as ChatMessage[]) || []).reverse());
       setIsLoading(false);
     };
 

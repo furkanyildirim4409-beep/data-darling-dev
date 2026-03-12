@@ -71,7 +71,8 @@ export function useCoachChat() {
       .or(
         `and(sender_id.eq.${coachId},receiver_id.in.(${athleteIds.join(',')})),and(receiver_id.eq.${coachId},sender_id.in.(${athleteIds.join(',')}))`
       )
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     const latestMap = new Map<string, any>();
     const unreadMap = new Map<string, number>();
@@ -129,9 +130,10 @@ export function useCoachChat() {
       .or(
         `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
       )
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    setMessages((data as ChatMessage[]) || []);
+    setMessages(((data as ChatMessage[]) || []).reverse());
     setIsLoadingMessages(false);
 
     await supabase
