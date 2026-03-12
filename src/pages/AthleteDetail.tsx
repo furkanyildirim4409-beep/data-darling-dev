@@ -17,10 +17,10 @@ import { TimelineAI } from "@/components/athlete-detail/TimelineAI";
 import { ActiveBlocks } from "@/components/athlete-detail/ActiveBlocks";
 import { AthleteProgressChart } from "@/components/athlete-detail/AthleteProgressChart";
 import { ChatWidget } from "@/components/athlete-detail/ChatWidget";
+import { DraggableCardLayout } from "@/components/athlete-detail/DraggableCardLayout";
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
-import { cn } from "@/lib/utils";
 
 interface AthleteProfile {
   id: string;
