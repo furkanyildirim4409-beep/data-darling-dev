@@ -2,11 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Apple, X, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Apple, X, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
-import { useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export interface NutritionItem extends LibraryItem {
   amount: number;
@@ -61,17 +59,6 @@ export function NutritionBuilder({
   activeNutritionDay,
   setActiveNutritionDay,
 }: NutritionBuilderProps) {
-  const [openMeals, setOpenMeals] = useState<Record<string, boolean>>({
-    "meal-1": true,
-    "meal-3": true,
-    "meal-2": true,
-    "meal-5": true,
-  });
-
-  const toggleMeal = (mealId: string) => {
-    setOpenMeals((prev) => ({ ...prev, [mealId]: !prev[mealId] }));
-  };
-
   // Items for the current day
   const dayItems = selectedItems.filter((item) => item.dayIndex === activeNutritionDay);
 
@@ -171,29 +158,25 @@ export function NutritionBuilder({
         </div>
       </div>
 
-      {/* Meal Sections */}
+      {/* Meal Sections — always open */}
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-2">
           {mealSections.map((section) => {
             const items = getMealItems(section);
-            const isOpen = openMeals[section.id] ?? true;
             const sectionKcal = items.reduce((sum, item) => sum + calcMacro(item, "kcal"), 0);
+            const isActive = activeMealId === section.id || (section.linkedIds && section.linkedIds.includes(activeMealId));
 
             return (
-              <Collapsible key={section.id} open={isOpen} onOpenChange={() => toggleMeal(section.id)}>
-                <CollapsibleTrigger
+              <div key={section.id}>
+                {/* Meal header — clickable to select active meal */}
+                <div
                   className={cn(
                     "w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer",
-                    activeMealId === section.id || (section.linkedIds && section.linkedIds.includes(activeMealId))
+                    isActive
                       ? "border-primary/40 bg-primary/5"
                       : "border-border bg-muted/20 hover:border-muted-foreground/30",
                   )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // Set active meal for adding items
-                    setActiveMealId(section.id);
-                    toggleMeal(section.id);
-                  }}
+                  onClick={() => setActiveMealId(section.id)}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{section.icon}</span>
@@ -205,82 +188,72 @@ export function NutritionBuilder({
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {sectionKcal > 0 && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-warning/15 text-warning">
-                        {sectionKcal} kcal
-                      </Badge>
-                    )}
-                    {isOpen ? (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </CollapsibleTrigger>
+                  {sectionKcal > 0 && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-warning/15 text-warning">
+                      {sectionKcal} kcal
+                    </Badge>
+                  )}
+                </div>
 
-                <CollapsibleContent>
-                  <div className="mt-1.5 space-y-1.5 pl-2">
-                    {items.length === 0 ? (
-                      <div className="border border-dashed border-border/60 rounded-lg p-3 text-center">
-                        <p className="text-[11px] text-muted-foreground">
-                          Kütüphaneden besin ekleyin
-                        </p>
-                      </div>
-                    ) : (
-                      items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="glass rounded-lg p-3 border border-border group hover:border-primary/20 transition-all"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <Apple className="w-3.5 h-3.5 text-success shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{item.name}</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => onRemoveItem(item.id)}
-                              className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
+                {/* Meal content — always visible */}
+                <div className="mt-1.5 space-y-1.5 pl-2">
+                  {items.length === 0 ? (
+                    <div className="border border-dashed border-border/60 rounded-lg p-3 text-center">
+                      <p className="text-[11px] text-muted-foreground">
+                        Kütüphaneden besin ekleyin
+                      </p>
+                    </div>
+                  ) : (
+                    items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="glass rounded-lg p-3 border border-border group hover:border-primary/20 transition-all"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Apple className="w-3.5 h-3.5 text-success shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{item.name}</p>
                           </div>
-
-                          {/* Amount input + macros */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              value={item.amount}
-                              onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
-                              className="h-7 w-16 text-xs text-center bg-background/50"
-                            />
-                            <span className="text-[10px] text-muted-foreground">{item.unit}</span>
-                          </div>
-
-                          {/* Macro badges */}
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-warning/20 text-warning border-warning/30">
-                              {calcMacro(item, "kcal")} kcal
-                            </Badge>
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-blue-500/20 text-blue-400 border-blue-500/30">
-                              P: {calcMacro(item, "protein")}g
-                            </Badge>
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-success/20 text-success border-success/30">
-                              C: {calcMacro(item, "carbs")}g
-                            </Badge>
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
-                              F: {calcMacro(item, "fats")}g
-                            </Badge>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRemoveItem(item.id)}
+                            className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.amount}
+                            onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+                            className="h-7 w-16 text-xs text-center bg-background/50"
+                          />
+                          <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-warning/20 text-warning border-warning/30">
+                            {calcMacro(item, "kcal")} kcal
+                          </Badge>
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-blue-500/20 text-blue-400 border-blue-500/30">
+                            P: {calcMacro(item, "protein")}g
+                          </Badge>
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-success/20 text-success border-success/30">
+                            C: {calcMacro(item, "carbs")}g
+                          </Badge>
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                            F: {calcMacro(item, "fats")}g
+                          </Badge>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
