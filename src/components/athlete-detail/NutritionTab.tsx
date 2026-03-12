@@ -54,6 +54,8 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState<{ id: string; title: string } | null>(null);
+  const [isRemovingTemplate, setIsRemovingTemplate] = useState(false);
 
   // ─── History State ───
   const RANGE_PRESETS = [
