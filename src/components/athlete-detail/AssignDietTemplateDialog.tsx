@@ -84,25 +84,24 @@ export function AssignDietTemplateDialog({
   const handleAssign = async (tpl: TemplateWithMacros) => {
     if (!user) return;
     setAssigning(tpl.id);
+
+    // Link the template to the athlete instead of averaging macros
     const { error } = await supabase
       .from("nutrition_targets")
       .upsert(
         {
           athlete_id: athleteId,
           coach_id: user.id,
-          daily_calories: tpl.totalCalories,
-          protein_g: Math.round(tpl.totalProtein),
-          carbs_g: Math.round(tpl.totalCarbs),
-          fat_g: Math.round(tpl.totalFat),
+          active_diet_template_id: tpl.id,
           updated_at: new Date().toISOString(),
-        },
+        } as any,
         { onConflict: "athlete_id" }
       );
 
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Başarılı", description: "Şablon makroları sporcuya atandı!" });
+      toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
       onAssigned();
       onOpenChange(false);
     }
@@ -118,7 +117,7 @@ export function AssignDietTemplateDialog({
             Şablondan Hedef Ata
           </DialogTitle>
           <DialogDescription>
-            Bir diyet şablonu seçerek makro hedeflerini sporcuya atayın.
+            Bir diyet şablonu seçerek beslenme programını sporcuya atayın.
           </DialogDescription>
         </DialogHeader>
 

@@ -491,6 +491,7 @@ export type Database = {
       }
       nutrition_targets: {
         Row: {
+          active_diet_template_id: string | null
           athlete_id: string
           carbs_g: number
           coach_id: string
@@ -502,6 +503,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          active_diet_template_id?: string | null
           athlete_id: string
           carbs_g?: number
           coach_id: string
@@ -513,6 +515,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          active_diet_template_id?: string | null
           athlete_id?: string
           carbs_g?: number
           coach_id?: string
@@ -523,7 +526,15 @@ export type Database = {
           protein_g?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_targets_active_diet_template_id_fkey"
+            columns: ["active_diet_template_id"]
+            isOneToOne: false
+            referencedRelation: "diet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
