@@ -45,10 +45,15 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const MSG_LIMIT = 50;
   const { user } = useAuth();
   const coachId = user?.id;
   const { isMuted, toggleMute } = useMutedChats();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
@@ -85,6 +90,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
 
     const fetchMessages = async () => {
       setIsLoadingMessages(true);
+      setHasMore(true);
       const { data, error } = await supabase
         .from('messages')
         .select('*')
@@ -92,13 +98,15 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
           `and(sender_id.eq.${coachId},receiver_id.eq.${athlete.id}),and(sender_id.eq.${athlete.id},receiver_id.eq.${coachId})`
         )
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(MSG_LIMIT);
 
       if (error) {
         console.error('QuickChat fetch error:', error);
       }
 
-      setMessages(((data as ChatMessage[]) || []).reverse());
+      const fetched = ((data as ChatMessage[]) || []).reverse();
+      setMessages(fetched);
+      setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoadingMessages(false);
 
       // Mark unread as read
@@ -152,10 +160,57 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     };
   }, [coachId, athlete.id]);
 
-  // Auto-scroll
+  // Auto-scroll only when near bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      const el = scrollContainerRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (isNearBottom || prevScrollHeightRef.current === 0) {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
   }, [messages]);
+
+  // Preserve scroll after loading older
+  useEffect(() => {
+    if (scrollContainerRef.current && prevScrollHeightRef.current > 0) {
+      const el = scrollContainerRef.current;
+      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isLoadingOlder]);
+
+  const loadOlder = async () => {
+    if (!coachId || isLoadingOlder || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight || 0;
+    setIsLoadingOlder(true);
+
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .or(
+        `and(sender_id.eq.${coachId},receiver_id.eq.${athlete.id}),and(sender_id.eq.${athlete.id},receiver_id.eq.${coachId})`
+      )
+      .lt('created_at', oldest.created_at)
+      .order('created_at', { ascending: false })
+      .limit(MSG_LIMIT);
+
+    const older = ((data as ChatMessage[]) || []).reverse();
+    if (older.length > 0) {
+      setMessages(prev => [...older, ...prev]);
+    }
+    setHasMore(older.length >= MSG_LIMIT);
+    setIsLoadingOlder(false);
+  };
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current || isLoadingOlder || !hasMore) return;
+    if (scrollContainerRef.current.scrollTop < 60) {
+      loadOlder();
+    }
+  };
 
   const initials = athlete.name
     .split(" ")
@@ -267,7 +322,12 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoadingOlder && (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />

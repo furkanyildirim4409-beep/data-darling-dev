@@ -23,9 +23,13 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const MSG_LIMIT = 50;
 
   // Fetch messages
   useEffect(() => {
@@ -33,6 +37,7 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
 
     const fetchMessages = async () => {
       setIsLoading(true);
+      setHasMore(true);
       const { data } = await supabase
         .from("messages")
         .select("*")
@@ -40,9 +45,11 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
           `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
         )
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(MSG_LIMIT);
 
-      setMessages(((data as ChatMessage[]) || []).reverse());
+      const fetched = ((data as ChatMessage[]) || []).reverse();
+      setMessages(fetched);
+      setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoading(false);
     };
 
@@ -96,12 +103,57 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
     };
   }, [coachId, athleteId]);
 
-  // Auto-scroll
+  // Auto-scroll only when near bottom
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const el = scrollRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (isNearBottom || prevScrollHeightRef.current === 0) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages]);
+
+  // Preserve scroll after loading older
+  useEffect(() => {
+    if (scrollRef.current && prevScrollHeightRef.current > 0) {
+      const el = scrollRef.current;
+      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isLoadingOlder]);
+
+  const loadOlder = async () => {
+    if (!coachId || !athleteId || isLoadingOlder || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    prevScrollHeightRef.current = scrollRef.current?.scrollHeight || 0;
+    setIsLoadingOlder(true);
+
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .or(
+        `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
+      )
+      .lt("created_at", oldest.created_at)
+      .order("created_at", { ascending: false })
+      .limit(MSG_LIMIT);
+
+    const older = ((data as ChatMessage[]) || []).reverse();
+    if (older.length > 0) {
+      setMessages(prev => [...older, ...prev]);
+    }
+    setHasMore(older.length >= MSG_LIMIT);
+    setIsLoadingOlder(false);
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current || isLoadingOlder || !hasMore) return;
+    if (scrollRef.current.scrollTop < 60) {
+      loadOlder();
+    }
+  };
 
   const handleSend = async () => {
     if (!newMessage.trim() || !coachId || !athleteId || sending) return;
@@ -165,7 +217,12 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+        {isLoadingOlder && (
+          <div className="flex items-center justify-center py-2">
+            <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        )}
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (

@@ -16,8 +16,11 @@ export default function Messages() {
     messages,
     isLoadingAthletes,
     isLoadingMessages,
+    isLoadingOlder,
+    hasMoreMessages,
     selectAthlete,
     sendMessage,
+    loadOlderMessages,
   } = useCoachChat();
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
@@ -48,7 +51,10 @@ export default function Messages() {
             messages={messages}
             coachId={user?.id || ""}
             isLoading={isLoadingMessages}
+            isLoadingOlder={isLoadingOlder}
+            hasMoreMessages={hasMoreMessages}
             onSendMessage={sendMessage}
+            onLoadOlder={loadOlderMessages}
             onBack={handleBack}
             showBackButton
           />
@@ -83,7 +89,10 @@ export default function Messages() {
         messages={messages}
         coachId={user?.id || ""}
         isLoading={isLoadingMessages}
+        isLoadingOlder={isLoadingOlder}
+        hasMoreMessages={hasMoreMessages}
         onSendMessage={sendMessage}
+        onLoadOlder={loadOlderMessages}
       />
     </div>
   );
