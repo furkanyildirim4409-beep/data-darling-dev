@@ -54,6 +54,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
+  const initialScrollDoneRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
