@@ -781,6 +781,8 @@ export default function Programs() {
               onSetRules={setAutomationRules}
               dayGroups={dayGroups}
               onSetDayGroups={setDayGroups}
+              onAIGenerate={handleAIGenerate}
+              isAIGenerating={isAIGenerating}
             />
           ) : (
             <NutritionBuilder
