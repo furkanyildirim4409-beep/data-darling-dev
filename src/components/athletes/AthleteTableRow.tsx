@@ -4,13 +4,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MessageSquare, User, ChevronRight } from "lucide-react";
+import { MessageSquare, User, ChevronRight, MessageCircleWarning } from "lucide-react";
 import { Athlete } from "@/data/athletes";
 
 interface AthleteTableRowProps {
   athlete: Athlete;
   onMessage?: (athlete: Athlete) => void;
   onViewProfile?: (athlete: Athlete) => void;
+  hasUnanswered?: boolean;
 }
 
 const tierStyles = {
@@ -31,7 +32,7 @@ const riskStyles = {
   High: "bg-destructive/10 text-destructive border-destructive/20 animate-pulse",
 };
 
-export function AthleteTableRow({ athlete, onMessage, onViewProfile }: AthleteTableRowProps) {
+export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswered }: AthleteTableRowProps) {
   const navigate = useNavigate();
   
   const initials = athlete.name
@@ -127,14 +128,20 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile }: AthleteTa
 
       {/* Actions */}
       <td className="py-3 px-4">
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={cn("flex items-center gap-2 transition-opacity", hasUnanswered ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onMessage?.(athlete)}
-            className="h-8 px-2 text-muted-foreground hover:text-primary"
+            className="h-8 px-2 text-muted-foreground hover:text-primary relative"
           >
             <MessageSquare className="w-4 h-4" />
+            {hasUnanswered && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-warning" />
+              </span>
+            )}
           </Button>
           <Button
             variant="ghost"

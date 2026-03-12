@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Athlete } from "@/types/shared-models";
 import { AthleteTableRow } from "./AthleteTableRow";
 import { QuickChatPopover } from "./QuickChatPopover";
+import { useUnansweredChats } from "@/hooks/useUnansweredChats";
 import { Search, AlertTriangle, Clock, Calendar, X } from "lucide-react";
 
 type FilterType = "all" | "high-risk" | "missed-checkin" | "expiring";
@@ -40,6 +41,9 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [chatAthlete, setChatAthlete] = useState<Athlete | null>(null);
+  
+  const athleteIds = useMemo(() => athletes.map(a => a.id), [athletes]);
+  const unansweredIds = useUnansweredChats(athleteIds);
 
   const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = [
     { id: "all", label: "Tüm Sporcular", icon: null, count: athletes.length },
@@ -163,6 +167,7 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
                       athlete={athlete}
                       onMessage={(a) => setChatAthlete(a)}
                       onViewProfile={(a) => console.log("View", a.name)}
+                      hasUnanswered={unansweredIds.has(athlete.id)}
                     />
                   ))}
             </tbody>
