@@ -32,6 +32,7 @@ export default function Programs() {
   const [selectedNutrition, setSelectedNutrition] = useState<NutritionItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
+  const [activeNutritionDay, setActiveNutritionDay] = useState(0);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
 
@@ -154,12 +155,13 @@ export default function Programs() {
           amount: 100,
           unit: item.name.includes("(Adet)") ? "adet" : "g",
           mealId: activeMealId,
+          dayIndex: activeNutritionDay,
         };
         setSelectedNutrition((prev) => [...prev, newNutrition]);
         toast.success(`${item.name} listeye eklendi.`);
       }
     },
-    [builderMode, weekPlan, activeDay, activeMealId]
+    [builderMode, weekPlan, activeDay, activeMealId, activeNutritionDay]
   );
 
   const handleRemoveExercise = useCallback((dayIndex: number, id: string) => {
@@ -736,6 +738,8 @@ export default function Programs() {
               onClearAll={handleClearAll}
               activeMealId={activeMealId}
               setActiveMealId={setActiveMealId}
+              activeNutritionDay={activeNutritionDay}
+              setActiveNutritionDay={setActiveNutritionDay}
             />
           )}
         </div>

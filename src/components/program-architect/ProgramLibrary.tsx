@@ -116,14 +116,24 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
               </Badge>
             )}
             {item.kcal !== undefined && (
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-success/30 text-success/70">
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-warning/20 text-warning border-warning/30">
                 {item.kcal} kcal
               </Badge>
             )}
-            {item.protein !== undefined && (
-              <span className="text-[9px] text-muted-foreground">P:{item.protein}g C:{item.carbs}g F:{item.fats}g</span>
-            )}
           </div>
+          {item.protein !== undefined && (
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-blue-500/20 text-blue-400 border-blue-500/30">
+                P: {item.protein}g
+              </Badge>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-success/20 text-success border-success/30">
+                C: {item.carbs}g
+              </Badge>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                F: {item.fats}g
+              </Badge>
+            </div>
+          )}
         </div>
         <Button
           variant="ghost"
