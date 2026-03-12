@@ -308,6 +308,37 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         </div>
       </div>
 
+      {/* ═══ Active Template Card ═══ */}
+      <div className="glass rounded-xl border border-border p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+              <FileDown className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Aktif Beslenme Şablonu</h4>
+              {activeTemplate ? (
+                <p className="text-sm text-primary font-medium">{activeTemplate.title}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Atanmış bir diyet şablonu bulunmuyor. Serbest / Manuel hedefler aktif.</p>
+              )}
+            </div>
+          </div>
+          {activeTemplate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={handleRemoveTemplate}
+              disabled={isRemovingTemplate}
+            >
+              {isRemovingTemplate ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+              Atamayı Kaldır
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* ═══ Weekly Compliance Chart ═══ */}
       <Card className="border-border">
         <CardHeader className="pb-2">
