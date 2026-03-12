@@ -409,6 +409,28 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       }
 
       if (data.type === "exercise") {
+        // Check for existing program with same name by this coach
+        const { data: existingProg } = await supabase
+          .from("programs")
+          .select("id")
+          .eq("coach_id", user.id)
+          .eq("title", data.name)
+          .maybeSingle();
+
+        if (existingProg) {
+          toast.error(`"${data.name}" adında bir program zaten mevcut`);
+          setImporting(false);
+          return;
+        }
+
+        // Resolve exercise library IDs — match by name to reuse existing records
+        const exerciseNames = (data.exercises ?? []).map((ex: any) => ex.name).filter(Boolean);
+        const { data: existingExercises } = await supabase
+          .from("exercise_library")
+          .select("id, name, video_url")
+          .in("name", exerciseNames.length > 0 ? exerciseNames : ["__none__"]);
+        const libMap = new Map((existingExercises ?? []).map(r => [r.name, r]));
+
         const { data: newProg, error } = await supabase.from("programs").insert({
           title: data.name,
           description: data.description ?? "",
@@ -423,24 +445,41 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
         if (data.exercises?.length > 0) {
           await supabase.from("exercises").insert(
-            data.exercises.map((ex: any) => ({
-              program_id: newProg.id,
-              name: ex.name,
-              sets: ex.sets ?? 3,
-              reps: ex.reps ?? null,
-              rir: ex.rir ?? 2,
-              failure_set: ex.failure_set ?? false,
-              notes: ex.notes ?? null,
-              order_index: ex.order_index ?? 0,
-              video_url: ex.video_url ?? null,
-              rest_time: ex.rest_time ?? null,
-              rir_per_set: ex.rir_per_set ?? null,
-            }))
+            data.exercises.map((ex: any) => {
+              const libMatch = libMap.get(ex.name);
+              return {
+                program_id: newProg.id,
+                name: ex.name,
+                sets: ex.sets ?? 3,
+                reps: ex.reps ?? null,
+                rir: ex.rir ?? 2,
+                failure_set: ex.failure_set ?? false,
+                notes: ex.notes ?? null,
+                order_index: ex.order_index ?? 0,
+                video_url: libMatch?.video_url ?? ex.video_url ?? null,
+                rest_time: ex.rest_time ?? null,
+                rir_per_set: ex.rir_per_set ?? null,
+              };
+            })
           );
         }
         toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
         fetchPrograms();
       } else if (data.type === "nutrition") {
+        // Check for existing template with same name by this coach
+        const { data: existingTpl } = await supabase
+          .from("diet_templates")
+          .select("id")
+          .eq("coach_id", user.id)
+          .eq("title", data.name)
+          .maybeSingle();
+
+        if (existingTpl) {
+          toast.error(`"${data.name}" adında bir beslenme şablonu zaten mevcut`);
+          setImporting(false);
+          return;
+        }
+
         const { data: newTpl, error } = await supabase.from("diet_templates").insert({
           title: data.name,
           description: data.description ?? "",
@@ -451,6 +490,25 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }
 
         if (data.foods?.length > 0) {
+          // Auto-sync imported foods to food_items library
+          const uniqueFoods = new Map<string, any>();
+          for (const f of data.foods) {
+            if (!uniqueFoods.has(f.food_name)) {
+              uniqueFoods.set(f.food_name, f);
+            }
+          }
+          // Upsert all unique foods to food_items (fire-and-forget, non-blocking for template save)
+          const foodUpserts = Array.from(uniqueFoods.values()).map((f: any) => ({
+            name: f.food_name,
+            calories: f.calories ?? 0,
+            protein: f.protein ?? 0,
+            carbs: f.carbs ?? 0,
+            fat: f.fat ?? 0,
+            serving_size: f.serving_size ?? "100g",
+            coach_id: user.id,
+          }));
+          supabase.from("food_items").upsert(foodUpserts, { onConflict: "name,coach_id" }).then(() => {});
+
           await supabase.from("diet_template_foods").insert(
             data.foods.map((f: any) => ({
               template_id: newTpl.id,
