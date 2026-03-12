@@ -442,6 +442,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                           )}
                         </>
                       )}
+                      {item.type === "nutrition" && (
+                        <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                          <Users className="w-4 h-4 mr-2" />
+                          Sporculara Ata
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
                         className="text-destructive focus:text-destructive"
