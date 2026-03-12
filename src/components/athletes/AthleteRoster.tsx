@@ -41,6 +41,9 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [chatAthlete, setChatAthlete] = useState<Athlete | null>(null);
+  
+  const athleteIds = useMemo(() => athletes.map(a => a.id), [athletes]);
+  const unansweredIds = useUnansweredChats(athleteIds);
 
   const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = [
     { id: "all", label: "Tüm Sporcular", icon: null, count: athletes.length },
