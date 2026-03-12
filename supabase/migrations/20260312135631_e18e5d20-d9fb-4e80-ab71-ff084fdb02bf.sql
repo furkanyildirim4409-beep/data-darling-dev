@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_checkins ADD COLUMN digestion integer NULL DEFAULT NULL;
