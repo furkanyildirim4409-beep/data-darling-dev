@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   BarChart,
@@ -30,6 +32,10 @@ import {
   Droplets,
   Download,
   GitCompareArrows,
+  MessageSquare,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -80,7 +86,6 @@ function HormonalComparisonChart({
 }) {
   if (!current.length || !previous.length) return null;
 
-  // Build comparison data — match biomarkers by name
   const comparisonData = current
     .map((cur) => {
       const prev = previous.find(
@@ -206,7 +211,6 @@ function HormonalComparisonChart({
         </ResponsiveContainer>
       </div>
 
-      {/* Change badges */}
       <div className="flex flex-wrap gap-2 mt-3">
         {comparisonData.map((d) => (
           <div
@@ -238,6 +242,9 @@ function HormonalComparisonChart({
 
 export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDialogProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const queryClient = useQueryClient();
 
   const { data: tests = [], isLoading } = useQuery({
     queryKey: ["blood-tests", athleteId],
@@ -253,12 +260,29 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
     enabled: !!athleteId && open,
   });
 
+  const saveNotesMutation = useMutation({
+    mutationFn: async ({ testId, notes }: { testId: string; notes: string }) => {
+      const { error } = await supabase
+        .from("blood_tests")
+        .update({ coach_notes: notes })
+        .eq("id", testId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["blood-tests", athleteId] });
+      toast.success("Not kaydedildi");
+      setEditingNotes(false);
+    },
+    onError: () => {
+      toast.error("Not kaydedilemedi");
+    },
+  });
+
   const selectedTest = tests[selectedIndex];
   const biomarkers: Biomarker[] = selectedTest && Array.isArray(selectedTest.extracted_data)
     ? selectedTest.extracted_data
     : [];
 
-  // Previous test for comparison (next index since sorted desc)
   const previousTest = tests[selectedIndex + 1] ?? null;
   const previousBiomarkers: Biomarker[] = previousTest && Array.isArray(previousTest.extracted_data)
     ? previousTest.extracted_data
@@ -271,6 +295,21 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
     if (selectedTest?.document_url) {
       window.open(selectedTest.document_url, "_blank");
     }
+  };
+
+  const handleStartEdit = () => {
+    setNoteDraft(selectedTest?.coach_notes || "");
+    setEditingNotes(true);
+  };
+
+  const handleSaveNotes = () => {
+    if (!selectedTest) return;
+    const trimmed = noteDraft.trim();
+    if (trimmed.length > 2000) {
+      toast.error("Not en fazla 2000 karakter olabilir");
+      return;
+    }
+    saveNotesMutation.mutate({ testId: selectedTest.id, notes: trimmed });
   };
 
   return (
@@ -308,7 +347,10 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
                   key={test.id}
                   variant={selectedIndex === idx ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setSelectedIndex(idx)}
+                  onClick={() => {
+                    setSelectedIndex(idx);
+                    setEditingNotes(false);
+                  }}
                   className={cn(
                     selectedIndex === idx
                       ? "bg-primary text-primary-foreground"
@@ -367,7 +409,6 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
                   {biomarkers.map((marker) => {
                     const style = statusStyles[marker.status as keyof typeof statusStyles] || statusStyles.optimal;
                     const Icon = style.icon;
-                    // Find previous value for inline delta
                     const prevMarker = previousBiomarkers.find(
                       (p) => p.name.toLowerCase() === marker.name.toLowerCase()
                     );
@@ -415,6 +456,72 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
                   })}
                 </div>
               )}
+
+              {/* Coach Notes Section */}
+              <div className="rounded-xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    <h4 className="text-sm font-semibold text-foreground">Coach Notu</h4>
+                  </div>
+                  {!editingNotes ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleStartEdit}
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="w-3 h-3 mr-1" />
+                      {selectedTest?.coach_notes ? "Düzenle" : "Not Ekle"}
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingNotes(false)}
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                        disabled={saveNotesMutation.isPending}
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        İptal
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveNotes}
+                        className="h-7 px-2 text-xs bg-primary text-primary-foreground"
+                        disabled={saveNotesMutation.isPending}
+                      >
+                        <Save className="w-3 h-3 mr-1" />
+                        {saveNotesMutation.isPending ? "Kaydediliyor…" : "Kaydet"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {editingNotes ? (
+                  <div className="space-y-1">
+                    <Textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      placeholder="Sporcu için notunuzu buraya yazın…"
+                      className="min-h-[80px] bg-background/50 border-border text-sm resize-none"
+                      maxLength={2000}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {noteDraft.length}/2000
+                    </p>
+                  </div>
+                ) : selectedTest?.coach_notes ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    {selectedTest.coach_notes}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Henüz not eklenmemiş. Düzenle butonuna tıklayarak not ekleyebilirsiniz.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Footer */}
