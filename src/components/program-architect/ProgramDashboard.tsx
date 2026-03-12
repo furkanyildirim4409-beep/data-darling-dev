@@ -328,50 +328,52 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           supabase.from("exercises").select("name, sets, reps, rir, failure_set, notes, order_index, video_url, rest_time, rir_per_set").eq("program_id", item.id),
         ]);
 
-        // Resolve exercise_library IDs by name matching
+        // Resolve exercise_library IDs by name
         const exerciseNames = (exercises ?? []).map(e => e.name);
-        const { data: libMatches } = await supabase
-          .from("exercise_library")
-          .select("id, name")
-          .in("name", exerciseNames);
+        const { data: libMatches } = exerciseNames.length > 0
+          ? await supabase.from("exercise_library").select("id, name").in("name", exerciseNames)
+          : { data: [] };
         const nameToLibId = new Map((libMatches ?? []).map(r => [r.name, r.id]));
 
         const json = {
           name: item.name,
           type: "exercise",
+          format_version: 2,
           description: prog?.description ?? item.description,
           difficulty: prog?.difficulty ?? item.difficulty,
           targetGoal: prog?.target_goal ?? item.targetGoal,
           weekConfig: prog?.week_config ?? [],
           automationRules: prog?.automation_rules ?? [],
           exercises: (exercises ?? []).map((e) => ({
-            name: e.name, sets: e.sets, reps: e.reps, rir: e.rir,
-            failure_set: e.failure_set, notes: e.notes, order_index: e.order_index,
-            video_url: e.video_url, rest_time: e.rest_time, rir_per_set: e.rir_per_set,
             library_id: nameToLibId.get(e.name) ?? null,
+            name: e.name,
+            sets: e.sets, reps: e.reps, rir: e.rir,
+            failure_set: e.failure_set, notes: e.notes, order_index: e.order_index,
+            rest_time: e.rest_time, rir_per_set: e.rir_per_set,
           })),
         };
         triggerDownload(json, item.name);
       } else {
         const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
 
-        // Resolve food_items IDs by name matching
+        // Resolve food_items IDs by name + coach_id
         const foodNames = (foods ?? []).map(f => f.food_name);
-        const { data: foodMatches } = await supabase
-          .from("food_items")
-          .select("id, name")
-          .in("name", foodNames);
+        const { data: foodMatches } = foodNames.length > 0
+          ? await supabase.from("food_items").select("id, name").in("name", foodNames)
+          : { data: [] };
         const nameToFoodId = new Map((foodMatches ?? []).map(r => [r.name, r.id]));
 
         const json = {
           name: item.name,
           type: "nutrition",
+          format_version: 2,
           description: item.description,
           targetCalories: item.targetCalories,
           foods: (foods ?? []).map((f) => ({
-            food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number,
-            calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, serving_size: f.serving_size,
             food_item_id: nameToFoodId.get(f.food_name) ?? null,
+            food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number,
+            calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat,
+            serving_size: f.serving_size,
           })),
         };
         triggerDownload(json, item.name);
@@ -409,28 +411,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       }
 
       if (data.type === "exercise") {
-        // Check for existing program with same name by this coach
-        const { data: existingProg } = await supabase
-          .from("programs")
-          .select("id")
-          .eq("coach_id", user.id)
-          .eq("title", data.name)
-          .maybeSingle();
-
-        if (existingProg) {
-          toast.error(`"${data.name}" adında bir program zaten mevcut`);
-          setImporting(false);
-          return;
-        }
-
-        // Resolve exercise library IDs — match by name to reuse existing records
-        const exerciseNames = (data.exercises ?? []).map((ex: any) => ex.name).filter(Boolean);
-        const { data: existingExercises } = await supabase
-          .from("exercise_library")
-          .select("id, name, video_url")
-          .in("name", exerciseNames.length > 0 ? exerciseNames : ["__none__"]);
-        const libMap = new Map((existingExercises ?? []).map(r => [r.name, r]));
-
         const { data: newProg, error } = await supabase.from("programs").insert({
           title: data.name,
           description: data.description ?? "",
@@ -444,19 +424,31 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         if (error || !newProg) { toast.error("Program oluşturulamadı"); setImporting(false); return; }
 
         if (data.exercises?.length > 0) {
+          // Collect library_ids from JSON to fetch video_url from exercise_library
+          const libIds = (data.exercises as any[]).map(ex => ex.library_id).filter(Boolean);
+          let libMap = new Map<string, { name: string; video_url: string | null }>();
+
+          if (libIds.length > 0) {
+            const { data: libRows } = await supabase
+              .from("exercise_library")
+              .select("id, name, video_url")
+              .in("id", libIds);
+            libMap = new Map((libRows ?? []).map(r => [r.id, { name: r.name, video_url: r.video_url }]));
+          }
+
           await supabase.from("exercises").insert(
-            data.exercises.map((ex: any) => {
-              const libMatch = libMap.get(ex.name);
+            (data.exercises as any[]).map((ex: any) => {
+              const lib = ex.library_id ? libMap.get(ex.library_id) : null;
               return {
                 program_id: newProg.id,
-                name: ex.name,
+                name: lib?.name ?? ex.name,
                 sets: ex.sets ?? 3,
                 reps: ex.reps ?? null,
                 rir: ex.rir ?? 2,
                 failure_set: ex.failure_set ?? false,
                 notes: ex.notes ?? null,
                 order_index: ex.order_index ?? 0,
-                video_url: libMatch?.video_url ?? ex.video_url ?? null,
+                video_url: lib?.video_url ?? ex.video_url ?? null,
                 rest_time: ex.rest_time ?? null,
                 rir_per_set: ex.rir_per_set ?? null,
               };
@@ -465,21 +457,8 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         }
         toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
         fetchPrograms();
+
       } else if (data.type === "nutrition") {
-        // Check for existing template with same name by this coach
-        const { data: existingTpl } = await supabase
-          .from("diet_templates")
-          .select("id")
-          .eq("coach_id", user.id)
-          .eq("title", data.name)
-          .maybeSingle();
-
-        if (existingTpl) {
-          toast.error(`"${data.name}" adında bir beslenme şablonu zaten mevcut`);
-          setImporting(false);
-          return;
-        }
-
         const { data: newTpl, error } = await supabase.from("diet_templates").insert({
           title: data.name,
           description: data.description ?? "",
@@ -490,37 +469,33 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }
 
         if (data.foods?.length > 0) {
-          // Auto-sync imported foods to food_items library
-          const uniqueFoods = new Map<string, any>();
-          for (const f of data.foods) {
-            if (!uniqueFoods.has(f.food_name)) {
-              uniqueFoods.set(f.food_name, f);
-            }
+          // Collect food_item_ids from JSON to fetch macro data from food_items
+          const foodIds = (data.foods as any[]).map(f => f.food_item_id).filter(Boolean);
+          let foodMap = new Map<string, any>();
+
+          if (foodIds.length > 0) {
+            const { data: foodRows } = await supabase
+              .from("food_items")
+              .select("id, name, calories, protein, carbs, fat, serving_size")
+              .in("id", foodIds);
+            foodMap = new Map((foodRows ?? []).map(r => [r.id, r]));
           }
-          // Upsert all unique foods to food_items (fire-and-forget, non-blocking for template save)
-          const foodUpserts = Array.from(uniqueFoods.values()).map((f: any) => ({
-            name: f.food_name,
-            calories: f.calories ?? 0,
-            protein: f.protein ?? 0,
-            carbs: f.carbs ?? 0,
-            fat: f.fat ?? 0,
-            serving_size: f.serving_size ?? "100g",
-            coach_id: user.id,
-          }));
-          supabase.from("food_items").upsert(foodUpserts, { onConflict: "name,coach_id" }).then(() => {});
 
           await supabase.from("diet_template_foods").insert(
-            data.foods.map((f: any) => ({
-              template_id: newTpl.id,
-              food_name: f.food_name,
-              meal_type: f.meal_type ?? "snack",
-              day_number: f.day_number ?? 1,
-              calories: f.calories ?? 0,
-              protein: f.protein ?? 0,
-              carbs: f.carbs ?? 0,
-              fat: f.fat ?? 0,
-              serving_size: f.serving_size ?? null,
-            }))
+            (data.foods as any[]).map((f: any) => {
+              const dbFood = f.food_item_id ? foodMap.get(f.food_item_id) : null;
+              return {
+                template_id: newTpl.id,
+                food_name: dbFood?.name ?? f.food_name,
+                meal_type: f.meal_type ?? "snack",
+                day_number: f.day_number ?? 1,
+                calories: dbFood?.calories ?? f.calories ?? 0,
+                protein: dbFood?.protein ?? f.protein ?? 0,
+                carbs: dbFood?.carbs ?? f.carbs ?? 0,
+                fat: dbFood?.fat ?? f.fat ?? 0,
+                serving_size: dbFood?.serving_size ?? f.serving_size ?? null,
+              };
+            })
           );
         }
         toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
