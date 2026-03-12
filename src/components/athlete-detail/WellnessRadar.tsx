@@ -22,11 +22,11 @@ export function WellnessRadar({ data }: WellnessRadarProps) {
   const hasAnyData = Object.values(data).some((v) => v !== null);
 
   const chartData = [
-    { subject: "Uyku", value: data.sleep ?? 0, fullMark: 10 },
-    { subject: "Stres", value: data.stress !== null ? 10 - data.stress : 0, fullMark: 10 },
-    { subject: "Sindirim", value: data.digestion ?? 0, fullMark: 10 },
-    { subject: "Ruh Hali", value: data.mood ?? 0, fullMark: 10 },
-    { subject: "Toparlanma", value: data.soreness !== null ? 10 - data.soreness : 0, fullMark: 10 },
+    { subject: "Uyku", value: data.sleep ?? 0, fullMark: 5 },
+    { subject: "Stres", value: data.stress !== null ? 5 - data.stress : 0, fullMark: 5 },
+    { subject: "Sindirim", value: data.digestion ?? 0, fullMark: 5 },
+    { subject: "Ruh Hali", value: data.mood ?? 0, fullMark: 5 },
+    { subject: "Toparlanma", value: data.soreness !== null ? 5 - data.soreness : 0, fullMark: 5 },
   ];
 
   const labelMap: Record<string, string> = {
@@ -42,7 +42,7 @@ export function WellnessRadar({ data }: WellnessRadarProps) {
       return (
         <div className="glass border border-border rounded-lg px-3 py-2 text-sm">
           <p className="font-medium text-foreground">{payload[0].payload.subject}</p>
-          <p className="font-mono text-primary">{payload[0].value}/10</p>
+          <p className="font-mono text-primary">{payload[0].value}/5</p>
         </div>
       );
     }
@@ -69,7 +69,8 @@ export function WellnessRadar({ data }: WellnessRadarProps) {
               />
               <PolarRadiusAxis
                 angle={30}
-                domain={[0, 10]}
+                domain={[0, 5]}
+                tickCount={6}
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                 axisLine={false}
               />
