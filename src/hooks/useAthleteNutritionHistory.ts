@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, differenceInDays } from "date-fns";
 
 export interface DateRange {
   from: Date;
@@ -17,16 +17,52 @@ export interface ConsumedFood {
   carbs: number;
   fat: number;
   logged_at: string;
+  planned_food_id: string | null;
+}
+
+export interface PlannedFood {
+  id: string;
+  meal_type: string;
+  food_name: string;
+  serving_size: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  day_number: number;
+}
+
+export type UnifiedFoodStatus = "consumed" | "missed" | "manual";
+
+export interface UnifiedFoodItem {
+  id: string;
+  status: UnifiedFoodStatus;
+  meal_type: string;
+  food_name: string;
+  serving_size: string | null;
+  plannedCalories: number;
+  plannedProtein: number;
+  plannedCarbs: number;
+  plannedFat: number;
+  actualCalories: number;
+  actualProtein: number;
+  actualCarbs: number;
+  actualFat: number;
 }
 
 export interface DailyAggregation {
-  date: string; // YYYY-MM-DD
-  label: string; // short day label
+  date: string;
+  label: string;
   totalCalories: number;
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
+  plannedCalories: number;
+  plannedProtein: number;
+  plannedCarbs: number;
+  plannedFat: number;
   foods: ConsumedFood[];
+  unifiedFoods: UnifiedFoodItem[];
 }
 
 export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRange) {
@@ -42,23 +78,47 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
     const endDate = endOfDay(rangeTo || new Date());
 
+    // Fetch consumed foods, nutrition targets (with template id), and template foods
     const [foodsRes, targetsRes] = await Promise.all([
       supabase
         .from("consumed_foods")
-        .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at")
+        .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at, planned_food_id")
         .eq("athlete_id", athleteId)
         .gte("logged_at", startDate.toISOString())
         .lte("logged_at", endDate.toISOString())
         .order("logged_at", { ascending: true }),
       supabase
         .from("nutrition_targets")
-        .select("daily_calories")
+        .select("daily_calories, active_diet_template_id")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
     ]);
 
     if (targetsRes.data?.daily_calories) {
       setCalorieTarget(targetsRes.data.daily_calories);
+    }
+
+    const activeTemplateId = targetsRes.data?.active_diet_template_id || null;
+
+    // Fetch template foods if a template is assigned
+    let templateFoods: PlannedFood[] = [];
+    if (activeTemplateId) {
+      const { data: tplFoods } = await supabase
+        .from("diet_template_foods")
+        .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, day_number")
+        .eq("template_id", activeTemplateId);
+
+      templateFoods = (tplFoods || []).map((f) => ({
+        id: f.id,
+        meal_type: f.meal_type,
+        food_name: f.food_name,
+        serving_size: f.serving_size,
+        calories: Number(f.calories) || 0,
+        protein: Number(f.protein) || 0,
+        carbs: Number(f.carbs) || 0,
+        fat: Number(f.fat) || 0,
+        day_number: f.day_number || 1,
+      }));
     }
 
     const foods: ConsumedFood[] = (foodsRes.data || []).map((f) => ({
@@ -71,17 +131,102 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
       carbs: Number(f.carbs) || 0,
       fat: Number(f.fat) || 0,
       logged_at: f.logged_at || "",
+      planned_food_id: f.planned_food_id || null,
     }));
 
-    // Build daily buckets for the date range
+    // Build daily buckets
     const bucketStart = rangeFrom || subDays(new Date(), 6);
     const bucketEnd = rangeTo || new Date();
     const allDays = eachDayOfInterval({ start: startOfDay(bucketStart), end: startOfDay(bucketEnd) });
+
     const buckets: DailyAggregation[] = allDays.map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
       const dayFoods = foods.filter(
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
+
+      // Compute day_number (1-7 cycling) based on day offset from start of range
+      const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
+      const dayNumber = (dayOffset % 7) + 1;
+
+      // Get planned foods for this day_number
+      const plannedForDay = templateFoods.filter((tf) => tf.day_number === dayNumber);
+
+      // Build unified foods list
+      const unifiedFoods: UnifiedFoodItem[] = [];
+      const matchedPlannedIds = new Set<string>();
+
+      // 1. Consumed foods with planned_food_id → "consumed"
+      // 2. Consumed foods without planned_food_id → "manual"
+      for (const cf of dayFoods) {
+        if (cf.planned_food_id) {
+          matchedPlannedIds.add(cf.planned_food_id);
+          const planned = plannedForDay.find((pf) => pf.id === cf.planned_food_id);
+          unifiedFoods.push({
+            id: cf.id,
+            status: "consumed",
+            meal_type: cf.meal_type,
+            food_name: cf.food_name,
+            serving_size: cf.serving_size,
+            plannedCalories: planned?.calories || cf.calories,
+            plannedProtein: planned?.protein || cf.protein,
+            plannedCarbs: planned?.carbs || cf.carbs,
+            plannedFat: planned?.fat || cf.fat,
+            actualCalories: cf.calories,
+            actualProtein: cf.protein,
+            actualCarbs: cf.carbs,
+            actualFat: cf.fat,
+          });
+        } else {
+          unifiedFoods.push({
+            id: cf.id,
+            status: "manual",
+            meal_type: cf.meal_type,
+            food_name: cf.food_name,
+            serving_size: cf.serving_size,
+            plannedCalories: 0,
+            plannedProtein: 0,
+            plannedCarbs: 0,
+            plannedFat: 0,
+            actualCalories: cf.calories,
+            actualProtein: cf.protein,
+            actualCarbs: cf.carbs,
+            actualFat: cf.fat,
+          });
+        }
+      }
+
+      // 3. Planned foods not matched → "missed"
+      for (const pf of plannedForDay) {
+        if (!matchedPlannedIds.has(pf.id)) {
+          unifiedFoods.push({
+            id: pf.id,
+            status: "missed",
+            meal_type: pf.meal_type,
+            food_name: pf.food_name,
+            serving_size: pf.serving_size,
+            plannedCalories: pf.calories,
+            plannedProtein: pf.protein,
+            plannedCarbs: pf.carbs,
+            plannedFat: pf.fat,
+            actualCalories: 0,
+            actualProtein: 0,
+            actualCarbs: 0,
+            actualFat: 0,
+          });
+        }
+      }
+
+      const plannedTotals = plannedForDay.reduce(
+        (acc, pf) => ({
+          cal: acc.cal + pf.calories,
+          pro: acc.pro + pf.protein,
+          carb: acc.carb + pf.carbs,
+          fat: acc.fat + pf.fat,
+        }),
+        { cal: 0, pro: 0, carb: 0, fat: 0 }
+      );
+
       return {
         date: dateStr,
         label: format(d, "EEE"),
@@ -89,7 +234,12 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         totalProtein: dayFoods.reduce((s, f) => s + f.protein, 0),
         totalCarbs: dayFoods.reduce((s, f) => s + f.carbs, 0),
         totalFat: dayFoods.reduce((s, f) => s + f.fat, 0),
+        plannedCalories: plannedTotals.cal,
+        plannedProtein: plannedTotals.pro,
+        plannedCarbs: plannedTotals.carb,
+        plannedFat: plannedTotals.fat,
         foods: dayFoods,
+        unifiedFoods,
       };
     });
 
