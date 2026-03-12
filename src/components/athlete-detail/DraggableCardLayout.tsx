@@ -15,7 +15,7 @@ import { GripVertical, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "athlete-card-layout-v1";
+const STORAGE_KEY_PREFIX = "athlete-card-layout-v2-";
 
 type LayoutColumns = [string[], string[], string[]];
 
@@ -34,6 +34,7 @@ const DEFAULT_LAYOUT: LayoutState = {
 interface DraggableCardLayoutProps {
   cards: Record<string, React.ReactNode>;
   cardLabels?: Record<string, string>;
+  athleteId?: string;
 }
 
 /* ── Droppable Column ── */
@@ -126,12 +127,13 @@ function DraggableCardItem({
 }
 
 /* ── Main Layout Engine ── */
-export function DraggableCardLayout({ cards }: DraggableCardLayoutProps) {
+export function DraggableCardLayout({ cards, athleteId }: DraggableCardLayoutProps) {
   const cardIds = useMemo(() => Object.keys(cards), [cards]);
+  const storageKey = `${STORAGE_KEY_PREFIX}${athleteId || "default"}`;
 
   const [layout, setLayout] = useState<LayoutState>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as LayoutState;
         const allSavedIds = parsed.columns.flat();
@@ -196,7 +198,7 @@ export function DraggableCardLayout({ cards }: DraggableCardLayoutProps) {
 
       const newLayout: LayoutState = { columns: newCols };
       setLayout(newLayout);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayout));
+      localStorage.setItem(storageKey, JSON.stringify(newLayout));
     },
     [layout]
   );
@@ -207,8 +209,8 @@ export function DraggableCardLayout({ cards }: DraggableCardLayoutProps) {
 
   const resetLayout = useCallback(() => {
     setLayout(DEFAULT_LAYOUT);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    localStorage.removeItem(storageKey);
+  }, [storageKey]);
 
   return (
     <div className="space-y-3">

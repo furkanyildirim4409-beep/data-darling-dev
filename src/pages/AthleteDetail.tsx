@@ -200,6 +200,7 @@ export default function AthleteDetail() {
 
         <TabsContent value="general" className="mt-6">
           <DraggableCardLayout
+            athleteId={athlete.id}
             cards={{
               "body-model": <BodyModel3D />,
               "wellness-radar": <WellnessRadar data={wellnessData} />,
