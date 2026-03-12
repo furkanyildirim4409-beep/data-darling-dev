@@ -281,7 +281,55 @@ export default function Programs() {
     }
   }, [builderMode]);
 
-  // ─── Save current builder state as a reusable template ───
+  // ─── AI Program Generation ───
+  const handleAIGenerate = useCallback(async () => {
+    setIsAIGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-ai-program', {
+        body: { goal: "Hipertrofi", days: 3 },
+      });
+
+      if (error) {
+        toast.error("AI programı üretilemedi: " + error.message);
+        return;
+      }
+
+      if (!Array.isArray(data)) {
+        toast.error("AI yanıtı beklenmeyen formatta.");
+        return;
+      }
+
+      const newWeek = createEmptyWeek();
+      data.forEach((day: any, index: number) => {
+        if (index >= 7) return;
+        newWeek[index].label = day.dayName || `${index + 1}. Gün`;
+        newWeek[index].blockType = "hypertrophy";
+        newWeek[index].exercises = (day.exercises || []).map((ex: any, exIdx: number) => ({
+          id: crypto.randomUUID(),
+          name: ex.name || "Egzersiz",
+          category: "",
+          type: "exercise" as const,
+          sets: ex.sets || 3,
+          reps: parseInt(String(ex.reps).split("-")[0]) || 10,
+          rpe: 7,
+          rir: 2,
+          failureSet: false,
+          notes: ex.notes || undefined,
+        }));
+      });
+
+      setWeekPlan(newWeek);
+      setActiveDay(0);
+      setDayGroups({});
+      toast.success(`✨ AI ${data.length} günlük program üretti!`);
+    } catch (err: any) {
+      toast.error("AI hatası: " + (err?.message || "Bilinmeyen hata"));
+    } finally {
+      setIsAIGenerating(false);
+    }
+  }, []);
+
+
   const handleSaveAsTemplate = useCallback(async () => {
     if (!user) {
       toast.error("Giriş yapmalısınız.");
