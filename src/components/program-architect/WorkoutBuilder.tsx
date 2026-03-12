@@ -268,7 +268,19 @@ export function WorkoutBuilder({
   };
 
   return (
-    <div className="glass rounded-xl border border-border h-full flex flex-col">
+    <div className="glass rounded-xl border border-border h-full flex flex-col relative">
+      {/* AI Loading Overlay */}
+      {isAIGenerating && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-primary/20 animate-pulse flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-semibold text-foreground">🤖 Yapay Zeka Çalışıyor...</p>
+            <p className="text-xs text-muted-foreground max-w-[240px]">Sporcu verilerini analiz edip optimum programı yazıyor</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
