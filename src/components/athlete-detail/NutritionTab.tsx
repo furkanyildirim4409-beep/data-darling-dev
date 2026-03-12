@@ -464,6 +464,9 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                       strokeWidth={2}
                       label={{ value: `Hedef: ${calorieTarget}`, position: "insideTopRight", className: "fill-success text-xs" }}
                     />
+                    {dailyData.some(d => d.plannedCalories > 0) && (
+                      <Bar dataKey="plannedCalories" radius={[6, 6, 0, 0]} fill="hsl(var(--muted-foreground))" opacity={0.15} cursor="pointer" />
+                    )}
                     <Bar dataKey="totalCalories" radius={[6, 6, 0, 0]} cursor="pointer">
                       {dailyData.map((entry) => {
                         const pct = calorieTarget ? entry.totalCalories / calorieTarget : 0;
