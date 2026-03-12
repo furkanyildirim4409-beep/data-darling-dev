@@ -192,6 +192,7 @@ export type Database = {
           log_id: string | null
           logged_at: string | null
           meal_type: string
+          planned_food_id: string | null
           protein: number | null
           serving_size: string | null
         }
@@ -206,6 +207,7 @@ export type Database = {
           log_id?: string | null
           logged_at?: string | null
           meal_type?: string
+          planned_food_id?: string | null
           protein?: number | null
           serving_size?: string | null
         }
@@ -220,6 +222,7 @@ export type Database = {
           log_id?: string | null
           logged_at?: string | null
           meal_type?: string
+          planned_food_id?: string | null
           protein?: number | null
           serving_size?: string | null
         }
