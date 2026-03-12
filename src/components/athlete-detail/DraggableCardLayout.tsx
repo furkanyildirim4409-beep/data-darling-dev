@@ -209,8 +209,8 @@ export function DraggableCardLayout({ cards, athleteId }: DraggableCardLayoutPro
 
   const resetLayout = useCallback(() => {
     setLayout(DEFAULT_LAYOUT);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    localStorage.removeItem(storageKey);
+  }, [storageKey]);
 
   return (
     <div className="space-y-3">
