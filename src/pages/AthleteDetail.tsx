@@ -210,7 +210,7 @@ export default function AthleteDetail() {
               "timeline-ai": <TimelineAI athleteId={athlete.id} />,
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
               "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
-              "bloodwork-panel": <BloodworkPanel />,
+              "bloodwork-panel": <BloodworkPanel athleteId={athlete.id} />,
             }}
           />
         </TabsContent>
