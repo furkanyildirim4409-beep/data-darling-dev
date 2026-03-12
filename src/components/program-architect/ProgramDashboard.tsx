@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,8 @@ import {
   Save,
   Layers,
   Flame,
+  Download,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -64,10 +66,12 @@ interface ProgramDashboardProps {
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
   const { user } = useAuth();
+  const importRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
   const [dietTemplates, setDietTemplates] = useState<ProgramData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
     open: false,
     program: null,
@@ -316,8 +320,152 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     }
   };
 
+  const handleExportProgram = async (item: ProgramData) => {
+    try {
+      if (item.type === "exercise") {
+        const [{ data: prog }, { data: exercises }] = await Promise.all([
+          supabase.from("programs").select("week_config, automation_rules, difficulty, target_goal, description").eq("id", item.id).single(),
+          supabase.from("exercises").select("name, sets, reps, rir, failure_set, notes, order_index, video_url, rest_time, rir_per_set").eq("program_id", item.id),
+        ]);
+        const json = {
+          name: item.name,
+          type: "exercise",
+          description: prog?.description ?? item.description,
+          difficulty: prog?.difficulty ?? item.difficulty,
+          targetGoal: prog?.target_goal ?? item.targetGoal,
+          weekConfig: prog?.week_config ?? [],
+          automationRules: prog?.automation_rules ?? [],
+          exercises: (exercises ?? []).map((e) => ({
+            name: e.name, sets: e.sets, reps: e.reps, rir: e.rir,
+            failure_set: e.failure_set, notes: e.notes, order_index: e.order_index,
+            video_url: e.video_url, rest_time: e.rest_time, rir_per_set: e.rir_per_set,
+          })),
+        };
+        triggerDownload(json, item.name);
+      } else {
+        const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
+        const json = {
+          name: item.name,
+          type: "nutrition",
+          description: item.description,
+          targetCalories: item.targetCalories,
+          foods: (foods ?? []).map((f) => ({
+            food_name: f.food_name, meal_type: f.meal_type, day_number: f.day_number,
+            calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, serving_size: f.serving_size,
+          })),
+        };
+        triggerDownload(json, item.name);
+      }
+      toast.success("Program dışa aktarıldı");
+    } catch {
+      toast.error("Dışa aktarma başarısız");
+    }
+  };
+
+  const triggerDownload = (data: object, name: string) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.replace(/\s+/g, "-")}-template.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportProgram = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    e.target.value = "";
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.name || !data.type) {
+        toast.error("Geçersiz dosya formatı");
+        setImporting(false);
+        return;
+      }
+
+      if (data.type === "exercise") {
+        const { data: newProg, error } = await supabase.from("programs").insert({
+          title: data.name,
+          description: data.description ?? "",
+          difficulty: data.difficulty ?? null,
+          target_goal: data.targetGoal ?? null,
+          coach_id: user.id,
+          week_config: data.weekConfig ?? ([] as any),
+          automation_rules: data.automationRules ?? ([] as any),
+        }).select().single();
+
+        if (error || !newProg) { toast.error("Program oluşturulamadı"); setImporting(false); return; }
+
+        if (data.exercises?.length > 0) {
+          await supabase.from("exercises").insert(
+            data.exercises.map((ex: any) => ({
+              program_id: newProg.id,
+              name: ex.name,
+              sets: ex.sets ?? 3,
+              reps: ex.reps ?? null,
+              rir: ex.rir ?? 2,
+              failure_set: ex.failure_set ?? false,
+              notes: ex.notes ?? null,
+              order_index: ex.order_index ?? 0,
+              video_url: ex.video_url ?? null,
+              rest_time: ex.rest_time ?? null,
+              rir_per_set: ex.rir_per_set ?? null,
+            }))
+          );
+        }
+        toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
+        fetchPrograms();
+      } else if (data.type === "nutrition") {
+        const { data: newTpl, error } = await supabase.from("diet_templates").insert({
+          title: data.name,
+          description: data.description ?? "",
+          target_calories: data.targetCalories ?? null,
+          coach_id: user.id,
+        }).select().single();
+
+        if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }
+
+        if (data.foods?.length > 0) {
+          await supabase.from("diet_template_foods").insert(
+            data.foods.map((f: any) => ({
+              template_id: newTpl.id,
+              food_name: f.food_name,
+              meal_type: f.meal_type ?? "snack",
+              day_number: f.day_number ?? 1,
+              calories: f.calories ?? 0,
+              protein: f.protein ?? 0,
+              carbs: f.carbs ?? 0,
+              fat: f.fat ?? 0,
+              serving_size: f.serving_size ?? null,
+            }))
+          );
+        }
+        toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
+        fetchDietTemplates();
+      } else {
+        toast.error("Bilinmeyen program tipi");
+      }
+    } catch {
+      toast.error("Dosya okunamadı veya geçersiz JSON");
+    }
+    setImporting(false);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Hidden file input for import */}
+      <input
+        ref={importRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleImportProgram}
+      />
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -359,6 +507,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               Toplu Ata
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            className="border-border"
+          >
+            {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+            İçe Aktar
+          </Button>
 
           <Button
             onClick={() => onCreateProgram(viewMode)}
@@ -467,6 +625,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Şablon Olarak Kaydet
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleExportProgram(item)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Dışa Aktar
+                          </DropdownMenuItem>
                         </>
                       )}
                       {item.type === "nutrition" && (
@@ -493,6 +655,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Şablon Olarak Kaydet
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleExportProgram(item)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Dışa Aktar
+                          </DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuItem
