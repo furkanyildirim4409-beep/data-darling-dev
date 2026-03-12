@@ -89,7 +89,10 @@ export default function Messages() {
         messages={messages}
         coachId={user?.id || ""}
         isLoading={isLoadingMessages}
+        isLoadingOlder={isLoadingOlder}
+        hasMoreMessages={hasMoreMessages}
         onSendMessage={sendMessage}
+        onLoadOlder={loadOlderMessages}
       />
     </div>
   );
