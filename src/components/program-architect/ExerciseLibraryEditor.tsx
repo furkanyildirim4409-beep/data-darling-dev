@@ -332,6 +332,37 @@ export function ExerciseLibraryEditor({ exercises, onRefresh, onOpen }: Exercise
           </Button>
         </div>
 
+        {/* CSV Import/Export */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-xs gap-1.5"
+            onClick={handleCsvExport}
+            disabled={csvExporting}
+          >
+            {csvExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+            📤 CSV Dışa Aktar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-xs gap-1.5"
+            onClick={() => document.getElementById("csv-import-input")?.click()}
+            disabled={csvImporting}
+          >
+            {csvImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            📥 CSV İçe Aktar
+          </Button>
+          <input
+            id="csv-import-input"
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleCsvImport}
+          />
+        </div>
+
         {/* Add Form */}
         {showAddForm && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
