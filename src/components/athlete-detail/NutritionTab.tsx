@@ -81,6 +81,9 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setSelectedDate(null);
   };
 
+  // ─── Template-derived macro averages ───
+  const [templateMacros, setTemplateMacros] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+
   // ─── Fetch Targets ───
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
@@ -101,20 +104,51 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setFormValues(t);
       setHasExisting(true);
 
-      // Fetch active template title
+      // Fetch active template title + foods for daily averages
       if (data.active_diet_template_id) {
-        const { data: tpl } = await supabase
-          .from("diet_templates")
-          .select("id, title")
-          .eq("id", data.active_diet_template_id)
-          .maybeSingle();
-        setActiveTemplate(tpl ? { id: tpl.id, title: tpl.title } : null);
+        const [tplRes, foodsRes] = await Promise.all([
+          supabase
+            .from("diet_templates")
+            .select("id, title")
+            .eq("id", data.active_diet_template_id)
+            .maybeSingle(),
+          supabase
+            .from("diet_template_foods")
+            .select("calories, protein, carbs, fat, day_number")
+            .eq("template_id", data.active_diet_template_id),
+        ]);
+        setActiveTemplate(tplRes.data ? { id: tplRes.data.id, title: tplRes.data.title } : null);
+
+        // Compute daily averages from template foods
+        if (foodsRes.data && foodsRes.data.length > 0) {
+          const daySet = new Set(foodsRes.data.map((f) => f.day_number || 1));
+          const numDays = daySet.size || 1;
+          const totals = foodsRes.data.reduce(
+            (acc, f) => ({
+              cal: acc.cal + (Number(f.calories) || 0),
+              pro: acc.pro + (Number(f.protein) || 0),
+              carb: acc.carb + (Number(f.carbs) || 0),
+              fat: acc.fat + (Number(f.fat) || 0),
+            }),
+            { cal: 0, pro: 0, carb: 0, fat: 0 }
+          );
+          setTemplateMacros({
+            calories: Math.round(totals.cal / numDays),
+            protein: Math.round(totals.pro / numDays),
+            carbs: Math.round(totals.carb / numDays),
+            fat: Math.round(totals.fat / numDays),
+          });
+        } else {
+          setTemplateMacros(null);
+        }
       } else {
         setActiveTemplate(null);
+        setTemplateMacros(null);
       }
     } else {
       setHasExisting(false);
       setActiveTemplate(null);
+      setTemplateMacros(null);
     }
     setIsLoading(false);
   }, [athleteId]);
@@ -205,10 +239,10 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   }, [selectedDayData]);
 
   const macroCards = [
-    { label: "Kalori", value: targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
-    { label: "Protein", value: targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
-    { label: "Karbonhidrat", value: targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
-    { label: "Yağ", value: targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
+    { label: "Kalori", value: templateMacros?.calories ?? targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
+    { label: "Protein", value: templateMacros?.protein ?? targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
+    { label: "Karbonhidrat", value: templateMacros?.carbs ?? targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
+    { label: "Yağ", value: templateMacros?.fat ?? targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
   ];
 
   if (isLoading) {
@@ -230,9 +264,27 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground">Beslenme Hedefleri</h3>
-              <p className="text-sm text-muted-foreground">
-                {hasExisting ? "Günlük makro hedefler atanmış" : "Henüz hedef atanmadı"}
-              </p>
+              {activeTemplate ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="outline" className="border-success/30 text-success text-xs">
+                    <FileDown className="w-3 h-3 mr-1" />
+                    {activeTemplate.title}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] text-destructive hover:bg-destructive/10"
+                    onClick={handleRemoveTemplate}
+                    disabled={isRemovingTemplate}
+                  >
+                    {isRemovingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {hasExisting ? "Manuel hedefler aktif" : "Henüz hedef atanmadı"}
+                </p>
+              )}
             </div>
           </div>
           {!isEditing ? (
@@ -308,36 +360,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         </div>
       </div>
 
-      {/* ═══ Active Template Card ═══ */}
-      <div className="glass rounded-xl border border-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
-              <FileDown className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">Aktif Beslenme Şablonu</h4>
-              {activeTemplate ? (
-                <p className="text-sm text-primary font-medium">{activeTemplate.title}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Atanmış bir diyet şablonu bulunmuyor. Serbest / Manuel hedefler aktif.</p>
-              )}
-            </div>
-          </div>
-          {activeTemplate && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-destructive/30 text-destructive hover:bg-destructive/10"
-              onClick={handleRemoveTemplate}
-              disabled={isRemovingTemplate}
-            >
-              {isRemovingTemplate ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
-              Atamayı Kaldır
-            </Button>
-          )}
-        </div>
-      </div>
 
       {/* ═══ Weekly Compliance Chart ═══ */}
       <Card className="border-border">
