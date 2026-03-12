@@ -37,13 +37,6 @@ import {
   X,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-  AlertTriangle,
-  CheckCircle,
-  Minus,
-  Droplets,
-  Download,
-  GitCompareArrows,
-} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
