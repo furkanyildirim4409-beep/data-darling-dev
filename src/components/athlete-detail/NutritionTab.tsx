@@ -189,19 +189,22 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setIsSaving(false);
   };
 
-  const handleRemoveAssignment = async (assignmentId: string) => {
-    setRemovingId(assignmentId);
+  const handleRemoveTemplate = async () => {
+    setRemovingTemplate(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRemovingTemplate(false); return; }
     const { error } = await supabase
-      .from("athlete_diet_assignments")
-      .delete()
-      .eq("id", assignmentId);
+      .from("nutrition_targets")
+      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .eq("athlete_id", athleteId)
+      .eq("coach_id", user.id);
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Başarılı", description: "Beslenme programı kaldırıldı." });
       await fetchTargets();
     }
-    setRemovingId(null);
+    setRemovingTemplate(false);
   };
 
   const handleCancel = () => {
