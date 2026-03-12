@@ -32,6 +32,7 @@ export default function Programs() {
   const [selectedNutrition, setSelectedNutrition] = useState<NutritionItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
+  const [activeNutritionDay, setActiveNutritionDay] = useState(0);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
 
