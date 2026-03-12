@@ -284,14 +284,20 @@ export function WorkoutBuilder({
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-foreground">7 Günlük Program</h2>
-          {totalExercises > 0 && (
-            <Button variant="ghost" size="sm" onClick={onClearAll}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10">
-              <Trash2 className="w-4 h-4 mr-1.5" />Tümünü Temizle
-            </Button>
-          )}
-        </div>
+          <div className="flex items-center gap-2">
+            {onAIGenerate && (
+              <Button size="sm" onClick={onAIGenerate} disabled={isAIGenerating}
+                className="bg-gradient-to-r from-primary to-primary/70 text-primary-foreground hover:from-primary/90 hover:to-primary/60 shadow-lg shadow-primary/25">
+                <Sparkles className="w-4 h-4 mr-1.5" />AI ile Üret
+              </Button>
+            )}
+            {totalExercises > 0 && (
+              <Button variant="ghost" size="sm" onClick={onClearAll}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="w-4 h-4 mr-1.5" />Tümünü Temizle
+              </Button>
+            )}
+          </div>
         <p className="text-xs text-muted-foreground">
           Bir gün seçin, ardından kütüphaneden egzersiz ekleyin
         </p>
