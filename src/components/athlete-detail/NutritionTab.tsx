@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon, FileDown, Check, AlertTriangle } from "lucide-react";
+import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon, FileDown, Check, AlertTriangle, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAthleteNutritionHistory, type ConsumedFood, type DateRange, type UnifiedFoodItem } from "@/hooks/useAthleteNutritionHistory";
@@ -54,6 +54,8 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState<{ id: string; title: string } | null>(null);
+  const [isRemovingTemplate, setIsRemovingTemplate] = useState(false);
 
   // ─── History State ───
   const RANGE_PRESETS = [
@@ -84,7 +86,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setIsLoading(true);
     const { data } = await supabase
       .from("nutrition_targets")
-      .select("daily_calories, protein_g, carbs_g, fat_g")
+      .select("daily_calories, protein_g, carbs_g, fat_g, active_diet_template_id")
       .eq("athlete_id", athleteId)
       .maybeSingle();
 
@@ -98,8 +100,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       setTargets(t);
       setFormValues(t);
       setHasExisting(true);
+
+      // Fetch active template title
+      if (data.active_diet_template_id) {
+        const { data: tpl } = await supabase
+          .from("diet_templates")
+          .select("id, title")
+          .eq("id", data.active_diet_template_id)
+          .maybeSingle();
+        setActiveTemplate(tpl ? { id: tpl.id, title: tpl.title } : null);
+      } else {
+        setActiveTemplate(null);
+      }
     } else {
       setHasExisting(false);
+      setActiveTemplate(null);
     }
     setIsLoading(false);
   }, [athleteId]);
@@ -139,6 +154,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       toast({ title: "Başarılı", description: "Beslenme hedefleri kaydedildi." });
     }
     setIsSaving(false);
+  };
+
+  const handleRemoveTemplate = async () => {
+    setIsRemovingTemplate(true);
+    const { error } = await supabase
+      .from("nutrition_targets")
+      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .eq("athlete_id", athleteId);
+    if (error) {
+      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } else {
+      setActiveTemplate(null);
+      toast({ title: "Başarılı", description: "Diyet şablonu ataması kaldırıldı." });
+    }
+    setIsRemovingTemplate(false);
   };
 
   const handleCancel = () => {
@@ -278,6 +308,37 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         </div>
       </div>
 
+      {/* ═══ Active Template Card ═══ */}
+      <div className="glass rounded-xl border border-border p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+              <FileDown className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Aktif Beslenme Şablonu</h4>
+              {activeTemplate ? (
+                <p className="text-sm text-primary font-medium">{activeTemplate.title}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Atanmış bir diyet şablonu bulunmuyor. Serbest / Manuel hedefler aktif.</p>
+              )}
+            </div>
+          </div>
+          {activeTemplate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={handleRemoveTemplate}
+              disabled={isRemovingTemplate}
+            >
+              {isRemovingTemplate ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+              Atamayı Kaldır
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* ═══ Weekly Compliance Chart ═══ */}
       <Card className="border-border">
         <CardHeader className="pb-2">
@@ -383,8 +444,13 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                             <p className="font-semibold text-foreground mb-1">
                               {format(new Date(d.date), "d MMMM", { locale: tr })}
                             </p>
+                            {d.plannedCalories > 0 && (
+                              <p className="text-muted-foreground">
+                                📋 Planlanan: <span className="font-mono text-foreground">{d.plannedCalories}</span> kcal
+                              </p>
+                            )}
                             <p className="text-muted-foreground">
-                              Kalori: <span className="font-mono text-foreground">{d.totalCalories}</span> / {calorieTarget} kcal
+                              ✅ Tüketilen: <span className="font-mono text-foreground">{d.totalCalories}</span> / {calorieTarget} kcal
                             </p>
                             <p className="text-muted-foreground">Uyum: <span className="font-mono text-foreground">%{pct}</span></p>
                           </div>
@@ -398,6 +464,9 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                       strokeWidth={2}
                       label={{ value: `Hedef: ${calorieTarget}`, position: "insideTopRight", className: "fill-success text-xs" }}
                     />
+                    {dailyData.some(d => d.plannedCalories > 0) && (
+                      <Bar dataKey="plannedCalories" radius={[6, 6, 0, 0]} fill="hsl(var(--muted-foreground))" opacity={0.15} cursor="pointer" />
+                    )}
                     <Bar dataKey="totalCalories" radius={[6, 6, 0, 0]} cursor="pointer">
                       {dailyData.map((entry) => {
                         const pct = calorieTarget ? entry.totalCalories / calorieTarget : 0;
@@ -421,6 +490,28 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+
+              {/* Chart Legend */}
+              {dailyData.some(d => d.plannedCalories > 0) && (
+                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-muted-foreground/15 border border-muted-foreground/30" />
+                    <span>Planlanan</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-success" />
+                    <span>Tüketilen (uyumlu)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-warning" />
+                    <span>Düşük</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-destructive" />
+                    <span>Fazla</span>
+                  </div>
+                </div>
+              )}
 
               {/* Macro Averages Row */}
               <div className="grid grid-cols-4 gap-3 mt-4">
