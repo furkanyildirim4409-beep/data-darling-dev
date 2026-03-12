@@ -1,0 +1,1 @@
+ALTER TABLE public.diet_template_foods ADD COLUMN IF NOT EXISTS day_number integer DEFAULT 1;
