@@ -39,6 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssignProgramDialog } from "./AssignProgramDialog";
 import { BulkAssignDialog } from "./BulkAssignDialog";
+import { AssignDietTemplateBulkDialog } from "./AssignDietTemplateBulkDialog";
 
 export interface ProgramData {
   id: string;
@@ -76,6 +77,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     program: null,
   });
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [dietAssignDialog, setDietAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
+    open: false, templateId: "", templateName: "",
+  });
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
@@ -438,6 +442,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                           )}
                         </>
                       )}
+                      {item.type === "nutrition" && (
+                        <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                          <Users className="w-4 h-4 mr-2" />
+                          Sporculara Ata
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
                         className="text-destructive focus:text-destructive"
@@ -524,6 +534,14 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
       {/* Bulk Assign Dialog */}
       <BulkAssignDialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen} />
+
+      {/* Diet Template Bulk Assign Dialog */}
+      <AssignDietTemplateBulkDialog
+        open={dietAssignDialog.open}
+        onOpenChange={(open) => setDietAssignDialog((prev) => ({ ...prev, open }))}
+        templateId={dietAssignDialog.templateId}
+        templateName={dietAssignDialog.templateName}
+      />
     </div>
   );
 }
