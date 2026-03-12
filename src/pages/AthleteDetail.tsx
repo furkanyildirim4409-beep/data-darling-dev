@@ -207,7 +207,7 @@ export default function AthleteDetail() {
               "metabolic-flux": <MetabolicFlux />,
               "timeline-ai": <TimelineAI athleteId={athlete.id} />,
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
-              "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} />,
+              "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
               "bloodwork-panel": <BloodworkPanel />,
             }}
           />
