@@ -134,7 +134,6 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
               </Badge>
             </div>
           )}
-          </div>
         </div>
         <Button
           variant="ghost"
