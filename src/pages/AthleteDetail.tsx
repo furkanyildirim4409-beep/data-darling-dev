@@ -139,8 +139,6 @@ export default function AthleteDetail() {
     soreness: latestCheckIn?.soreness || 3,
   };
 
-  const startStats = { bodyFat: 22, muscleMass: 70, strength: 65, endurance: 55 };
-  const currentStats = { bodyFat: 18, muscleMass: 75, strength: 82, endurance: 70 };
 
   return (
     <div className="space-y-6">
