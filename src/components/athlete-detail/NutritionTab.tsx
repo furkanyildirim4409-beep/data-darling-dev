@@ -239,10 +239,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     );
   }, [assignedTemplates]);
 
-  const handleCancel = () => {
-    setFormValues(targets);
-    setIsEditing(false);
-  };
 
   // ─── Selected Day Detail ───
   const selectedDayData = useMemo(() => {
