@@ -467,9 +467,32 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                 </Button>
               </div>
             </div>
+            {/* Compliance Summary */}
+            {selectedDayData.unifiedFoods.length > 0 && (
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                {complianceSummary.consumed > 0 && (
+                  <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/20">
+                    <Check className="w-3 h-3 mr-1" />
+                    {complianceSummary.consumed} Tüketildi
+                  </Badge>
+                )}
+                {complianceSummary.missed > 0 && (
+                  <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/20">
+                    <X className="w-3 h-3 mr-1" />
+                    {complianceSummary.missed} Kaçırıldı
+                  </Badge>
+                )}
+                {complianceSummary.manual > 0 && (
+                  <Badge className="bg-warning/15 text-warning border-warning/30 hover:bg-warning/20">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {complianceSummary.manual} Plan Dışı
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            {selectedDayData.foods.length === 0 ? (
+            {selectedDayData.unifiedFoods.length === 0 && selectedDayData.foods.length === 0 ? (
               <div className="text-center py-8">
                 <UtensilsCrossed className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Bu gün için besin kaydı bulunamadı.</p>
@@ -477,8 +500,8 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             ) : (
               <div className="space-y-4">
                 {(["breakfast", "lunch", "dinner", "snack"] as const).map((mealKey) => {
-                  const foods = groupedFoods[mealKey];
-                  if (!foods?.length) return null;
+                  const items = groupedUnifiedFoods[mealKey];
+                  if (!items?.length) return null;
                   return (
                     <div key={mealKey} className="space-y-1">
                       <h4 className="text-sm font-semibold text-foreground">
@@ -487,6 +510,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border/30">
+                            <TableHead className="text-xs w-8">Durum</TableHead>
                             <TableHead className="text-xs">Besin</TableHead>
                             <TableHead className="text-xs text-right">Porsiyon</TableHead>
                             <TableHead className="text-xs text-right">Kal</TableHead>
@@ -496,14 +520,53 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {foods.map((f) => (
-                            <TableRow key={f.id} className="border-border/20">
-                              <TableCell className="text-sm font-medium">{f.food_name}</TableCell>
+                          {items.map((f) => (
+                            <TableRow
+                              key={f.id}
+                              className={cn(
+                                "border-border/20",
+                                f.status === "missed" && "opacity-50"
+                              )}
+                            >
+                              <TableCell className="py-1.5">
+                                {f.status === "consumed" && (
+                                  <div className="w-5 h-5 rounded-full bg-success/20 flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-success" />
+                                  </div>
+                                )}
+                                {f.status === "missed" && (
+                                  <div className="w-5 h-5 rounded-full bg-destructive/20 flex items-center justify-center">
+                                    <X className="w-3 h-3 text-destructive" />
+                                  </div>
+                                )}
+                                {f.status === "manual" && (
+                                  <div className="w-5 h-5 rounded-full bg-warning/20 flex items-center justify-center">
+                                    <AlertTriangle className="w-3 h-3 text-warning" />
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className={cn("text-sm font-medium", f.status === "missed" && "line-through text-muted-foreground")}>
+                                {f.food_name}
+                                {f.status === "missed" && (
+                                  <span className="ml-2 text-[10px] text-destructive font-normal">(Kaçırıldı)</span>
+                                )}
+                                {f.status === "manual" && (
+                                  <span className="ml-2 text-[10px] text-warning font-normal">(Plan Dışı)</span>
+                                )}
+                              </TableCell>
                               <TableCell className="text-sm text-right text-muted-foreground">{f.serving_size || "—"}</TableCell>
-                              <TableCell className="text-sm text-right font-mono">{f.calories}</TableCell>
-                              <TableCell className="text-sm text-right font-mono text-destructive">{f.protein}</TableCell>
-                              <TableCell className="text-sm text-right font-mono text-warning">{f.carbs}</TableCell>
-                              <TableCell className="text-sm text-right font-mono text-accent-foreground">{f.fat}</TableCell>
+                              <TableCell className="text-sm text-right font-mono">
+                                {f.status === "missed" ? f.plannedCalories : f.actualCalories}
+                              </TableCell>
+                              <TableCell className="text-sm text-right font-mono text-destructive">
+                                {f.status === "missed" ? Math.round(f.plannedProtein) : Math.round(f.actualProtein)}
+                              </TableCell>
+                              <TableCell className="text-sm text-right font-mono text-warning">
+                                {f.status === "missed" ? Math.round(f.plannedCarbs) : Math.round(f.actualCarbs)}
+                              </TableCell>
+                              <TableCell className="text-sm text-right font-mono text-accent-foreground">
+                                {f.status === "missed" ? Math.round(f.plannedFat) : Math.round(f.actualFat)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -512,15 +575,40 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                   );
                 })}
 
-                {/* Daily total row */}
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <span className="text-sm font-semibold text-foreground">Günlük Toplam</span>
-                  <div className="flex items-center gap-4 text-sm font-mono">
-                    <span>{selectedDayData.totalCalories} kcal</span>
-                    <span className="text-destructive">{Math.round(selectedDayData.totalProtein)}g P</span>
-                    <span className="text-warning">{Math.round(selectedDayData.totalCarbs)}g K</span>
-                    <span className="text-accent-foreground">{Math.round(selectedDayData.totalFat)}g Y</span>
+                {/* Planned vs Actual Totals */}
+                <div className="pt-3 border-t border-border space-y-2">
+                  {selectedDayData.plannedCalories > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">📋 Planlanan Toplam</span>
+                      <div className="flex items-center gap-4 font-mono text-muted-foreground">
+                        <span>{selectedDayData.plannedCalories} kcal</span>
+                        <span>{Math.round(selectedDayData.plannedProtein)}g P</span>
+                        <span>{Math.round(selectedDayData.plannedCarbs)}g K</span>
+                        <span>{Math.round(selectedDayData.plannedFat)}g Y</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-foreground">✅ Tüketilen Toplam</span>
+                    <div className="flex items-center gap-4 font-mono">
+                      <span>{selectedDayData.totalCalories} kcal</span>
+                      <span className="text-destructive">{Math.round(selectedDayData.totalProtein)}g P</span>
+                      <span className="text-warning">{Math.round(selectedDayData.totalCarbs)}g K</span>
+                      <span className="text-accent-foreground">{Math.round(selectedDayData.totalFat)}g Y</span>
+                    </div>
                   </div>
+                  {selectedDayData.plannedCalories > 0 && (
+                    <div className="flex items-center justify-between text-sm pt-1">
+                      <span className="text-muted-foreground">Uyum Oranı</span>
+                      <Badge variant={
+                        selectedDayData.totalCalories / selectedDayData.plannedCalories >= 0.85
+                          ? "default"
+                          : "destructive"
+                      } className="font-mono">
+                        %{Math.round((selectedDayData.totalCalories / selectedDayData.plannedCalories) * 100)}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -528,7 +616,6 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
         </Card>
       )}
 
-      {/* ═══ Assign Diet Template Dialog ═══ */}
       <AssignDietTemplateDialog
         open={showTemplateDialog}
         onOpenChange={setShowTemplateDialog}
