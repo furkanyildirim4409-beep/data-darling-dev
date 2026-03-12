@@ -356,6 +356,8 @@ export default function Programs() {
           const factor = item.unit === "adet" ? item.amount : item.amount / 100;
           return sum + (item.kcal || 0) * factor;
         }, 0);
+        const daysWithItems = new Set(selectedNutrition.map(i => i.dayIndex)).size;
+        const avgDailyCals = daysWithItems > 0 ? Math.round(totalCals / daysWithItems) : 0;
 
         const { data: template, error: tErr } = await supabase
           .from("diet_templates")
@@ -363,7 +365,7 @@ export default function Programs() {
             coach_id: user.id,
             title: meta.title,
             description: meta.description || null,
-            target_calories: Math.round(totalCals),
+            target_calories: avgDailyCals,
           })
           .select("id")
           .single();
