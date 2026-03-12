@@ -152,15 +152,26 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     return dailyData.find((d) => d.date === selectedDate) || null;
   }, [selectedDate, dailyData]);
 
-  const groupedFoods = useMemo(() => {
+  const groupedUnifiedFoods = useMemo(() => {
     if (!selectedDayData) return {};
-    const groups: Record<string, ConsumedFood[]> = {};
-    for (const f of selectedDayData.foods) {
+    const groups: Record<string, UnifiedFoodItem[]> = {};
+    for (const f of selectedDayData.unifiedFoods) {
       const key = f.meal_type || "snack";
       if (!groups[key]) groups[key] = [];
       groups[key].push(f);
     }
     return groups;
+  }, [selectedDayData]);
+
+  const complianceSummary = useMemo(() => {
+    if (!selectedDayData) return { consumed: 0, missed: 0, manual: 0, total: 0 };
+    const items = selectedDayData.unifiedFoods;
+    return {
+      consumed: items.filter((f) => f.status === "consumed").length,
+      missed: items.filter((f) => f.status === "missed").length,
+      manual: items.filter((f) => f.status === "manual").length,
+      total: items.length,
+    };
   }, [selectedDayData]);
 
   const macroCards = [
