@@ -475,13 +475,83 @@ export function ProgramLibrary({
     return () => { cancelled = true; };
   }, [debouncedSearch, builderMode]);
 
+  // Fetch coach's food library from DB
+  const fetchCoachFoods = useCallback(async () => {
+    if (!user) return;
+    setLoadingCoachFoods(true);
+    const { data } = await supabase
+      .from("food_items")
+      .select("*")
+      .eq("coach_id", user.id)
+      .order("name");
+    if (data) {
+      setCoachFoods(data.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category || "Genel",
+        type: "nutrition",
+        kcal: r.calories || 0,
+        protein: r.protein || 0,
+        carbs: r.carbs || 0,
+        fats: r.fat || 0,
+      })));
+    }
+    setLoadingCoachFoods(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (builderMode === "nutrition") {
+      fetchCoachFoods();
+    }
+  }, [builderMode, fetchCoachFoods]);
+
+  // Auto-sync API food to food_items on add
+  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    // Call original onAddItem immediately
+    onAddItem(item);
+
+    // If it's a nutrition item from API, upsert to food_items
+    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
+      try {
+        const { data } = await supabase
+          .from("food_items")
+          .upsert({
+            name: item.name,
+            category: item.category === "API" ? "Genel" : item.category,
+            calories: item.kcal || 0,
+            protein: item.protein || 0,
+            carbs: item.carbs || 0,
+            fat: item.fats || 0,
+            serving_size: "100g",
+            coach_id: user.id,
+          }, { onConflict: "name,coach_id" })
+          .select("id")
+          .single();
+
+        if (data) {
+          toast.success("Besin kütüphaneye eklendi");
+          // Refresh coach foods list
+          fetchCoachFoods();
+        }
+      } catch {
+        // Non-blocking, ignore errors
+      }
+    }
+  }, [onAddItem, user, fetchCoachFoods]);
+
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
-    : nutrition.filter(
-        (nut) =>
-          nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          nut.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    : coachFoods.length > 0
+      ? coachFoods.filter(
+          (f) =>
+            f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            f.category.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : nutrition.filter(
+          (nut) =>
+            nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nut.category.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
   const filteredTemplates = templates.filter(
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
