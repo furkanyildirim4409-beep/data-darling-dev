@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { AssignDietTemplateDialog } from "./AssignDietTemplateDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon } from "lucide-react";
+import { Apple, Edit, Flame, Beef, Wheat, Droplets, Save, X, Loader2, UtensilsCrossed, TrendingUp, ChevronDown, ChevronUp, CalendarIcon, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAthleteNutritionHistory, type ConsumedFood, type DateRange } from "@/hooks/useAthleteNutritionHistory";
@@ -52,6 +53,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   // ─── History State ───
   const RANGE_PRESETS = [
@@ -193,10 +195,20 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
           </div>
           {!isEditing ? (
-            <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
-              <Edit className="w-4 h-4 mr-2" />
-              {hasExisting ? "Düzenle" : "Hedef Ata"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="border-success/30 text-success hover:bg-success/10"
+                onClick={() => setShowTemplateDialog(true)}
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Şablondan Ata
+              </Button>
+              <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
+                <Edit className="w-4 h-4 mr-2" />
+                {hasExisting ? "Düzenle" : "Hedef Ata"}
+              </Button>
+            </div>
           ) : (
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={isSaving} className="bg-success text-success-foreground hover:bg-success/90">
@@ -504,6 +516,14 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* ═══ Assign Diet Template Dialog ═══ */}
+      <AssignDietTemplateDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
+        athleteId={athleteId}
+        onAssigned={fetchTargets}
+      />
     </div>
   );
 }

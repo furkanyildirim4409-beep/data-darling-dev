@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, Trash2, Apple, Loader2, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Apple, Loader2, UtensilsCrossed, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,16 @@ interface MealSection {
   type: string;
   label: string;
   foods: FoodRow[];
+}
+
+interface ApiFoodResult {
+  name: string;
+  brand?: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  serving_size?: string;
 }
 
 const MEAL_TYPES: { type: string; label: string }[] = [
@@ -63,6 +73,122 @@ interface DietTemplateBuilderDialogProps {
   onSaved: () => void;
 }
 
+// ─── Food Search Dropdown ───
+function FoodSearchInput({
+  food,
+  mealType,
+  onUpdate,
+}: {
+  food: FoodRow;
+  mealType: string;
+  onUpdate: (mealType: string, foodId: string, field: keyof FoodRow, value: string | number) => void;
+}) {
+  const [query, setQuery] = useState(food.food_name);
+  const [results, setResults] = useState<ApiFoodResult[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync external changes
+  useEffect(() => {
+    setQuery(food.food_name);
+  }, [food.food_name]);
+
+  const searchFood = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    setSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-food", {
+        body: { query: q },
+      });
+      if (error) throw error;
+      const items: ApiFoodResult[] = Array.isArray(data) ? data : data?.items || [];
+      setResults(items.slice(0, 8));
+      setShowDropdown(items.length > 0);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  const handleChange = (value: string) => {
+    setQuery(value);
+    onUpdate(mealType, food.id, "food_name", value);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => searchFood(value), 300);
+  };
+
+  const handleSelect = (item: ApiFoodResult) => {
+    onUpdate(mealType, food.id, "food_name", item.name);
+    onUpdate(mealType, food.id, "calories", Math.round(item.calories || 0));
+    onUpdate(mealType, food.id, "protein", Math.round(item.protein || 0));
+    onUpdate(mealType, food.id, "carbs", Math.round(item.carbs || 0));
+    onUpdate(mealType, food.id, "fat", Math.round(item.fat || 0));
+    onUpdate(mealType, food.id, "serving_size", item.serving_size || "100g");
+    setQuery(item.name);
+    setShowDropdown(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Input
+          placeholder="örn. Yulaf ezmesi"
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => results.length > 0 && setShowDropdown(true)}
+          className="h-8 text-sm pr-7"
+        />
+        {searching && (
+          <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
+        )}
+        {!searching && query.length >= 2 && (
+          <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+        )}
+      </div>
+      {showDropdown && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
+          {results.map((item, i) => (
+            <button
+              key={i}
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors text-sm border-b border-border/30 last:border-0"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(item);
+              }}
+            >
+              <p className="font-medium text-foreground truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {Math.round(item.calories)} kcal · P:{Math.round(item.protein)}g · C:{Math.round(item.carbs)}g · F:{Math.round(item.fat)}g
+                {item.brand && ` · ${item.brand}`}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Dialog ───
 export function DietTemplateBuilderDialog({
   open,
   onOpenChange,
@@ -141,7 +267,6 @@ export function DietTemplateBuilderDialog({
 
     setSaving(true);
     try {
-      // 1. Insert template header
       const { data: template, error: tErr } = await supabase
         .from("diet_templates")
         .insert({
@@ -155,7 +280,6 @@ export function DietTemplateBuilderDialog({
 
       if (tErr || !template) throw tErr;
 
-      // 2. Bulk insert foods
       const foodRows = meals.flatMap((m) =>
         m.foods
           .filter((f) => f.food_name.trim())
@@ -176,7 +300,6 @@ export function DietTemplateBuilderDialog({
           .from("diet_template_foods")
           .insert(foodRows);
         if (fErr) {
-          // Rollback template
           await supabase.from("diet_templates").delete().eq("id", template.id);
           throw fErr;
         }
@@ -268,13 +391,10 @@ export function DietTemplateBuilderDialog({
                         >
                           <div className="col-span-4">
                             <Label className="text-xs text-muted-foreground">Besin Adı</Label>
-                            <Input
-                              placeholder="örn. Yulaf ezmesi"
-                              value={food.food_name}
-                              onChange={(e) =>
-                                updateFood(meal.type, food.id, "food_name", e.target.value)
-                              }
-                              className="h-8 text-sm"
+                            <FoodSearchInput
+                              food={food}
+                              mealType={meal.type}
+                              onUpdate={updateFood}
                             />
                           </div>
                           <div className="col-span-2">
