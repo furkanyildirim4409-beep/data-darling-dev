@@ -103,12 +103,57 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
     };
   }, [coachId, athleteId]);
 
-  // Auto-scroll
+  // Auto-scroll only when near bottom
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const el = scrollRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (isNearBottom || prevScrollHeightRef.current === 0) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages]);
+
+  // Preserve scroll after loading older
+  useEffect(() => {
+    if (scrollRef.current && prevScrollHeightRef.current > 0) {
+      const el = scrollRef.current;
+      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isLoadingOlder]);
+
+  const loadOlder = async () => {
+    if (!coachId || !athleteId || isLoadingOlder || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    prevScrollHeightRef.current = scrollRef.current?.scrollHeight || 0;
+    setIsLoadingOlder(true);
+
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .or(
+        `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
+      )
+      .lt("created_at", oldest.created_at)
+      .order("created_at", { ascending: false })
+      .limit(MSG_LIMIT);
+
+    const older = ((data as ChatMessage[]) || []).reverse();
+    if (older.length > 0) {
+      setMessages(prev => [...older, ...prev]);
+    }
+    setHasMore(older.length >= MSG_LIMIT);
+    setIsLoadingOlder(false);
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current || isLoadingOlder || !hasMore) return;
+    if (scrollRef.current.scrollTop < 60) {
+      loadOlder();
+    }
+  };
 
   const handleSend = async () => {
     if (!newMessage.trim() || !coachId || !athleteId || sending) return;
