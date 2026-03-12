@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon, Download, Loader2 } from "lucide-react";
+import { Settings2, Plus, Trash2, Pencil, Check, X, Dumbbell, ImageIcon, Download, Upload, FileDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
