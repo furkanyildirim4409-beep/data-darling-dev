@@ -103,6 +103,10 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
+  // Determine if last message is from athlete (unanswered)
+  const lastMsg = messages[messages.length - 1];
+  const isUnanswered = lastMsg && lastMsg.sender_id !== user?.id;
+
   return (
     <div className="fixed bottom-6 right-6 w-80 h-[450px] bg-card border border-border rounded-xl shadow-2xl flex flex-col z-50 overflow-hidden">
       {/* Header */}
