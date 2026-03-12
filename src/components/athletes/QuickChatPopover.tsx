@@ -162,10 +162,57 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
     };
   }, [coachId, athlete.id]);
 
-  // Auto-scroll
+  // Auto-scroll only when near bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      const el = scrollContainerRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (isNearBottom || prevScrollHeightRef.current === 0) {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
   }, [messages]);
+
+  // Preserve scroll after loading older
+  useEffect(() => {
+    if (scrollContainerRef.current && prevScrollHeightRef.current > 0) {
+      const el = scrollContainerRef.current;
+      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isLoadingOlder]);
+
+  const loadOlder = async () => {
+    if (!coachId || isLoadingOlder || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight || 0;
+    setIsLoadingOlder(true);
+
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .or(
+        `and(sender_id.eq.${coachId},receiver_id.eq.${athlete.id}),and(sender_id.eq.${athlete.id},receiver_id.eq.${coachId})`
+      )
+      .lt('created_at', oldest.created_at)
+      .order('created_at', { ascending: false })
+      .limit(MSG_LIMIT);
+
+    const older = ((data as ChatMessage[]) || []).reverse();
+    if (older.length > 0) {
+      setMessages(prev => [...older, ...prev]);
+    }
+    setHasMore(older.length >= MSG_LIMIT);
+    setIsLoadingOlder(false);
+  };
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current || isLoadingOlder || !hasMore) return;
+    if (scrollContainerRef.current.scrollTop < 60) {
+      loadOlder();
+    }
+  };
 
   const initials = athlete.name
     .split(" ")
