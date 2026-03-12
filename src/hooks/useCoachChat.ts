@@ -36,6 +36,8 @@ export function useCoachChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingAthletes, setIsLoadingAthletes] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [totalUnread, setTotalUnread] = useState(0);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
