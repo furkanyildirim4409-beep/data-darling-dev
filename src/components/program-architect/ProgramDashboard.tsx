@@ -66,10 +66,12 @@ interface ProgramDashboardProps {
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
   const { user } = useAuth();
+  const importRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
   const [dietTemplates, setDietTemplates] = useState<ProgramData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
     open: false,
     program: null,
