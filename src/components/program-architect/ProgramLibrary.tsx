@@ -669,10 +669,10 @@ export function ProgramLibrary({
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
-                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : "Besin aramak için en az 2 karakter yazın"}
+                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : coachFoods.length === 0 ? "Besin aramak için en az 2 karakter yazın" : "Sonuç bulunamadı"}
                     </p>
                   )}
                 </>
