@@ -520,9 +520,9 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                       label={{ value: `Hedef: ${calorieTarget}`, position: "insideTopRight", className: "fill-success text-xs" }}
                     />
                     {dailyData.some(d => d.plannedCalories > 0) && (
-                      <Bar dataKey="plannedCalories" radius={[6, 6, 0, 0]} fill="hsl(var(--muted-foreground))" opacity={0.15} cursor="pointer" />
+                      <Bar dataKey="plannedCalories" radius={[6, 6, 0, 0]} fill="hsl(var(--muted-foreground))" opacity={0.25} cursor="pointer" barSize={dailyData.length > 14 ? 6 : 12} />
                     )}
-                    <Bar dataKey="totalCalories" radius={[6, 6, 0, 0]} cursor="pointer">
+                    <Bar dataKey="totalCalories" radius={[6, 6, 0, 0]} cursor="pointer" barSize={dailyData.length > 14 ? 6 : 12}>
                       {dailyData.map((entry) => {
                         const pct = calorieTarget ? entry.totalCalories / calorieTarget : 0;
                         const isSelected = selectedDate === entry.date;
@@ -535,7 +535,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                           <Cell
                             key={entry.date}
                             fill={fill}
-                            opacity={isSelected ? 1 : 0.75}
+                            opacity={isSelected ? 1 : 0.8}
                             stroke={isSelected ? "hsl(var(--foreground))" : "none"}
                             strokeWidth={isSelected ? 2 : 0}
                           />
