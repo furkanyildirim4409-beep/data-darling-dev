@@ -248,10 +248,10 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
   }, [selectedDayData]);
 
   const macroCards = [
-    { label: "Kalori", value: combinedMacros?.calories ?? targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
-    { label: "Protein", value: combinedMacros?.protein ?? targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
-    { label: "Karbonhidrat", value: combinedMacros?.carbs ?? targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
-    { label: "Yağ", value: combinedMacros?.fat ?? targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
+    { label: "Kalori", value: activeMacros?.calories ?? targets.daily_calories, unit: "kcal", icon: Flame, color: "primary" },
+    { label: "Protein", value: activeMacros?.protein ?? targets.protein_g, unit: "g", icon: Beef, color: "destructive" },
+    { label: "Karbonhidrat", value: activeMacros?.carbs ?? targets.carbs_g, unit: "g", icon: Wheat, color: "warning" },
+    { label: "Yağ", value: activeMacros?.fat ?? targets.fat_g, unit: "g", icon: Droplets, color: "accent" },
   ];
 
   if (isLoading) {
