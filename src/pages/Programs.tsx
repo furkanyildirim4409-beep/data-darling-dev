@@ -59,6 +59,57 @@ export default function Programs() {
     setEditingProgram(program);
     setViewMode("builder");
 
+    if (program.type === "nutrition") {
+      // Load diet_template_foods into selectedNutrition
+      const { data: foods, error } = await supabase
+        .from("diet_template_foods")
+        .select("*")
+        .eq("template_id", program.id)
+        .order("id");
+
+      if (error) {
+        toast.error("Besinler yüklenemedi: " + error.message);
+        return;
+      }
+
+      const reverseMealMap: Record<string, string> = {
+        breakfast: "meal-1",
+        snack: "meal-2",
+        lunch: "meal-3",
+        dinner: "meal-5",
+      };
+
+      const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
+        // Parse serving_size to get amount and unit
+        const servingMatch = (f.serving_size || "100g").match(/^(\d+\.?\d*)(.*)/);
+        const amount = servingMatch ? parseFloat(servingMatch[1]) : 100;
+        const unit = servingMatch && servingMatch[2]?.trim() ? servingMatch[2].trim() : "g";
+        const factor = unit === "adet" ? amount : amount / 100;
+
+        return {
+          id: f.id,
+          name: f.food_name,
+          category: "Genel",
+          type: "nutrition",
+          kcal: factor > 0 ? Math.round((f.calories || 0) / factor) : 0,
+          protein: factor > 0 ? Math.round((f.protein || 0) / factor) : 0,
+          carbs: factor > 0 ? Math.round((f.carbs || 0) / factor) : 0,
+          fats: factor > 0 ? Math.round((f.fat || 0) / factor) : 0,
+          amount,
+          unit,
+          mealId: reverseMealMap[f.meal_type] || "meal-2",
+          dayIndex: (f.day_number || 1) - 1,
+        };
+      });
+
+      setSelectedNutrition(nutritionItems);
+      setActiveNutritionDay(0);
+      setActiveMealId("meal-1");
+      toast.info(`"${program.name}" düzenleme modunda açıldı.`);
+      return;
+    }
+
+    // Exercise mode
     const { data: exercises, error } = await supabase
       .from("exercises")
       .select("*")
