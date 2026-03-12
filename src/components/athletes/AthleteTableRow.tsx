@@ -4,13 +4,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MessageSquare, User, ChevronRight } from "lucide-react";
+import { MessageSquare, User, ChevronRight, MessageCircleWarning } from "lucide-react";
 import { Athlete } from "@/data/athletes";
 
 interface AthleteTableRowProps {
   athlete: Athlete;
   onMessage?: (athlete: Athlete) => void;
   onViewProfile?: (athlete: Athlete) => void;
+  hasUnanswered?: boolean;
 }
 
 const tierStyles = {
