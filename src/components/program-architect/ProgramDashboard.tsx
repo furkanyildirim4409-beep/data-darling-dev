@@ -534,6 +534,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
       {/* Bulk Assign Dialog */}
       <BulkAssignDialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen} />
+
+      {/* Diet Template Bulk Assign Dialog */}
+      <AssignDietTemplateBulkDialog
+        open={dietAssignDialog.open}
+        onOpenChange={(open) => setDietAssignDialog((prev) => ({ ...prev, open }))}
+        templateId={dietAssignDialog.templateId}
+        templateName={dietAssignDialog.templateName}
+      />
     </div>
   );
+}
 }
