@@ -156,6 +156,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
     setIsSaving(false);
   };
 
+  const handleRemoveTemplate = async () => {
+    setIsRemovingTemplate(true);
+    const { error } = await supabase
+      .from("nutrition_targets")
+      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .eq("athlete_id", athleteId);
+    if (error) {
+      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } else {
+      setActiveTemplate(null);
+      toast({ title: "Başarılı", description: "Diyet şablonu ataması kaldırıldı." });
+    }
+    setIsRemovingTemplate(false);
+  };
+
   const handleCancel = () => {
     setFormValues(targets);
     setIsEditing(false);
