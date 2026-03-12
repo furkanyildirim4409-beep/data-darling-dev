@@ -568,6 +568,44 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                 </div>
               )}
 
+              {/* ═══ Weekly Compliance Summary ═══ */}
+              {(() => {
+                const daysWithPlan = dailyData.filter(d => d.plannedCalories > 0);
+                const daysFollowed = daysWithPlan.filter(d => {
+                  const pct = d.plannedCalories > 0 ? d.totalCalories / d.plannedCalories : 0;
+                  return pct >= 0.85 && pct <= 1.15;
+                }).length;
+                const totalMissed = dailyData.reduce((s, d) => s + d.unifiedFoods.filter(f => f.status === "missed").length, 0);
+                const totalConsumed = dailyData.reduce((s, d) => s + d.unifiedFoods.filter(f => f.status === "consumed").length, 0);
+                const totalManual = dailyData.reduce((s, d) => s + d.unifiedFoods.filter(f => f.status === "manual").length, 0);
+                const totalPlanned = totalConsumed + totalMissed;
+                const foodCompliance = totalPlanned > 0 ? Math.round((totalConsumed / totalPlanned) * 100) : 0;
+                const avgCalDiff = daysWithPlan.length > 0
+                  ? Math.round(daysWithPlan.reduce((s, d) => s + (d.totalCalories - d.plannedCalories), 0) / daysWithPlan.length)
+                  : 0;
+
+                const kpis = [
+                  { label: "Plan Takip", value: `${daysFollowed}/${daysWithPlan.length}`, sub: "gün", icon: "📅", color: daysFollowed >= daysWithPlan.length * 0.7 ? "text-success" : "text-warning" },
+                  { label: "Besin Uyumu", value: `%${foodCompliance}`, sub: `${totalConsumed}/${totalPlanned}`, icon: "🎯", color: foodCompliance >= 80 ? "text-success" : foodCompliance >= 50 ? "text-warning" : "text-destructive" },
+                  { label: "Kaçırılan", value: `${totalMissed}`, sub: "besin", icon: "⚠️", color: totalMissed === 0 ? "text-success" : totalMissed <= 3 ? "text-warning" : "text-destructive" },
+                  { label: "Ekstra Besin", value: `${totalManual}`, sub: "plan dışı", icon: "➕", color: "text-muted-foreground" },
+                  { label: "Ort. Kalori Farkı", value: `${avgCalDiff > 0 ? "+" : ""}${avgCalDiff}`, sub: "kcal/gün", icon: "📊", color: Math.abs(avgCalDiff) <= 150 ? "text-success" : "text-warning" },
+                ];
+
+                return (
+                  <div className="grid grid-cols-5 gap-2 mt-4">
+                    {kpis.map((k) => (
+                      <div key={k.label} className="text-center p-3 rounded-xl bg-secondary/30 border border-border/50">
+                        <span className="text-lg">{k.icon}</span>
+                        <p className={cn("text-lg font-bold font-mono mt-1", k.color)}>{k.value}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{k.sub}</p>
+                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{k.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* Macro Averages Row */}
               <div className="grid grid-cols-4 gap-3 mt-4">
                 {[
