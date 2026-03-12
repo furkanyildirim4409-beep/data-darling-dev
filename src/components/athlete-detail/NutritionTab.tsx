@@ -264,9 +264,27 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground">Beslenme Hedefleri</h3>
-              <p className="text-sm text-muted-foreground">
-                {hasExisting ? "Günlük makro hedefler atanmış" : "Henüz hedef atanmadı"}
-              </p>
+              {activeTemplate ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="outline" className="border-success/30 text-success text-xs">
+                    <FileDown className="w-3 h-3 mr-1" />
+                    {activeTemplate.title}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] text-destructive hover:bg-destructive/10"
+                    onClick={handleRemoveTemplate}
+                    disabled={isRemovingTemplate}
+                  >
+                    {isRemovingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {hasExisting ? "Manuel hedefler aktif" : "Henüz hedef atanmadı"}
+                </p>
+              )}
             </div>
           </div>
           {!isEditing ? (
