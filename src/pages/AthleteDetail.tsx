@@ -200,13 +200,19 @@ export default function AthleteDetail() {
           <TabsTrigger value="history" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><History className="w-4 h-4" />Antrenman Geçmişi</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-6">
+        <TabsContent value="general" className="mt-6 space-y-6">
+          {/* Top row: charts side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <AthleteProgressChart athleteId={athlete.id} />
+            <WellnessRadar data={wellnessData} />
+            <BloodworkPanel />
+          </div>
+
+          {/* Bottom row: 3-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-primary" />Biyo-Veri</div>
               <BodyModel3D />
-              <AthleteProgressChart athleteId={athlete.id} />
-              <WellnessRadar data={wellnessData} /><BloodworkPanel />
             </div>
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><span className="w-2 h-2 rounded-full bg-warning" />Performans</div>
