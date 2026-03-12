@@ -71,7 +71,8 @@ export function useCoachChat() {
       .or(
         `and(sender_id.eq.${coachId},receiver_id.in.(${athleteIds.join(',')})),and(receiver_id.eq.${coachId},sender_id.in.(${athleteIds.join(',')}))`
       )
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     const latestMap = new Map<string, any>();
     const unreadMap = new Map<string, number>();
