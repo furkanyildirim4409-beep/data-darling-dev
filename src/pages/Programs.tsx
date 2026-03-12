@@ -738,6 +738,8 @@ export default function Programs() {
               onClearAll={handleClearAll}
               activeMealId={activeMealId}
               setActiveMealId={setActiveMealId}
+              activeNutritionDay={activeNutritionDay}
+              setActiveNutritionDay={setActiveNutritionDay}
             />
           )}
         </div>
