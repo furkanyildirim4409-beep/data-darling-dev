@@ -209,7 +209,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setDeleteDialog({ open: false, program: null });
   };
 
-  const handleDuplicateDiet = async (item: ProgramData) => {
+  const handleDuplicateDiet = async (item: ProgramData, openInEditor = false) => {
     if (!user) return;
     const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
     if (!tpl) { toast.error("Şablon bulunamadı"); return; }
@@ -227,7 +227,13 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       );
     }
     toast.success(`"${item.name}" kopyalandı`);
-    fetchDietTemplates();
+
+    if (openInEditor) {
+      const cloned: ProgramData = { ...item, id: newTpl.id, name: newTpl.title, createdAt: new Date(newTpl.created_at ?? Date.now()) };
+      onEditProgram(cloned);
+    } else {
+      fetchDietTemplates();
+    }
   };
 
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
