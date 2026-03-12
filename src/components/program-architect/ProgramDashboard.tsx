@@ -479,11 +479,20 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                             <Users className="w-4 h-4 mr-2" />
                             Sporculara Ata
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item)}>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, false)}>
                             <Copy className="w-4 h-4 mr-2" />
                             Kopyala
                           </DropdownMenuItem>
-                        </>
+                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, true)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Klonla &amp; Düzenle
+                          </DropdownMenuItem>
+                          {onSaveAsTemplate && (
+                            <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
+                              <Save className="w-4 h-4 mr-2" />
+                              Şablon Olarak Kaydet
+                            </DropdownMenuItem>
+                          )}
                       )}
                       <DropdownMenuItem
                         onClick={() => handleDelete(item)}
