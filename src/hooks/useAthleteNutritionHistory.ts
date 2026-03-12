@@ -79,8 +79,8 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
     const endDate = endOfDay(rangeTo || new Date());
 
-    // Fetch consumed foods & nutrition targets
-    const [foodsRes, targetsRes, assignmentsRes] = await Promise.all([
+    // Fetch consumed foods & nutrition targets (single source of truth)
+    const [foodsRes, targetsRes] = await Promise.all([
       supabase
         .from("consumed_foods")
         .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at, planned_food_id")
@@ -90,28 +90,24 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         .order("logged_at", { ascending: true }),
       supabase
         .from("nutrition_targets")
-        .select("daily_calories")
+        .select("daily_calories, active_diet_template_id")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
-      supabase
-        .from("athlete_diet_assignments")
-        .select("template_id")
-        .eq("athlete_id", athleteId),
     ]);
 
     if (targetsRes.data?.daily_calories) {
       setCalorieTarget(targetsRes.data.daily_calories);
     }
 
-    const assignedTemplateIds = (assignmentsRes.data || []).map((a) => a.template_id);
+    const activeTemplateId = targetsRes.data?.active_diet_template_id || null;
 
-    // Fetch template foods from ALL assigned templates
+    // Fetch template foods from the single active template
     let templateFoods: PlannedFood[] = [];
-    if (assignedTemplateIds.length > 0) {
+    if (activeTemplateId) {
       const { data: tplFoods } = await supabase
         .from("diet_template_foods")
         .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, day_number, template_id")
-        .in("template_id", assignedTemplateIds);
+        .eq("template_id", activeTemplateId);
 
       templateFoods = (tplFoods || []).map((f) => ({
         id: f.id,
@@ -155,7 +151,7 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
       const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
       const dayNumber = (dayOffset % 7) + 1;
 
-      // Get planned foods for this day_number from ALL templates
+      // Get planned foods for this day_number
       const plannedForDay = templateFoods.filter((tf) => tf.day_number === dayNumber);
 
       // Build unified foods list

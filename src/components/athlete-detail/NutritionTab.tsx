@@ -45,8 +45,7 @@ const MEAL_LABELS: Record<string, string> = {
   snack: "🍎 Atıştırmalık",
 };
 
-interface AssignedTemplate {
-  assignmentId: string;
+interface ActiveTemplate {
   templateId: string;
   title: string;
   dailyAvg: { calories: number; protein: number; carbs: number; fat: number };
