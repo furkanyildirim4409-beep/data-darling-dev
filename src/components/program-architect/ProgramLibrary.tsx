@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2, X } from "lucide-react";
+import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -104,7 +104,12 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
         {item.type === "exercise" ? (
           <Dumbbell className="w-4 h-4 text-primary/60 shrink-0" />
         ) : (
-          <Apple className="w-4 h-4 text-success/60 shrink-0" />
+          <div className="relative shrink-0">
+            <Apple className="w-4 h-4 text-success/60" />
+            {item.type === "nutrition" && !item.id.startsWith("api-") && !item.id.startsWith("nut-") && (
+              <CheckCircle2 className="w-2.5 h-2.5 text-success absolute -top-1 -right-1" />
+            )}
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
@@ -231,6 +236,10 @@ export function ProgramLibrary({
   // Nutrition API search state
   const [nutritionResults, setNutritionResults] = useState<LibraryItem[]>([]);
   const [loadingNutrition, setLoadingNutrition] = useState(false);
+
+  // Coach's food library from DB
+  const [coachFoods, setCoachFoods] = useState<LibraryItem[]>([]);
+  const [loadingCoachFoods, setLoadingCoachFoods] = useState(false);
 
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
@@ -471,13 +480,83 @@ export function ProgramLibrary({
     return () => { cancelled = true; };
   }, [debouncedSearch, builderMode]);
 
+  // Fetch coach's food library from DB
+  const fetchCoachFoods = useCallback(async () => {
+    if (!user) return;
+    setLoadingCoachFoods(true);
+    const { data } = await supabase
+      .from("food_items")
+      .select("*")
+      .eq("coach_id", user.id)
+      .order("name");
+    if (data) {
+      setCoachFoods(data.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category || "Genel",
+        type: "nutrition",
+        kcal: r.calories || 0,
+        protein: r.protein || 0,
+        carbs: r.carbs || 0,
+        fats: r.fat || 0,
+      })));
+    }
+    setLoadingCoachFoods(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (builderMode === "nutrition") {
+      fetchCoachFoods();
+    }
+  }, [builderMode, fetchCoachFoods]);
+
+  // Auto-sync API food to food_items on add
+  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    // Call original onAddItem immediately
+    onAddItem(item);
+
+    // If it's a nutrition item from API, upsert to food_items
+    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
+      try {
+        const { data } = await supabase
+          .from("food_items")
+          .upsert({
+            name: item.name,
+            category: item.category === "API" ? "Genel" : item.category,
+            calories: item.kcal || 0,
+            protein: item.protein || 0,
+            carbs: item.carbs || 0,
+            fat: item.fats || 0,
+            serving_size: "100g",
+            coach_id: user.id,
+          }, { onConflict: "name,coach_id" })
+          .select("id")
+          .single();
+
+        if (data) {
+          toast.success("Besin kütüphaneye eklendi");
+          // Refresh coach foods list
+          fetchCoachFoods();
+        }
+      } catch {
+        // Non-blocking, ignore errors
+      }
+    }
+  }, [onAddItem, user, fetchCoachFoods]);
+
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
-    : nutrition.filter(
-        (nut) =>
-          nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          nut.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    : coachFoods.length > 0
+      ? coachFoods.filter(
+          (f) =>
+            f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            f.category.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : nutrition.filter(
+          (nut) =>
+            nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nut.category.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
   const filteredTemplates = templates.filter(
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -570,7 +649,7 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {(loadingExercises && builderMode === "exercise") || (loadingNutrition && builderMode === "nutrition") ? (
+              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
@@ -580,7 +659,7 @@ export function ProgramLibrary({
                     <LibraryItemCard
                       key={item.id}
                       item={item}
-                      onAdd={onAddItem}
+                      onAdd={handleAddWithSync}
                       isAdded={addedItemIds.includes(item.id)}
                       onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
                     />
@@ -590,10 +669,10 @@ export function ProgramLibrary({
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
-                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : "Besin aramak için en az 2 karakter yazın"}
+                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : coachFoods.length === 0 ? "Besin aramak için en az 2 karakter yazın" : "Sonuç bulunamadı"}
                     </p>
                   )}
                 </>
@@ -671,7 +750,7 @@ export function ProgramLibrary({
         <p className="text-xs text-muted-foreground text-center">
           {builderMode === "exercise" 
             ? `Toplam: ${TOTAL_EXERCISE_COUNT} egzersiz`
-            : `Toplam: ${nutrition.length} besin`
+            : coachFoods.length > 0 ? `Kütüphanem: ${coachFoods.length} besin` : `Toplam: ${nutrition.length} besin`
           }
         </p>
       </div>

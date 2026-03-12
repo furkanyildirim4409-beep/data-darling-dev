@@ -529,6 +529,48 @@ export type Database = {
           },
         ]
       }
+      food_items: {
+        Row: {
+          api_food_id: string | null
+          calories: number | null
+          carbs: number | null
+          category: string | null
+          coach_id: string | null
+          created_at: string | null
+          fat: number | null
+          id: string
+          name: string
+          protein: number | null
+          serving_size: string | null
+        }
+        Insert: {
+          api_food_id?: string | null
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          fat?: number | null
+          id?: string
+          name: string
+          protein?: number | null
+          serving_size?: string | null
+        }
+        Update: {
+          api_food_id?: string | null
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          fat?: number | null
+          id?: string
+          name?: string
+          protein?: number | null
+          serving_size?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
