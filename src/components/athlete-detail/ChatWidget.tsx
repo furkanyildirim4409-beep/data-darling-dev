@@ -37,6 +37,7 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
 
     const fetchMessages = async () => {
       setIsLoading(true);
+      setHasMore(true);
       const { data } = await supabase
         .from("messages")
         .select("*")
@@ -44,9 +45,11 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
           `and(sender_id.eq.${coachId},receiver_id.eq.${athleteId}),and(sender_id.eq.${athleteId},receiver_id.eq.${coachId})`
         )
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(MSG_LIMIT);
 
-      setMessages(((data as ChatMessage[]) || []).reverse());
+      const fetched = ((data as ChatMessage[]) || []).reverse();
+      setMessages(fetched);
+      setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoading(false);
     };
 
