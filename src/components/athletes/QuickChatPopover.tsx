@@ -92,6 +92,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
 
     const fetchMessages = async () => {
       setIsLoadingMessages(true);
+      setHasMore(true);
       const { data, error } = await supabase
         .from('messages')
         .select('*')
@@ -99,7 +100,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
           `and(sender_id.eq.${coachId},receiver_id.eq.${athlete.id}),and(sender_id.eq.${athlete.id},receiver_id.eq.${coachId})`
         )
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(MSG_LIMIT);
 
       if (error) {
         console.error('QuickChat fetch error:', error);
