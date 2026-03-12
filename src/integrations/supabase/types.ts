@@ -78,6 +78,38 @@ export type Database = {
           },
         ]
       }
+      athlete_diet_assignments: {
+        Row: {
+          assigned_at: string
+          athlete_id: string
+          coach_id: string
+          id: string
+          template_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          athlete_id: string
+          coach_id: string
+          id?: string
+          template_id: string
+        }
+        Update: {
+          assigned_at?: string
+          athlete_id?: string
+          coach_id?: string
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_diet_assignments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "diet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bio_coin_transactions: {
         Row: {
           amount: number
