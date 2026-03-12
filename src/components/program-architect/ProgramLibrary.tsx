@@ -64,6 +64,9 @@ export interface LibraryItem {
   type: string;
   muscleGroup?: string;
   kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fats?: number;
   gifUrl?: string;
 }
 
@@ -112,10 +115,13 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
                 {item.muscleGroup}
               </Badge>
             )}
-            {item.kcal && (
+            {item.kcal !== undefined && (
               <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-success/30 text-success/70">
                 {item.kcal} kcal
               </Badge>
+            )}
+            {item.protein !== undefined && (
+              <span className="text-[9px] text-muted-foreground">P:{item.protein}g C:{item.carbs}g F:{item.fats}g</span>
             )}
           </div>
         </div>
@@ -211,6 +217,10 @@ export function ProgramLibrary({
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Nutrition API search state
+  const [nutritionResults, setNutritionResults] = useState<LibraryItem[]>([]);
+  const [loadingNutrition, setLoadingNutrition] = useState(false);
 
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
@@ -413,11 +423,51 @@ export function ProgramLibrary({
     }
   };
 
-  const filteredNutrition = nutrition.filter(
-    (nut) =>
-      nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      nut.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Nutrition API search when in nutrition mode
+  useEffect(() => {
+    if (builderMode !== "nutrition") return;
+    if (debouncedSearch.length < 2) {
+      setNutritionResults([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingNutrition(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("search-food", {
+          body: { query: debouncedSearch },
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        const items: any[] = Array.isArray(data) ? data : data?.items || [];
+        setNutritionResults(
+          items.slice(0, 20).map((item: any, i: number) => ({
+            id: `api-${Date.now()}-${i}`,
+            name: item.name || item.food_name || "",
+            category: item.brand || "API",
+            type: "nutrition",
+            kcal: Math.round(item.calories || 0),
+            protein: Math.round(item.protein || 0),
+            carbs: Math.round(item.carbs || 0),
+            fats: Math.round(item.fat || 0),
+          }))
+        );
+      } catch {
+        if (!cancelled) setNutritionResults([]);
+      } finally {
+        if (!cancelled) setLoadingNutrition(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedSearch, builderMode]);
+
+  const filteredNutrition = debouncedSearch.length >= 2
+    ? nutritionResults
+    : nutrition.filter(
+        (nut) =>
+          nut.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          nut.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
   const filteredTemplates = templates.filter(
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -493,7 +543,7 @@ export function ProgramLibrary({
               ) : (
                 <>
                   <Apple className="w-3 h-3 mr-1.5" />
-                  Besinler ({nutrition.length})
+                  Besinler ({filteredNutrition.length})
                 </>
               )}
             </TabsTrigger>
@@ -510,7 +560,7 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {loadingExercises && builderMode === "exercise" ? (
+              {(loadingExercises && builderMode === "exercise") || (loadingNutrition && builderMode === "nutrition") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
@@ -530,9 +580,10 @@ export function ProgramLibrary({
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      {builderMode === "exercise" ? "Egzersiz bulunamadı" : "Besin bulunamadı"}
+                      {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
+                       debouncedSearch.length >= 2 ? "Besin bulunamadı" : "Besin aramak için en az 2 karakter yazın"}
                     </p>
                   )}
                 </>
