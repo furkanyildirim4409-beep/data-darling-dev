@@ -516,6 +516,14 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* ═══ Assign Diet Template Dialog ═══ */}
+      <AssignDietTemplateDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
+        athleteId={athleteId}
+        onAssigned={fetchTargets}
+      />
     </div>
   );
 }
