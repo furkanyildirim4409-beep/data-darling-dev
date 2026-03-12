@@ -655,6 +655,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Şablon Olarak Kaydet
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleExportProgram(item)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Dışa Aktar
+                          </DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuItem
