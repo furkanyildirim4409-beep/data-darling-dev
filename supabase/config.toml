@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.send-chat-push]
 verify_jwt = false
+
+[functions.generate-ai-program]
+verify_jwt = false

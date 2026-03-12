@@ -166,6 +166,8 @@ interface WorkoutBuilderProps {
   onSetRules: (rules: AutomationRule[]) => void;
   dayGroups: Record<number, ExerciseGroup[]>;
   onSetDayGroups: (groups: Record<number, ExerciseGroup[]>) => void;
+  onAIGenerate?: () => void;
+  isAIGenerating?: boolean;
 }
 
 export function WorkoutBuilder({
