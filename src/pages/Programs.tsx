@@ -21,7 +21,7 @@ const createEmptyWeek = (): DayPlan[] =>
 
 export default function Programs() {
   const { user } = useAuth();
-  const { validExerciseNames } = useValidExercises();
+  const { validExerciseNames, exerciseLookup } = useValidExercises();
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
