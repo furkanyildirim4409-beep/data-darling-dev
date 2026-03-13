@@ -924,6 +924,13 @@ export default function Programs() {
           targetGoal: editingProgram.targetGoal,
         } : null}
       />
+
+      <AIGeneratorModal
+        open={isAIModalOpen}
+        onOpenChange={setIsAIModalOpen}
+        onGenerate={handleAIGenerate}
+        isGenerating={isAIGenerating}
+      />
     </div>
   );
 }
