@@ -34,6 +34,7 @@ interface ExerciseJson {
   failure_set?: boolean;
   rest_time?: string;
   notes?: string;
+  video_url?: string;
 }
 
 interface AssignedWorkout {
