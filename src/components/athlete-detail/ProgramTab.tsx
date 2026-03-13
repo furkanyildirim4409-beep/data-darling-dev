@@ -367,6 +367,25 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
         </div>
       </div>
 
+      {/* Exercise Preview Dialog */}
+      <Dialog open={!!previewExercise} onOpenChange={(open) => !open && setPreviewExercise(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">{previewExercise?.name}</DialogTitle>
+          </DialogHeader>
+          {previewExercise?.video_url && (
+            <img
+              src={previewExercise.video_url}
+              alt={previewExercise.name}
+              className="w-full max-h-[60vh] object-contain rounded-lg"
+            />
+          )}
+          {previewExercise?.notes && (
+            <p className="text-sm text-muted-foreground">{previewExercise.notes}</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Remove Program Confirmation */}
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent className="bg-card border-border">
