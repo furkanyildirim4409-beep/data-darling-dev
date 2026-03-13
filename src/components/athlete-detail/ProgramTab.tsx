@@ -71,6 +71,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const [loading, setLoading] = useState(true);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [previewExercise, setPreviewExercise] = useState<ExerciseJson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
