@@ -336,10 +336,14 @@ export default function Programs() {
 
   // ─── AI Program Generation ───
   const handleAIGenerate = useCallback(async () => {
+    if (validExerciseNames.length === 0) {
+      toast.error("Egzersiz kütüphanesi yükleniyor, lütfen bekleyin...");
+      return;
+    }
     setIsAIGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-ai-program', {
-        body: { goal: "Hipertrofi", days: 3 },
+        body: { goal: "Hipertrofi", days: 3, validExercises: validExerciseNames },
       });
 
       if (error) {
