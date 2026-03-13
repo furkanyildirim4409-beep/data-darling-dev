@@ -12,6 +12,7 @@ import { Dumbbell, Apple, BookMarked, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useValidExercises } from "@/hooks/useValidExercises";
 
 type ViewMode = "dashboard" | "builder";
 
@@ -20,6 +21,7 @@ const createEmptyWeek = (): DayPlan[] =>
 
 export default function Programs() {
   const { user } = useAuth();
+  const { validExerciseNames } = useValidExercises();
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
@@ -334,10 +336,14 @@ export default function Programs() {
 
   // ─── AI Program Generation ───
   const handleAIGenerate = useCallback(async () => {
+    if (validExerciseNames.length === 0) {
+      toast.error("Egzersiz kütüphanesi yükleniyor, lütfen bekleyin...");
+      return;
+    }
     setIsAIGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-ai-program', {
-        body: { goal: "Hipertrofi", days: 3 },
+        body: { goal: "Hipertrofi", days: 3, validExercises: validExerciseNames },
       });
 
       if (error) {
@@ -378,7 +384,7 @@ export default function Programs() {
     } finally {
       setIsAIGenerating(false);
     }
-  }, []);
+  }, [validExerciseNames]);
 
 
   const handleSaveAsTemplate = useCallback(async () => {
