@@ -1,8 +1,10 @@
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -11,59 +13,97 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export async function subscribeToPush(userId: string): Promise<void> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('Push notifications not supported');
-    return;
-  }
+export function usePushNotifications() {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const [isSupported, setIsSupported] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const syncedRef = useRef(false);
 
-  // Fetch VAPID public key dynamically from edge function
-  const { data, error: fetchError } = await supabase.functions.invoke('get-vapid-public-key');
-  if (fetchError || !data?.publicKey) {
-    console.warn('Could not fetch VAPID public key:', fetchError?.message);
-    return;
-  }
-  const vapidPublicKey = data.publicKey;
+  useEffect(() => {
+    setIsSupported("serviceWorker" in navigator && "PushManager" in window);
+  }, []);
 
-  // Wait for the PWA service worker (registered by vite-plugin-pwa)
-  const registration = await navigator.serviceWorker.ready;
+  const subscribe = useCallback(async () => {
+    if (!isSupported || !userId) return false;
 
-  // Request permission
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    console.log('Notification permission denied');
-    return;
-  }
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return false;
 
-  // Subscribe to push
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-  });
+      const registration = await navigator.serviceWorker.ready;
 
-  const subJson = subscription.toJSON();
-  const endpoint = subJson.endpoint!;
-  const p256dh = subJson.keys!.p256dh!;
-  const auth = subJson.keys!.auth!;
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.error("VAPID public key not found in env");
+        return false;
+      }
 
-  // Upsert: check existing then insert or update
-  const { data: existing } = await supabase
-    .from('push_subscriptions')
-    .select('id')
-    .eq('endpoint', endpoint)
-    .eq('user_id', userId)
-    .maybeSingle();
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
 
-  if (existing) {
-    await supabase
-      .from('push_subscriptions')
-      .update({ p256dh, auth })
-      .eq('id', existing.id);
-  } else {
-    await supabase
-      .from('push_subscriptions')
-      .insert({ user_id: userId, endpoint, p256dh, auth });
-  }
+      const subJson = subscription.toJSON();
+      await supabase.from("push_subscriptions").upsert(
+        {
+          user_id: userId,
+          endpoint: subJson.endpoint!,
+          p256dh: subJson.keys?.p256dh || "",
+          auth: subJson.keys?.auth || "",
+        },
+        { onConflict: "user_id,endpoint" }
+      );
 
-  console.log('Push subscription registered successfully');
+      setIsSubscribed(true);
+      return true;
+    } catch (error) {
+      console.error("Push subscription error:", error);
+      return false;
+    }
+  }, [isSupported, userId]);
+
+  // Auto-sync on boot when permission is already granted
+  useEffect(() => {
+    if (!isSupported || !userId || syncedRef.current) return;
+
+    const autoSyncSubscription = async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription && Notification.permission === "granted") {
+          const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          if (vapidPublicKey) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+            });
+          }
+        }
+
+        if (subscription) {
+          const subJson = subscription.toJSON();
+          await supabase.from("push_subscriptions").upsert(
+            {
+              user_id: userId,
+              endpoint: subJson.endpoint!,
+              p256dh: subJson.keys?.p256dh || "",
+              auth: subJson.keys?.auth || "",
+            },
+            { onConflict: "user_id,endpoint" }
+          );
+          setIsSubscribed(true);
+        }
+      } catch (error) {
+        console.error("Push auto-sync error:", error);
+      } finally {
+        syncedRef.current = true;
+      }
+    };
+
+    autoSyncSubscription();
+  }, [isSupported, userId]);
+
+  return { isSupported, isSubscribed, subscribe };
 }
