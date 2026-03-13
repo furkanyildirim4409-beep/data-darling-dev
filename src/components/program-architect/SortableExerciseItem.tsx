@@ -90,12 +90,18 @@ export function SortableExerciseItem({
           <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
         {exercise.videoUrl ? (
-          <img
-            src={exercise.videoUrl}
-            alt={exercise.name}
-            className="w-7 h-7 rounded object-cover shrink-0 border border-border"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPreviewOpen(true); }}
+            className="shrink-0 rounded border border-border hover:border-primary/50 transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <img
+              src={exercise.videoUrl}
+              alt={exercise.name}
+              className="w-7 h-7 rounded object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </button>
         ) : exercise.type === "exercise" ? (
           <Dumbbell className="w-3.5 h-3.5 text-primary" />
         ) : (
