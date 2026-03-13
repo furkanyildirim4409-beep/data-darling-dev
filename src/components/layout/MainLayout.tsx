@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
+import { PushPermissionBanner } from "./PushPermissionBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
