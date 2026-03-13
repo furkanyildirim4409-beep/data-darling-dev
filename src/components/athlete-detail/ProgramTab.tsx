@@ -15,6 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, Target, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +34,7 @@ interface ExerciseJson {
   failure_set?: boolean;
   rest_time?: string;
   notes?: string;
+  video_url?: string;
 }
 
 interface AssignedWorkout {
@@ -64,6 +71,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const [loading, setLoading] = useState(true);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [previewExercise, setPreviewExercise] = useState<ExerciseJson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -263,32 +271,90 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                 {/* Exercises */}
                 {workout.exercises.length > 0 && (
                   <div className="px-4 pb-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {workout.exercises.map((ex, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 border border-border/50"
+                          className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                              {idx + 1}
-                            </span>
-                            <div className="min-w-0">
-                              <span className="text-sm font-medium text-foreground truncate block">{ex.name}</span>
-                              {ex.notes && (
-                                <span className="text-[10px] text-muted-foreground truncate block">{ex.notes}</span>
+                          {/* Thumbnail */}
+                          <button
+                            type="button"
+                            onClick={() => ex.video_url && setPreviewExercise(ex)}
+                            className={cn(
+                              "w-12 h-12 rounded-lg shrink-0 overflow-hidden border border-border/50",
+                              ex.video_url && "cursor-pointer hover:border-primary/50 transition-colors"
+                            )}
+                          >
+                            {ex.video_url ? (
+                              <img
+                                src={ex.video_url}
+                                alt={ex.name}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
+                                }}
+                              />
+                            ) : null}
+                            <div className={cn(
+                              "w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center",
+                              ex.video_url && "hidden"
+                            )}>
+                              <Dumbbell className="w-5 h-5 text-primary/60" />
+                            </div>
+                          </button>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                {idx + 1}
+                              </span>
+                              <span className="text-sm font-semibold text-foreground truncate">{ex.name}</span>
+                            </div>
+
+                            {/* Metrics */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {ex.sets && ex.reps && (
+                                <Badge variant="outline" className="text-[11px] h-5 px-1.5 bg-muted/50 font-mono">
+                                  {ex.sets} Set × {ex.reps}
+                                </Badge>
+                              )}
+                              {ex.rir !== undefined && ex.rir !== null && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[11px] h-5 px-1.5 font-mono",
+                                    ex.rir === 0
+                                      ? "border-destructive/50 text-destructive bg-destructive/10"
+                                      : "bg-muted/50"
+                                  )}
+                                >
+                                  RIR {ex.rir}
+                                </Badge>
+                              )}
+                              {ex.failure_set && (
+                                <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-destructive/50 text-destructive bg-destructive/10">
+                                  <Zap className="w-3 h-3 mr-0.5" />
+                                  Failure
+                                </Badge>
+                              )}
+                              {ex.rest_time && (
+                                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                                  <Clock className="w-3 h-3" />
+                                  {ex.rest_time}
+                                </span>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground shrink-0">
-                            {ex.sets && <span>{ex.sets}set</span>}
-                            {ex.reps && <span>×{ex.reps}</span>}
-                            {ex.rir !== undefined && ex.rir !== null && (
-                              <Badge variant="outline" className={cn("text-[10px] h-4 px-1", ex.rir === 0 && "border-destructive/50 text-destructive")}>
-                                RIR {ex.rir}
-                              </Badge>
+
+                            {/* Notes */}
+                            {ex.notes && (
+                              <div className="mt-1.5 p-1.5 rounded-md bg-accent/50 border border-accent">
+                                <p className="text-[11px] text-accent-foreground leading-snug">{ex.notes}</p>
+                              </div>
                             )}
-                            {ex.failure_set && <Zap className="w-3.5 h-3.5 text-destructive" />}
                           </div>
                         </div>
                       ))}
@@ -300,6 +366,25 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           </div>
         </div>
       </div>
+
+      {/* Exercise Preview Dialog */}
+      <Dialog open={!!previewExercise} onOpenChange={(open) => !open && setPreviewExercise(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">{previewExercise?.name}</DialogTitle>
+          </DialogHeader>
+          {previewExercise?.video_url && (
+            <img
+              src={previewExercise.video_url}
+              alt={previewExercise.name}
+              className="w-full max-h-[60vh] object-contain rounded-lg"
+            />
+          )}
+          {previewExercise?.notes && (
+            <p className="text-sm text-muted-foreground">{previewExercise.notes}</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Remove Program Confirmation */}
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
