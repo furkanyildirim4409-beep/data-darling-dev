@@ -23,17 +23,24 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const url = event.notification.data?.coachUrl || '/messages';
+  const rawPath = event.notification.data?.coachUrl || '/messages';
+  const targetUrl = new URL(rawPath, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
+          return client.focus().then((c) => {
+            if (!c) return;
+            // Give mobile webview 100ms to unfreeze before routing via React Router
+            setTimeout(() => {
+              c.postMessage({ type: 'PUSH_NAVIGATE', url: rawPath });
+            }, 100);
+          });
         }
       }
-      return clients.openWindow(url);
+      // App is completely closed — hard open
+      return clients.openWindow(targetUrl);
     })
   );
 });
