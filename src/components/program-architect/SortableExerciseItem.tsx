@@ -208,6 +208,20 @@ export function SortableExerciseItem({
               <span className="text-[9px] text-destructive">Son set failure'a kadar</span>
             )}
           </div>
+          {/* Exercise Notes */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <StickyNote className="w-3 h-3" />
+              Hareket Notu
+            </label>
+            <textarea
+              placeholder="Bu hareket için not ekleyin... (ör. Dirsekleri sabit tut, Tam ROM kullan)"
+              value={exercise.notes || ""}
+              onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "notes", e.target.value)}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background/50 px-2.5 py-1.5 text-[11px] ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 resize-none"
+            />
+          </div>
         </div>
       )}
       {/* Media Preview Dialog */}
