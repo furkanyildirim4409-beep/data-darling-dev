@@ -368,8 +368,8 @@ export default function Programs() {
       const goalBlockMap: Record<string, BlockType> = {
         "Hipertrofi": "hypertrophy",
         "Güç": "strength",
-        "Yağ Yakımı": "conditioning",
-        "Kondisyon": "conditioning",
+        "Yağ Yakımı": "endurance",
+        "Kondisyon": "endurance",
       };
       const blockType = goalBlockMap[params.goal] || "hypertrophy";
 
