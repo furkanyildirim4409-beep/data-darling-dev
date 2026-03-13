@@ -4,7 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { GripVertical, Dumbbell, Apple, X, Zap } from "lucide-react";
+import { GripVertical, Dumbbell, Apple, X, Zap, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BuilderExercise, ExerciseGroup } from "./WorkoutBuilder";
 import {
@@ -207,6 +207,20 @@ export function SortableExerciseItem({
             {exercise.failureSet && (
               <span className="text-[9px] text-destructive">Son set failure'a kadar</span>
             )}
+          </div>
+          {/* Exercise Notes */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <StickyNote className="w-3 h-3" />
+              Hareket Notu
+            </label>
+            <textarea
+              placeholder="Bu hareket için not ekleyin... (ör. Dirsekleri sabit tut, Tam ROM kullan)"
+              value={exercise.notes || ""}
+              onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "notes", e.target.value)}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background/50 px-2.5 py-1.5 text-[11px] ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 resize-none"
+            />
           </div>
         </div>
       )}
