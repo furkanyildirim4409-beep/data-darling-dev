@@ -361,18 +361,22 @@ export default function Programs() {
         if (index >= 7) return;
         newWeek[index].label = day.dayName || `${index + 1}. Gün`;
         newWeek[index].blockType = "hypertrophy";
-        newWeek[index].exercises = (day.exercises || []).map((ex: any, exIdx: number) => ({
-          id: crypto.randomUUID(),
-          name: ex.name || "Egzersiz",
-          category: "",
-          type: "exercise" as const,
-          sets: ex.sets || 3,
-          reps: parseInt(String(ex.reps).split("-")[0]) || 10,
-          rpe: 7,
-          rir: 2,
-          failureSet: false,
-          notes: ex.notes || undefined,
-        }));
+        newWeek[index].exercises = (day.exercises || []).map((ex: any) => {
+          const match = exerciseLookup.get((ex.name || "").toLowerCase());
+          return {
+            id: crypto.randomUUID(),
+            name: match?.name || ex.name || "Egzersiz",
+            category: match?.category || "",
+            type: "exercise" as const,
+            sets: ex.sets || 3,
+            reps: parseInt(String(ex.reps).split("-")[0]) || 10,
+            rpe: 7,
+            rir: 2,
+            failureSet: false,
+            notes: ex.notes || undefined,
+            videoUrl: match?.video_url || undefined,
+          };
+        });
       });
 
       setWeekPlan(newWeek);
@@ -384,7 +388,7 @@ export default function Programs() {
     } finally {
       setIsAIGenerating(false);
     }
-  }, [validExerciseNames]);
+  }, [validExerciseNames, exerciseLookup]);
 
 
   const handleSaveAsTemplate = useCallback(async () => {
