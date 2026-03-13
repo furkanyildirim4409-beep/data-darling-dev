@@ -384,7 +384,7 @@ export default function Programs() {
     } finally {
       setIsAIGenerating(false);
     }
-  }, []);
+  }, [validExerciseNames]);
 
 
   const handleSaveAsTemplate = useCallback(async () => {

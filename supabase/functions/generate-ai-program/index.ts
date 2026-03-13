@@ -22,13 +22,22 @@ serve(async (req) => {
 
     let goal = "Hipertrofi";
     let days = 3;
+    let validExercises: string[] = [];
     try {
       const body = await req.json();
       if (body.goal) goal = body.goal;
       if (body.days) days = Math.min(Math.max(Number(body.days), 1), 7);
+      if (Array.isArray(body.validExercises)) validExercises = body.validExercises;
     } catch { /* empty body ok */ }
 
-    const systemPrompt = `Sen elit bir güç ve kondisyon koçusun. Senden ${days} günlük bir antrenman programı üretmeni istiyorum. Hedef: ${goal}. Her gün için gün adı ve egzersiz listesi oluştur. Egzersiz adlarını Türkçe yaz. Her egzersiz için set sayısı, tekrar aralığı ve notlar ekle. Notlar kısa ve teknik olsun (ör. "Tükenişe 2 tekrar kala bırak", "Kontrollü negatif").`;
+    // Truncate to ~1200 entries for token safety
+    const exerciseList = validExercises.slice(0, 1200);
+
+    const exerciseDirective = exerciseList.length > 0
+      ? `\n\nKRİTİK KURAL: SADECE aşağıdaki listeden egzersiz seç. Listedeki isimleri BİREBİR kullan — değiştirme, çevirme, kısaltma veya yeni isim uydurma. Listede olmayan hiçbir egzersiz kullanma.\n\nGeçerli egzersiz listesi:\n${exerciseList.join(', ')}`
+      : '';
+
+    const systemPrompt = `Sen elit bir güç ve kondisyon koçusun. Senden ${days} günlük bir antrenman programı üretmeni istiyorum. Hedef: ${goal}. Her gün için gün adı ve egzersiz listesi oluştur. Her egzersiz için set sayısı, tekrar aralığı ve notlar ekle. Notlar kısa ve teknik olsun (ör. "Tükenişe 2 tekrar kala bırak", "Kontrollü negatif").${exerciseDirective}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
