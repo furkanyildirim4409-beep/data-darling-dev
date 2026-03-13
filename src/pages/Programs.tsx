@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useValidExercises } from "@/hooks/useValidExercises";
+import { AIGeneratorModal, AIGenerateParams } from "@/components/program-architect/AIGeneratorModal";
 
 type ViewMode = "dashboard" | "builder";
 
@@ -37,6 +38,7 @@ export default function Programs() {
   const [activeNutritionDay, setActiveNutritionDay] = useState(0);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
@@ -335,15 +337,22 @@ export default function Programs() {
   }, [builderMode]);
 
   // ─── AI Program Generation ───
-  const handleAIGenerate = useCallback(async () => {
+  const handleAIGenerate = useCallback(async (params: AIGenerateParams) => {
     if (validExerciseNames.length === 0) {
       toast.error("Egzersiz kütüphanesi yükleniyor, lütfen bekleyin...");
       return;
     }
+    setIsAIModalOpen(false);
     setIsAIGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-ai-program', {
-        body: { goal: "Hipertrofi", days: 3, validExercises: validExerciseNames },
+        body: {
+          goal: params.goal,
+          days: params.days,
+          level: params.level,
+          specialNotes: params.specialNotes,
+          validExercises: validExerciseNames,
+        },
       });
 
       if (error) {
@@ -356,11 +365,19 @@ export default function Programs() {
         return;
       }
 
+      const goalBlockMap: Record<string, BlockType> = {
+        "Hipertrofi": "hypertrophy",
+        "Güç": "strength",
+        "Yağ Yakımı": "endurance",
+        "Kondisyon": "endurance",
+      };
+      const blockType = goalBlockMap[params.goal] || "hypertrophy";
+
       const newWeek = createEmptyWeek();
       data.forEach((day: any, index: number) => {
         if (index >= 7) return;
         newWeek[index].label = day.dayName || `${index + 1}. Gün`;
-        newWeek[index].blockType = "hypertrophy";
+        newWeek[index].blockType = blockType;
         newWeek[index].exercises = (day.exercises || []).map((ex: any) => {
           const match = exerciseLookup.get((ex.name || "").toLowerCase());
           return {
@@ -382,7 +399,7 @@ export default function Programs() {
       setWeekPlan(newWeek);
       setActiveDay(0);
       setDayGroups({});
-      toast.success(`✨ AI ${data.length} günlük program üretti!`);
+      toast.success(`✨ AI ${data.length} günlük ${params.goal} programı üretti!`);
     } catch (err: any) {
       toast.error("AI hatası: " + (err?.message || "Bilinmeyen hata"));
     } finally {
@@ -870,7 +887,7 @@ export default function Programs() {
               onSetRules={setAutomationRules}
               dayGroups={dayGroups}
               onSetDayGroups={setDayGroups}
-              onAIGenerate={handleAIGenerate}
+              onAIGenerate={() => setIsAIModalOpen(true)}
               isAIGenerating={isAIGenerating}
             />
           ) : (
@@ -906,6 +923,13 @@ export default function Programs() {
           difficulty: editingProgram.difficulty,
           targetGoal: editingProgram.targetGoal,
         } : null}
+      />
+
+      <AIGeneratorModal
+        open={isAIModalOpen}
+        onOpenChange={setIsAIModalOpen}
+        onGenerate={handleAIGenerate}
+        isGenerating={isAIGenerating}
       />
     </div>
   );

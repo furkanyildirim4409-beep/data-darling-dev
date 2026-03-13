@@ -22,11 +22,15 @@ serve(async (req) => {
 
     let goal = "Hipertrofi";
     let days = 3;
+    let level = "Orta";
+    let specialNotes = "";
     let validExercises: string[] = [];
     try {
       const body = await req.json();
       if (body.goal) goal = body.goal;
       if (body.days) days = Math.min(Math.max(Number(body.days), 1), 7);
+      if (body.level) level = body.level;
+      if (body.specialNotes) specialNotes = String(body.specialNotes).slice(0, 500);
       if (Array.isArray(body.validExercises)) validExercises = body.validExercises;
     } catch { /* empty body ok */ }
 
@@ -37,7 +41,10 @@ serve(async (req) => {
       ? `\n\nKRİTİK KURAL: SADECE aşağıdaki listeden egzersiz seç. Listedeki isimleri BİREBİR kullan — değiştirme, çevirme, kısaltma veya yeni isim uydurma. Listede olmayan hiçbir egzersiz kullanma.\n\nGeçerli egzersiz listesi:\n${exerciseList.join(', ')}`
       : '';
 
-    const systemPrompt = `Sen elit bir güç ve kondisyon koçusun. Senden ${days} günlük bir antrenman programı üretmeni istiyorum. Hedef: ${goal}. Her gün için gün adı ve egzersiz listesi oluştur. Her egzersiz için set sayısı, tekrar aralığı ve notlar ekle. Notlar kısa ve teknik olsun (ör. "Tükenişe 2 tekrar kala bırak", "Kontrollü negatif").${exerciseDirective}`;
+    const levelDirective = `\nSporcu Seviyesi: ${level}.`;
+    const notesDirective = specialNotes ? `\nÖzel Notlar/Sakatlıklar: ${specialNotes}. Bu özel durumlara KESİNLİKLE DİKKAT EDEREK ve notlara uygun şekilde programı optimize et.` : '';
+
+    const systemPrompt = `Sen elit bir güç ve kondisyon koçusun. Senden ${days} günlük bir antrenman programı üretmeni istiyorum. Hedef: ${goal}.${levelDirective}${notesDirective} Her gün için gün adı ve egzersiz listesi oluştur. Her egzersiz için set sayısı, tekrar aralığı ve notlar ekle. Notlar kısa ve teknik olsun (ör. "Tükenişe 2 tekrar kala bırak", "Kontrollü negatif").${exerciseDirective}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
