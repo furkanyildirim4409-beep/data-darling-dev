@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { GripVertical, Dumbbell, Apple, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BuilderExercise, ExerciseGroup } from "./WorkoutBuilder";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface SortableExerciseItemProps {
   exercise: BuilderExercise;
@@ -32,6 +39,8 @@ export function SortableExerciseItem({
   onRemoveExercise,
   onUpdateExercise,
 }: SortableExerciseItemProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const {
     attributes,
     listeners,
@@ -81,12 +90,18 @@ export function SortableExerciseItem({
           <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
         {exercise.videoUrl ? (
-          <img
-            src={exercise.videoUrl}
-            alt={exercise.name}
-            className="w-7 h-7 rounded object-cover shrink-0 border border-border"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPreviewOpen(true); }}
+            className="shrink-0 rounded border border-border hover:border-primary/50 transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <img
+              src={exercise.videoUrl}
+              alt={exercise.name}
+              className="w-7 h-7 rounded object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </button>
         ) : exercise.type === "exercise" ? (
           <Dumbbell className="w-3.5 h-3.5 text-primary" />
         ) : (
@@ -194,6 +209,26 @@ export function SortableExerciseItem({
             )}
           </div>
         </div>
+      )}
+      {/* Media Preview Dialog */}
+      {exercise.videoUrl && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="sm:max-w-md bg-card border-border">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-medium truncate">{exercise.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center rounded-lg overflow-hidden bg-background">
+              <img
+                src={exercise.videoUrl}
+                alt={exercise.name}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              />
+            </div>
+            {exercise.category && (
+              <p className="text-xs text-muted-foreground text-center">{exercise.category}</p>
+            )}
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
