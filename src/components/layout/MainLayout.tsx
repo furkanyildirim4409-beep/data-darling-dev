@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { PushPermissionBanner } from "./PushPermissionBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useForegroundPush } from "@/hooks/useForegroundPush";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -12,6 +13,9 @@ export function MainLayout() {
 
   // Auto-sync push subscription on boot (runs silently via internal useEffect)
   usePushNotifications();
+
+  // Handle background-to-foreground deep linking from push notifications
+  useForegroundPush();
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-background">
