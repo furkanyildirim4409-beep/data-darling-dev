@@ -39,6 +39,8 @@ export function SortableExerciseItem({
   onRemoveExercise,
   onUpdateExercise,
 }: SortableExerciseItemProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const {
     attributes,
     listeners,
