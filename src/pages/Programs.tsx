@@ -12,6 +12,7 @@ import { Dumbbell, Apple, BookMarked, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useValidExercises } from "@/hooks/useValidExercises";
 
 type ViewMode = "dashboard" | "builder";
 
