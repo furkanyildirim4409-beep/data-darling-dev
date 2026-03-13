@@ -38,6 +38,7 @@ export default function Programs() {
   const [activeNutritionDay, setActiveNutritionDay] = useState(0);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   // Force dashboard refresh key
   const [dashboardKey, setDashboardKey] = useState(0);
