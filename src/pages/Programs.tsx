@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useValidExercises } from "@/hooks/useValidExercises";
+import { AIGeneratorModal, AIGenerateParams } from "@/components/program-architect/AIGeneratorModal";
 
 type ViewMode = "dashboard" | "builder";
 

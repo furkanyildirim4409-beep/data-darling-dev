@@ -22,11 +22,15 @@ serve(async (req) => {
 
     let goal = "Hipertrofi";
     let days = 3;
+    let level = "Orta";
+    let specialNotes = "";
     let validExercises: string[] = [];
     try {
       const body = await req.json();
       if (body.goal) goal = body.goal;
       if (body.days) days = Math.min(Math.max(Number(body.days), 1), 7);
+      if (body.level) level = body.level;
+      if (body.specialNotes) specialNotes = String(body.specialNotes).slice(0, 500);
       if (Array.isArray(body.validExercises)) validExercises = body.validExercises;
     } catch { /* empty body ok */ }
 
