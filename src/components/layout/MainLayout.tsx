@@ -20,6 +20,7 @@ export function MainLayout() {
       )}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <TopBar />
+        <PushPermissionBanner />
         <main className="flex-1 overflow-auto grid-pattern scrollbar-thin mobile-scroll">
           <div className="p-4 md:p-6"><Outlet /></div>
         </main>
