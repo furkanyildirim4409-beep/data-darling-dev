@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { GripVertical, Dumbbell, Apple, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BuilderExercise, ExerciseGroup } from "./WorkoutBuilder";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface SortableExerciseItemProps {
   exercise: BuilderExercise;
