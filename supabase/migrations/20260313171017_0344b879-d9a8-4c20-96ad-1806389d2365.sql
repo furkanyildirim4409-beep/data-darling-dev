@@ -1,0 +1,1 @@
+ALTER TABLE public.push_subscriptions ADD CONSTRAINT unique_user_endpoint UNIQUE (user_id, endpoint);
