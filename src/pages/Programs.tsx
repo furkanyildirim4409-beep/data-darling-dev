@@ -887,7 +887,7 @@ export default function Programs() {
               onSetRules={setAutomationRules}
               dayGroups={dayGroups}
               onSetDayGroups={setDayGroups}
-              onAIGenerate={handleAIGenerate}
+              onAIGenerate={() => setIsAIModalOpen(true)}
               isAIGenerating={isAIGenerating}
             />
           ) : (
