@@ -337,15 +337,22 @@ export default function Programs() {
   }, [builderMode]);
 
   // ─── AI Program Generation ───
-  const handleAIGenerate = useCallback(async () => {
+  const handleAIGenerate = useCallback(async (params: AIGenerateParams) => {
     if (validExerciseNames.length === 0) {
       toast.error("Egzersiz kütüphanesi yükleniyor, lütfen bekleyin...");
       return;
     }
+    setIsAIModalOpen(false);
     setIsAIGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-ai-program', {
-        body: { goal: "Hipertrofi", days: 3, validExercises: validExerciseNames },
+        body: {
+          goal: params.goal,
+          days: params.days,
+          level: params.level,
+          specialNotes: params.specialNotes,
+          validExercises: validExerciseNames,
+        },
       });
 
       if (error) {
@@ -358,11 +365,19 @@ export default function Programs() {
         return;
       }
 
+      const goalBlockMap: Record<string, BlockType> = {
+        "Hipertrofi": "hypertrophy",
+        "Güç": "strength",
+        "Yağ Yakımı": "conditioning",
+        "Kondisyon": "conditioning",
+      };
+      const blockType = goalBlockMap[params.goal] || "hypertrophy";
+
       const newWeek = createEmptyWeek();
       data.forEach((day: any, index: number) => {
         if (index >= 7) return;
         newWeek[index].label = day.dayName || `${index + 1}. Gün`;
-        newWeek[index].blockType = "hypertrophy";
+        newWeek[index].blockType = blockType;
         newWeek[index].exercises = (day.exercises || []).map((ex: any) => {
           const match = exerciseLookup.get((ex.name || "").toLowerCase());
           return {
@@ -384,7 +399,7 @@ export default function Programs() {
       setWeekPlan(newWeek);
       setActiveDay(0);
       setDayGroups({});
-      toast.success(`✨ AI ${data.length} günlük program üretti!`);
+      toast.success(`✨ AI ${data.length} günlük ${params.goal} programı üretti!`);
     } catch (err: any) {
       toast.error("AI hatası: " + (err?.message || "Bilinmeyen hata"));
     } finally {
