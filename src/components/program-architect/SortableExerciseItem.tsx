@@ -210,6 +210,26 @@ export function SortableExerciseItem({
           </div>
         </div>
       )}
+      {/* Media Preview Dialog */}
+      {exercise.videoUrl && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="sm:max-w-md bg-card border-border">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-medium truncate">{exercise.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center rounded-lg overflow-hidden bg-background">
+              <img
+                src={exercise.videoUrl}
+                alt={exercise.name}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              />
+            </div>
+            {exercise.category && (
+              <p className="text-xs text-muted-foreground text-center">{exercise.category}</p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
