@@ -221,6 +221,26 @@ export default function AthleteDetail() {
         </div>
       </div>
 
+      {/* AI Insights inline display */}
+      {aiInsights.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {aiInsights.map((insight, idx) => {
+            const colors = {
+              high: "border-destructive/40 bg-destructive/10 text-destructive",
+              medium: "border-warning/40 bg-warning/10 text-warning",
+              low: "border-success/40 bg-success/10 text-success",
+            };
+            const c = colors[insight.severity as keyof typeof colors] || colors.low;
+            return (
+              <div key={idx} className={`rounded-lg border p-3 ${c}`}>
+                <p className="text-sm font-semibold text-foreground mb-1">{insight.title}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{insight.analysis}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="glass border border-border w-full justify-start gap-2 p-1 h-auto">
           <TabsTrigger value="general" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><User className="w-4 h-4" />Genel</TabsTrigger>
