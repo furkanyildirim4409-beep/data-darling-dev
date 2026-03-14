@@ -145,6 +145,16 @@ export function AiHistoryWidget({ athleteId }: Props) {
     return map;
   }, [sessionInsights]);
 
+  const filteredBySelection = useMemo(
+    () =>
+      selectedSeverity
+        ? sessionInsights.filter(
+            (i) => ((i.severity as SeverityKey) || "low") === selectedSeverity
+          )
+        : [],
+    [sessionInsights, selectedSeverity]
+  );
+
   if (isLoading) {
     return (
       <Card className="glass border-border">
@@ -158,7 +168,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
               <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
-          <Skeleton className="h-24 w-full rounded-xl" />
         </CardContent>
       </Card>
     );
@@ -180,16 +189,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
       </Card>
     );
   }
-
-  const filteredBySelection = useMemo(
-    () =>
-      selectedSeverity
-        ? sessionInsights.filter(
-            (i) => ((i.severity as SeverityKey) || "low") === selectedSeverity
-          )
-        : [],
-    [sessionInsights, selectedSeverity]
-  );
 
   return (
     <>
