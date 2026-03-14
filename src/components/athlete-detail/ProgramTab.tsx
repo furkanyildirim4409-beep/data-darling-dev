@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, History, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
