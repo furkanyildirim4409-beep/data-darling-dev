@@ -172,7 +172,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     if (!diet?.templateId || !user) return;
     await supabase
       .from("nutrition_targets")
-      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .update({ active_diet_template_id: null, diet_start_date: null, diet_duration_weeks: null, updated_at: new Date().toISOString() } as any)
       .eq("athlete_id", athleteId);
 
     toast.success("Beslenme programı iptal edildi");
