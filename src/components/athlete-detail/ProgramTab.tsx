@@ -126,12 +126,22 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     }
 
     // 3. Fetch program info for all
-    const { data: programs } = await supabase
-      .from("programs")
-      .select("id, title, difficulty, target_goal, description, week_config")
-      .in("id", uniqueProgramIds);
+    const [programsRes, logsRes] = await Promise.all([
+      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config").in("id", uniqueProgramIds),
+      supabase.from("program_assignment_logs").select("program_id, created_at").eq("athlete_id", athleteId).eq("action", "assigned").order("created_at", { ascending: false }),
+    ]);
 
-    const programList = (programs ?? []) as ProgramInfo[];
+    const assignmentDates: Record<string, string> = {};
+    (logsRes.data ?? []).forEach((log: any) => {
+      if (log.program_id && !assignmentDates[log.program_id]) {
+        assignmentDates[log.program_id] = log.created_at;
+      }
+    });
+
+    const programList = (programsRes.data ?? []).map((p: any) => ({
+      ...p,
+      assigned_at: assignmentDates[p.id] || null,
+    })) as ProgramInfo[];
     setAllPrograms(programList);
 
     // Auto-select active program, or first available
