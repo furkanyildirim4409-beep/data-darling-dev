@@ -756,23 +756,29 @@ function HistoryDialog({
   loading,
   logs,
   expandedLogId,
-  expandedLogWorkouts,
+  expandedCache,
   onToggleLog,
-  onPreviewExercise,
+  onLoadMoreExpand,
+  historyHasMore,
+  historyLoadingMore,
+  onLoadMoreHistory,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loading: boolean;
   logs: AssignmentLog[];
   expandedLogId: string | null;
-  expandedLogWorkouts: AssignedWorkout[];
+  expandedCache: Record<string, ExpandedLogCache>;
   onToggleLog: (log: AssignmentLog) => void;
-  onPreviewExercise: (ex: ExerciseJson) => void;
+  onLoadMoreExpand: (log: AssignmentLog, page: number) => void;
+  historyHasMore: boolean;
+  historyLoadingMore: boolean;
+  onLoadMoreHistory: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="bg-card border-border sm:max-w-lg h-[80vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
             Program Atama Geçmişi
@@ -792,6 +798,7 @@ function HistoryDialog({
             <div className="space-y-2 pb-4">
               {logs.map((log) => {
                 const isExpanded = expandedLogId === log.id;
+                const cache = expandedCache[log.id];
                 return (
                   <div key={log.id} className="glass rounded-lg border border-border overflow-hidden">
                     <button
@@ -824,35 +831,38 @@ function HistoryDialog({
                       </div>
                     </button>
 
-                    {isExpanded && (
+                    {isExpanded && cache && (
                       <div className="border-t border-border p-3">
-                        {expandedLogWorkouts.length > 0 ? (
-                          <div className="space-y-2">
-                            {expandedLogWorkouts.map((w) => (
-                              <div key={w.id} className="p-2 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Dumbbell className="w-3.5 h-3.5 text-primary" />
-                                  <span className="text-xs font-semibold text-foreground">{w.workout_name}</span>
-                                  {w.day_of_week && (
-                                    <span className="text-[10px] text-muted-foreground">({w.day_of_week})</span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {w.exercises.map((ex, i) => (
-                                    <button
-                                      key={i}
-                                      onClick={() => ex.video_url && onPreviewExercise(ex)}
-                                      className={cn(
-                                        "text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground",
-                                        ex.video_url && "cursor-pointer hover:bg-primary/20"
-                                      )}
-                                    >
-                                      {ex.name}
-                                    </button>
-                                  ))}
-                                </div>
+                        {cache.loading ? (
+                          <div className="flex justify-center py-3">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : cache.workouts.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {cache.workouts.map((w) => (
+                              <div key={w.id} className="p-2 rounded-lg bg-muted/30 flex items-center gap-2">
+                                <Dumbbell className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="text-xs font-semibold text-foreground truncate">{w.workout_name}</span>
+                                {w.day_of_week && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0">({w.day_of_week})</span>
+                                )}
+                                {w.scheduled_date && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">
+                                    {format(parseISO(w.scheduled_date), "d MMM", { locale: tr })}
+                                  </span>
+                                )}
                               </div>
                             ))}
+                            {cache.hasMore && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-xs h-7"
+                                onClick={() => onLoadMoreExpand(log, cache.page + 1)}
+                              >
+                                Daha fazla yükle
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground text-center py-2">
@@ -864,6 +874,21 @@ function HistoryDialog({
                   </div>
                 );
               })}
+
+              {historyHasMore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={onLoadMoreHistory}
+                  disabled={historyLoadingMore}
+                >
+                  {historyLoadingMore ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : null}
+                  Daha fazla geçmiş yükle
+                </Button>
+              )}
             </div>
           </ScrollArea>
         )}
