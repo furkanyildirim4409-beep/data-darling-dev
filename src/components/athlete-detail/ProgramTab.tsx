@@ -59,6 +59,7 @@ interface ProgramInfo {
   target_goal: string | null;
   description: string | null;
   week_config: any;
+  assigned_at: string | null;
 }
 
 interface AssignmentLog {
