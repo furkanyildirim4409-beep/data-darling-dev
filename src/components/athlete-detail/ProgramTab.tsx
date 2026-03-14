@@ -127,7 +127,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     // 3. Fetch program info for all
     const { data: programs } = await supabase
       .from("programs")
-      .select("id, title, difficulty, target_goal, description")
+      .select("id, title, difficulty, target_goal, description, week_config")
       .in("id", uniqueProgramIds);
 
     const programList = (programs ?? []) as ProgramInfo[];
