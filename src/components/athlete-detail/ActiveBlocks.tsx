@@ -39,6 +39,8 @@ interface DietData {
   protein: number;
   carbs: number;
   fat: number;
+  startDate: string | null;
+  durationWeeks: number | null;
 }
 
 interface WorkoutDay {
