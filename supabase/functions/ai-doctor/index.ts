@@ -70,7 +70,7 @@ serve(async (req) => {
     // ── 4. Aggregate 7-day holistic data ──
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [checkinsRes, nutritionRes, workoutsRes, weightRes, bloodRes] = await Promise.all([
+    const [checkinsRes, nutritionRes, workoutsRes, weightRes, bloodRes, historyRes] = await Promise.all([
       adminClient.from("daily_checkins")
         .select("mood, sleep, stress, soreness, digestion, created_at")
         .eq("user_id", athleteId)
@@ -96,6 +96,11 @@ serve(async (req) => {
         .eq("user_id", athleteId)
         .order("date", { ascending: false })
         .limit(1),
+      adminClient.from("ai_weekly_analyses")
+        .select("severity, title, analysis, actions, created_at")
+        .eq("athlete_id", athleteId)
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
     const snapshot = {
