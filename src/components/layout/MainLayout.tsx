@@ -13,6 +13,7 @@ export function MainLayout() {
 
   // Auto-sync push subscription on boot (runs silently via internal useEffect)
   usePushNotifications();
+  useForegroundPush();
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-background">
