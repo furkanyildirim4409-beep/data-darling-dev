@@ -65,13 +65,12 @@ export default function AthleteDetail() {
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
     setAiScanning(true);
-    setAiInsights([]);
     try {
       const { data, error } = await supabase.functions.invoke("ai-doctor", {
         body: { athleteId: id },
       });
       if (error) throw error;
-      setAiInsights(data?.insights || []);
+      setAiRefreshKey(Date.now());
       toast.success(`AI analizi tamamlandı: ${data?.insights?.length || 0} bulgu`);
     } catch (err: any) {
       console.error("AI scan error:", err);
