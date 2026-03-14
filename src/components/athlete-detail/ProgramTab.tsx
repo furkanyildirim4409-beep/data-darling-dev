@@ -273,12 +273,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const fetchHistoryPage = async (page: number, append = false) => {
     const from = page * HISTORY_PAGE_SIZE;
     const to = from + HISTORY_PAGE_SIZE - 1;
-    const { data } = await (supabase
+    const { data } = await supabase
       .from("program_assignment_logs")
-      .select("id, program_id, program_title, action, created_at, coach_id, assignment_batch_id")
+      .select("*")
       .eq("athlete_id", athleteId)
       .order("created_at", { ascending: false })
-      .range(from, to) as any);
+      .range(from, to);
 
     const logs = (data ?? []) as AssignmentLog[];
     if (append) {
