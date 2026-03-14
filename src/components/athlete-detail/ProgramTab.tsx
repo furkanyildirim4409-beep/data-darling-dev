@@ -60,6 +60,7 @@ interface ProgramInfo {
   description: string | null;
   week_config: any;
   assigned_at: string | null;
+  active_day_count: number;
 }
 
 interface AssignmentLog {
@@ -111,7 +112,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     // 2. Get all distinct program_ids from assigned_workouts for this athlete
     const { data: assignments } = await supabase
       .from("assigned_workouts")
-      .select("program_id")
+      .select("program_id, day_of_week")
       .eq("athlete_id", athleteId)
       .not("program_id", "is", null);
 
@@ -138,9 +139,19 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       }
     });
 
+    // Count active (non-off) days per program from assigned_workouts
+    const dayCountByProgram: Record<string, Set<string>> = {};
+    (assignments ?? []).forEach((a: any) => {
+      if (a.program_id && a.day_of_week) {
+        if (!dayCountByProgram[a.program_id]) dayCountByProgram[a.program_id] = new Set();
+        dayCountByProgram[a.program_id].add(a.day_of_week);
+      }
+    });
+
     const programList = (programsRes.data ?? []).map((p: any) => ({
       ...p,
       assigned_at: assignmentDates[p.id] || null,
+      active_day_count: dayCountByProgram[p.id]?.size || 0,
     })) as ProgramInfo[];
     setAllPrograms(programList);
 
@@ -327,8 +338,19 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
         <div className="space-y-3">
           {allPrograms.map((prog) => {
             const isSelected = prog.id === selectedProgramId;
-            const weekConfig = prog.week_config as any;
-            const dayCount = weekConfig?.days?.length || weekConfig?.length || null;
+
+            const difficultyMap: Record<string, string> = {
+              beginner: "Başlangıç", intermediate: "Orta Seviye", advanced: "İleri Seviye",
+              Beginner: "Başlangıç", Intermediate: "Orta Seviye", Advanced: "İleri Seviye",
+            };
+            const goalMap: Record<string, string> = {
+              muscle_gain: "Kas Gelişimi", fat_loss: "Yağ Yakımı", strength: "Güç Artışı",
+              endurance: "Dayanıklılık", maintenance: "Koruma", recomp: "Vücut Şekillendirme",
+              general_fitness: "Genel Fitness",
+            };
+            const difficultyTr = prog.difficulty ? (difficultyMap[prog.difficulty] || prog.difficulty) : null;
+            const goalTr = prog.target_goal ? (goalMap[prog.target_goal] || prog.target_goal) : null;
+
             return (
               <button
                 key={prog.id}
@@ -352,19 +374,19 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                       {prog.title}
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {prog.difficulty && (
+                      {difficultyTr && (
                         <Badge className="text-[10px] bg-warning/15 text-warning border-warning/30 hover:bg-warning/20">
-                          {prog.difficulty}
+                          {difficultyTr}
                         </Badge>
                       )}
-                      {prog.target_goal && (
+                      {goalTr && (
                         <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
-                          {prog.target_goal}
+                          {goalTr}
                         </Badge>
                       )}
-                      {dayCount && (
+                      {prog.active_day_count > 0 && (
                         <Badge className="text-[10px] bg-accent/15 text-accent border-accent/30 hover:bg-accent/20">
-                          {dayCount} gün/hf
+                          {prog.active_day_count} gün/hf
                         </Badge>
                       )}
                       {prog.assigned_at && (
