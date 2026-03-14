@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
+import { AssignTrainingDialog } from "@/components/athlete-detail/AssignTrainingDialog";
 
 interface ActiveBlocksProps {
   athleteId: string;
