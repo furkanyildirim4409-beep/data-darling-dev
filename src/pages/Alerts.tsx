@@ -71,6 +71,15 @@ export default function Alerts() {
   const [aiInterventions, setAiInterventions] = useState<AiIntervention[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const {
     alerts: allAlerts,
