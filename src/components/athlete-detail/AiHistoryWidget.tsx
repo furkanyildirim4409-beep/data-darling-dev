@@ -136,30 +136,42 @@ export function AiHistoryWidget({ athleteId }: Props) {
   };
 
   const handleActionExecute = async (insightId: string, action: AiAction) => {
-    setResolvingIds((prev) => new Set(prev).add(insightId));
+    const insight = insights.find((i) => i.id === insightId);
+    if (!insight) return;
+
+    setResolvingIds((prev) => new Set(prev).add(`${insightId}-${action.label}`));
+
+    const updatedActions = insight.actions.map((a) =>
+      a.label === action.label ? { ...a, completed: true } : a
+    );
+    const allCompleted = updatedActions.every((a) => a.completed);
 
     const { error } = await supabase
       .from("ai_weekly_analyses")
-      .update({ resolved: true } as any)
+      .update({ actions: updatedActions, resolved: allCompleted } as any)
       .eq("id", insightId);
 
     if (error) {
       toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
       setResolvingIds((prev) => {
         const next = new Set(prev);
-        next.delete(insightId);
+        next.delete(`${insightId}-${action.label}`);
         return next;
       });
       return;
     }
 
-    // Mark as resolved in local state (don't remove — it's a medical archive)
+    // Optimistically update local state (archive — never remove)
     setInsights((prev) =>
-      prev.map((i) => (i.id === insightId ? { ...i, resolved: true } : i))
+      prev.map((i) =>
+        i.id === insightId
+          ? { ...i, actions: updatedActions, resolved: allCompleted }
+          : i
+      )
     );
     setResolvingIds((prev) => {
       const next = new Set(prev);
-      next.delete(insightId);
+      next.delete(`${insightId}-${action.label}`);
       return next;
     });
 
