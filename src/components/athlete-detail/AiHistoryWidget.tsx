@@ -181,105 +181,136 @@ export function AiHistoryWidget({ athleteId }: Props) {
     );
   }
 
+  const filteredBySelection = useMemo(
+    () =>
+      selectedSeverity
+        ? sessionInsights.filter(
+            (i) => ((i.severity as SeverityKey) || "low") === selectedSeverity
+          )
+        : [],
+    [sessionInsights, selectedSeverity]
+  );
+
   return (
-    <Card className="glass border-border overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Brain className="w-5 h-5 text-primary" />
+    <>
+      <Card className="glass border-border overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Brain className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-foreground">
+                  AI Tarama Geçmişi
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {sessionDates.length} tarama kaydı
+                </p>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg font-bold text-foreground">
-                AI Tarama Geçmişi
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {sessionDates.length} tarama kaydı
-              </p>
-            </div>
+
+            <Select
+              value={selectedSession || ""}
+              onValueChange={setSelectedSession}
+            >
+              <SelectTrigger className="w-[260px] bg-card border-border">
+                <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Tarama seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {sessionDates.map((iso) => (
+                  <SelectItem key={iso} value={iso}>
+                    {formatSessionDate(iso)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </CardHeader>
 
-          <Select
-            value={selectedSession || ""}
-            onValueChange={setSelectedSession}
-          >
-            <SelectTrigger className="w-[260px] bg-card border-border">
-              <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Tarama seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              {sessionDates.map((iso) => (
-                <SelectItem key={iso} value={iso}>
-                  {formatSessionDate(iso)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            {(["high", "medium", "low"] as SeverityKey[]).map((severity) => {
+              const config = severityConfig[severity];
+              const Icon = config.icon;
+              const count = grouped[severity].length;
 
-      <CardContent className="space-y-4">
-        {/* 3 Summary Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          {(["high", "medium", "low"] as SeverityKey[]).map((severity) => {
-            const config = severityConfig[severity];
-            const Icon = config.icon;
-            const count = grouped[severity].length;
-
-            return (
-              <div
-                key={severity}
-                className={`rounded-xl border p-4 transition-all ${config.cardBg}`}
-              >
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <Icon className={`w-7 h-7 ${config.textColor}`} />
-                  <span
-                    className={`text-3xl font-black ${config.textColor}`}
-                  >
-                    {count}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${config.badgeCls}`}
-                  >
-                    {config.label}
-                  </Badge>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Detail Cards */}
-        <div className="space-y-3">
-          {sessionInsights.map((insight) => {
-            const sev = (insight.severity as SeverityKey) || "low";
-            const config = severityConfig[sev];
-            const Icon = config.icon;
-
-            return (
-              <div
-                key={insight.id}
-                className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor}`}
-              >
-                <div className="flex items-start gap-3">
-                  <Icon
-                    className={`w-5 h-5 mt-0.5 shrink-0 ${config.textColor}`}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground mb-1">
-                      {insight.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {insight.analysis}
-                    </p>
+              return (
+                <button
+                  key={severity}
+                  onClick={() => count > 0 && setSelectedSeverity(severity)}
+                  disabled={count === 0}
+                  className={`rounded-xl border p-4 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-default ${config.cardBg} ring-0 hover:ring-2 ${config.ringColor}`}
+                >
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Icon className={`w-7 h-7 ${config.textColor}`} />
+                    <span className={`text-3xl font-black ${config.textColor}`}>
+                      {count}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${config.badgeCls}`}
+                    >
+                      {config.label}
+                    </Badge>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!selectedSeverity} onOpenChange={() => setSelectedSeverity(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedSeverity && (() => {
+                const config = severityConfig[selectedSeverity];
+                const Icon = config.icon;
+                return (
+                  <>
+                    <Icon className={`w-5 h-5 ${config.textColor}`} />
+                    <span>{config.label} Bulgular</span>
+                    <Badge variant="outline" className={`ml-auto ${config.badgeCls}`}>
+                      {filteredBySelection.length} bulgu
+                    </Badge>
+                  </>
+                );
+              })()}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-3 pr-3">
+              {filteredBySelection.map((insight) => {
+                const sev = (insight.severity as SeverityKey) || "low";
+                const config = severityConfig[sev];
+                const Icon = config.icon;
+
+                return (
+                  <div
+                    key={insight.id}
+                    className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.textColor}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground mb-1">
+                          {insight.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {insight.analysis}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
