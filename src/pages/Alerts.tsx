@@ -304,9 +304,9 @@ export default function Alerts() {
 
                           if (isActionCompleted) {
                             return (
-                              <Button key={idx} variant="outline" size="sm" disabled className="text-xs gap-1.5 border opacity-50">
-                                <CheckCheck className="w-3.5 h-3.5" />
-                                Çözüldü ✓
+                              <Button key={idx} variant="outline" size="sm" disabled className="text-xs gap-1.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 opacity-80 cursor-not-allowed">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {action.label}
                               </Button>
                             );
                           }

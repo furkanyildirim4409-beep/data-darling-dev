@@ -400,10 +400,10 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                     variant="outline"
                                     size="sm"
                                     disabled
-                                    className="text-[10px] gap-1 px-2 py-0.5 opacity-50"
+                                    className="text-[10px] gap-1 px-2 py-0.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 opacity-80 cursor-not-allowed"
                                   >
-                                    <Check className="w-3 h-3" />
-                                    Çözüldü ✓
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    {action.label}
                                   </Button>
                                 );
                               }
