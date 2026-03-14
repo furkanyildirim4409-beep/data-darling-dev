@@ -384,9 +384,9 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                           {goalTr}
                         </Badge>
                       )}
-                      {activeDayCount && (
+                      {prog.active_day_count > 0 && (
                         <Badge className="text-[10px] bg-accent/15 text-accent border-accent/30 hover:bg-accent/20">
-                          {activeDayCount} gün/hf
+                          {prog.active_day_count} gün/hf
                         </Badge>
                       )}
                       {prog.assigned_at && (
