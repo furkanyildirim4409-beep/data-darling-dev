@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import type { Json } from "@/integrations/supabase/types";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +43,8 @@ interface AssignProgramDialogProps {
   onOpenChange: (open: boolean) => void;
   programId: string;
   programName: string;
+  /** Pre-select specific athlete IDs (used by ActiveBlocks "Replace" action) */
+  preSelectedAthleteIds?: string[];
 }
 
 interface WeekConfigDay {
@@ -62,11 +70,19 @@ interface ExerciseRow {
 
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
+const DURATION_OPTIONS = [
+  { value: "1", label: "1 Hafta" },
+  { value: "4", label: "4 Hafta (1 Ay)" },
+  { value: "8", label: "8 Hafta (2 Ay)" },
+  { value: "12", label: "12 Hafta (3 Ay)" },
+];
+
 export function AssignProgramDialog({
   open,
   onOpenChange,
   programId,
   programName,
+  preSelectedAthleteIds,
 }: AssignProgramDialogProps) {
   const { user } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
@@ -76,6 +92,14 @@ export function AssignProgramDialog({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [activeDays, setActiveDays] = useState<Array<{ label: string; dayIdx: number }>>([]);
   const [startDate, setStartDate] = useState<Date>(getNextMonday());
+  const [durationWeeks, setDurationWeeks] = useState(4);
+
+  // Pre-select athletes when provided (e.g. from Replace action)
+  useEffect(() => {
+    if (open && preSelectedAthleteIds?.length) {
+      setSelectedIds(preSelectedAthleteIds);
+    }
+  }, [open, preSelectedAthleteIds]);
 
   // Fetch program structure for preview when dialog opens
   useEffect(() => {
@@ -147,7 +171,15 @@ export function AssignProgramDialog({
         ? (program.week_config as WeekConfigDay[])
         : [];
 
-      // 2. Group exercises by day
+      // 2. Build "programDays" — only days with content
+      type ProgramDay = {
+        dayIdx: number;
+        dayLabel: string;
+        dayNotes: string;
+        dayGroups: Array<{ id: string; type?: string; exerciseIndices?: number[] }>;
+        exercises: ExerciseRow[];
+      };
+
       const dayExercises: Record<number, ExerciseRow[]> = {};
       (exercises ?? []).forEach((ex) => {
         const dayIdx = Math.floor((ex.order_index ?? 0) / 100);
@@ -155,7 +187,41 @@ export function AssignProgramDialog({
         dayExercises[dayIdx].push(ex as ExerciseRow);
       });
 
-      // 3. Build payload
+      const programDays: ProgramDay[] = [];
+      for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+        const cfg = weekConfig[dayIdx];
+        const exs = dayExercises[dayIdx];
+        const hasExercises = exs && exs.length > 0;
+        const hasBlock = cfg?.blockType && cfg.blockType !== "none";
+        if (!hasExercises && !hasBlock) continue;
+
+        programDays.push({
+          dayIdx,
+          dayLabel: cfg?.label || `Gün ${dayIdx + 1}`,
+          dayNotes: cfg?.notes || "",
+          dayGroups: cfg?.groups || [],
+          exercises: (exs ?? []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+        });
+      }
+
+      if (programDays.length === 0) {
+        toast.error("Bu programda atanacak aktif gün bulunamadı");
+        setSaving(false);
+        return;
+      }
+
+      // 3. CRITICAL OVERWRITE: Delete all future assignments for selected athletes
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      for (const athleteId of selectedIds) {
+        await supabase
+          .from("assigned_workouts")
+          .delete()
+          .eq("athlete_id", athleteId)
+          .gte("scheduled_date", todayStr);
+      }
+
+      // 4. Build payload using modulo arithmetic for multi-week repetition
+      const totalCalendarDays = durationWeeks * 7;
       const payload: Array<{
         coach_id: string;
         athlete_id: string;
@@ -168,28 +234,20 @@ export function AssignProgramDialog({
         status: string;
       }> = [];
 
-      for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-        const cfg = weekConfig[dayIdx];
-        const exs = dayExercises[dayIdx];
-        const hasExercises = exs && exs.length > 0;
-        const hasBlock = cfg?.blockType && cfg.blockType !== "none";
+      for (let i = 0; i < totalCalendarDays; i++) {
+        // Map this calendar day to a template day using modulo
+        const calendarDayOfWeek = i % 7; // 0=Mon, 1=Tue, ...
+        // Find matching programDay by dayIdx
+        const templateDay = programDays.find((pd) => pd.dayIdx === calendarDayOfWeek);
+        if (!templateDay) continue; // This calendar day is an off-day
 
-        if (!hasExercises && !hasBlock) continue;
+        const targetDate = format(addDays(startDate, i), "yyyy-MM-dd");
+        const dayName = DAY_NAMES[calendarDayOfWeek];
 
-        const dayLabel = cfg?.label || `Gün ${dayIdx + 1}`;
-        const dayNotes = cfg?.notes || "";
-
-        const dayGroups = cfg?.groups || [];
-
-        // Sort exercises first to establish stable indices
-        const sortedExercises = (exs ?? []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-
-        const exercisesJson = sortedExercises.map((ex, exIdx) => {
-          // Find if this exercise index belongs to any group
-          const foundGroup = dayGroups.find(g => 
+        const exercisesJson = templateDay.exercises.map((ex, exIdx) => {
+          const foundGroup = templateDay.dayGroups.find(g =>
             g.exerciseIndices && g.exerciseIndices.includes(exIdx)
           );
-          
           return {
             name: ex.name,
             sets: ex.sets ?? 3,
@@ -210,10 +268,10 @@ export function AssignProgramDialog({
             coach_id: user.id,
             athlete_id: athleteId,
             program_id: programId,
-            scheduled_date: format(addDays(startDate, dayIdx), "yyyy-MM-dd"),
-            day_of_week: DAY_NAMES[dayIdx],
-            workout_name: dayLabel,
-            day_notes: dayNotes,
+            scheduled_date: targetDate,
+            day_of_week: dayName,
+            workout_name: templateDay.dayLabel,
+            day_notes: templateDay.dayNotes,
             exercises: exercisesJson as Json,
             status: "pending",
           });
@@ -226,26 +284,21 @@ export function AssignProgramDialog({
         return;
       }
 
-      // 4. Delete any old assignments for this program per athlete, then insert fresh
-      for (const athleteId of selectedIds) {
-        await supabase
-          .from("assigned_workouts")
-          .delete()
-          .eq("athlete_id", athleteId)
-          .eq("program_id", programId);
+      // 5. Insert in chunks (500 per batch to stay within Supabase limits)
+      const CHUNK_SIZE = 500;
+      for (let c = 0; c < payload.length; c += CHUNK_SIZE) {
+        const chunk = payload.slice(c, c + CHUNK_SIZE);
+        const { error } = await supabase.from("assigned_workouts").insert(chunk);
+        if (error) throw error;
       }
 
-      const { error } = await supabase.from("assigned_workouts").insert(payload);
-      if (error) throw error;
-
-      // 5. Set active_program_id on each athlete's profile + log assignment
+      // 6. Set active_program_id on each athlete's profile + log assignment
       for (const athleteId of selectedIds) {
         await supabase
           .from("profiles")
           .update({ active_program_id: programId } as any)
           .eq("id", athleteId);
 
-        // Log the assignment for history tracking
         await supabase.from("program_assignment_logs").insert({
           athlete_id: athleteId,
           coach_id: user.id,
@@ -256,7 +309,7 @@ export function AssignProgramDialog({
       }
 
       toast.success(
-        `Program başarıyla atandı! Sporcunun takvimi güncellendi. 🚀`
+        `${durationWeeks} haftalık program başarıyla atandı! (${payload.length} antrenman) 🚀`
       );
       setSelectedIds([]);
       onOpenChange(false);
@@ -276,7 +329,7 @@ export function AssignProgramDialog({
       .toUpperCase()
       .slice(0, 2);
 
-  const totalAssignments = activeDayCount * selectedIds.length;
+  const totalAssignments = activeDayCount * selectedIds.length * durationWeeks;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,17 +351,37 @@ export function AssignProgramDialog({
             <div className="glass rounded-lg border border-border p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Dumbbell className="w-4 h-4 text-primary" />
-                {activeDayCount} aktif gün
+                {activeDayCount} aktif gün / hafta
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {activeDays.map((day, i) => (
                   <Badge key={i} variant="outline" className="text-xs">
-                    {day.label} — {DAY_NAMES[day.dayIdx]} ({format(addDays(startDate, day.dayIdx), "d MMM", { locale: tr })})
+                    {day.label} — {DAY_NAMES[day.dayIdx]}
                   </Badge>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Duration Selector */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">Atama Süresi</Label>
+            <Select
+              value={String(durationWeeks)}
+              onValueChange={(v) => setDurationWeeks(Number(v))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Start Date Picker */}
           <div className="space-y-1.5">
@@ -414,7 +487,7 @@ export function AssignProgramDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2">
           {totalAssignments > 0 && (
             <p className="text-xs text-muted-foreground mr-auto">
-              {activeDayCount} gün × {selectedIds.length} sporcu ={" "}
+              {activeDayCount} gün × {selectedIds.length} sporcu × {durationWeeks} hafta ={" "}
               <span className="font-semibold text-foreground">{totalAssignments} antrenman</span>
             </p>
           )}
