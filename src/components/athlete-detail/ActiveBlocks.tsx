@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -10,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, Calendar, Clock, Target, ChevronRight, MoreVertical, Trash2, RefreshCw } from "lucide-react";
+import { Dumbbell, Apple, Calendar, Clock, Target, ChevronRight, MoreVertical, Trash2, RefreshCw, LayoutGrid } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -78,15 +80,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [diet, setDiet] = useState<DietData | null>(null);
 
-  // Dialog states
   const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
   const [dietDialogOpen, setDietDialogOpen] = useState(false);
-
-  // CRUD dialog states
   const [replaceProgramOpen, setReplaceProgramOpen] = useState(false);
   const [replaceDietOpen, setReplaceDietOpen] = useState(false);
 
-  // Detail data
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
   const [dietDays, setDietDays] = useState<DietDay[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -133,48 +131,25 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       setDiet(null);
     }
     setIsLoading(false);
-    // Reset detail caches on data refresh
     setWorkoutDays([]);
     setDietDays([]);
   }, [athleteId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ─── CRUD Actions ───
   const handleRevokeTraining = async () => {
     if (!training || !user) return;
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    await supabase
-      .from("assigned_workouts")
-      .delete()
-      .eq("athlete_id", athleteId)
-      .eq("program_id", training.programId)
-      .gte("scheduled_date", todayStr);
-
-    await supabase
-      .from("profiles")
-      .update({ active_program_id: null } as any)
-      .eq("id", athleteId);
-
-    await supabase.from("program_assignment_logs").insert({
-      athlete_id: athleteId,
-      coach_id: user.id,
-      program_id: training.programId,
-      program_title: training.programName,
-      action: "removed",
-    });
-
+    await supabase.from("assigned_workouts").delete().eq("athlete_id", athleteId).eq("program_id", training.programId).gte("scheduled_date", todayStr);
+    await supabase.from("profiles").update({ active_program_id: null } as any).eq("id", athleteId);
+    await supabase.from("program_assignment_logs").insert({ athlete_id: athleteId, coach_id: user.id, program_id: training.programId, program_title: training.programName, action: "removed" });
     toast.success("Antrenman programı iptal edildi");
     fetchData();
   };
 
   const handleRevokeDiet = async () => {
     if (!diet?.templateId || !user) return;
-    await supabase
-      .from("nutrition_targets")
-      .update({ active_diet_template_id: null, diet_start_date: null, diet_duration_weeks: null, updated_at: new Date().toISOString() } as any)
-      .eq("athlete_id", athleteId);
-
+    await supabase.from("nutrition_targets").update({ active_diet_template_id: null, diet_start_date: null, diet_duration_weeks: null, updated_at: new Date().toISOString() } as any).eq("athlete_id", athleteId);
     toast.success("Beslenme programı iptal edildi");
     fetchData();
   };
@@ -184,11 +159,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     setTrainingDialogOpen(true);
     if (workoutDays.length > 0) return;
     setDetailLoading(true);
-    const { data } = await supabase
-      .from("assigned_workouts")
-      .select("day_of_week, workout_name, exercises")
-      .eq("athlete_id", athleteId)
-      .eq("program_id", training.programId);
+    const { data } = await supabase.from("assigned_workouts").select("day_of_week, workout_name, exercises").eq("athlete_id", athleteId).eq("program_id", training.programId);
     if (data) {
       const days: WorkoutDay[] = data.map((w: any) => ({
         dayOfWeek: w.day_of_week || "—",
@@ -205,12 +176,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     setDietDialogOpen(true);
     if (dietDays.length > 0 || !diet.templateId) return;
     setDetailLoading(true);
-    const { data } = await supabase
-      .from("diet_template_foods")
-      .select("day_number, meal_type, food_name, calories, protein, carbs, fat, serving_size")
-      .eq("template_id", diet.templateId)
-      .order("day_number")
-      .order("meal_type");
+    const { data } = await supabase.from("diet_template_foods").select("day_number, meal_type, food_name, calories, protein, carbs, fat, serving_size").eq("template_id", diet.templateId).order("day_number").order("meal_type");
     if (data) {
       const grouped: Record<number, DietDayFood[]> = {};
       data.forEach((f: any) => {
@@ -225,10 +191,13 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-28 w-full rounded-xl" />
-        <Skeleton className="h-28 w-full rounded-xl" />
-      </div>
+      <Card>
+        <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-20 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </CardContent>
+      </Card>
     );
   }
 
@@ -236,178 +205,174 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const totalWeeks = training ? Math.max(1, Math.ceil(training.totalDays / 7)) : 1;
   const progressPct = training ? Math.min(100, Math.round((training.elapsedDays / training.totalDays) * 100)) : 0;
 
-  return (
-    <div className="space-y-4">
-      {/* Training Card */}
-      <div className="glass rounded-xl border border-border p-4 hover:border-primary/30 transition-all group relative">
-        {/* CRUD Dropdown */}
-        {training && (
-          <div className="absolute top-3 right-3 z-10">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => setReplaceProgramOpen(true)}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Değiştir
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={handleRevokeTraining}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  İptal Et
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+  // Diet progress
+  let dietCurrentWeek = 0;
+  let dietTotalWeeks = 0;
+  let dietProgressPct = 0;
+  if (diet?.startDate && diet?.durationWeeks) {
+    const totalDays = diet.durationWeeks * 7;
+    const elapsedDays = Math.max(0, Math.ceil((Date.now() - new Date(diet.startDate).getTime()) / 86400000));
+    dietCurrentWeek = Math.min(Math.max(1, Math.ceil(elapsedDays / 7)), diet.durationWeeks);
+    dietTotalWeeks = diet.durationWeeks;
+    dietProgressPct = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+  }
 
-        <div className="cursor-pointer" onClick={openTrainingDialog}>
-          <div className="flex items-start justify-between mb-3 pr-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Dumbbell className="w-5 h-5 text-primary" />
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+            Programlar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-0">
+          {/* ─── Training Section ─── */}
+          <div
+            className="rounded-lg p-3 hover:bg-secondary/40 transition-colors cursor-pointer"
+            onClick={openTrainingDialog}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
+                  <Dumbbell className="w-4 h-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-semibold text-foreground truncate">
+                    {training ? training.programName : "Program Yok"}
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {training?.description || (training ? "Aktif program" : "Henüz program atanmadı")}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-semibold text-foreground">{training ? training.programName : "Program Yok"}</h4>
-                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{training?.description || (training ? "Aktif program" : "Henüz program atanmadı")}</p>
-              </div>
-            </div>
-            {training && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />}
-          </div>
-          {training ? (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                  <Calendar className="w-3 h-3 mr-1" />Hafta {currentWeek}/{totalWeeks}
-                </Badge>
-                {training.startDate && (
-                  <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                    <Clock className="w-3 h-3 mr-1" />{new Date(training.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {training && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0.5">
+                    Hafta {currentWeek}/{totalWeeks}
                   </Badge>
                 )}
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">İlerleme</span>
-                  <span className="font-mono text-foreground">%{progressPct}</span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">Antrenman Programı sekmesinden bir program atayabilirsiniz.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Diet Card */}
-      <div className="glass rounded-xl border border-border p-4 hover:border-success/30 transition-all group relative">
-        {/* CRUD Dropdown */}
-        {diet?.templateId && (
-          <div className="absolute top-3 right-3 z-10">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => setReplaceDietOpen(true)}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Değiştir
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={handleRevokeDiet}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  İptal Et
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        <div className="cursor-pointer" onClick={openDietDialog}>
-          <div className="flex items-start justify-between mb-3 pr-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
-                <Apple className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground">{diet ? diet.templateName : "Beslenme Planı Yok"}</h4>
-                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{diet?.description || (diet ? "Aktif beslenme planı" : "Henüz beslenme planı atanmadı")}</p>
+                {training && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={() => setReplaceProgramOpen(true)}>
+                        <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleRevokeTraining}>
+                        <Trash2 className="w-4 h-4 mr-2" />İptal Et
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
-            {diet && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-success transition-colors shrink-0 mt-1" />}
-          </div>
-          {diet ? (
-            <>
-              {diet.startDate && diet.durationWeeks && (
-                (() => {
-                  const totalDays = diet.durationWeeks * 7;
-                  const elapsedDays = Math.max(0, Math.ceil((Date.now() - new Date(diet.startDate).getTime()) / 86400000));
-                  const dietCurrentWeek = Math.max(1, Math.ceil(elapsedDays / 7));
-                  const dietProgressPct = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
-                  return (
-                    <>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
-                          <Calendar className="w-3 h-3 mr-1" />Hafta {Math.min(dietCurrentWeek, diet.durationWeeks)}/{diet.durationWeeks}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                          <Clock className="w-3 h-3 mr-1" />{new Date(diet.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 mb-3">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">İlerleme</span>
-                          <span className="font-mono text-foreground">%{dietProgressPct}</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-success rounded-full transition-all" style={{ width: `${dietProgressPct}%` }} />
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()
-              )}
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { val: diet.calories, label: "kcal" },
-                  { val: `${diet.protein}g`, label: "protein" },
-                  { val: `${diet.carbs}g`, label: "karb" },
-                  { val: `${diet.fat}g`, label: "yağ" },
-                ].map((m, i) => (
-                  <div key={i} className="p-2 rounded-lg bg-secondary/50 text-center">
-                    <p className="text-sm font-bold font-mono text-foreground">{m.val}</p>
-                    <p className="text-[10px] text-muted-foreground">{m.label}</p>
+            {training ? (
+              <div className="ml-[42px]">
+                {training.startDate && (
+                  <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 mb-1.5">
+                    <Clock className="w-2.5 h-2.5" />
+                    {new Date(training.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+                  </span>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
                   </div>
-                ))}
+                  <span className="text-[10px] font-mono text-muted-foreground">%{progressPct}</span>
+                </div>
               </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">Beslenme Planı sekmesinden bir şablon atayabilirsiniz.</p>
-          )}
-        </div>
-      </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic ml-[42px]">Antrenman Programı sekmesinden bir program atayabilirsiniz.</p>
+            )}
+          </div>
+
+          <Separator className="my-1" />
+
+          {/* ─── Diet Section ─── */}
+          <div
+            className="rounded-lg p-3 hover:bg-secondary/40 transition-colors cursor-pointer"
+            onClick={openDietDialog}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-success/15 flex items-center justify-center shrink-0">
+                  <Apple className="w-4 h-4 text-success" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-semibold text-foreground truncate">
+                    {diet ? diet.templateName : "Beslenme Planı Yok"}
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {diet?.description || (diet ? "Aktif beslenme planı" : "Henüz beslenme planı atanmadı")}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {diet?.startDate && diet?.durationWeeks && (
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] px-1.5 py-0.5">
+                    Hafta {dietCurrentWeek}/{dietTotalWeeks}
+                  </Badge>
+                )}
+                {diet?.templateId && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={() => setReplaceDietOpen(true)}>
+                        <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleRevokeDiet}>
+                        <Trash2 className="w-4 h-4 mr-2" />İptal Et
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+            {diet ? (
+              <div className="ml-[42px]">
+                {diet.startDate && diet.durationWeeks && (
+                  <>
+                    <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 mb-1.5">
+                      <Clock className="w-2.5 h-2.5" />
+                      {new Date(diet.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+                    </span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-success rounded-full transition-all" style={{ width: `${dietProgressPct}%` }} />
+                      </div>
+                      <span className="text-[10px] font-mono text-muted-foreground">%{dietProgressPct}</span>
+                    </div>
+                  </>
+                )}
+                <p className="text-[11px] text-muted-foreground font-mono">
+                  {diet.calories} kcal · {diet.protein}g P · {diet.carbs}g K · {diet.fat}g Y
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic ml-[42px]">Beslenme Planı sekmesinden bir şablon atayabilirsiniz.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Training Detail Dialog */}
       <Dialog open={trainingDialogOpen} onOpenChange={setTrainingDialogOpen}>
@@ -553,10 +518,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       {training && (
         <AssignProgramDialog
           open={replaceProgramOpen}
-          onOpenChange={(open) => {
-            setReplaceProgramOpen(open);
-            if (!open) fetchData();
-          }}
+          onOpenChange={(open) => { setReplaceProgramOpen(open); if (!open) fetchData(); }}
           programId={training.programId}
           programName={training.programName}
           preSelectedAthleteIds={[athleteId]}
@@ -566,14 +528,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       {/* Replace Diet Dialog */}
       <AssignDietTemplateDialog
         open={replaceDietOpen}
-        onOpenChange={(open) => {
-          setReplaceDietOpen(open);
-          if (!open) fetchData();
-        }}
+        onOpenChange={(open) => { setReplaceDietOpen(open); if (!open) fetchData(); }}
         athleteId={athleteId}
         onAssigned={fetchData}
         activeTemplateId={diet?.templateId}
       />
-    </div>
+    </>
   );
 }
