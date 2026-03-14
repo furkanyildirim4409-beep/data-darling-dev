@@ -34,6 +34,7 @@ export function StatCard({
   change,
   icon: Icon,
   variant = "default",
+  description,
   onClick,
 }: StatCardProps) {
   return (
