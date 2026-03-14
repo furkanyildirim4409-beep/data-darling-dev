@@ -277,6 +277,7 @@ export function AssignProgramDialog({
             day_notes: templateDay.dayNotes,
             exercises: exercisesJson as Json,
             status: "pending",
+            assignment_batch_id: batchId,
           });
         }
       }
