@@ -3,8 +3,20 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dumbbell, Apple, Calendar, Clock, Target, ChevronRight } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Dumbbell, Apple, Calendar, Clock, Target, ChevronRight, MoreVertical, Trash2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { AssignProgramDialog } from "@/components/program-architect/AssignProgramDialog";
+import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
 
 interface ActiveBlocksProps {
   athleteId: string;
@@ -59,6 +71,7 @@ const MEAL_LABELS: Record<string, string> = {
 };
 
 export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [diet, setDiet] = useState<DietData | null>(null);
@@ -66,6 +79,10 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   // Dialog states
   const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
   const [dietDialogOpen, setDietDialogOpen] = useState(false);
+
+  // CRUD dialog states
+  const [replaceProgramOpen, setReplaceProgramOpen] = useState(false);
+  const [replaceDietOpen, setReplaceDietOpen] = useState(false);
 
   // Detail data
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
@@ -113,9 +130,51 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       setDiet(null);
     }
     setIsLoading(false);
+    // Reset detail caches on data refresh
+    setWorkoutDays([]);
+    setDietDays([]);
   }, [athleteId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ─── CRUD Actions ───
+  const handleRevokeTraining = async () => {
+    if (!training || !user) return;
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    await supabase
+      .from("assigned_workouts")
+      .delete()
+      .eq("athlete_id", athleteId)
+      .eq("program_id", training.programId)
+      .gte("scheduled_date", todayStr);
+
+    await supabase
+      .from("profiles")
+      .update({ active_program_id: null } as any)
+      .eq("id", athleteId);
+
+    await supabase.from("program_assignment_logs").insert({
+      athlete_id: athleteId,
+      coach_id: user.id,
+      program_id: training.programId,
+      program_title: training.programName,
+      action: "removed",
+    });
+
+    toast.success("Antrenman programı iptal edildi");
+    fetchData();
+  };
+
+  const handleRevokeDiet = async () => {
+    if (!diet?.templateId || !user) return;
+    await supabase
+      .from("nutrition_targets")
+      .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
+      .eq("athlete_id", athleteId);
+
+    toast.success("Beslenme programı iptal edildi");
+    fetchData();
+  };
 
   const openTrainingDialog = useCallback(async () => {
     if (!training) return;
@@ -177,83 +236,143 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   return (
     <div className="space-y-4">
       {/* Training Card */}
-      <div
-        className="glass rounded-xl border border-border p-4 hover:border-primary/30 transition-all cursor-pointer group"
-        onClick={openTrainingDialog}
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-              <Dumbbell className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground">{training ? training.programName : "Program Yok"}</h4>
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{training?.description || (training ? "Aktif program" : "Henüz program atanmadı")}</p>
-            </div>
+      <div className="glass rounded-xl border border-border p-4 hover:border-primary/30 transition-all group relative">
+        {/* CRUD Dropdown */}
+        {training && (
+          <div className="absolute top-3 right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={() => setReplaceProgramOpen(true)}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Değiştir
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleRevokeTraining}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  İptal Et
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          {training && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />}
-        </div>
-        {training ? (
-          <>
-            <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                <Calendar className="w-3 h-3 mr-1" />Hafta {currentWeek}/{totalWeeks}
-              </Badge>
-              {training.startDate && (
-                <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                  <Clock className="w-3 h-3 mr-1" />{new Date(training.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
-                </Badge>
-              )}
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">İlerleme</span>
-                <span className="font-mono text-foreground">%{progressPct}</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
-              </div>
-            </div>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">Antrenman Programı sekmesinden bir program atayabilirsiniz.</p>
         )}
+
+        <div className="cursor-pointer" onClick={openTrainingDialog}>
+          <div className="flex items-start justify-between mb-3 pr-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Dumbbell className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground">{training ? training.programName : "Program Yok"}</h4>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{training?.description || (training ? "Aktif program" : "Henüz program atanmadı")}</p>
+              </div>
+            </div>
+            {training && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />}
+          </div>
+          {training ? (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
+                  <Calendar className="w-3 h-3 mr-1" />Hafta {currentWeek}/{totalWeeks}
+                </Badge>
+                {training.startDate && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                    <Clock className="w-3 h-3 mr-1" />{new Date(training.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">İlerleme</span>
+                  <span className="font-mono text-foreground">%{progressPct}</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Antrenman Programı sekmesinden bir program atayabilirsiniz.</p>
+          )}
+        </div>
       </div>
 
       {/* Diet Card */}
-      <div
-        className="glass rounded-xl border border-border p-4 hover:border-success/30 transition-all cursor-pointer group"
-        onClick={openDietDialog}
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
-              <Apple className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground">{diet ? diet.templateName : "Beslenme Planı Yok"}</h4>
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{diet?.description || (diet ? "Aktif beslenme planı" : "Henüz beslenme planı atanmadı")}</p>
-            </div>
+      <div className="glass rounded-xl border border-border p-4 hover:border-success/30 transition-all group relative">
+        {/* CRUD Dropdown */}
+        {diet?.templateId && (
+          <div className="absolute top-3 right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={() => setReplaceDietOpen(true)}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Değiştir
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleRevokeDiet}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  İptal Et
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          {diet && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-success transition-colors shrink-0 mt-1" />}
-        </div>
-        {diet ? (
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { val: diet.calories, label: "kcal" },
-              { val: `${diet.protein}g`, label: "protein" },
-              { val: `${diet.carbs}g`, label: "karb" },
-              { val: `${diet.fat}g`, label: "yağ" },
-            ].map((m, i) => (
-              <div key={i} className="p-2 rounded-lg bg-secondary/50 text-center">
-                <p className="text-sm font-bold font-mono text-foreground">{m.val}</p>
-                <p className="text-[10px] text-muted-foreground">{m.label}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">Beslenme Planı sekmesinden bir şablon atayabilirsiniz.</p>
         )}
+
+        <div className="cursor-pointer" onClick={openDietDialog}>
+          <div className="flex items-start justify-between mb-3 pr-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
+                <Apple className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground">{diet ? diet.templateName : "Beslenme Planı Yok"}</h4>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{diet?.description || (diet ? "Aktif beslenme planı" : "Henüz beslenme planı atanmadı")}</p>
+              </div>
+            </div>
+            {diet && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-success transition-colors shrink-0 mt-1" />}
+          </div>
+          {diet ? (
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { val: diet.calories, label: "kcal" },
+                { val: `${diet.protein}g`, label: "protein" },
+                { val: `${diet.carbs}g`, label: "karb" },
+                { val: `${diet.fat}g`, label: "yağ" },
+              ].map((m, i) => (
+                <div key={i} className="p-2 rounded-lg bg-secondary/50 text-center">
+                  <p className="text-sm font-bold font-mono text-foreground">{m.val}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Beslenme Planı sekmesinden bir şablon atayabilirsiniz.</p>
+          )}
+        </div>
       </div>
 
       {/* Training Detail Dialog */}
@@ -395,6 +514,32 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Replace Program Dialog */}
+      {training && (
+        <AssignProgramDialog
+          open={replaceProgramOpen}
+          onOpenChange={(open) => {
+            setReplaceProgramOpen(open);
+            if (!open) fetchData();
+          }}
+          programId={training.programId}
+          programName={training.programName}
+          preSelectedAthleteIds={[athleteId]}
+        />
+      )}
+
+      {/* Replace Diet Dialog */}
+      <AssignDietTemplateDialog
+        open={replaceDietOpen}
+        onOpenChange={(open) => {
+          setReplaceDietOpen(open);
+          if (!open) fetchData();
+        }}
+        athleteId={athleteId}
+        onAssigned={fetchData}
+        activeTemplateId={diet?.templateId}
+      />
     </div>
   );
 }
