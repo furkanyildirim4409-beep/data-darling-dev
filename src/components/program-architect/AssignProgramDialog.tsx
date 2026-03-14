@@ -225,17 +225,7 @@ export function AssignProgramDialog({
 
       // 4. Build payload using modulo arithmetic for multi-week repetition
       const totalCalendarDays = durationWeeks * 7;
-      const payload: Array<{
-        coach_id: string;
-        athlete_id: string;
-        program_id: string;
-        scheduled_date: string | null;
-        day_of_week: string;
-        workout_name: string;
-        day_notes: string;
-        exercises: Json;
-        status: string;
-      }> = [];
+      const payload: Array<Record<string, unknown>> = [];
 
       for (let i = 0; i < totalCalendarDays; i++) {
         // Map this calendar day to a template day using modulo
