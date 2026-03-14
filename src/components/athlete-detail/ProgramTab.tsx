@@ -139,9 +139,19 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       }
     });
 
+    // Count active (non-off) days per program from assigned_workouts
+    const dayCountByProgram: Record<string, Set<string>> = {};
+    (assignments ?? []).forEach((a: any) => {
+      if (a.program_id && a.day_of_week) {
+        if (!dayCountByProgram[a.program_id]) dayCountByProgram[a.program_id] = new Set();
+        dayCountByProgram[a.program_id].add(a.day_of_week);
+      }
+    });
+
     const programList = (programsRes.data ?? []).map((p: any) => ({
       ...p,
       assigned_at: assignmentDates[p.id] || null,
+      active_day_count: dayCountByProgram[p.id]?.size || 0,
     })) as ProgramInfo[];
     setAllPrograms(programList);
 
