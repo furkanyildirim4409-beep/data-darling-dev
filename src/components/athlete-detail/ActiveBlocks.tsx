@@ -593,7 +593,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       <AssignProgramDialog
         open={assignProgramOpen}
         onOpenChange={setAssignProgramOpen}
-        preSelectedAthleteId={athleteId}
+        preSelectedAthleteIds={[athleteId]}
         onAssigned={fetchData}
       />
 
