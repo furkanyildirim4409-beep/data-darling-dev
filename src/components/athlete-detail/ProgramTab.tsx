@@ -304,56 +304,48 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     setHistoryLoadingMore(false);
   };
 
-  // Expand a log entry — lightweight (no exercises JSON), paginated
-  const fetchExpandPage = async (log: AssignmentLog, page: number) => {
+  // Expand a log entry — fetch unique weekly template + compute duration
+  const fetchExpandData = async (log: AssignmentLog) => {
     const requestId = ++expandRequestRef.current;
-    const from = page * EXPAND_PAGE_SIZE;
-    const to = from + EXPAND_PAGE_SIZE - 1;
 
     let query = supabase
       .from("assigned_workouts")
       .select("id, workout_name, day_of_week, scheduled_date, status")
       .eq("athlete_id", athleteId) as any;
 
-    // Use batch_id if available, else fall back to program_id
     if (log.assignment_batch_id) {
       query = query.eq("assignment_batch_id", log.assignment_batch_id);
     } else {
       query = query.eq("program_id", log.program_id);
     }
 
-    const { data } = await query
-      .order("scheduled_date", { ascending: true })
-      .range(from, to);
+    const { data } = await query.order("scheduled_date", { ascending: true });
 
-    // Guard against stale responses
     if (expandRequestRef.current !== requestId) return;
 
     const rows = (data ?? []) as LightWorkout[];
 
-    // Deduplicate by day_of_week for weekly template view
     const seenDays = new Set<string>();
-
-    setExpandedCache((prev) => {
-      const existing = prev[log.id];
-      const prevWorkouts = page === 0 ? [] : (existing?.workouts ?? []);
-      prevWorkouts.forEach((w) => { if (w.day_of_week) seenDays.add(w.day_of_week); });
-      const newUnique = rows.filter((w) => {
-        const key = w.day_of_week || w.id;
-        if (seenDays.has(key)) return false;
-        seenDays.add(key);
-        return true;
-      });
-      return {
-        ...prev,
-        [log.id]: {
-          workouts: [...prevWorkouts, ...newUnique],
-          page,
-          hasMore: rows.length === EXPAND_PAGE_SIZE,
-          loading: false,
-        },
-      };
+    const uniqueWeek = rows.filter((w) => {
+      const key = w.day_of_week || w.id;
+      if (seenDays.has(key)) return false;
+      seenDays.add(key);
+      return true;
     });
+
+    uniqueWeek.sort((a, b) => {
+      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
+      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
+      return aIdx - bIdx;
+    });
+
+    const uniqueDayCount = seenDays.size || 1;
+    const durationWeeks = Math.max(1, Math.round(rows.length / uniqueDayCount));
+
+    setExpandedCache((prev) => ({
+      ...prev,
+      [log.id]: { workouts: uniqueWeek, durationWeeks, loading: false },
+    }));
   };
 
   const toggleLogExpand = async (log: AssignmentLog) => {
@@ -363,13 +355,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     }
     setExpandedLogId(log.id);
 
-    // Only fetch if not cached
     if (!expandedCache[log.id]) {
       setExpandedCache((prev) => ({
         ...prev,
-        [log.id]: { workouts: [], page: 0, hasMore: false, loading: true },
+        [log.id]: { workouts: [], durationWeeks: 0, loading: true },
       }));
-      await fetchExpandPage(log, 0);
+      await fetchExpandData(log);
     }
   };
 
