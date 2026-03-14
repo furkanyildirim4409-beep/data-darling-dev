@@ -516,12 +516,13 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
 
       {/* Replace Program Dialog */}
       {training && (
-        <AssignProgramDialog
+        <ReplaceProgramDialog
           open={replaceProgramOpen}
-          onOpenChange={(open) => { setReplaceProgramOpen(open); if (!open) fetchData(); }}
-          programId={training.programId}
-          programName={training.programName}
-          preSelectedAthleteIds={[athleteId]}
+          onOpenChange={setReplaceProgramOpen}
+          athleteId={athleteId}
+          oldProgramId={training.programId}
+          oldProgramName={training.programName}
+          onComplete={fetchData}
         />
       )}
 
