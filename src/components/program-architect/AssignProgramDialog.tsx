@@ -309,7 +309,8 @@ export function AssignProgramDialog({
           program_id: programId,
           program_title: programName,
           action: "assigned",
-        });
+          assignment_batch_id: batchId,
+        } as any);
       }
 
       toast.success(
