@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export interface ActionItem {
   id: string;
-  type: "pr" | "checkin" | "session" | "milestone" | "alert";
+  type: "pr" | "checkin" | "session" | "milestone" | "alert" | "assignment";
   message: string;
   timestamp: string;
   rawTime: number;
@@ -56,7 +56,7 @@ export function useActionStream() {
     athleteMapRef.current = nameMap;
     athleteIdsRef.current = new Set(athleteIds);
 
-    const [workoutsRes, checkinsRes, nutritionRes, weightRes] = await Promise.all([
+    const [workoutsRes, checkinsRes, nutritionRes, weightRes, assignmentLogsRes] = await Promise.all([
       supabase
         .from("workout_logs")
         .select("id, user_id, workout_name, logged_at, completed, tonnage, bio_coins_earned")
@@ -84,6 +84,13 @@ export function useActionStream() {
         .in("user_id", athleteIds)
         .gte("logged_at", threeDaysAgo)
         .order("logged_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("program_assignment_logs")
+        .select("id, athlete_id, program_title, created_at, action")
+        .eq("coach_id", coachId)
+        .gte("created_at", threeDaysAgo)
+        .order("created_at", { ascending: false })
         .limit(10),
     ]);
 
@@ -137,6 +144,19 @@ export function useActionStream() {
       });
     }
 
+    // Program assignment logs
+    for (const log of assignmentLogsRes.data ?? []) {
+      const name = nameMap.get(log.athlete_id) ?? "Sporcu";
+      const actionLabel = log.action === "revoked" ? "programdan çıkarıldı" : "programa atandı";
+      items.push({
+        id: `assignment-${log.id}`,
+        type: "assignment",
+        message: `${name} → "${log.program_title}" ${actionLabel}`,
+        timestamp: timeAgo(log.created_at ?? new Date().toISOString()),
+        rawTime: new Date(log.created_at ?? 0).getTime(),
+      });
+    }
+
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
@@ -164,15 +184,9 @@ export function useActionStream() {
             rawTime: Date.now(),
             isNew: true,
           };
-          setActions((prev) => {
-            const updated = [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15);
-            return updated;
-          });
-          // Remove isNew flag after animation
+          setActions((prev) => [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15));
           setTimeout(() => {
-            setActions((prev) =>
-              prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a))
-            );
+            setActions((prev) => prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a)));
           }, 3000);
         }
       )
@@ -192,27 +206,42 @@ export function useActionStream() {
             rawTime: Date.now(),
             isNew: true,
           };
-          setActions((prev) => {
-            const updated = [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15);
-            return updated;
-          });
+          setActions((prev) => [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15));
           setTimeout(() => {
-            setActions((prev) =>
-              prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a))
-            );
+            setActions((prev) => prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a)));
+          }, 3000);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "program_assignment_logs" },
+        (payload) => {
+          const row = payload.new as any;
+          if (!athleteIdsRef.current.has(row.athlete_id)) return;
+          const name = athleteMapRef.current.get(row.athlete_id) ?? "Sporcu";
+          const actionLabel = row.action === "revoked" ? "programdan çıkarıldı" : "programa atandı";
+          const newItem: ActionItem = {
+            id: `assignment-${row.id}`,
+            type: "assignment",
+            message: `${name} → "${row.program_title}" ${actionLabel}`,
+            timestamp: "Şimdi",
+            rawTime: Date.now(),
+            isNew: true,
+          };
+          setActions((prev) => [newItem, ...prev.filter((a) => a.id !== newItem.id)].slice(0, 15));
+          setTimeout(() => {
+            setActions((prev) => prev.map((a) => (a.id === newItem.id ? { ...a, isNew: false } : a)));
           }, 3000);
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   useEffect(() => {
     fetchActions();
-    const interval = setInterval(fetchActions, 60000); // refresh every 60s as backup
+    const interval = setInterval(fetchActions, 60000);
     return () => clearInterval(interval);
   }, [fetchActions]);
 

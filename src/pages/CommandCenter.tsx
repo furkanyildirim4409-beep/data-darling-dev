@@ -7,31 +7,55 @@ import { BusinessPulse } from "@/components/dashboard/BusinessPulse";
 import { ActionStream } from "@/components/dashboard/ActionStream";
 import { SessionsDialog } from "@/components/dashboard/SessionsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, TrendingUp, Calendar, AlertTriangle } from "lucide-react";
+import { Users, Activity, Utensils, AlertTriangle } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { useAlerts } from "@/hooks/useAlerts";
 
 export default function CommandCenter() {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessionsDialogOpen, setSessionsDialogOpen] = useState(false);
   const { athletes, riskDistribution, criticalAthletes, stats, compliance, isLoading } = useDashboardData();
-  const { criticalCount: alertCriticalCount } = useAlerts();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const avgReadiness = athletes.length > 0
-    ? (athletes.reduce((sum, a) => sum + (a.readiness_score ?? 75), 0) / athletes.length).toFixed(1)
-    : "0";
+  // Nutrition percentage change from yesterday
+  const nutChange = stats.nutritionLoggersYesterday > 0
+    ? Math.round(((stats.nutritionLoggersToday - stats.nutritionLoggersYesterday) / stats.nutritionLoggersYesterday) * 100)
+    : null;
 
   const quickStats = [
-    { title: "Toplam Sporcu", value: stats.totalAthletes, icon: Users, variant: "default" as const, onClick: () => navigate("/athletes") },
-    { title: "Ort. Hazırlık", value: avgReadiness, icon: TrendingUp, variant: "success" as const, onClick: () => navigate("/performance") },
-    { title: "Bugünkü Seanslar", value: stats.todaySessions, icon: Calendar, variant: "default" as const, onClick: () => setSessionsDialogOpen(true) },
-    { title: "Kritik Uyarılar", value: alertCriticalCount, icon: AlertTriangle, variant: "danger" as const, onClick: () => navigate("/alerts") },
+    {
+      title: "Aktif Sporcular",
+      value: stats.totalAthletes,
+      icon: Users,
+      variant: "default" as const,
+      onClick: () => navigate("/athletes"),
+    },
+    {
+      title: "Antrenman Uyumu",
+      value: `%${compliance.workoutCompliance}`,
+      icon: Activity,
+      variant: (compliance.workoutCompliance >= 70 ? "success" : compliance.workoutCompliance >= 40 ? "default" : "danger") as "success" | "default" | "danger",
+      onClick: () => navigate("/performance"),
+    },
+    {
+      title: "Beslenme Takibi",
+      value: `${stats.nutritionLoggersToday}/${stats.totalAthletes}`,
+      icon: Utensils,
+      variant: (stats.totalAthletes > 0 && stats.nutritionLoggersToday / stats.totalAthletes >= 0.6 ? "success" : "default") as "success" | "default",
+      description: nutChange !== null ? `Düne göre ${nutChange >= 0 ? "+" : ""}${nutChange}%` : undefined,
+      onClick: () => setSessionsDialogOpen(true),
+    },
+    {
+      title: "Kritik Sporcular",
+      value: stats.criticalAlerts,
+      icon: AlertTriangle,
+      variant: (stats.criticalAlerts > 0 ? "danger" : "success") as "danger" | "success",
+      onClick: () => navigate("/alerts"),
+    },
   ];
 
   return (
