@@ -59,6 +59,7 @@ interface ProgramInfo {
   target_goal: string | null;
   description: string | null;
   week_config: any;
+  assigned_at: string | null;
 }
 
 interface AssignmentLog {
@@ -125,12 +126,22 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     }
 
     // 3. Fetch program info for all
-    const { data: programs } = await supabase
-      .from("programs")
-      .select("id, title, difficulty, target_goal, description, week_config")
-      .in("id", uniqueProgramIds);
+    const [programsRes, logsRes] = await Promise.all([
+      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config").in("id", uniqueProgramIds),
+      supabase.from("program_assignment_logs").select("program_id, created_at").eq("athlete_id", athleteId).eq("action", "assigned").order("created_at", { ascending: false }),
+    ]);
 
-    const programList = (programs ?? []) as ProgramInfo[];
+    const assignmentDates: Record<string, string> = {};
+    (logsRes.data ?? []).forEach((log: any) => {
+      if (log.program_id && !assignmentDates[log.program_id]) {
+        assignmentDates[log.program_id] = log.created_at;
+      }
+    });
+
+    const programList = (programsRes.data ?? []).map((p: any) => ({
+      ...p,
+      assigned_at: assignmentDates[p.id] || null,
+    })) as ProgramInfo[];
     setAllPrograms(programList);
 
     // Auto-select active program, or first available
@@ -342,18 +353,23 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {prog.difficulty && (
-                        <Badge variant="outline" className="text-[10px] bg-muted/50 border-border">
+                        <Badge className="text-[10px] bg-warning/15 text-warning border-warning/30 hover:bg-warning/20">
                           {prog.difficulty}
                         </Badge>
                       )}
                       {prog.target_goal && (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
                           {prog.target_goal}
                         </Badge>
                       )}
                       {dayCount && (
-                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                        <Badge className="text-[10px] bg-accent/15 text-accent border-accent/30 hover:bg-accent/20">
                           {dayCount} gün/hf
+                        </Badge>
+                      )}
+                      {prog.assigned_at && (
+                        <Badge className="text-[10px] bg-secondary text-muted-foreground border-border hover:bg-secondary/80">
+                          📅 {new Date(prog.assigned_at).toLocaleDateString('tr-TR')}
                         </Badge>
                       )}
                     </div>
