@@ -279,10 +279,6 @@ export default function Alerts() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-3">
-                      {intervention.analysis}
-                    </p>
-
                     {/* Action Buttons */}
                     {intervention.actions.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap">
