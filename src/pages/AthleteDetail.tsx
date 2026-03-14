@@ -22,6 +22,7 @@ import { DraggableCardLayout } from "@/components/athlete-detail/DraggableCardLa
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
+import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
 
 interface AthleteProfile {
   id: string;
@@ -59,18 +60,17 @@ export default function AthleteDetail() {
   const [workoutSummary, setWorkoutSummary] = useState<WorkoutSummary>({ total: 0, completed: 0, totalTonnage: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [aiScanning, setAiScanning] = useState(false);
-  const [aiInsights, setAiInsights] = useState<Array<{ severity: string; title: string; analysis: string }>>([]);
+  const [aiRefreshKey, setAiRefreshKey] = useState(0);
 
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
     setAiScanning(true);
-    setAiInsights([]);
     try {
       const { data, error } = await supabase.functions.invoke("ai-doctor", {
         body: { athleteId: id },
       });
       if (error) throw error;
-      setAiInsights(data?.insights || []);
+      setAiRefreshKey(Date.now());
       toast.success(`AI analizi tamamlandı: ${data?.insights?.length || 0} bulgu`);
     } catch (err: any) {
       console.error("AI scan error:", err);
@@ -221,25 +221,7 @@ export default function AthleteDetail() {
         </div>
       </div>
 
-      {/* AI Insights inline display */}
-      {aiInsights.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {aiInsights.map((insight, idx) => {
-            const colors = {
-              high: "border-destructive/40 bg-destructive/10 text-destructive",
-              medium: "border-warning/40 bg-warning/10 text-warning",
-              low: "border-success/40 bg-success/10 text-success",
-            };
-            const c = colors[insight.severity as keyof typeof colors] || colors.low;
-            return (
-              <div key={idx} className={`rounded-lg border p-3 ${c}`}>
-                <p className="text-sm font-semibold text-foreground mb-1">{insight.title}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{insight.analysis}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {id && <AiHistoryWidget athleteId={id} key={aiRefreshKey} />}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="glass border border-border w-full justify-start gap-2 p-1 h-auto">
