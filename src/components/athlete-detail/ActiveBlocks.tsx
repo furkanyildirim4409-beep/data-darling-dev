@@ -85,8 +85,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const [selectedTraining, setSelectedTraining] = useState<TrainingData | null>(null);
   const [selectedDiet, setSelectedDiet] = useState<DietData | null>(null);
 
-  // Assign dialogs
-  const [assignProgramOpen, setAssignProgramOpen] = useState(false);
+  // Assign diet dialog
   const [assignDietOpen, setAssignDietOpen] = useState(false);
 
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
