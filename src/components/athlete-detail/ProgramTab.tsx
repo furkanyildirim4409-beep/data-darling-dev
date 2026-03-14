@@ -214,7 +214,14 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       setActiveProgramId(null);
     }
 
-    // 2. Log the removal (DO NOT delete assigned_workouts — preserve history)
+    // 2. Delete assigned_workouts for this program+athlete
+    await supabase
+      .from("assigned_workouts")
+      .delete()
+      .eq("athlete_id", athleteId)
+      .eq("program_id", selectedProgramId);
+
+    // 3. Log the removal
     await supabase.from("program_assignment_logs").insert({
       athlete_id: athleteId,
       coach_id: user.id,
