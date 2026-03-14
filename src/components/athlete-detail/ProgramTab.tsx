@@ -58,6 +58,7 @@ interface ProgramInfo {
   difficulty: string | null;
   target_goal: string | null;
   description: string | null;
+  week_config: any;
 }
 
 interface AssignmentLog {
@@ -126,7 +127,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     // 3. Fetch program info for all
     const { data: programs } = await supabase
       .from("programs")
-      .select("id, title, difficulty, target_goal, description")
+      .select("id, title, difficulty, target_goal, description, week_config")
       .in("id", uniqueProgramIds);
 
     const programList = (programs ?? []) as ProgramInfo[];
@@ -311,56 +312,69 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           </Button>
         </div>
 
-        {/* Program List — fixed clickable rows */}
-        <div className="glass rounded-xl border border-border overflow-hidden">
-          {allPrograms.map((prog, idx) => {
+        {/* Program List — enhanced cards */}
+        <div className="space-y-3">
+          {allPrograms.map((prog) => {
             const isSelected = prog.id === selectedProgramId;
+            const weekConfig = prog.week_config as any;
+            const dayCount = weekConfig?.days?.length || weekConfig?.length || null;
             return (
               <button
                 key={prog.id}
                 onClick={() => setSelectedProgramId(prog.id)}
                 className={cn(
-                  "w-full flex items-center justify-between p-4 text-left transition-colors",
-                  isSelected ? "bg-primary/10" : "hover:bg-muted/30",
-                  idx !== allPrograms.length - 1 && "border-b border-border"
+                  "w-full flex items-start justify-between p-5 rounded-xl border-2 text-left transition-all",
+                  isSelected
+                    ? "border-primary bg-primary/5 glow-lime"
+                    : "border-border glass glass-hover"
                 )}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-start gap-4 min-w-0">
                   <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                    "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
                     isSelected ? "bg-primary/20" : "bg-muted/50"
                   )}>
-                    <Dumbbell className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                    <Dumbbell className={cn("w-6 h-6", isSelected ? "text-primary" : "text-muted-foreground")} />
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("text-sm font-bold truncate", isSelected ? "text-primary" : "text-foreground")}>{prog.title}</span>
+                  <div className="min-w-0 space-y-2">
+                    <span className={cn("text-base font-bold block truncate", isSelected ? "text-primary" : "text-foreground")}>
+                      {prog.title}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {prog.difficulty && (
-                        <Badge variant="outline" className="text-[10px] bg-muted/50 shrink-0">
+                        <Badge variant="outline" className="text-[10px] bg-muted/50 border-border">
                           {prog.difficulty}
                         </Badge>
                       )}
+                      {prog.target_goal && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {prog.target_goal}
+                        </Badge>
+                      )}
+                      {dayCount && (
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          {dayCount} gün/hf
+                        </Badge>
+                      )}
                     </div>
-                    {prog.target_goal && (
-                      <p className="text-[11px] text-muted-foreground truncate">{prog.target_goal}</p>
+                    {prog.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-1">{prog.description}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs h-7"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedProgramId(prog.id);
-                      setRemoveOpen(true);
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Kaldır
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs h-8 shrink-0 ml-3"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedProgramId(prog.id);
+                    setRemoveOpen(true);
+                  }}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Kaldır
+                </Button>
               </button>
             );
           })}
