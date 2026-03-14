@@ -34,6 +34,7 @@ interface AiAction {
   type: "supplement" | "program" | "message" | "nutrition";
   label: string;
   payload: string;
+  completed?: boolean;
 }
 
 interface AiInsight {
@@ -135,30 +136,42 @@ export function AiHistoryWidget({ athleteId }: Props) {
   };
 
   const handleActionExecute = async (insightId: string, action: AiAction) => {
-    setResolvingIds((prev) => new Set(prev).add(insightId));
+    const insight = insights.find((i) => i.id === insightId);
+    if (!insight) return;
+
+    setResolvingIds((prev) => new Set(prev).add(`${insightId}-${action.label}`));
+
+    const updatedActions = insight.actions.map((a) =>
+      a.label === action.label ? { ...a, completed: true } : a
+    );
+    const allCompleted = updatedActions.every((a) => a.completed);
 
     const { error } = await supabase
       .from("ai_weekly_analyses")
-      .update({ resolved: true } as any)
+      .update({ actions: updatedActions, resolved: allCompleted } as any)
       .eq("id", insightId);
 
     if (error) {
       toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
       setResolvingIds((prev) => {
         const next = new Set(prev);
-        next.delete(insightId);
+        next.delete(`${insightId}-${action.label}`);
         return next;
       });
       return;
     }
 
-    // Mark as resolved in local state (don't remove — it's a medical archive)
+    // Optimistically update local state (archive — never remove)
     setInsights((prev) =>
-      prev.map((i) => (i.id === insightId ? { ...i, resolved: true } : i))
+      prev.map((i) =>
+        i.id === insightId
+          ? { ...i, actions: updatedActions, resolved: allCompleted }
+          : i
+      )
     );
     setResolvingIds((prev) => {
       const next = new Set(prev);
-      next.delete(insightId);
+      next.delete(`${insightId}-${action.label}`);
       return next;
     });
 
@@ -358,8 +371,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 const sev = (insight.severity as SeverityKey) || "low";
                 const config = severityConfig[sev];
                 const Icon = config.icon;
-                const isResolved = !!insight.resolved;
-                const isResolving = resolvingIds.has(insight.id);
 
                 return (
                   <div
@@ -377,10 +388,12 @@ export function AiHistoryWidget({ athleteId }: Props) {
                         {insight.actions.length > 0 && (
                           <div className="flex items-center gap-1.5 flex-wrap mt-2 mb-2">
                             {insight.actions.map((action, idx) => {
+                              const isActionCompleted = action.completed === true;
+                              const isActionResolving = resolvingIds.has(`${insight.id}-${action.label}`);
                               const ActionIcon = actionTypeIcons[action.type] || Sparkles;
                               const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
 
-                              if (isResolved) {
+                              if (isActionCompleted) {
                                 return (
                                   <Button
                                     key={idx}
@@ -402,10 +415,10 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                   size="sm"
                                   className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
                                   onClick={() => handleActionExecute(insight.id, action)}
-                                  disabled={isResolving}
+                                  disabled={isActionResolving}
                                 >
                                   <ActionIcon className="w-3 h-3" />
-                                  {action.label}
+                                  {isActionResolving ? "İşleniyor..." : action.label}
                                 </Button>
                               );
                             })}

@@ -33,6 +33,7 @@ interface AiAction {
   type: "supplement" | "program" | "message" | "nutrition";
   label: string;
   payload: string;
+  completed?: boolean;
 }
 
 interface AiIntervention {
@@ -117,31 +118,46 @@ export default function Alerts() {
     fetchAiInterventions();
   }, [fetchAiInterventions]);
 
-  // Handle action execute
+  // Handle action execute — persists per-action completion to JSONB
   const handleActionExecute = async (interventionId: string, action: AiAction) => {
-    setResolvingIds((prev) => new Set(prev).add(interventionId));
+    const intervention = aiInterventions.find((i) => i.id === interventionId);
+    if (!intervention) return;
 
-    // Update resolved in DB
+    setResolvingIds((prev) => new Set(prev).add(`${interventionId}-${action.label}`));
+
+    const updatedActions = intervention.actions.map((a) =>
+      a.label === action.label ? { ...a, completed: true } : a
+    );
+    const allCompleted = updatedActions.every((a) => a.completed);
+
     const { error } = await supabase
       .from("ai_weekly_analyses")
-      .update({ resolved: true } as any)
+      .update({ actions: updatedActions, resolved: allCompleted } as any)
       .eq("id", interventionId);
 
     if (error) {
       toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
       setResolvingIds((prev) => {
         const next = new Set(prev);
-        next.delete(interventionId);
+        next.delete(`${interventionId}-${action.label}`);
         return next;
       });
       return;
     }
 
-    // Optimistically remove
-    setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+    if (allCompleted) {
+      // All actions done — remove from queue
+      setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+    } else {
+      // Optimistically update the actions array in local state
+      setAiInterventions((prev) =>
+        prev.map((i) => (i.id === interventionId ? { ...i, actions: updatedActions } : i))
+      );
+    }
+
     setResolvingIds((prev) => {
       const next = new Set(prev);
-      next.delete(interventionId);
+      next.delete(`${interventionId}-${action.label}`);
       return next;
     });
 
@@ -253,15 +269,12 @@ export default function Alerts() {
                 const sevBadge = isHigh
                   ? "bg-destructive/20 text-destructive border-destructive/30"
                   : "bg-warning/20 text-warning border-warning/30";
-                const isResolving = resolvingIds.has(intervention.id);
-
                 return (
                   <div
                     key={intervention.id}
                     className={cn(
                       "glass rounded-xl border border-border p-5 border-l-4 transition-all",
-                      borderColor,
-                      isResolving && "opacity-50 pointer-events-none"
+                      borderColor
                     )}
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
@@ -283,8 +296,19 @@ export default function Alerts() {
                     {intervention.actions.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap mb-3">
                         {intervention.actions.map((action, idx) => {
+                          const isActionCompleted = action.completed === true;
+                          const isActionResolving = resolvingIds.has(`${intervention.id}-${action.label}`);
                           const Icon = actionIcons[action.type] || Sparkles;
                           const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
+
+                          if (isActionCompleted) {
+                            return (
+                              <Button key={idx} variant="outline" size="sm" disabled className="text-xs gap-1.5 border opacity-50">
+                                <CheckCheck className="w-3.5 h-3.5" />
+                                Çözüldü ✓
+                              </Button>
+                            );
+                          }
 
                           return (
                             <Button
@@ -293,10 +317,10 @@ export default function Alerts() {
                               size="sm"
                               className={cn("text-xs gap-1.5 border", colorCls)}
                               onClick={() => handleActionExecute(intervention.id, action)}
-                              disabled={isResolving}
+                              disabled={isActionResolving}
                             >
                               <Icon className="w-3.5 h-3.5" />
-                              {action.label}
+                              {isActionResolving ? "İşleniyor..." : action.label}
                             </Button>
                           );
                         })}
