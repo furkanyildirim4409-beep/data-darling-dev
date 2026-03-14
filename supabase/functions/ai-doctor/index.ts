@@ -70,7 +70,7 @@ serve(async (req) => {
     // ── 4. Aggregate 7-day holistic data ──
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [checkinsRes, nutritionRes, workoutsRes, weightRes, bloodRes] = await Promise.all([
+    const [checkinsRes, nutritionRes, workoutsRes, weightRes, bloodRes, historyRes] = await Promise.all([
       adminClient.from("daily_checkins")
         .select("mood, sleep, stress, soreness, digestion, created_at")
         .eq("user_id", athleteId)
@@ -96,6 +96,11 @@ serve(async (req) => {
         .eq("user_id", athleteId)
         .order("date", { ascending: false })
         .limit(1),
+      adminClient.from("ai_weekly_analyses")
+        .select("severity, title, analysis, actions, created_at")
+        .eq("athlete_id", athleteId)
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
     const snapshot = {
@@ -105,6 +110,7 @@ serve(async (req) => {
       workouts: workoutsRes.data || [],
       recentWeights: weightRes.data || [],
       latestBloodTest: bloodRes.data?.[0] || null,
+      patientHistory: historyRes.data || [],
     };
 
     // ── 5. Call Gemini Flash via Lovable AI Gateway ──
@@ -124,6 +130,13 @@ KRİTİK GÖREVİN:
 - Örnek: "3 gündür uyku skoru 3/10 altında ve protein alımı hedefin %60'ında. Bu kombinasyon, antrenman tonajındaki %30 düşüşü açıklıyor."
 - Veri yoksa veya yeterliyse, severity "low" ile pozitif bir yorum yap
 - Yanıtın Türkçe olmalı
+
+GEÇMİŞ BAĞLAM (CRITICAL):
+Sana 'patientHistory' adında sporcunun önceki yapay zeka analizleri ve koçun uyguladığı aksiyonlar (completed: true olanlar) veriliyor. Yeni verileri incelerken ASLA sadece bugüne bakma. Geçmişle kıyasla!
+- Eğer geçmişte bir aksiyon uygulanmışsa (completed: true), sonuçlarını değerlendir: "Geçen hafta D vitamini verilmiş ve CRP düşmüş, tedavi işe yaramış."
+- Eğer geçmişte bir aksiyon ÖNERİLMİŞ ama uygulanmamışsa (completed: false/undefined), bunu belirt: "Geçen hafta önerilen protein artışı uygulanmamış, sorun devam ediyor."
+- Aynı sorunu tekrar raporluyorsan, bunun TEKRARLAYAN bir sorun olduğunu vurgula ve daha agresif bir aksiyon öner.
+- Geçmişteki eylemlerin işe yarayıp yaramadığını analiz metninde MUTLAKA belirt.
 
 ÖNEMLİ KURAL: Bulduğun TÜM anormallikleri raporla. Kendini 1 veya 2 analizle ASLA sınırlandırma. Eğer sporcunun verilerinde 5 farklı sorun (veya pozitif durum) varsa, insights dizisine 5 farklı obje ekle. Minimum 3, maksimum 10 insight üret. Her sorun için en az 1, en fazla 3 spesifik aksiyon üret.
 
