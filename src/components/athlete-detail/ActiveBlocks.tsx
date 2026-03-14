@@ -339,6 +339,9 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
+                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
                               <Trash2 className="w-4 h-4 mr-2" />Kaldır
                             </DropdownMenuItem>
