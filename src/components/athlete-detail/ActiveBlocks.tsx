@@ -600,17 +600,25 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       {/* Assign Training Dialog */}
       <AssignTrainingDialog
         open={assignProgramOpen}
-        onOpenChange={setAssignProgramOpen}
+        onOpenChange={(open) => { setAssignProgramOpen(open); if (!open) setReplacingTraining(null); }}
         athleteId={athleteId}
-        onAssigned={fetchData}
+        onAssigned={async () => {
+          if (replacingTraining) await handleRevokeTraining(replacingTraining);
+          setReplacingTraining(null);
+          fetchData();
+        }}
       />
 
       {/* Assign Diet Dialog */}
       <AssignDietTemplateDialog
         open={assignDietOpen}
-        onOpenChange={(open) => { setAssignDietOpen(open); if (!open) fetchData(); }}
+        onOpenChange={(open) => { setAssignDietOpen(open); if (!open) setReplacingDiet(null); }}
         athleteId={athleteId}
-        onAssigned={fetchData}
+        onAssigned={async () => {
+          if (replacingDiet) await handleRevokeDiet(replacingDiet);
+          setReplacingDiet(null);
+          fetchData();
+        }}
       />
     </>
   );
