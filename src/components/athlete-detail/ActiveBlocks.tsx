@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus } from "lucide-react";
+import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -89,6 +89,8 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   // Assign dialogs
   const [assignProgramOpen, setAssignProgramOpen] = useState(false);
   const [assignDietOpen, setAssignDietOpen] = useState(false);
+  const [replacingTraining, setReplacingTraining] = useState<TrainingData | null>(null);
+  const [replacingDiet, setReplacingDiet] = useState<DietData | null>(null);
 
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
   const [dietDays, setDietDays] = useState<DietDay[]>([]);
@@ -337,6 +339,9 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
+                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
                               <Trash2 className="w-4 h-4 mr-2" />Kaldır
                             </DropdownMenuItem>
@@ -407,6 +412,9 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => { setReplacingDiet(d); setAssignDietOpen(true); }}>
+                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeDiet(d)}>
                               <Trash2 className="w-4 h-4 mr-2" />Kaldır
                             </DropdownMenuItem>
@@ -592,17 +600,25 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       {/* Assign Training Dialog */}
       <AssignTrainingDialog
         open={assignProgramOpen}
-        onOpenChange={setAssignProgramOpen}
+        onOpenChange={(open) => { setAssignProgramOpen(open); if (!open) setReplacingTraining(null); }}
         athleteId={athleteId}
-        onAssigned={fetchData}
+        onAssigned={async () => {
+          if (replacingTraining) await handleRevokeTraining(replacingTraining);
+          setReplacingTraining(null);
+          fetchData();
+        }}
       />
 
       {/* Assign Diet Dialog */}
       <AssignDietTemplateDialog
         open={assignDietOpen}
-        onOpenChange={(open) => { setAssignDietOpen(open); if (!open) fetchData(); }}
+        onOpenChange={(open) => { setAssignDietOpen(open); if (!open) setReplacingDiet(null); }}
         athleteId={athleteId}
-        onAssigned={fetchData}
+        onAssigned={async () => {
+          if (replacingDiet) await handleRevokeDiet(replacingDiet);
+          setReplacingDiet(null);
+          fetchData();
+        }}
       />
     </>
   );
