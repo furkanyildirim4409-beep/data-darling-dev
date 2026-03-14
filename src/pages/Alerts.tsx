@@ -8,6 +8,7 @@ import { AlertActionCard } from "@/components/alerts/AlertActionCard";
 import { QuickFiltersPanel, QuickFilter } from "@/components/alerts/QuickFiltersPanel";
 import {
   CheckCheck,
+  CheckCircle2,
   AlertTriangle,
   Clock,
   Bell,
