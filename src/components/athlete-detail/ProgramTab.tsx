@@ -268,46 +268,110 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     fetchPrograms();
   };
 
-  // Fetch history logs
+  // Fetch history logs — paginated
+  const fetchHistoryPage = async (page: number, append = false) => {
+    const from = page * HISTORY_PAGE_SIZE;
+    const to = from + HISTORY_PAGE_SIZE - 1;
+    const { data } = await supabase
+      .from("program_assignment_logs")
+      .select("id, program_id, program_title, action, created_at, coach_id, assignment_batch_id")
+      .eq("athlete_id", athleteId)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const logs = (data ?? []) as AssignmentLog[];
+    if (append) {
+      setHistoryLogs((prev) => [...prev, ...logs]);
+    } else {
+      setHistoryLogs(logs);
+    }
+    setHistoryHasMore(logs.length === HISTORY_PAGE_SIZE);
+    historyPageRef.current = page;
+  };
+
   const openHistory = async () => {
     setHistoryOpen(true);
     setHistoryLoading(true);
-    const { data } = await supabase
-      .from("program_assignment_logs")
-      .select("*")
-      .eq("athlete_id", athleteId)
-      .order("created_at", { ascending: false });
-    setHistoryLogs((data ?? []) as AssignmentLog[]);
+    setExpandedLogId(null);
+    setExpandedCache({});
+    await fetchHistoryPage(0);
     setHistoryLoading(false);
   };
 
-  // Expand a log entry to show its workouts
+  const loadMoreHistory = async () => {
+    setHistoryLoadingMore(true);
+    await fetchHistoryPage(historyPageRef.current + 1, true);
+    setHistoryLoadingMore(false);
+  };
+
+  // Expand a log entry — lightweight (no exercises JSON), paginated
+  const fetchExpandPage = async (log: AssignmentLog, page: number) => {
+    const requestId = ++expandRequestRef.current;
+    const from = page * EXPAND_PAGE_SIZE;
+    const to = from + EXPAND_PAGE_SIZE - 1;
+
+    let query = supabase
+      .from("assigned_workouts")
+      .select("id, workout_name, day_of_week, scheduled_date, status")
+      .eq("athlete_id", athleteId);
+
+    // Use batch_id if available, else fall back to program_id
+    if (log.assignment_batch_id) {
+      query = query.eq("assignment_batch_id", log.assignment_batch_id);
+    } else {
+      query = query.eq("program_id", log.program_id);
+    }
+
+    const { data } = await query
+      .order("scheduled_date", { ascending: true })
+      .range(from, to);
+
+    // Guard against stale responses
+    if (expandRequestRef.current !== requestId) return;
+
+    const rows = (data ?? []) as LightWorkout[];
+
+    // Deduplicate by day_of_week for weekly template view
+    const seenDays = new Set<string>();
+
+    setExpandedCache((prev) => {
+      const existing = prev[log.id];
+      const prevWorkouts = page === 0 ? [] : (existing?.workouts ?? []);
+      prevWorkouts.forEach((w) => { if (w.day_of_week) seenDays.add(w.day_of_week); });
+      const newUnique = rows.filter((w) => {
+        const key = w.day_of_week || w.id;
+        if (seenDays.has(key)) return false;
+        seenDays.add(key);
+        return true;
+      });
+      return {
+        ...prev,
+        [log.id]: {
+          workouts: [...prevWorkouts, ...newUnique],
+          page,
+          hasMore: rows.length === EXPAND_PAGE_SIZE,
+          loading: false,
+        },
+      };
+    });
+  };
+
   const toggleLogExpand = async (log: AssignmentLog) => {
     if (expandedLogId === log.id) {
       setExpandedLogId(null);
-      setExpandedLogWorkouts([]);
       return;
     }
     setExpandedLogId(log.id);
 
-    const { data } = await supabase
-      .from("assigned_workouts")
-      .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
-      .eq("athlete_id", athleteId)
-      .eq("program_id", log.program_id);
-
-    const mapped = (data ?? []).map((d) => ({
-      ...d,
-      day_notes: (d as any).day_notes ?? null,
-      day_of_week: (d as any).day_of_week ?? null,
-      exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
-    }));
-    mapped.sort((a, b) => {
-      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
-      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
-      return aIdx - bIdx;
-    });
-    setExpandedLogWorkouts(mapped);
+    // Only fetch if not cached
+    if (!expandedCache[log.id]) {
+      setExpandedCache((prev) => ({
+        ...prev,
+        [log.id]: { workouts: [], page: 0, hasMore: false, loading: true },
+      }));
+      await fetchExpandPage(log, 0);
+    }
+  };
   };
 
   const selectedProgram = allPrograms.find(p => p.id === selectedProgramId) ?? null;
