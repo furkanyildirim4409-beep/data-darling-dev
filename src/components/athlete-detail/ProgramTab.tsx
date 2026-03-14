@@ -695,7 +695,7 @@ function HistoryDialog({
             <p className="text-sm text-muted-foreground">Henüz bir atama kaydı bulunmuyor</p>
           </div>
         ) : (
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 -mx-6 px-6 min-h-0">
             <div className="space-y-2 pb-4">
               {logs.map((log) => {
                 const isExpanded = expandedLogId === log.id;
