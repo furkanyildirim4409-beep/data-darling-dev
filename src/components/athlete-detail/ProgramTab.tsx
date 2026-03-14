@@ -185,7 +185,16 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       return aIdx - bIdx;
     });
 
-    setWorkouts(mapped);
+    // Deduplicate by day_of_week — show only 1 week template preview
+    const seenDays = new Set<string>();
+    const uniqueWeek = mapped.filter((w) => {
+      const key = w.day_of_week || w.id;
+      if (seenDays.has(key)) return false;
+      seenDays.add(key);
+      return true;
+    });
+
+    setWorkouts(uniqueWeek);
     setLoadingWorkouts(false);
   }, [athleteId]);
 
