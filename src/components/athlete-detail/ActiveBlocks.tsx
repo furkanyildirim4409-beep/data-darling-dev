@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
+import { AssignTrainingDialog } from "@/components/athlete-detail/AssignTrainingDialog";
 
 interface ActiveBlocksProps {
   athleteId: string;
@@ -85,7 +86,8 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const [selectedTraining, setSelectedTraining] = useState<TrainingData | null>(null);
   const [selectedDiet, setSelectedDiet] = useState<DietData | null>(null);
 
-  // Assign diet dialog
+  // Assign dialogs
+  const [assignProgramOpen, setAssignProgramOpen] = useState(false);
   const [assignDietOpen, setAssignDietOpen] = useState(false);
 
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
@@ -362,7 +364,10 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
             })
           ) : (
             <div className="p-3 text-center">
-              <p className="text-[11px] text-muted-foreground italic">Henüz antrenman programı atanmadı. Program sekmesinden atama yapabilirsiniz.</p>
+              <p className="text-[11px] text-muted-foreground italic mb-2">Henüz antrenman programı atanmadı.</p>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignProgramOpen(true)}>
+                <Plus className="w-3.5 h-3.5" />Antrenman Programı Ata
+              </Button>
             </div>
           )}
 
@@ -583,6 +588,14 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Training Dialog */}
+      <AssignTrainingDialog
+        open={assignProgramOpen}
+        onOpenChange={setAssignProgramOpen}
+        athleteId={athleteId}
+        onAssigned={fetchData}
+      />
 
       {/* Assign Diet Dialog */}
       <AssignDietTemplateDialog
