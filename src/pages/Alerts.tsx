@@ -118,31 +118,46 @@ export default function Alerts() {
     fetchAiInterventions();
   }, [fetchAiInterventions]);
 
-  // Handle action execute
+  // Handle action execute — persists per-action completion to JSONB
   const handleActionExecute = async (interventionId: string, action: AiAction) => {
-    setResolvingIds((prev) => new Set(prev).add(interventionId));
+    const intervention = aiInterventions.find((i) => i.id === interventionId);
+    if (!intervention) return;
 
-    // Update resolved in DB
+    setResolvingIds((prev) => new Set(prev).add(`${interventionId}-${action.label}`));
+
+    const updatedActions = intervention.actions.map((a) =>
+      a.label === action.label ? { ...a, completed: true } : a
+    );
+    const allCompleted = updatedActions.every((a) => a.completed);
+
     const { error } = await supabase
       .from("ai_weekly_analyses")
-      .update({ resolved: true } as any)
+      .update({ actions: updatedActions, resolved: allCompleted } as any)
       .eq("id", interventionId);
 
     if (error) {
       toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
       setResolvingIds((prev) => {
         const next = new Set(prev);
-        next.delete(interventionId);
+        next.delete(`${interventionId}-${action.label}`);
         return next;
       });
       return;
     }
 
-    // Optimistically remove
-    setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+    if (allCompleted) {
+      // All actions done — remove from queue
+      setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+    } else {
+      // Optimistically update the actions array in local state
+      setAiInterventions((prev) =>
+        prev.map((i) => (i.id === interventionId ? { ...i, actions: updatedActions } : i))
+      );
+    }
+
     setResolvingIds((prev) => {
       const next = new Set(prev);
-      next.delete(interventionId);
+      next.delete(`${interventionId}-${action.label}`);
       return next;
     });
 
