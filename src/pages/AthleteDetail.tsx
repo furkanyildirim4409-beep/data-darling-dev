@@ -22,6 +22,7 @@ import { DraggableCardLayout } from "@/components/athlete-detail/DraggableCardLa
 import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
+import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
 
 interface AthleteProfile {
   id: string;
