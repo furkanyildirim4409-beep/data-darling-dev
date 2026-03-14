@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,8 +22,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, Target, RotateCcw } from "lucide-react";
+import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, Target, RotateCcw, History, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,15 @@ interface ProgramInfo {
   description: string | null;
 }
 
+interface AssignmentLog {
+  id: string;
+  program_id: string;
+  program_title: string;
+  action: string;
+  created_at: string;
+  coach_id: string;
+}
+
 interface ProgramTabProps {
   athleteId: string;
   currentProgram: string;
@@ -65,18 +76,27 @@ interface ProgramTabProps {
 
 export function ProgramTab({ athleteId }: ProgramTabProps) {
   const navigate = useNavigate();
-  const [workouts, setWorkouts] = useState<AssignedWorkout[]>([]);
-  const [programInfo, setProgramInfo] = useState<ProgramInfo | null>(null);
+  const { user } = useAuth();
+  const [allPrograms, setAllPrograms] = useState<ProgramInfo[]>([]);
   const [activeProgramId, setActiveProgramId] = useState<string | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [workouts, setWorkouts] = useState<AssignedWorkout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingWorkouts, setLoadingWorkouts] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [previewExercise, setPreviewExercise] = useState<ExerciseJson | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<AssignmentLog[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [expandedLogWorkouts, setExpandedLogWorkouts] = useState<AssignedWorkout[]>([]);
 
-  const fetchData = useCallback(async () => {
+  // Fetch all programs assigned to this athlete
+  const fetchPrograms = useCallback(async () => {
     setLoading(true);
 
-    // 1. Get athlete's active_program_id
+    // 1. Get active_program_id
     const { data: profile } = await supabase
       .from("profiles")
       .select("active_program_id")
@@ -86,35 +106,56 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     const apId = (profile as any)?.active_program_id as string | null;
     setActiveProgramId(apId);
 
-    if (!apId) {
-      setProgramInfo(null);
+    // 2. Get all distinct program_ids from assigned_workouts for this athlete
+    const { data: assignments } = await supabase
+      .from("assigned_workouts")
+      .select("program_id")
+      .eq("athlete_id", athleteId)
+      .not("program_id", "is", null);
+
+    const uniqueProgramIds = [...new Set((assignments ?? []).map(a => a.program_id).filter(Boolean))] as string[];
+
+    if (uniqueProgramIds.length === 0) {
+      setAllPrograms([]);
       setWorkouts([]);
+      setSelectedProgramId(null);
       setLoading(false);
       return;
     }
 
-    // 2. Fetch program info and assigned workouts in parallel
-    const [programRes, workoutsRes] = await Promise.all([
-      supabase.from("programs").select("id, title, difficulty, target_goal, description").eq("id", apId).single(),
-      supabase
-        .from("assigned_workouts")
-        .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
-        .eq("athlete_id", athleteId)
-        .eq("program_id", apId),
-    ]);
+    // 3. Fetch program info for all
+    const { data: programs } = await supabase
+      .from("programs")
+      .select("id, title, difficulty, target_goal, description")
+      .in("id", uniqueProgramIds);
 
-    if (programRes.data) {
-      setProgramInfo(programRes.data);
-    }
+    const programList = (programs ?? []) as ProgramInfo[];
+    setAllPrograms(programList);
 
-    const mapped = (workoutsRes.data ?? []).map((d) => ({
+    // Auto-select active program, or first available
+    const initialSelection = apId && uniqueProgramIds.includes(apId) ? apId : uniqueProgramIds[0];
+    setSelectedProgramId(initialSelection);
+
+    setLoading(false);
+  }, [athleteId]);
+
+  // Fetch workouts for selected program
+  const fetchWorkoutsForProgram = useCallback(async (programId: string) => {
+    setLoadingWorkouts(true);
+
+    const { data } = await supabase
+      .from("assigned_workouts")
+      .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
+      .eq("athlete_id", athleteId)
+      .eq("program_id", programId);
+
+    const mapped = (data ?? []).map((d) => ({
       ...d,
       day_notes: (d as any).day_notes ?? null,
       day_of_week: (d as any).day_of_week ?? null,
       exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
     }));
 
-    // Sort by day-of-week order
     mapped.sort((a, b) => {
       const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
       const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
@@ -122,39 +163,92 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     });
 
     setWorkouts(mapped);
-
-    setLoading(false);
+    setLoadingWorkouts(false);
   }, [athleteId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchPrograms();
+  }, [fetchPrograms]);
+
+  useEffect(() => {
+    if (selectedProgramId) {
+      fetchWorkoutsForProgram(selectedProgramId);
+    }
+  }, [selectedProgramId, fetchWorkoutsForProgram]);
 
   const handleRemoveProgram = async () => {
+    if (!selectedProgramId || !user) return;
     setRemoving(true);
 
-    // 1. Delete all assigned_workouts for this program+athlete
-    if (activeProgramId) {
+    const programTitle = allPrograms.find(p => p.id === selectedProgramId)?.title ?? "Bilinmeyen";
+
+    // 1. Only clear active_program_id if removing the active one
+    if (selectedProgramId === activeProgramId) {
       await supabase
-        .from("assigned_workouts")
-        .delete()
-        .eq("athlete_id", athleteId)
-        .eq("program_id", activeProgramId);
+        .from("profiles")
+        .update({ active_program_id: null } as any)
+        .eq("id", athleteId);
+      setActiveProgramId(null);
     }
 
-    // 2. Clear active_program_id on profile
-    await supabase
-      .from("profiles")
-      .update({ active_program_id: null } as any)
-      .eq("id", athleteId);
+    // 2. Log the removal (DO NOT delete assigned_workouts — preserve history)
+    await supabase.from("program_assignment_logs").insert({
+      athlete_id: athleteId,
+      coach_id: user.id,
+      program_id: selectedProgramId,
+      program_title: programTitle,
+      action: "removed",
+    });
 
-    toast.success("Program kaldırıldı");
-    setActiveProgramId(null);
-    setProgramInfo(null);
-    setWorkouts([]);
+    toast.success("Program kaldırıldı (geçmiş verileri korundu)");
     setRemoving(false);
     setRemoveOpen(false);
+    fetchPrograms();
   };
+
+  // Fetch history logs
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("program_assignment_logs")
+      .select("*")
+      .eq("athlete_id", athleteId)
+      .order("created_at", { ascending: false });
+    setHistoryLogs((data ?? []) as AssignmentLog[]);
+    setHistoryLoading(false);
+  };
+
+  // Expand a log entry to show its workouts
+  const toggleLogExpand = async (log: AssignmentLog) => {
+    if (expandedLogId === log.id) {
+      setExpandedLogId(null);
+      setExpandedLogWorkouts([]);
+      return;
+    }
+    setExpandedLogId(log.id);
+
+    const { data } = await supabase
+      .from("assigned_workouts")
+      .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
+      .eq("athlete_id", athleteId)
+      .eq("program_id", log.program_id);
+
+    const mapped = (data ?? []).map((d) => ({
+      ...d,
+      day_notes: (d as any).day_notes ?? null,
+      day_of_week: (d as any).day_of_week ?? null,
+      exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
+    }));
+    mapped.sort((a, b) => {
+      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
+      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
+      return aIdx - bIdx;
+    });
+    setExpandedLogWorkouts(mapped);
+  };
+
+  const selectedProgram = allPrograms.find(p => p.id === selectedProgramId);
 
   if (loading) {
     return (
@@ -165,21 +259,39 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     );
   }
 
-  // No active program
-  if (!activeProgramId || !programInfo) {
+  // No programs at all
+  if (allPrograms.length === 0) {
     return (
-      <div className="glass rounded-xl border border-border p-12 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-          <Dumbbell className="w-8 h-8 text-muted-foreground" />
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={openHistory}>
+            <History className="w-4 h-4 mr-1.5" />
+            Program Geçmişi
+          </Button>
         </div>
-        <h3 className="text-lg font-semibold text-foreground mb-2">Aktif program yok</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Bu sporcuya henüz bir antrenman programı atanmadı
-        </p>
-        <Button onClick={() => navigate("/programs")} className="bg-primary text-primary-foreground">
-          <Dumbbell className="w-4 h-4 mr-2" />
-          Program Mimarı'na Git
-        </Button>
+        <div className="glass rounded-xl border border-border p-12 text-center">
+          <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+            <Dumbbell className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Atanmış program yok</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Bu sporcuya henüz bir antrenman programı atanmadı
+          </p>
+          <Button onClick={() => navigate("/programs")} className="bg-primary text-primary-foreground">
+            <Dumbbell className="w-4 h-4 mr-2" />
+            Program Mimarı'na Git
+          </Button>
+        </div>
+        <HistoryDialog
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          loading={historyLoading}
+          logs={historyLogs}
+          expandedLogId={expandedLogId}
+          expandedLogWorkouts={expandedLogWorkouts}
+          onToggleLog={toggleLogExpand}
+          onPreviewExercise={setPreviewExercise}
+        />
       </div>
     );
   }
@@ -187,184 +299,119 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   return (
     <>
       <div className="space-y-5">
-        {/* Active Program Header */}
-        <div className="glass rounded-xl border border-primary/30 p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                <RotateCcw className="w-6 h-6 text-primary" />
-              </div>
-              <div>
+        {/* Top bar: History button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Dumbbell className="w-4 h-4" />
+            Atanmış Programlar ({allPrograms.length})
+          </h3>
+          <Button variant="outline" size="sm" onClick={openHistory}>
+            <History className="w-4 h-4 mr-1.5" />
+            Program Geçmişi
+          </Button>
+        </div>
+
+        {/* Program Cards */}
+        <div className="flex flex-wrap gap-3">
+          {allPrograms.map((prog) => {
+            const isActive = prog.id === activeProgramId;
+            const isSelected = prog.id === selectedProgramId;
+            return (
+              <button
+                key={prog.id}
+                onClick={() => setSelectedProgramId(prog.id)}
+                className={cn(
+                  "relative text-left p-4 rounded-xl border transition-all min-w-[180px] max-w-[260px]",
+                  isSelected
+                    ? "border-primary bg-primary/10 shadow-md"
+                    : "border-border glass hover:border-primary/40 hover:bg-primary/5"
+                )}
+              >
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-bold text-foreground">{programInfo.title}</h2>
-                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                    Aktif Program
-                  </Badge>
+                  <span className="text-sm font-bold text-foreground truncate">{prog.title}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  {programInfo.difficulty && (
-                    <span className="flex items-center gap-1">
-                      <Target className="w-3.5 h-3.5" />
-                      {programInfo.difficulty}
-                    </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {isActive && (
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
+                      ✅ Aktif
+                    </Badge>
                   )}
-                  {programInfo.target_goal && <span>• {programInfo.target_goal}</span>}
-                  <span>• {workouts.length} gün/hafta</span>
+                  {prog.difficulty && (
+                    <Badge variant="outline" className="text-[10px] bg-muted/50">
+                      {prog.difficulty}
+                    </Badge>
+                  )}
                 </div>
-                {programInfo.description && (
-                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{programInfo.description}</p>
+                {prog.target_goal && (
+                  <p className="text-[11px] text-muted-foreground mt-1 truncate">{prog.target_goal}</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Program Detail */}
+        {selectedProgram && (
+          <div className="space-y-4">
+            {/* Program Header */}
+            <div className="glass rounded-xl border border-primary/30 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-lg font-bold text-foreground">{selectedProgram.title}</h2>
+                      {selectedProgramId === activeProgramId && (
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
+                          Aktif Program
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      {selectedProgram.difficulty && (
+                        <span className="flex items-center gap-1">
+                          <Target className="w-3.5 h-3.5" />
+                          {selectedProgram.difficulty}
+                        </span>
+                      )}
+                      {selectedProgram.target_goal && <span>• {selectedProgram.target_goal}</span>}
+                      <span>• {workouts.length} gün/hafta</span>
+                    </div>
+                    {selectedProgram.description && (
+                      <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{selectedProgram.description}</p>
+                    )}
+                  </div>
+                </div>
+                {selectedProgramId === activeProgramId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+                    onClick={() => setRemoveOpen(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1.5" />
+                    Programı Kaldır
+                  </Button>
                 )}
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
-              onClick={() => setRemoveOpen(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              Programı Kaldır
-            </Button>
-          </div>
-        </div>
 
-        {/* Weekly Template */}
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Haftalık Şablon
-          </h3>
-          <div className="space-y-3">
-            {workouts.map((workout) => (
-              <div key={workout.id} className="glass rounded-xl border border-border overflow-hidden">
-                {/* Day Header */}
-                <div className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                    <Dumbbell className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-base font-bold text-foreground truncate">{workout.workout_name}</h4>
-                    {workout.day_of_week && (
-                      <span className="text-xs text-muted-foreground">
-                        {workout.day_of_week}
-                        {workout.scheduled_date && (
-                          <span> — {format(parseISO(workout.scheduled_date), "d MMMM yyyy", { locale: tr })}</span>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-xs shrink-0">
-                    {workout.exercises.length} egzersiz
-                  </Badge>
-                </div>
-
-                {/* Day Notes */}
-                {workout.day_notes && (
-                  <div className="mx-4 mb-3 p-3 rounded-lg bg-muted/40 border border-border/50">
-                    <div className="flex items-start gap-2">
-                      <StickyNote className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{workout.day_notes}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Exercises */}
-                {workout.exercises.length > 0 && (
-                  <div className="px-4 pb-4">
-                    <div className="space-y-2">
-                      {workout.exercises.map((ex, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50"
-                        >
-                          {/* Thumbnail */}
-                          <button
-                            type="button"
-                            onClick={() => ex.video_url && setPreviewExercise(ex)}
-                            className={cn(
-                              "w-12 h-12 rounded-lg shrink-0 overflow-hidden border border-border/50",
-                              ex.video_url && "cursor-pointer hover:border-primary/50 transition-colors"
-                            )}
-                          >
-                            {ex.video_url ? (
-                              <img
-                                src={ex.video_url}
-                                alt={ex.name}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
-                                }}
-                              />
-                            ) : null}
-                            <div className={cn(
-                              "w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center",
-                              ex.video_url && "hidden"
-                            )}>
-                              <Dumbbell className="w-5 h-5 text-primary/60" />
-                            </div>
-                          </button>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                                {idx + 1}
-                              </span>
-                              <span className="text-sm font-semibold text-foreground truncate">{ex.name}</span>
-                            </div>
-
-                            {/* Metrics */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {ex.sets && ex.reps && (
-                                <Badge variant="outline" className="text-[11px] h-5 px-1.5 bg-muted/50 font-mono">
-                                  {ex.sets} Set × {ex.reps}
-                                </Badge>
-                              )}
-                              {ex.rir !== undefined && ex.rir !== null && (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "text-[11px] h-5 px-1.5 font-mono",
-                                    ex.rir === 0
-                                      ? "border-destructive/50 text-destructive bg-destructive/10"
-                                      : "bg-muted/50"
-                                  )}
-                                >
-                                  RIR {ex.rir}
-                                </Badge>
-                              )}
-                              {ex.failure_set && (
-                                <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-destructive/50 text-destructive bg-destructive/10">
-                                  <Zap className="w-3 h-3 mr-0.5" />
-                                  Failure
-                                </Badge>
-                              )}
-                              {ex.rest_time && (
-                                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                                  <Clock className="w-3 h-3" />
-                                  {ex.rest_time}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Notes */}
-                            {ex.notes && (
-                              <div className="mt-1.5 p-1.5 rounded-md bg-accent/50 border border-accent">
-                                <p className="text-[11px] text-accent-foreground leading-snug">{ex.notes}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {/* Weekly Template */}
+            {loadingWorkouts ? (
+              <Skeleton className="h-48 w-full rounded-xl" />
+            ) : (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Haftalık Şablon
+                </h3>
+                <WorkoutList workouts={workouts} onPreviewExercise={setPreviewExercise} />
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Exercise Preview Dialog */}
@@ -392,8 +439,8 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Programı Kaldır</AlertDialogTitle>
             <AlertDialogDescription>
-              "{programInfo.title}" programını bu sporcudan kaldırmak istediğinizden emin misiniz?
-              Tüm haftalık şablon silinecek ve aktif program temizlenecektir. Bu işlem geri alınamaz.
+              "{selectedProgram?.title}" programını aktif programdan kaldırmak istediğinizden emin misiniz?
+              Geçmiş antrenman verileri korunacaktır.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -409,6 +456,277 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* History Dialog */}
+      <HistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        loading={historyLoading}
+        logs={historyLogs}
+        expandedLogId={expandedLogId}
+        expandedLogWorkouts={expandedLogWorkouts}
+        onToggleLog={toggleLogExpand}
+        onPreviewExercise={setPreviewExercise}
+      />
     </>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function WorkoutList({ workouts, onPreviewExercise }: { workouts: AssignedWorkout[]; onPreviewExercise: (ex: ExerciseJson) => void }) {
+  if (workouts.length === 0) {
+    return (
+      <div className="glass rounded-xl border border-border p-8 text-center">
+        <p className="text-sm text-muted-foreground">Bu programa ait antrenman bulunamadı</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {workouts.map((workout) => (
+        <div key={workout.id} className="glass rounded-xl border border-border overflow-hidden">
+          <div className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+              <Dumbbell className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-base font-bold text-foreground truncate">{workout.workout_name}</h4>
+              {workout.day_of_week && (
+                <span className="text-xs text-muted-foreground">
+                  {workout.day_of_week}
+                  {workout.scheduled_date && (
+                    <span> — {format(parseISO(workout.scheduled_date), "d MMMM yyyy", { locale: tr })}</span>
+                  )}
+                </span>
+              )}
+            </div>
+            <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-xs shrink-0">
+              {workout.exercises.length} egzersiz
+            </Badge>
+          </div>
+
+          {workout.day_notes && (
+            <div className="mx-4 mb-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+              <div className="flex items-start gap-2">
+                <StickyNote className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{workout.day_notes}</p>
+              </div>
+            </div>
+          )}
+
+          {workout.exercises.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="space-y-2">
+                {workout.exercises.map((ex, idx) => (
+                  <ExerciseCard key={idx} ex={ex} idx={idx} onPreview={onPreviewExercise} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ExerciseCard({ ex, idx, onPreview }: { ex: ExerciseJson; idx: number; onPreview: (ex: ExerciseJson) => void }) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
+      <button
+        type="button"
+        onClick={() => ex.video_url && onPreview(ex)}
+        className={cn(
+          "w-12 h-12 rounded-lg shrink-0 overflow-hidden border border-border/50",
+          ex.video_url && "cursor-pointer hover:border-primary/50 transition-colors"
+        )}
+      >
+        {ex.video_url ? (
+          <img
+            src={ex.video_url}
+            alt={ex.name}
+            loading="lazy"
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+              (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
+            }}
+          />
+        ) : null}
+        <div className={cn(
+          "w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center",
+          ex.video_url && "hidden"
+        )}>
+          <Dumbbell className="w-5 h-5 text-primary/60" />
+        </div>
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+            {idx + 1}
+          </span>
+          <span className="text-sm font-semibold text-foreground truncate">{ex.name}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {ex.sets && ex.reps && (
+            <Badge variant="outline" className="text-[11px] h-5 px-1.5 bg-muted/50 font-mono">
+              {ex.sets} Set × {ex.reps}
+            </Badge>
+          )}
+          {ex.rir !== undefined && ex.rir !== null && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[11px] h-5 px-1.5 font-mono",
+                ex.rir === 0 ? "border-destructive/50 text-destructive bg-destructive/10" : "bg-muted/50"
+              )}
+            >
+              RIR {ex.rir}
+            </Badge>
+          )}
+          {ex.failure_set && (
+            <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-destructive/50 text-destructive bg-destructive/10">
+              <Zap className="w-3 h-3 mr-0.5" />
+              Failure
+            </Badge>
+          )}
+          {ex.rest_time && (
+            <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+              <Clock className="w-3 h-3" />
+              {ex.rest_time}
+            </span>
+          )}
+        </div>
+        {ex.notes && (
+          <div className="mt-1.5 p-1.5 rounded-md bg-accent/50 border border-accent">
+            <p className="text-[11px] text-accent-foreground leading-snug">{ex.notes}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HistoryDialog({
+  open,
+  onOpenChange,
+  loading,
+  logs,
+  expandedLogId,
+  expandedLogWorkouts,
+  onToggleLog,
+  onPreviewExercise,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  loading: boolean;
+  logs: AssignmentLog[];
+  expandedLogId: string | null;
+  expandedLogWorkouts: AssignedWorkout[];
+  onToggleLog: (log: AssignmentLog) => void;
+  onPreviewExercise: (ex: ExerciseJson) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" />
+            Program Atama Geçmişi
+          </DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-muted-foreground">Henüz bir atama kaydı bulunmuyor</p>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="space-y-2 pb-4">
+              {logs.map((log) => {
+                const isExpanded = expandedLogId === log.id;
+                return (
+                  <div key={log.id} className="glass rounded-lg border border-border overflow-hidden">
+                    <button
+                      onClick={() => onToggleLog(log)}
+                      className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground truncate">{log.program_title}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] shrink-0",
+                              log.action === "assigned"
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "bg-destructive/10 text-destructive border-destructive/20"
+                            )}
+                          >
+                            {log.action === "assigned" ? "Atandı" : "Kaldırıldı"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(log.created_at), "d MMMM yyyy, HH:mm", { locale: tr })}
+                        </p>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-border p-3">
+                        {expandedLogWorkouts.length > 0 ? (
+                          <div className="space-y-2">
+                            {expandedLogWorkouts.map((w) => (
+                              <div key={w.id} className="p-2 rounded-lg bg-muted/30">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Dumbbell className="w-3.5 h-3.5 text-primary" />
+                                  <span className="text-xs font-semibold text-foreground">{w.workout_name}</span>
+                                  {w.day_of_week && (
+                                    <span className="text-[10px] text-muted-foreground">({w.day_of_week})</span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {w.exercises.map((ex, i) => (
+                                    <button
+                                      key={i}
+                                      onClick={() => ex.video_url && onPreviewExercise(ex)}
+                                      className={cn(
+                                        "text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground",
+                                        ex.video_url && "cursor-pointer hover:bg-primary/20"
+                                      )}
+                                    >
+                                      {ex.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-2">
+                            Bu program için antrenman verisi bulunamadı
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
