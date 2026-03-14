@@ -33,6 +33,7 @@ interface AiAction {
   type: "supplement" | "program" | "message" | "nutrition";
   label: string;
   payload: string;
+  completed?: boolean;
 }
 
 interface AiIntervention {
