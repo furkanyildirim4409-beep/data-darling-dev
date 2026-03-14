@@ -931,8 +931,20 @@ function HistoryDialog({
                                                 </Badge>
                                               )}
                                               {ex.rir !== undefined && ex.rir !== null && (
-                                                <Badge variant="outline" className="text-[10px] h-4 px-1 bg-muted/50 font-mono">
+                                                <Badge
+                                                  variant="outline"
+                                                  className={cn(
+                                                    "text-[10px] h-4 px-1 font-mono",
+                                                    ex.rir === 0 ? "border-destructive/50 text-destructive bg-destructive/10" : "bg-muted/50"
+                                                  )}
+                                                >
                                                   RIR {ex.rir}
+                                                </Badge>
+                                              )}
+                                              {ex.failure_set && (
+                                                <Badge variant="outline" className="text-[10px] h-4 px-1 border-destructive/50 text-destructive bg-destructive/10">
+                                                  <Zap className="w-2.5 h-2.5 mr-0.5" />
+                                                  Failure
                                                 </Badge>
                                               )}
                                               {ex.rest_time && (
