@@ -359,19 +359,50 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
             {diet && <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-success transition-colors shrink-0 mt-1" />}
           </div>
           {diet ? (
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { val: diet.calories, label: "kcal" },
-                { val: `${diet.protein}g`, label: "protein" },
-                { val: `${diet.carbs}g`, label: "karb" },
-                { val: `${diet.fat}g`, label: "yağ" },
-              ].map((m, i) => (
-                <div key={i} className="p-2 rounded-lg bg-secondary/50 text-center">
-                  <p className="text-sm font-bold font-mono text-foreground">{m.val}</p>
-                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                </div>
-              ))}
-            </div>
+            <>
+              {diet.startDate && diet.durationWeeks && (
+                (() => {
+                  const totalDays = diet.durationWeeks * 7;
+                  const elapsedDays = Math.max(0, Math.ceil((Date.now() - new Date(diet.startDate).getTime()) / 86400000));
+                  const dietCurrentWeek = Math.max(1, Math.ceil(elapsedDays / 7));
+                  const dietProgressPct = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
+                          <Calendar className="w-3 h-3 mr-1" />Hafta {Math.min(dietCurrentWeek, diet.durationWeeks)}/{diet.durationWeeks}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                          <Clock className="w-3 h-3 mr-1" />{new Date(diet.startDate).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1 mb-3">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">İlerleme</span>
+                          <span className="font-mono text-foreground">%{dietProgressPct}</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-success rounded-full transition-all" style={{ width: `${dietProgressPct}%` }} />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()
+              )}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { val: diet.calories, label: "kcal" },
+                  { val: `${diet.protein}g`, label: "protein" },
+                  { val: `${diet.carbs}g`, label: "karb" },
+                  { val: `${diet.fat}g`, label: "yağ" },
+                ].map((m, i) => (
+                  <div key={i} className="p-2 rounded-lg bg-secondary/50 text-center">
+                    <p className="text-sm font-bold font-mono text-foreground">{m.val}</p>
+                    <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <p className="text-xs text-muted-foreground italic">Beslenme Planı sekmesinden bir şablon atayabilirsiniz.</p>
           )}
