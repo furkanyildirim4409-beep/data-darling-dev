@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { AssignProgramDialog } from "@/components/program-architect/AssignProgramDialog";
+import { ReplaceProgramDialog } from "@/components/athlete-detail/ReplaceProgramDialog";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
 
 interface ActiveBlocksProps {
