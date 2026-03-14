@@ -19,6 +19,8 @@ import {
   MessageSquare,
   UtensilsCrossed,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
