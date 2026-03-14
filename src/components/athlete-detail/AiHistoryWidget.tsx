@@ -371,8 +371,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 const sev = (insight.severity as SeverityKey) || "low";
                 const config = severityConfig[sev];
                 const Icon = config.icon;
-                const isResolved = !!insight.resolved;
-                const isResolving = resolvingIds.has(insight.id);
 
                 return (
                   <div
