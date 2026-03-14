@@ -3,10 +3,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Loader2, Users, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface AssignDietTemplateBulkDialogProps {
   open: boolean;
@@ -21,16 +26,36 @@ interface AthleteOption {
   avatar?: string;
 }
 
+const DURATION_OPTIONS = [
+  { value: "1", label: "1 Hafta" },
+  { value: "4", label: "4 Hafta" },
+  { value: "8", label: "8 Hafta" },
+  { value: "12", label: "12 Hafta" },
+];
+
+function getNextMonday(): Date {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 1 : 8 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, templateName }: AssignDietTemplateBulkDialogProps) {
   const { user } = useAuth();
   const [athletes, setAthletes] = useState<AthleteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [startDate, setStartDate] = useState<Date>(getNextMonday());
+  const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
     if (!open || !user) return;
     setSelectedIds(new Set());
+    setStartDate(getNextMonday());
+    setDurationWeeks("4");
     setLoading(true);
 
     supabase
@@ -68,12 +93,14 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
       athlete_id: id,
       coach_id: user.id,
       active_diet_template_id: templateId,
+      diet_start_date: format(startDate, "yyyy-MM-dd"),
+      diet_duration_weeks: Number(durationWeeks),
       updated_at: new Date().toISOString(),
     }));
 
     const { error } = await supabase
       .from("nutrition_targets")
-      .upsert(rows, { onConflict: "athlete_id" });
+      .upsert(rows as any, { onConflict: "athlete_id" });
 
     setSubmitting(false);
 
@@ -98,6 +125,37 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
             "{templateName}" şablonunu atamak istediğiniz sporcuları seçin.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Date & Duration */}
+        <div className="flex items-center gap-3 pb-2 border-b border-border">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2")}>
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {format(startDate, "dd MMM yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={(d) => d && setStartDate(d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <Select value={durationWeeks} onValueChange={setDurationWeeks}>
+            <SelectTrigger className="w-[120px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DURATION_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-8">

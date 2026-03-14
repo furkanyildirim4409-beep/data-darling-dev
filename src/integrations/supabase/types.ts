@@ -651,6 +651,8 @@ export type Database = {
           coach_id: string
           created_at: string | null
           daily_calories: number
+          diet_duration_weeks: number | null
+          diet_start_date: string | null
           fat_g: number
           id: string
           protein_g: number
@@ -663,6 +665,8 @@ export type Database = {
           coach_id: string
           created_at?: string | null
           daily_calories?: number
+          diet_duration_weeks?: number | null
+          diet_start_date?: string | null
           fat_g?: number
           id?: string
           protein_g?: number
@@ -675,6 +679,8 @@ export type Database = {
           coach_id?: string
           created_at?: string | null
           daily_calories?: number
+          diet_duration_weeks?: number | null
+          diet_start_date?: string | null
           fat_g?: number
           id?: string
           protein_g?: number

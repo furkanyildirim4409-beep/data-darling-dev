@@ -9,10 +9,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Apple, Flame, Beef, Wheat, Droplets, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Loader2, Apple, Flame, Beef, Wheat, Droplets, Check, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface TemplateWithMacros {
   id: string;
@@ -34,6 +39,22 @@ interface AssignDietTemplateDialogProps {
   activeTemplateId?: string | null;
 }
 
+const DURATION_OPTIONS = [
+  { value: "1", label: "1 Hafta" },
+  { value: "4", label: "4 Hafta" },
+  { value: "8", label: "8 Hafta" },
+  { value: "12", label: "12 Hafta" },
+];
+
+function getNextMonday(): Date {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 1 : 8 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function AssignDietTemplateDialog({
   open,
   onOpenChange,
@@ -45,9 +66,13 @@ export function AssignDietTemplateDialog({
   const [templates, setTemplates] = useState<TemplateWithMacros[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<Date>(getNextMonday());
+  const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
     if (!open || !user) return;
+    setStartDate(getNextMonday());
+    setDurationWeeks("4");
     (async () => {
       setLoading(true);
       const { data: tpls } = await supabase
@@ -87,7 +112,6 @@ export function AssignDietTemplateDialog({
     if (!user) return;
     setAssigning(tpl.id);
 
-    // UPSERT into nutrition_targets — single source of truth
     const { error } = await supabase
       .from("nutrition_targets")
       .upsert(
@@ -95,8 +119,10 @@ export function AssignDietTemplateDialog({
           athlete_id: athleteId,
           coach_id: user.id,
           active_diet_template_id: tpl.id,
+          diet_start_date: format(startDate, "yyyy-MM-dd"),
+          diet_duration_weeks: Number(durationWeeks),
           updated_at: new Date().toISOString(),
-        },
+        } as any,
         { onConflict: "athlete_id" }
       );
 
@@ -119,9 +145,40 @@ export function AssignDietTemplateDialog({
             Beslenme Programı Ata
           </DialogTitle>
           <DialogDescription>
-            Bir diyet şablonu seçerek beslenme programını sporcuya atayın. Tek aktif program olarak ayarlanır.
+            Bir diyet şablonu seçerek beslenme programını sporcuya atayın.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Date & Duration Selectors */}
+        <div className="flex items-center gap-3 pb-2 border-b border-border">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2", !startDate && "text-muted-foreground")}>
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {format(startDate, "dd MMM yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={(d) => d && setStartDate(d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <Select value={durationWeeks} onValueChange={setDurationWeeks}>
+            <SelectTrigger className="w-[120px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DURATION_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <ScrollArea className="flex-1 pr-2 -mr-2">
           {loading ? (
