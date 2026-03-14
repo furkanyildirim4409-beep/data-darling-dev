@@ -214,13 +214,7 @@ KRİTİK GÖREVİN:
     const parsed = JSON.parse(toolCall.function.arguments);
     const insights = parsed.insights || [];
 
-    // ── 6. Delete old analyses for this athlete, insert new ones ──
-    await adminClient
-      .from("ai_weekly_analyses")
-      .delete()
-      .eq("athlete_id", athleteId)
-      .eq("coach_id", coachId);
-
+    // ── 6. Append new analyses (preserve history) ──
     if (insights.length > 0) {
       const rows = insights.map((i: any) => ({
         athlete_id: athleteId,
