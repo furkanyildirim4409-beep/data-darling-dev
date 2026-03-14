@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_weekly_analyses: {
+        Row: {
+          analysis: string
+          athlete_id: string
+          athlete_name: string | null
+          coach_id: string
+          created_at: string
+          id: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          analysis: string
+          athlete_id: string
+          athlete_name?: string | null
+          coach_id: string
+          created_at?: string
+          id?: string
+          severity?: string
+          title: string
+        }
+        Update: {
+          analysis?: string
+          athlete_id?: string
+          athlete_name?: string | null
+          coach_id?: string
+          created_at?: string
+          id?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: []
+      }
       assigned_workouts: {
         Row: {
           assignment_batch_id: string | null
