@@ -748,10 +748,10 @@ function HistoryDialog({
   expandedLogId,
   expandedCache,
   onToggleLog,
-  onLoadMoreExpand,
   historyHasMore,
   historyLoadingMore,
   onLoadMoreHistory,
+  athleteId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -760,11 +760,41 @@ function HistoryDialog({
   expandedLogId: string | null;
   expandedCache: Record<string, ExpandedLogCache>;
   onToggleLog: (log: AssignmentLog) => void;
-  onLoadMoreExpand: (log: AssignmentLog, page: number) => void;
   historyHasMore: boolean;
   historyLoadingMore: boolean;
   onLoadMoreHistory: () => void;
+  athleteId: string;
 }) {
+  const [selectedDay, setSelectedDay] = useState<{ logId: string; day: string } | null>(null);
+  const [dayExercises, setDayExercises] = useState<ExerciseJson[]>([]);
+  const [loadingExercises, setLoadingExercises] = useState(false);
+
+  const handleDayClick = async (log: AssignmentLog, dayOfWeek: string) => {
+    if (selectedDay?.logId === log.id && selectedDay?.day === dayOfWeek) {
+      setSelectedDay(null);
+      return;
+    }
+    setSelectedDay({ logId: log.id, day: dayOfWeek });
+    setLoadingExercises(true);
+
+    let query = supabase
+      .from("assigned_workouts")
+      .select("exercises")
+      .eq("athlete_id", athleteId)
+      .eq("day_of_week", dayOfWeek) as any;
+
+    if (log.assignment_batch_id) {
+      query = query.eq("assignment_batch_id", log.assignment_batch_id);
+    } else {
+      query = query.eq("program_id", log.program_id);
+    }
+
+    const { data } = await query.limit(1).maybeSingle();
+    const exercises = data ? (Array.isArray(data.exercises) ? (data.exercises as unknown as ExerciseJson[]) : []) : [];
+    setDayExercises(exercises);
+    setLoadingExercises(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border sm:max-w-lg h-[80vh] flex flex-col overflow-hidden">
@@ -792,7 +822,7 @@ function HistoryDialog({
                 return (
                   <div key={log.id} className="glass rounded-lg border border-border overflow-hidden">
                     <button
-                      onClick={() => onToggleLog(log)}
+                      onClick={() => { setSelectedDay(null); onToggleLog(log); }}
                       className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
                     >
                       {isExpanded ? (
@@ -801,7 +831,7 @@ function HistoryDialog({
                         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-foreground truncate">{log.program_title}</span>
                           <Badge
                             variant="outline"
@@ -814,6 +844,11 @@ function HistoryDialog({
                           >
                             {log.action === "assigned" ? "Atandı" : "Kaldırıldı"}
                           </Badge>
+                          {isExpanded && cache && !cache.loading && cache.durationWeeks > 0 && (
+                            <Badge variant="outline" className="text-[10px] shrink-0 bg-secondary text-muted-foreground border-border">
+                              {cache.durationWeeks} Hafta
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(log.created_at), "d MMMM yyyy, HH:mm", { locale: tr })}
@@ -829,30 +864,67 @@ function HistoryDialog({
                           </div>
                         ) : cache.workouts.length > 0 ? (
                           <div className="space-y-1.5">
-                            {cache.workouts.map((w) => (
-                              <div key={w.id} className="p-2 rounded-lg bg-muted/30 flex items-center gap-2">
-                                <Dumbbell className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="text-xs font-semibold text-foreground truncate">{w.workout_name}</span>
-                                {w.day_of_week && (
-                                  <span className="text-[10px] text-muted-foreground shrink-0">({w.day_of_week})</span>
-                                )}
-                                {w.scheduled_date && (
-                                  <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">
-                                    {format(parseISO(w.scheduled_date), "d MMM", { locale: tr })}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                            {cache.hasMore && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="w-full text-xs h-7"
-                                onClick={() => onLoadMoreExpand(log, cache.page + 1)}
-                              >
-                                Daha fazla yükle
-                              </Button>
-                            )}
+                            {cache.workouts.map((w) => {
+                              const isDaySelected = selectedDay?.logId === log.id && selectedDay?.day === w.day_of_week;
+                              return (
+                                <div key={w.id}>
+                                  <button
+                                    onClick={() => w.day_of_week && handleDayClick(log, w.day_of_week)}
+                                    className={cn(
+                                      "w-full p-2 rounded-lg flex items-center gap-2 transition-colors text-left",
+                                      isDaySelected
+                                        ? "bg-primary/10 ring-1 ring-primary/30"
+                                        : "bg-muted/30 hover:bg-muted/50"
+                                    )}
+                                  >
+                                    <Dumbbell className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <span className="text-xs font-semibold text-foreground truncate flex-1">{w.workout_name}</span>
+                                    {w.day_of_week && (
+                                      <span className="text-[10px] text-muted-foreground shrink-0">({w.day_of_week})</span>
+                                    )}
+                                  </button>
+                                  {isDaySelected && (
+                                    <div className="mt-1.5 ml-4 space-y-1.5">
+                                      {loadingExercises ? (
+                                        <div className="flex justify-center py-2">
+                                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                        </div>
+                                      ) : dayExercises.length > 0 ? (
+                                        dayExercises.map((ex, idx) => (
+                                          <div key={idx} className="p-2 rounded-md bg-secondary/50 border border-border/50">
+                                            <div className="flex items-center gap-2">
+                                              <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                                                {idx + 1}
+                                              </span>
+                                              <span className="text-xs font-medium text-foreground truncate">{ex.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-1 ml-6 flex-wrap">
+                                              {ex.sets && ex.reps && (
+                                                <Badge variant="outline" className="text-[10px] h-4 px-1 bg-muted/50 font-mono">
+                                                  {ex.sets}×{ex.reps}
+                                                </Badge>
+                                              )}
+                                              {ex.rir !== undefined && ex.rir !== null && (
+                                                <Badge variant="outline" className="text-[10px] h-4 px-1 bg-muted/50 font-mono">
+                                                  RIR {ex.rir}
+                                                </Badge>
+                                              )}
+                                              {ex.rest_time && (
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                  <Clock className="w-2.5 h-2.5" />{ex.rest_time}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-[11px] text-muted-foreground text-center py-1">Egzersiz bulunamadı</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground text-center py-2">
