@@ -82,6 +82,7 @@ interface AssignmentLog {
   created_at: string;
   coach_id: string;
   assignment_batch_id: string | null;
+  durationWeeks: number;
 }
 
 interface ExpandedLogCache {
