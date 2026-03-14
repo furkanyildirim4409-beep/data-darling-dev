@@ -91,6 +91,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
