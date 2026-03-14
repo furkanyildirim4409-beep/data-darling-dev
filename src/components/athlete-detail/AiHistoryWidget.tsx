@@ -19,7 +19,17 @@ import {
   CheckCircle2,
   Sparkles,
   Clock,
+  Pill,
+  Dumbbell,
+  MessageSquare,
+  UtensilsCrossed,
 } from "lucide-react";
+
+interface AiAction {
+  type: "supplement" | "program" | "message" | "nutrition";
+  label: string;
+  payload: string;
+}
 
 interface AiInsight {
   id: string;
@@ -27,6 +37,7 @@ interface AiInsight {
   title: string;
   analysis: string;
   created_at: string;
+  actions: AiAction[];
 }
 
 type SeverityKey = "high" | "medium" | "low";
@@ -72,6 +83,27 @@ const severityConfig: Record<
   },
 };
 
+const actionTypeIcons: Record<string, typeof Pill> = {
+  supplement: Pill,
+  program: Dumbbell,
+  message: MessageSquare,
+  nutrition: UtensilsCrossed,
+};
+
+const actionTypeLabels: Record<string, string> = {
+  supplement: "Supplement",
+  program: "Program",
+  message: "Mesaj",
+  nutrition: "Beslenme",
+};
+
+const actionTypeColors: Record<string, string> = {
+  supplement: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  program: "bg-primary/10 text-primary border-primary/30",
+  message: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  nutrition: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+};
+
 function formatSessionDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("tr-TR", {
@@ -94,19 +126,22 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       const { data } = await supabase
         .from("ai_weekly_analyses")
-        .select("id, severity, title, analysis, created_at")
+        .select("id, severity, title, analysis, created_at, actions")
         .eq("athlete_id", athleteId)
         .order("created_at", { ascending: false })
         .limit(500);
 
-      const items = (data as AiInsight[]) || [];
+      const items = ((data as any[]) || []).map((row) => ({
+        ...row,
+        actions: Array.isArray(row.actions) ? row.actions : [],
+      })) as AiInsight[];
+
       setInsights(items);
 
-      // Auto-select the most recent session
       if (items.length > 0) {
         setSelectedSession(items[0].created_at);
       } else {
@@ -114,10 +149,9 @@ export function AiHistoryWidget({ athleteId }: Props) {
       }
       setIsLoading(false);
     };
-    fetch();
+    fetchData();
   }, [athleteId]);
 
-  // Group by exact created_at ISO string → sessions
   const sessionDates = useMemo(() => {
     const set = new Set<string>();
     for (const i of insights) set.add(i.created_at);
@@ -133,11 +167,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
   );
 
   const grouped = useMemo(() => {
-    const map: Record<SeverityKey, AiInsight[]> = {
-      high: [],
-      medium: [],
-      low: [],
-    };
+    const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
     for (const i of sessionInsights) {
       const key = (i.severity as SeverityKey) || "low";
       if (map[key]) map[key].push(i);
@@ -182,8 +212,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
             Bu sporcu için henüz yapay zeka taraması yapılmadı.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Yukarıdaki "🧠 AI Taraması" butonunu kullanarak ilk analizi
-            başlatabilirsiniz.
+            Yukarıdaki "🧠 AI Taraması" butonunu kullanarak ilk analizi başlatabilirsiniz.
           </p>
         </CardContent>
       </Card>
@@ -298,9 +327,30 @@ export function AiHistoryWidget({ athleteId }: Props) {
                         <p className="text-sm font-semibold text-foreground mb-1">
                           {insight.title}
                         </p>
-                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line mb-2">
                           {insight.analysis}
                         </p>
+
+                        {/* Prescribed Actions (Read-Only Tags) */}
+                        {insight.actions.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                            {insight.actions.map((action, idx) => {
+                              const ActionIcon = actionTypeIcons[action.type] || Sparkles;
+                              const colorCls = actionTypeColors[action.type] || "bg-secondary text-muted-foreground border-border";
+
+                              return (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className={`text-[10px] gap-1 px-2 py-0.5 ${colorCls}`}
+                                >
+                                  <ActionIcon className="w-3 h-3" />
+                                  {action.label}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
