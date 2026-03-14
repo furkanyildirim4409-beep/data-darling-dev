@@ -58,6 +58,27 @@ export default function AthleteDetail() {
   const [latestCheckIn, setLatestCheckIn] = useState<CheckInData | null>(null);
   const [workoutSummary, setWorkoutSummary] = useState<WorkoutSummary>({ total: 0, completed: 0, totalTonnage: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [aiScanning, setAiScanning] = useState(false);
+  const [aiInsights, setAiInsights] = useState<Array<{ severity: string; title: string; analysis: string }>>([]);
+
+  const runAiScan = useCallback(async () => {
+    if (!id || aiScanning) return;
+    setAiScanning(true);
+    setAiInsights([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-doctor", {
+        body: { athleteId: id },
+      });
+      if (error) throw error;
+      setAiInsights(data?.insights || []);
+      toast.success(`AI analizi tamamlandı: ${data?.insights?.length || 0} bulgu`);
+    } catch (err: any) {
+      console.error("AI scan error:", err);
+      toast.error(err?.message || "AI taraması başarısız oldu");
+    } finally {
+      setAiScanning(false);
+    }
+  }, [id, aiScanning]);
 
   const fetchAthleteData = useCallback(async () => {
     if (!id) return;
