@@ -870,9 +870,9 @@ function HistoryDialog({
                           >
                             {log.action === "assigned" ? "Atandı" : "Kaldırıldı"}
                           </Badge>
-                          {isExpanded && cache && !cache.loading && cache.durationWeeks > 0 && (
+                          {log.action === "assigned" && log.durationWeeks > 0 && (
                             <Badge variant="outline" className="text-[10px] shrink-0 bg-secondary text-muted-foreground border-border">
-                              {cache.durationWeeks} Hafta
+                              {log.durationWeeks} Hafta
                             </Badge>
                           )}
                         </div>
