@@ -374,7 +374,6 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       await fetchExpandPage(log, 0);
     }
   };
-  };
 
   const selectedProgram = allPrograms.find(p => p.id === selectedProgramId) ?? null;
 
