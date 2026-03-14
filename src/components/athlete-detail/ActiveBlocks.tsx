@@ -123,11 +123,12 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     }
 
     const templateId = nutritionRes.data?.active_diet_template_id;
+    const ntData = nutritionRes.data as any;
     if (templateId) {
       const tplRes = await supabase.from("diet_templates").select("title, description").eq("id", templateId).maybeSingle();
-      setDiet({ templateId, templateName: tplRes.data?.title || "Beslenme Planı", description: tplRes.data?.description || null, calories: nutritionRes.data?.daily_calories || 0, protein: nutritionRes.data?.protein_g || 0, carbs: nutritionRes.data?.carbs_g || 0, fat: nutritionRes.data?.fat_g || 0 });
+      setDiet({ templateId, templateName: tplRes.data?.title || "Beslenme Planı", description: tplRes.data?.description || null, calories: nutritionRes.data?.daily_calories || 0, protein: nutritionRes.data?.protein_g || 0, carbs: nutritionRes.data?.carbs_g || 0, fat: nutritionRes.data?.fat_g || 0, startDate: ntData?.diet_start_date || null, durationWeeks: ntData?.diet_duration_weeks || null });
     } else if (nutritionRes.data) {
-      setDiet({ templateId: null, templateName: "Özel Hedefler", description: null, calories: nutritionRes.data.daily_calories || 0, protein: nutritionRes.data.protein_g || 0, carbs: nutritionRes.data.carbs_g || 0, fat: nutritionRes.data.fat_g || 0 });
+      setDiet({ templateId: null, templateName: "Özel Hedefler", description: null, calories: nutritionRes.data.daily_calories || 0, protein: nutritionRes.data.protein_g || 0, carbs: nutritionRes.data.carbs_g || 0, fat: nutritionRes.data.fat_g || 0, startDate: null, durationWeeks: null });
     } else {
       setDiet(null);
     }
