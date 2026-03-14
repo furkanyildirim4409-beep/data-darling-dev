@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple, History } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple, History, Brain, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { EnergyBank } from "@/components/athlete-detail/EnergyBank";
 import { SmartContract } from "@/components/athlete-detail/SmartContract";
@@ -57,6 +58,27 @@ export default function AthleteDetail() {
   const [latestCheckIn, setLatestCheckIn] = useState<CheckInData | null>(null);
   const [workoutSummary, setWorkoutSummary] = useState<WorkoutSummary>({ total: 0, completed: 0, totalTonnage: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [aiScanning, setAiScanning] = useState(false);
+  const [aiInsights, setAiInsights] = useState<Array<{ severity: string; title: string; analysis: string }>>([]);
+
+  const runAiScan = useCallback(async () => {
+    if (!id || aiScanning) return;
+    setAiScanning(true);
+    setAiInsights([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-doctor", {
+        body: { athleteId: id },
+      });
+      if (error) throw error;
+      setAiInsights(data?.insights || []);
+      toast.success(`AI analizi tamamlandı: ${data?.insights?.length || 0} bulgu`);
+    } catch (err: any) {
+      console.error("AI scan error:", err);
+      toast.error(err?.message || "AI taraması başarısız oldu");
+    } finally {
+      setAiScanning(false);
+    }
+  }, [id, aiScanning]);
 
   const fetchAthleteData = useCallback(async () => {
     if (!id) return;
@@ -148,6 +170,14 @@ export default function AthleteDetail() {
           <ArrowLeft className="w-4 h-4 mr-2" />Kadroya Dön
         </Button>
         <div className="flex items-center gap-2">
+          <Button
+            onClick={runAiScan}
+            disabled={aiScanning}
+            className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
+          >
+            {aiScanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
+            {aiScanning ? "Analiz Ediliyor..." : "🧠 AI Taraması"}
+          </Button>
           <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>
           <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="w-5 h-5" /></Button>
         </div>
@@ -190,6 +220,26 @@ export default function AthleteDetail() {
           </div>
         </div>
       </div>
+
+      {/* AI Insights inline display */}
+      {aiInsights.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {aiInsights.map((insight, idx) => {
+            const colors = {
+              high: "border-destructive/40 bg-destructive/10 text-destructive",
+              medium: "border-warning/40 bg-warning/10 text-warning",
+              low: "border-success/40 bg-success/10 text-success",
+            };
+            const c = colors[insight.severity as keyof typeof colors] || colors.low;
+            return (
+              <div key={idx} className={`rounded-lg border p-3 ${c}`}>
+                <p className="text-sm font-semibold text-foreground mb-1">{insight.title}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{insight.analysis}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="glass border border-border w-full justify-start gap-2 p-1 h-auto">

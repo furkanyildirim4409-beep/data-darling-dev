@@ -1,0 +1,249 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // ── 1. AUTH: Verify JWT and extract coach identity ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Yetkisiz erişim." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // User-scoped client for auth verification
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Geçersiz oturum." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const coachId = claimsData.claims.sub as string;
+
+    // ── 2. Parse request body ──
+    const { athleteId } = await req.json();
+    if (!athleteId || typeof athleteId !== "string") {
+      return new Response(
+        JSON.stringify({ error: "athleteId gerekli." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── 3. AUTHORIZATION: Verify coach owns this athlete ──
+    // Use service role to check the relationship without RLS interference
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: athleteProfile } = await adminClient
+      .from("profiles")
+      .select("id, full_name, coach_id")
+      .eq("id", athleteId)
+      .maybeSingle();
+
+    if (!athleteProfile || athleteProfile.coach_id !== coachId) {
+      return new Response(
+        JSON.stringify({ error: "Bu sporcuya erişim yetkiniz yok." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const athleteName = athleteProfile.full_name || "İsimsiz";
+
+    // ── 4. Aggregate 7-day holistic data ──
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [checkinsRes, nutritionRes, workoutsRes, weightRes, bloodRes] = await Promise.all([
+      adminClient.from("daily_checkins")
+        .select("mood, sleep, stress, soreness, digestion, created_at")
+        .eq("user_id", athleteId)
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: false }),
+      adminClient.from("nutrition_logs")
+        .select("meal_name, total_calories, total_protein, total_carbs, total_fat, logged_at")
+        .eq("user_id", athleteId)
+        .gte("logged_at", sevenDaysAgo)
+        .order("logged_at", { ascending: false }),
+      adminClient.from("workout_logs")
+        .select("workout_name, tonnage, duration_minutes, completed, logged_at")
+        .eq("user_id", athleteId)
+        .gte("logged_at", sevenDaysAgo)
+        .order("logged_at", { ascending: false }),
+      adminClient.from("weight_logs")
+        .select("weight_kg, logged_at")
+        .eq("user_id", athleteId)
+        .order("logged_at", { ascending: false })
+        .limit(5),
+      adminClient.from("blood_tests")
+        .select("extracted_data, date, status")
+        .eq("user_id", athleteId)
+        .order("date", { ascending: false })
+        .limit(1),
+    ]);
+
+    const snapshot = {
+      athleteName,
+      checkins: checkinsRes.data || [],
+      nutrition: nutritionRes.data || [],
+      workouts: workoutsRes.data || [],
+      recentWeights: weightRes.data || [],
+      latestBloodTest: bloodRes.data?.[0] || null,
+    };
+
+    // ── 5. Call Gemini Flash via Lovable AI Gateway ──
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "LOVABLE_API_KEY yapılandırılmamış." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const systemPrompt = `Sen elit bir Spor Hekimi ve Olimpiyat seviyesinde bir Fitness Koçusun. Aşağıdaki sporcu verilerini (uyku, stres, kas ağrısı, beslenme, antrenman, kilo değişimi, kan tahlili) incele.
+
+KRİTİK GÖREVİN:
+- Veriler arasındaki SEBEP-SONUÇ ilişkilerini (korelasyonları) bul
+- Sadece anlamlı anormallikleri ve bağlantıları raporla
+- Örnek: "3 gündür uyku skoru 3/10 altında ve protein alımı hedefin %60'ında. Bu kombinasyon, antrenman tonajındaki %30 düşüşü açıklıyor."
+- Veri yoksa veya yeterliyse, severity "low" ile pozitif bir yorum yap
+- Yanıtın Türkçe olmalı`;
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `${athleteName} adlı sporcunun son 7 günlük verileri:\n${JSON.stringify(snapshot, null, 2)}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "analyze_athlete",
+              description: "Sporcu analiz sonuçlarını yapılandırılmış olarak döndür.",
+              parameters: {
+                type: "object",
+                properties: {
+                  insights: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        severity: {
+                          type: "string",
+                          enum: ["high", "medium", "low"],
+                          description: "high=kritik risk, medium=dikkat gerekli, low=pozitif/normal",
+                        },
+                        title: { type: "string", description: "Kısa başlık (max 60 karakter)" },
+                        analysis: { type: "string", description: "Detaylı sebep-sonuç analizi ve koç için tavsiye" },
+                      },
+                      required: ["severity", "title", "analysis"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["insights"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "analyze_athlete" } },
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "AI rate limit aşıldı, lütfen biraz bekleyin." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI kredi yetersiz." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const errText = await aiResponse.text();
+      console.error("AI Gateway error:", aiResponse.status, errText);
+      return new Response(
+        JSON.stringify({ error: `AI hatası (${aiResponse.status})` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const aiResult = await aiResponse.json();
+    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+
+    if (!toolCall?.function?.arguments) {
+      console.error("No tool call in AI response:", JSON.stringify(aiResult));
+      return new Response(
+        JSON.stringify({ error: "AI yanıtı beklenen formatta değil." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const insights = parsed.insights || [];
+
+    // ── 6. Delete old analyses for this athlete, insert new ones ──
+    await adminClient
+      .from("ai_weekly_analyses")
+      .delete()
+      .eq("athlete_id", athleteId)
+      .eq("coach_id", coachId);
+
+    if (insights.length > 0) {
+      const rows = insights.map((i: any) => ({
+        athlete_id: athleteId,
+        coach_id: coachId,
+        severity: i.severity || "low",
+        title: String(i.title).slice(0, 200),
+        analysis: String(i.analysis).slice(0, 2000),
+        athlete_name: athleteName,
+      }));
+
+      await adminClient.from("ai_weekly_analyses").insert(rows);
+    }
+
+    console.log(`[ai-doctor] ${athleteName}: ${insights.length} insights generated`);
+
+    return new Response(JSON.stringify({ insights, athleteName }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("ai-doctor error:", err);
+    return new Response(
+      JSON.stringify({ error: err.message || "Bilinmeyen hata" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
