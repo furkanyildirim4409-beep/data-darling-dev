@@ -158,6 +158,9 @@ export function AssignProgramDialog({
     setSaving(true);
 
     try {
+      // Generate a unique batch ID for this assignment
+      const batchId = crypto.randomUUID();
+
       // 1. Fetch exercises & program metadata in parallel
       const [{ data: exercises, error: exErr }, { data: program, error: pErr }] =
         await Promise.all([
@@ -222,17 +225,7 @@ export function AssignProgramDialog({
 
       // 4. Build payload using modulo arithmetic for multi-week repetition
       const totalCalendarDays = durationWeeks * 7;
-      const payload: Array<{
-        coach_id: string;
-        athlete_id: string;
-        program_id: string;
-        scheduled_date: string | null;
-        day_of_week: string;
-        workout_name: string;
-        day_notes: string;
-        exercises: Json;
-        status: string;
-      }> = [];
+      const payload: Array<Record<string, unknown>> = [];
 
       for (let i = 0; i < totalCalendarDays; i++) {
         // Map this calendar day to a template day using modulo
@@ -274,6 +267,7 @@ export function AssignProgramDialog({
             day_notes: templateDay.dayNotes,
             exercises: exercisesJson as Json,
             status: "pending",
+            assignment_batch_id: batchId,
           });
         }
       }
@@ -288,7 +282,7 @@ export function AssignProgramDialog({
       const CHUNK_SIZE = 500;
       for (let c = 0; c < payload.length; c += CHUNK_SIZE) {
         const chunk = payload.slice(c, c + CHUNK_SIZE);
-        const { error } = await supabase.from("assigned_workouts").insert(chunk);
+        const { error } = await supabase.from("assigned_workouts").insert(chunk as any);
         if (error) throw error;
       }
 
@@ -305,7 +299,8 @@ export function AssignProgramDialog({
           program_id: programId,
           program_title: programName,
           action: "assigned",
-        });
+          assignment_batch_id: batchId,
+        } as any);
       }
 
       toast.success(

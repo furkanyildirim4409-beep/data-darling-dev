@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +50,18 @@ interface AssignedWorkout {
   exercises: ExerciseJson[];
 }
 
+/** Lightweight workout row — no exercises JSON */
+interface LightWorkout {
+  id: string;
+  workout_name: string;
+  day_of_week: string | null;
+  scheduled_date: string | null;
+  status: string | null;
+}
+
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const HISTORY_PAGE_SIZE = 20;
+const EXPAND_PAGE_SIZE = 15;
 
 interface ProgramInfo {
   id: string;
@@ -70,6 +81,14 @@ interface AssignmentLog {
   action: string;
   created_at: string;
   coach_id: string;
+  assignment_batch_id: string | null;
+}
+
+interface ExpandedLogCache {
+  workouts: LightWorkout[];
+  page: number;
+  hasMore: boolean;
+  loading: boolean;
 }
 
 interface ProgramTabProps {
@@ -92,8 +111,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<AssignmentLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const historyPageRef = useRef(0);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [expandedLogWorkouts, setExpandedLogWorkouts] = useState<AssignedWorkout[]>([]);
+  const [expandedCache, setExpandedCache] = useState<Record<string, ExpandedLogCache>>({});
+  const expandRequestRef = useRef(0);
 
   // Fetch all programs assigned to this athlete
   const fetchPrograms = useCallback(async () => {
@@ -170,7 +193,8 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       .from("assigned_workouts")
       .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
       .eq("athlete_id", athleteId)
-      .eq("program_id", programId);
+      .eq("program_id", programId)
+      .limit(7);
 
     const mapped = (data ?? []).map((d) => ({
       ...d,
@@ -245,46 +269,110 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     fetchPrograms();
   };
 
-  // Fetch history logs
-  const openHistory = async () => {
-    setHistoryOpen(true);
-    setHistoryLoading(true);
+  // Fetch history logs — paginated
+  const fetchHistoryPage = async (page: number, append = false) => {
+    const from = page * HISTORY_PAGE_SIZE;
+    const to = from + HISTORY_PAGE_SIZE - 1;
     const { data } = await supabase
       .from("program_assignment_logs")
       .select("*")
       .eq("athlete_id", athleteId)
-      .order("created_at", { ascending: false });
-    setHistoryLogs((data ?? []) as AssignmentLog[]);
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const logs = (data ?? []) as AssignmentLog[];
+    if (append) {
+      setHistoryLogs((prev) => [...prev, ...logs]);
+    } else {
+      setHistoryLogs(logs);
+    }
+    setHistoryHasMore(logs.length === HISTORY_PAGE_SIZE);
+    historyPageRef.current = page;
+  };
+
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setExpandedLogId(null);
+    setExpandedCache({});
+    await fetchHistoryPage(0);
     setHistoryLoading(false);
   };
 
-  // Expand a log entry to show its workouts
+  const loadMoreHistory = async () => {
+    setHistoryLoadingMore(true);
+    await fetchHistoryPage(historyPageRef.current + 1, true);
+    setHistoryLoadingMore(false);
+  };
+
+  // Expand a log entry — lightweight (no exercises JSON), paginated
+  const fetchExpandPage = async (log: AssignmentLog, page: number) => {
+    const requestId = ++expandRequestRef.current;
+    const from = page * EXPAND_PAGE_SIZE;
+    const to = from + EXPAND_PAGE_SIZE - 1;
+
+    let query = supabase
+      .from("assigned_workouts")
+      .select("id, workout_name, day_of_week, scheduled_date, status")
+      .eq("athlete_id", athleteId) as any;
+
+    // Use batch_id if available, else fall back to program_id
+    if (log.assignment_batch_id) {
+      query = query.eq("assignment_batch_id", log.assignment_batch_id);
+    } else {
+      query = query.eq("program_id", log.program_id);
+    }
+
+    const { data } = await query
+      .order("scheduled_date", { ascending: true })
+      .range(from, to);
+
+    // Guard against stale responses
+    if (expandRequestRef.current !== requestId) return;
+
+    const rows = (data ?? []) as LightWorkout[];
+
+    // Deduplicate by day_of_week for weekly template view
+    const seenDays = new Set<string>();
+
+    setExpandedCache((prev) => {
+      const existing = prev[log.id];
+      const prevWorkouts = page === 0 ? [] : (existing?.workouts ?? []);
+      prevWorkouts.forEach((w) => { if (w.day_of_week) seenDays.add(w.day_of_week); });
+      const newUnique = rows.filter((w) => {
+        const key = w.day_of_week || w.id;
+        if (seenDays.has(key)) return false;
+        seenDays.add(key);
+        return true;
+      });
+      return {
+        ...prev,
+        [log.id]: {
+          workouts: [...prevWorkouts, ...newUnique],
+          page,
+          hasMore: rows.length === EXPAND_PAGE_SIZE,
+          loading: false,
+        },
+      };
+    });
+  };
+
   const toggleLogExpand = async (log: AssignmentLog) => {
     if (expandedLogId === log.id) {
       setExpandedLogId(null);
-      setExpandedLogWorkouts([]);
       return;
     }
     setExpandedLogId(log.id);
 
-    const { data } = await supabase
-      .from("assigned_workouts")
-      .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
-      .eq("athlete_id", athleteId)
-      .eq("program_id", log.program_id);
-
-    const mapped = (data ?? []).map((d) => ({
-      ...d,
-      day_notes: (d as any).day_notes ?? null,
-      day_of_week: (d as any).day_of_week ?? null,
-      exercises: Array.isArray(d.exercises) ? (d.exercises as unknown as ExerciseJson[]) : [],
-    }));
-    mapped.sort((a, b) => {
-      const aIdx = a.day_of_week ? DAY_NAMES.indexOf(a.day_of_week) : 99;
-      const bIdx = b.day_of_week ? DAY_NAMES.indexOf(b.day_of_week) : 99;
-      return aIdx - bIdx;
-    });
-    setExpandedLogWorkouts(mapped);
+    // Only fetch if not cached
+    if (!expandedCache[log.id]) {
+      setExpandedCache((prev) => ({
+        ...prev,
+        [log.id]: { workouts: [], page: 0, hasMore: false, loading: true },
+      }));
+      await fetchExpandPage(log, 0);
+    }
+  };
   };
 
   const selectedProgram = allPrograms.find(p => p.id === selectedProgramId) ?? null;
@@ -327,9 +415,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           loading={historyLoading}
           logs={historyLogs}
           expandedLogId={expandedLogId}
-          expandedLogWorkouts={expandedLogWorkouts}
+          expandedCache={expandedCache}
           onToggleLog={toggleLogExpand}
-          onPreviewExercise={setPreviewExercise}
+          onLoadMoreExpand={fetchExpandPage}
+          historyHasMore={historyHasMore}
+          historyLoadingMore={historyLoadingMore}
+          onLoadMoreHistory={loadMoreHistory}
         />
       </div>
     );
@@ -512,9 +603,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
         loading={historyLoading}
         logs={historyLogs}
         expandedLogId={expandedLogId}
-        expandedLogWorkouts={expandedLogWorkouts}
+        expandedCache={expandedCache}
         onToggleLog={toggleLogExpand}
-        onPreviewExercise={setPreviewExercise}
+        onLoadMoreExpand={fetchExpandPage}
+        historyHasMore={historyHasMore}
+        historyLoadingMore={historyLoadingMore}
+        onLoadMoreHistory={loadMoreHistory}
       />
     </>
   );
@@ -663,23 +757,29 @@ function HistoryDialog({
   loading,
   logs,
   expandedLogId,
-  expandedLogWorkouts,
+  expandedCache,
   onToggleLog,
-  onPreviewExercise,
+  onLoadMoreExpand,
+  historyHasMore,
+  historyLoadingMore,
+  onLoadMoreHistory,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loading: boolean;
   logs: AssignmentLog[];
   expandedLogId: string | null;
-  expandedLogWorkouts: AssignedWorkout[];
+  expandedCache: Record<string, ExpandedLogCache>;
   onToggleLog: (log: AssignmentLog) => void;
-  onPreviewExercise: (ex: ExerciseJson) => void;
+  onLoadMoreExpand: (log: AssignmentLog, page: number) => void;
+  historyHasMore: boolean;
+  historyLoadingMore: boolean;
+  onLoadMoreHistory: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="bg-card border-border sm:max-w-lg h-[80vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
             Program Atama Geçmişi
@@ -699,6 +799,7 @@ function HistoryDialog({
             <div className="space-y-2 pb-4">
               {logs.map((log) => {
                 const isExpanded = expandedLogId === log.id;
+                const cache = expandedCache[log.id];
                 return (
                   <div key={log.id} className="glass rounded-lg border border-border overflow-hidden">
                     <button
@@ -731,35 +832,38 @@ function HistoryDialog({
                       </div>
                     </button>
 
-                    {isExpanded && (
+                    {isExpanded && cache && (
                       <div className="border-t border-border p-3">
-                        {expandedLogWorkouts.length > 0 ? (
-                          <div className="space-y-2">
-                            {expandedLogWorkouts.map((w) => (
-                              <div key={w.id} className="p-2 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Dumbbell className="w-3.5 h-3.5 text-primary" />
-                                  <span className="text-xs font-semibold text-foreground">{w.workout_name}</span>
-                                  {w.day_of_week && (
-                                    <span className="text-[10px] text-muted-foreground">({w.day_of_week})</span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {w.exercises.map((ex, i) => (
-                                    <button
-                                      key={i}
-                                      onClick={() => ex.video_url && onPreviewExercise(ex)}
-                                      className={cn(
-                                        "text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground",
-                                        ex.video_url && "cursor-pointer hover:bg-primary/20"
-                                      )}
-                                    >
-                                      {ex.name}
-                                    </button>
-                                  ))}
-                                </div>
+                        {cache.loading ? (
+                          <div className="flex justify-center py-3">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : cache.workouts.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {cache.workouts.map((w) => (
+                              <div key={w.id} className="p-2 rounded-lg bg-muted/30 flex items-center gap-2">
+                                <Dumbbell className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="text-xs font-semibold text-foreground truncate">{w.workout_name}</span>
+                                {w.day_of_week && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0">({w.day_of_week})</span>
+                                )}
+                                {w.scheduled_date && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">
+                                    {format(parseISO(w.scheduled_date), "d MMM", { locale: tr })}
+                                  </span>
+                                )}
                               </div>
                             ))}
+                            {cache.hasMore && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-xs h-7"
+                                onClick={() => onLoadMoreExpand(log, cache.page + 1)}
+                              >
+                                Daha fazla yükle
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground text-center py-2">
@@ -771,6 +875,21 @@ function HistoryDialog({
                   </div>
                 );
               })}
+
+              {historyHasMore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={onLoadMoreHistory}
+                  disabled={historyLoadingMore}
+                >
+                  {historyLoadingMore ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : null}
+                  Daha fazla geçmiş yükle
+                </Button>
+              )}
             </div>
           </ScrollArea>
         )}
