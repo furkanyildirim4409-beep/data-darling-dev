@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +50,18 @@ interface AssignedWorkout {
   exercises: ExerciseJson[];
 }
 
+/** Lightweight workout row — no exercises JSON */
+interface LightWorkout {
+  id: string;
+  workout_name: string;
+  day_of_week: string | null;
+  scheduled_date: string | null;
+  status: string | null;
+}
+
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const HISTORY_PAGE_SIZE = 20;
+const EXPAND_PAGE_SIZE = 15;
 
 interface ProgramInfo {
   id: string;
@@ -70,6 +81,14 @@ interface AssignmentLog {
   action: string;
   created_at: string;
   coach_id: string;
+  assignment_batch_id: string | null;
+}
+
+interface ExpandedLogCache {
+  workouts: LightWorkout[];
+  page: number;
+  hasMore: boolean;
+  loading: boolean;
 }
 
 interface ProgramTabProps {
@@ -92,8 +111,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<AssignmentLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const historyPageRef = useRef(0);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [expandedLogWorkouts, setExpandedLogWorkouts] = useState<AssignedWorkout[]>([]);
+  const [expandedCache, setExpandedCache] = useState<Record<string, ExpandedLogCache>>({});
+  const expandRequestRef = useRef(0);
 
   // Fetch all programs assigned to this athlete
   const fetchPrograms = useCallback(async () => {
