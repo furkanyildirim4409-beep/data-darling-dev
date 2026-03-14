@@ -158,6 +158,9 @@ export function AssignProgramDialog({
     setSaving(true);
 
     try {
+      // Generate a unique batch ID for this assignment
+      const batchId = crypto.randomUUID();
+
       // 1. Fetch exercises & program metadata in parallel
       const [{ data: exercises, error: exErr }, { data: program, error: pErr }] =
         await Promise.all([
