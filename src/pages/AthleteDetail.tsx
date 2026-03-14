@@ -60,7 +60,7 @@ export default function AthleteDetail() {
   const [workoutSummary, setWorkoutSummary] = useState<WorkoutSummary>({ total: 0, completed: 0, totalTonnage: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [aiScanning, setAiScanning] = useState(false);
-  const [aiInsights, setAiInsights] = useState<Array<{ severity: string; title: string; analysis: string }>>([]);
+  const [aiRefreshKey, setAiRefreshKey] = useState(0);
 
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
