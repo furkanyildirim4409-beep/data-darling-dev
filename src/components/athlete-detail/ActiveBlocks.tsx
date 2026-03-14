@@ -95,7 +95,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     setIsLoading(true);
     const [profileRes, nutritionRes] = await Promise.all([
       supabase.from("profiles").select("active_program_id").eq("id", athleteId).maybeSingle(),
-      supabase.from("nutrition_targets").select("active_diet_template_id, daily_calories, protein_g, carbs_g, fat_g").eq("athlete_id", athleteId).maybeSingle(),
+      supabase.from("nutrition_targets").select("active_diet_template_id, daily_calories, protein_g, carbs_g, fat_g, diet_start_date, diet_duration_weeks").eq("athlete_id", athleteId).maybeSingle(),
     ]);
 
     const programId = profileRes.data?.active_program_id;
