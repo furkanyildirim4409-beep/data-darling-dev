@@ -6,16 +6,18 @@ import {
   TrendingUp,
   Calendar,
   Zap,
+  ClipboardCheck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActionStream, type ActionItem } from "@/hooks/useActionStream";
 
-const actionIcons = {
+const actionIcons: Record<ActionItem["type"], { icon: any; color: string; bg: string }> = {
   pr: { icon: Trophy, color: "text-primary", bg: "bg-primary/20" },
   checkin: { icon: MessageSquare, color: "text-success", bg: "bg-success/20" },
   session: { icon: Activity, color: "text-cyan-400", bg: "bg-cyan-400/20" },
   milestone: { icon: TrendingUp, color: "text-primary", bg: "bg-primary/20" },
   alert: { icon: Zap, color: "text-warning", bg: "bg-warning/20" },
+  assignment: { icon: ClipboardCheck, color: "text-accent-foreground", bg: "bg-accent/30" },
 };
 
 export function ActionStream() {

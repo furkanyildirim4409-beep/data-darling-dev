@@ -10,6 +10,7 @@ interface StatCardProps {
   };
   icon: LucideIcon;
   variant?: "default" | "success" | "warning" | "danger";
+  description?: string;
   onClick?: () => void;
 }
 
