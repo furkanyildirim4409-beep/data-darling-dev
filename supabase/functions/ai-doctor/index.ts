@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    // ── 1. AUTH: Verify JWT and extract coach identity ──
+    // ── 1. AUTH ──
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -26,7 +26,6 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // User-scoped client for auth verification
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -41,7 +40,7 @@ serve(async (req) => {
     }
     const coachId = claimsData.claims.sub as string;
 
-    // ── 2. Parse request body ──
+    // ── 2. Parse request ──
     const { athleteId } = await req.json();
     if (!athleteId || typeof athleteId !== "string") {
       return new Response(
@@ -50,8 +49,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 3. AUTHORIZATION: Verify coach owns this athlete ──
-    // Use service role to check the relationship without RLS interference
+    // ── 3. AUTHORIZATION ──
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: athleteProfile } = await adminClient
@@ -125,7 +123,14 @@ KRİTİK GÖREVİN:
 - Sadece anlamlı anormallikleri ve bağlantıları raporla
 - Örnek: "3 gündür uyku skoru 3/10 altında ve protein alımı hedefin %60'ında. Bu kombinasyon, antrenman tonajındaki %30 düşüşü açıklıyor."
 - Veri yoksa veya yeterliyse, severity "low" ile pozitif bir yorum yap
-- Yanıtın Türkçe olmalı`;
+- Yanıtın Türkçe olmalı
+
+AKSİYON ÜRETİMİ (ZORUNLU):
+- Her teşhis için somut, uygulanabilir AKSİYON butonları üret.
+- action.type SADECE şu 4 değerden biri olmalı: "supplement", "program", "message", "nutrition". Başka değer KULLANMA.
+- action.label: Buton metni olacak, kısa ve net (Örn: "D Vitamini Başlat", "Hacmi %20 Düşür", "Protein Hedefini Artır").
+- action.payload: Sporcuya gönderilecek bildirim cümlesi (Örn: "Günlük 2000 IU D Vitamini takviyesi sisteme eklendi.", "Antrenman hacminiz bu hafta %20 azaltıldı.").
+- low severity bulgular için de en az 1 pozitif aksiyon üret (Örn: type:"message", label:"Tebrik Mesajı Gönder", payload:"Harika gidiyorsun! Bu haftaki uyumluluğun mükemmel.").`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -163,8 +168,25 @@ KRİTİK GÖREVİN:
                         },
                         title: { type: "string", description: "Kısa başlık (max 60 karakter)" },
                         analysis: { type: "string", description: "Detaylı sebep-sonuç analizi ve koç için tavsiye" },
+                        actions: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              type: {
+                                type: "string",
+                                enum: ["supplement", "program", "message", "nutrition"],
+                                description: "Aksiyon tipi. SADECE bu 4 değerden biri olmalı.",
+                              },
+                              label: { type: "string", description: "Buton metni (Örn: 'D Vitamini Başlat')" },
+                              payload: { type: "string", description: "Sporcuya gönderilecek bildirim mesajı" },
+                            },
+                            required: ["type", "label", "payload"],
+                            additionalProperties: false,
+                          },
+                        },
                       },
-                      required: ["severity", "title", "analysis"],
+                      required: ["severity", "title", "analysis", "actions"],
                       additionalProperties: false,
                     },
                   },
@@ -214,7 +236,15 @@ KRİTİK GÖREVİN:
     const parsed = JSON.parse(toolCall.function.arguments);
     const insights = parsed.insights || [];
 
-    // ── 6. Append new analyses (preserve history) ──
+    // ── 6. Auto-resolve previous scans for this athlete (prevent queue pollution) ──
+    await adminClient
+      .from("ai_weekly_analyses")
+      .update({ resolved: true })
+      .eq("athlete_id", athleteId)
+      .eq("coach_id", coachId)
+      .eq("resolved", false);
+
+    // ── 7. Insert new analyses ──
     if (insights.length > 0) {
       const rows = insights.map((i: any) => ({
         athlete_id: athleteId,
@@ -223,6 +253,7 @@ KRİTİK GÖREVİN:
         title: String(i.title).slice(0, 200),
         analysis: String(i.analysis).slice(0, 2000),
         athlete_name: athleteName,
+        actions: Array.isArray(i.actions) ? i.actions : [],
       }));
 
       await adminClient.from("ai_weekly_analyses").insert(rows);

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,23 +8,67 @@ import { AlertActionCard } from "@/components/alerts/AlertActionCard";
 import { QuickFiltersPanel, QuickFilter } from "@/components/alerts/QuickFiltersPanel";
 import {
   CheckCheck,
-  Zap,
   AlertTriangle,
   Clock,
   Bell,
   Send,
   Activity,
+  Brain,
+  Pill,
+  Dumbbell,
+  MessageSquare,
+  UtensilsCrossed,
+  Sparkles,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
+interface AiAction {
+  type: "supplement" | "program" | "message" | "nutrition";
+  label: string;
+  payload: string;
+}
+
+interface AiIntervention {
+  id: string;
+  athlete_id: string;
+  athlete_name: string | null;
+  severity: string;
+  title: string;
+  analysis: string;
+  actions: AiAction[];
+  created_at: string;
+}
+
+const actionIcons: Record<string, typeof Pill> = {
+  supplement: Pill,
+  program: Dumbbell,
+  message: MessageSquare,
+  nutrition: UtensilsCrossed,
+};
+
+const actionColors: Record<string, string> = {
+  supplement: "border-purple-500/30 text-purple-400 hover:bg-purple-500/10",
+  program: "border-primary/30 text-primary hover:bg-primary/10",
+  message: "border-blue-500/30 text-blue-400 hover:bg-blue-500/10",
+  nutrition: "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10",
+};
+
 export default function Alerts() {
+  const { user } = useAuth();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
   const [dismissedIds, setDismissedIds] = useState<Set<string | number>>(new Set());
+
+  // AI Interventions state
+  const [aiInterventions, setAiInterventions] = useState<AiIntervention[]>([]);
+  const [aiLoading, setAiLoading] = useState(true);
+  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
 
   const {
     alerts: allAlerts,
@@ -37,6 +81,64 @@ export default function Alerts() {
     programAlerts,
     checkinAlerts,
   } = useAlerts();
+
+  // Fetch AI interventions
+  const fetchAiInterventions = useCallback(async () => {
+    if (!user) return;
+    setAiLoading(true);
+    const { data } = await supabase
+      .from("ai_weekly_analyses")
+      .select("id, athlete_id, athlete_name, severity, title, analysis, actions, created_at")
+      .eq("resolved", false)
+      .in("severity", ["high", "medium"])
+      .order("created_at", { ascending: false });
+
+    const items = (data || []).map((row: any) => ({
+      ...row,
+      actions: Array.isArray(row.actions) ? row.actions : [],
+    })) as AiIntervention[];
+
+    setAiInterventions(items);
+    setAiLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchAiInterventions();
+  }, [fetchAiInterventions]);
+
+  // Handle action execute
+  const handleActionExecute = async (interventionId: string, action: AiAction) => {
+    setResolvingIds((prev) => new Set(prev).add(interventionId));
+
+    // Update resolved in DB
+    const { error } = await supabase
+      .from("ai_weekly_analyses")
+      .update({ resolved: true } as any)
+      .eq("id", interventionId);
+
+    if (error) {
+      toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
+      setResolvingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(interventionId);
+        return next;
+      });
+      return;
+    }
+
+    // Optimistically remove
+    setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+    setResolvingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(interventionId);
+      return next;
+    });
+
+    toast({
+      title: "✅ Aksiyon Alındı",
+      description: `${action.label} — Sporcuya bildirim gönderildi.`,
+    });
+  };
 
   // Get alerts based on quick filter
   const quickFilteredAlerts = useMemo(() => {
@@ -107,6 +209,100 @@ export default function Alerts() {
         </div>
       </div>
 
+      {/* AI Intervention Queue */}
+      {(aiInterventions.length > 0 || aiLoading) && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Brain className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">AI Müdahale Kuyruğu</h2>
+              <p className="text-xs text-muted-foreground">
+                Yapay zeka tarafından tespit edilen sorunlar — tek tıkla çöz
+              </p>
+            </div>
+            {aiInterventions.length > 0 && (
+              <Badge className="ml-auto bg-destructive/20 text-destructive border-destructive/30">
+                {aiInterventions.length} bekleyen
+              </Badge>
+            )}
+          </div>
+
+          {aiLoading ? (
+            <div className="space-y-3">
+              {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {aiInterventions.map((intervention) => {
+                const isHigh = intervention.severity === "high";
+                const borderColor = isHigh ? "border-l-destructive" : "border-l-warning";
+                const sevLabel = isHigh ? "Kritik" : "Dikkat";
+                const sevBadge = isHigh
+                  ? "bg-destructive/20 text-destructive border-destructive/30"
+                  : "bg-warning/20 text-warning border-warning/30";
+                const isResolving = resolvingIds.has(intervention.id);
+
+                return (
+                  <div
+                    key={intervention.id}
+                    className={cn(
+                      "glass rounded-xl border border-border p-5 border-l-4 transition-all",
+                      borderColor,
+                      isResolving && "opacity-50 pointer-events-none"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Brain className={cn("w-5 h-5 shrink-0", isHigh ? "text-destructive" : "text-warning")} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-foreground">{intervention.title}</span>
+                            <Badge variant="outline" className={cn("text-xs", sevBadge)}>{sevLabel}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {intervention.athlete_name || "Sporcu"} • {new Date(intervention.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-3">
+                      {intervention.analysis}
+                    </p>
+
+                    {/* Action Buttons */}
+                    {intervention.actions.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {intervention.actions.map((action, idx) => {
+                          const Icon = actionIcons[action.type] || Sparkles;
+                          const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
+
+                          return (
+                            <Button
+                              key={idx}
+                              variant="outline"
+                              size="sm"
+                              className={cn("text-xs gap-1.5 border", colorCls)}
+                              onClick={() => handleActionExecute(intervention.id, action)}
+                              disabled={isResolving}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              {action.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts List */}
@@ -166,6 +362,12 @@ export default function Alerts() {
                 <span className="text-sm text-muted-foreground">Uyarılar</span>
                 <span className="font-mono text-warning text-lg">{totalWarning}</span>
               </div>
+              {aiInterventions.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">AI Müdahale</span>
+                  <span className="font-mono text-primary text-lg">{aiInterventions.length}</span>
+                </div>
+              )}
             </div>
           </div>
 
