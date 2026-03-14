@@ -238,12 +238,21 @@ export function AssignProgramDialog({
       const { error } = await supabase.from("assigned_workouts").insert(payload);
       if (error) throw error;
 
-      // 5. Set active_program_id on each athlete's profile
+      // 5. Set active_program_id on each athlete's profile + log assignment
       for (const athleteId of selectedIds) {
         await supabase
           .from("profiles")
           .update({ active_program_id: programId } as any)
           .eq("id", athleteId);
+
+        // Log the assignment for history tracking
+        await supabase.from("program_assignment_logs").insert({
+          athlete_id: athleteId,
+          coach_id: user.id,
+          program_id: programId,
+          program_title: programName,
+          action: "assigned",
+        });
       }
 
       toast.success(

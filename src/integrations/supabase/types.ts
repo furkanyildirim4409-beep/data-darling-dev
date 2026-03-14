@@ -860,6 +860,36 @@ export type Database = {
           },
         ]
       }
+      program_assignment_logs: {
+        Row: {
+          action: string
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          program_id: string
+          program_title: string
+        }
+        Insert: {
+          action?: string
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          program_id: string
+          program_title: string
+        }
+        Update: {
+          action?: string
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          program_id?: string
+          program_title?: string
+        }
+        Relationships: []
+      }
       programs: {
         Row: {
           automation_rules: Json | null
