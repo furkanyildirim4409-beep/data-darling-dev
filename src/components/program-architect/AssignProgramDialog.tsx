@@ -282,7 +282,7 @@ export function AssignProgramDialog({
       const CHUNK_SIZE = 500;
       for (let c = 0; c < payload.length; c += CHUNK_SIZE) {
         const chunk = payload.slice(c, c + CHUNK_SIZE);
-        const { error } = await supabase.from("assigned_workouts").insert(chunk);
+        const { error } = await supabase.from("assigned_workouts").insert(chunk as any);
         if (error) throw error;
       }
 
