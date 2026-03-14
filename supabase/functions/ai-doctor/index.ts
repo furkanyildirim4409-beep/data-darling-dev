@@ -110,6 +110,7 @@ serve(async (req) => {
       workouts: workoutsRes.data || [],
       recentWeights: weightRes.data || [],
       latestBloodTest: bloodRes.data?.[0] || null,
+      patientHistory: historyRes.data || [],
     };
 
     // ── 5. Call Gemini Flash via Lovable AI Gateway ──
