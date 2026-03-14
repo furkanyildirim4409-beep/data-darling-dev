@@ -594,10 +594,10 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
         expandedLogId={expandedLogId}
         expandedCache={expandedCache}
         onToggleLog={toggleLogExpand}
-        onLoadMoreExpand={fetchExpandPage}
         historyHasMore={historyHasMore}
         historyLoadingMore={historyLoadingMore}
         onLoadMoreHistory={loadMoreHistory}
+        athleteId={athleteId}
       />
     </>
   );
