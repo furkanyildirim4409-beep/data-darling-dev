@@ -112,7 +112,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     // 2. Get all distinct program_ids from assigned_workouts for this athlete
     const { data: assignments } = await supabase
       .from("assigned_workouts")
-      .select("program_id")
+      .select("program_id, day_of_week")
       .eq("athlete_id", athleteId)
       .not("program_id", "is", null);
 
