@@ -280,13 +280,38 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    const logs = (data ?? []) as AssignmentLog[];
+    const rawLogs = (data ?? []) as (Omit<AssignmentLog, "durationWeeks">)[];
+
+    // Compute duration for each log by counting assigned_workouts
+    const logsWithDuration: AssignmentLog[] = await Promise.all(
+      rawLogs.map(async (log) => {
+        if (log.action !== "assigned") return { ...log, durationWeeks: 0 };
+
+        let countQuery = supabase
+          .from("assigned_workouts")
+          .select("day_of_week", { count: "exact", head: false })
+          .eq("athlete_id", athleteId) as any;
+
+        if (log.assignment_batch_id) {
+          countQuery = countQuery.eq("assignment_batch_id", log.assignment_batch_id);
+        } else {
+          countQuery = countQuery.eq("program_id", log.program_id);
+        }
+
+        const { data: rows, count } = await countQuery;
+        const totalRows = count ?? (rows?.length ?? 0);
+        const uniqueDays = new Set((rows ?? []).map((r: any) => r.day_of_week).filter(Boolean)).size || 1;
+        const weeks = Math.max(1, Math.round(totalRows / uniqueDays));
+        return { ...log, durationWeeks: weeks };
+      })
+    );
+
     if (append) {
-      setHistoryLogs((prev) => [...prev, ...logs]);
+      setHistoryLogs((prev) => [...prev, ...logsWithDuration]);
     } else {
-      setHistoryLogs(logs);
+      setHistoryLogs(logsWithDuration);
     }
-    setHistoryHasMore(logs.length === HISTORY_PAGE_SIZE);
+    setHistoryHasMore(rawLogs.length === HISTORY_PAGE_SIZE);
     historyPageRef.current = page;
   };
 
