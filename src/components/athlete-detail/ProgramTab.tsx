@@ -60,6 +60,7 @@ interface ProgramInfo {
   description: string | null;
   week_config: any;
   assigned_at: string | null;
+  active_day_count: number;
 }
 
 interface AssignmentLog {
