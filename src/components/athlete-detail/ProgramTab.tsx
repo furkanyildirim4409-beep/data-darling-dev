@@ -311,107 +311,83 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           </Button>
         </div>
 
-        {/* Program Cards */}
-        <div className="flex flex-wrap gap-3">
+        {/* Program List — vertical accordion style */}
+        <div className="space-y-3">
           {allPrograms.map((prog) => {
-            const isActive = prog.id === activeProgramId;
-            const isSelected = prog.id === selectedProgramId;
+            const isExpanded = prog.id === selectedProgramId;
             return (
-              <button
-                key={prog.id}
-                onClick={() => setSelectedProgramId(prog.id)}
-                className={cn(
-                  "relative text-left p-4 rounded-xl border transition-all min-w-[180px] max-w-[260px]",
-                  isSelected
-                    ? "border-primary bg-primary/10 shadow-md"
-                    : "border-border glass hover:border-primary/40 hover:bg-primary/5"
-                )}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-foreground truncate">{prog.title}</span>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {isActive && (
-                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
-                      ✅ Aktif
-                    </Badge>
+              <div key={prog.id} className="glass rounded-xl border border-border overflow-hidden transition-all">
+                {/* Clickable program row */}
+                <button
+                  onClick={() => setSelectedProgramId(isExpanded ? null : prog.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-4 text-left transition-colors",
+                    isExpanded ? "bg-primary/10 border-b border-primary/20" : "hover:bg-muted/30"
                   )}
-                  {prog.difficulty && (
-                    <Badge variant="outline" className="text-[10px] bg-muted/50">
-                      {prog.difficulty}
-                    </Badge>
-                  )}
-                </div>
-                {prog.target_goal && (
-                  <p className="text-[11px] text-muted-foreground mt-1 truncate">{prog.target_goal}</p>
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                      isExpanded ? "bg-primary/20" : "bg-muted/50"
+                    )}>
+                      <Dumbbell className={cn("w-5 h-5", isExpanded ? "text-primary" : "text-muted-foreground")} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground truncate">{prog.title}</span>
+                        {prog.difficulty && (
+                          <Badge variant="outline" className="text-[10px] bg-muted/50 shrink-0">
+                            {prog.difficulty}
+                          </Badge>
+                        )}
+                      </div>
+                      {prog.target_goal && (
+                        <p className="text-[11px] text-muted-foreground truncate">{prog.target_goal}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs h-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedProgramId(prog.id);
+                        setRemoveOpen(true);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Kaldır
+                    </Button>
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Expanded workout preview */}
+                {isExpanded && (
+                  <div className="p-4">
+                    {loadingWorkouts ? (
+                      <Skeleton className="h-32 w-full rounded-lg" />
+                    ) : (
+                      <div>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <Calendar className="w-3.5 h-3.5" />
+                          Haftalık Şablon — {workouts.length} gün
+                        </h4>
+                        <WorkoutList workouts={workouts} onPreviewExercise={setPreviewExercise} />
+                      </div>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
-
-        {/* Selected Program Detail */}
-        {selectedProgram && (
-          <div className="space-y-4">
-            {/* Program Header */}
-            <div className="glass rounded-xl border border-primary/30 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                    <RotateCcw className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-lg font-bold text-foreground">{selectedProgram.title}</h2>
-                      {selectedProgramId === activeProgramId && (
-                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                          Aktif Program
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      {selectedProgram.difficulty && (
-                        <span className="flex items-center gap-1">
-                          <Target className="w-3.5 h-3.5" />
-                          {selectedProgram.difficulty}
-                        </span>
-                      )}
-                      {selectedProgram.target_goal && <span>• {selectedProgram.target_goal}</span>}
-                      <span>• {workouts.length} gün/hafta</span>
-                    </div>
-                    {selectedProgram.description && (
-                      <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{selectedProgram.description}</p>
-                    )}
-                  </div>
-                </div>
-                {selectedProgramId === activeProgramId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
-                    onClick={() => setRemoveOpen(true)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-1.5" />
-                    Programı Kaldır
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Weekly Template */}
-            {loadingWorkouts ? (
-              <Skeleton className="h-48 w-full rounded-xl" />
-            ) : (
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Haftalık Şablon
-                </h3>
-                <WorkoutList workouts={workouts} onPreviewExercise={setPreviewExercise} />
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Exercise Preview Dialog */}
