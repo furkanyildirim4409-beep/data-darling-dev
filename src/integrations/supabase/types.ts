@@ -16,32 +16,38 @@ export type Database = {
     Tables: {
       ai_weekly_analyses: {
         Row: {
+          actions: Json | null
           analysis: string
           athlete_id: string
           athlete_name: string | null
           coach_id: string
           created_at: string
           id: string
+          resolved: boolean | null
           severity: string
           title: string
         }
         Insert: {
+          actions?: Json | null
           analysis: string
           athlete_id: string
           athlete_name?: string | null
           coach_id: string
           created_at?: string
           id?: string
+          resolved?: boolean | null
           severity?: string
           title: string
         }
         Update: {
+          actions?: Json | null
           analysis?: string
           athlete_id?: string
           athlete_name?: string | null
           coach_id?: string
           created_at?: string
           id?: string
+          resolved?: boolean | null
           severity?: string
           title?: string
         }
