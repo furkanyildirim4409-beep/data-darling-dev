@@ -338,28 +338,14 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
         <div className="space-y-3">
           {allPrograms.map((prog) => {
             const isSelected = prog.id === selectedProgramId;
-            const weekConfig = prog.week_config as any;
-            const days = weekConfig?.days || (Array.isArray(weekConfig) ? weekConfig : []);
-            const activeDayCount = days.filter((d: any) => {
-              const exercises = d?.exercises || d?.exerciseIds || [];
-              return Array.isArray(exercises) ? exercises.length > 0 : false;
-            }).length || null;
 
             const difficultyMap: Record<string, string> = {
-              beginner: "Başlangıç",
-              intermediate: "Orta Seviye",
-              advanced: "İleri Seviye",
-              Beginner: "Başlangıç",
-              Intermediate: "Orta Seviye",
-              Advanced: "İleri Seviye",
+              beginner: "Başlangıç", intermediate: "Orta Seviye", advanced: "İleri Seviye",
+              Beginner: "Başlangıç", Intermediate: "Orta Seviye", Advanced: "İleri Seviye",
             };
             const goalMap: Record<string, string> = {
-              muscle_gain: "Kas Gelişimi",
-              fat_loss: "Yağ Yakımı",
-              strength: "Güç Artışı",
-              endurance: "Dayanıklılık",
-              maintenance: "Koruma",
-              recomp: "Vücut Şekillendirme",
+              muscle_gain: "Kas Gelişimi", fat_loss: "Yağ Yakımı", strength: "Güç Artışı",
+              endurance: "Dayanıklılık", maintenance: "Koruma", recomp: "Vücut Şekillendirme",
               general_fitness: "Genel Fitness",
             };
             const difficultyTr = prog.difficulty ? (difficultyMap[prog.difficulty] || prog.difficulty) : null;
