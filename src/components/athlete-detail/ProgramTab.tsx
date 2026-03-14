@@ -353,18 +353,23 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {prog.difficulty && (
-                        <Badge variant="outline" className="text-[10px] bg-muted/50 border-border">
+                        <Badge className="text-[10px] bg-warning/15 text-warning border-warning/30 hover:bg-warning/20">
                           {prog.difficulty}
                         </Badge>
                       )}
                       {prog.target_goal && (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
                           {prog.target_goal}
                         </Badge>
                       )}
                       {dayCount && (
-                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                        <Badge className="text-[10px] bg-accent/15 text-accent border-accent/30 hover:bg-accent/20">
                           {dayCount} gün/hf
+                        </Badge>
+                      )}
+                      {prog.assigned_at && (
+                        <Badge className="text-[10px] bg-secondary text-muted-foreground border-border hover:bg-secondary/80">
+                          📅 {new Date(prog.assigned_at).toLocaleDateString('tr-TR')}
                         </Badge>
                       )}
                     </div>
