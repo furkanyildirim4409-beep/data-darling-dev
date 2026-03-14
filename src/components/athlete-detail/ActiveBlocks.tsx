@@ -589,6 +589,14 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Assign Training Dialog */}
+      <AssignTrainingDialog
+        open={assignProgramOpen}
+        onOpenChange={setAssignProgramOpen}
+        athleteId={athleteId}
+        onAssigned={fetchData}
+      />
+
       {/* Assign Diet Dialog */}
       <AssignDietTemplateDialog
         open={assignDietOpen}
