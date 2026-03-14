@@ -328,7 +328,32 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           {allPrograms.map((prog) => {
             const isSelected = prog.id === selectedProgramId;
             const weekConfig = prog.week_config as any;
-            const dayCount = weekConfig?.days?.length || weekConfig?.length || null;
+            const days = weekConfig?.days || (Array.isArray(weekConfig) ? weekConfig : []);
+            const activeDayCount = days.filter((d: any) => {
+              const exercises = d?.exercises || d?.exerciseIds || [];
+              return Array.isArray(exercises) ? exercises.length > 0 : false;
+            }).length || null;
+
+            const difficultyMap: Record<string, string> = {
+              beginner: "Başlangıç",
+              intermediate: "Orta Seviye",
+              advanced: "İleri Seviye",
+              Beginner: "Başlangıç",
+              Intermediate: "Orta Seviye",
+              Advanced: "İleri Seviye",
+            };
+            const goalMap: Record<string, string> = {
+              muscle_gain: "Kas Gelişimi",
+              fat_loss: "Yağ Yakımı",
+              strength: "Güç Artışı",
+              endurance: "Dayanıklılık",
+              maintenance: "Koruma",
+              recomp: "Vücut Şekillendirme",
+              general_fitness: "Genel Fitness",
+            };
+            const difficultyTr = prog.difficulty ? (difficultyMap[prog.difficulty] || prog.difficulty) : null;
+            const goalTr = prog.target_goal ? (goalMap[prog.target_goal] || prog.target_goal) : null;
+
             return (
               <button
                 key={prog.id}
@@ -352,19 +377,19 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                       {prog.title}
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {prog.difficulty && (
+                      {difficultyTr && (
                         <Badge className="text-[10px] bg-warning/15 text-warning border-warning/30 hover:bg-warning/20">
-                          {prog.difficulty}
+                          {difficultyTr}
                         </Badge>
                       )}
-                      {prog.target_goal && (
+                      {goalTr && (
                         <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
-                          {prog.target_goal}
+                          {goalTr}
                         </Badge>
                       )}
-                      {dayCount && (
+                      {activeDayCount && (
                         <Badge className="text-[10px] bg-accent/15 text-accent border-accent/30 hover:bg-accent/20">
-                          {dayCount} gün/hf
+                          {activeDayCount} gün/hf
                         </Badge>
                       )}
                       {prog.assigned_at && (
