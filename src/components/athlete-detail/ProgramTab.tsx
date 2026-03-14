@@ -62,7 +62,6 @@ interface LightWorkout {
 
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 const HISTORY_PAGE_SIZE = 20;
-const EXPAND_PAGE_SIZE = 15;
 
 interface ProgramInfo {
   id: string;
@@ -87,8 +86,7 @@ interface AssignmentLog {
 
 interface ExpandedLogCache {
   workouts: LightWorkout[];
-  page: number;
-  hasMore: boolean;
+  durationWeeks: number;
   loading: boolean;
 }
 
