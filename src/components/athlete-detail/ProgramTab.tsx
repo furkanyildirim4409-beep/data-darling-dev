@@ -414,9 +414,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           loading={historyLoading}
           logs={historyLogs}
           expandedLogId={expandedLogId}
-          expandedLogWorkouts={expandedLogWorkouts}
+          expandedCache={expandedCache}
           onToggleLog={toggleLogExpand}
-          onPreviewExercise={setPreviewExercise}
+          onLoadMoreExpand={fetchExpandPage}
+          historyHasMore={historyHasMore}
+          historyLoadingMore={historyLoadingMore}
+          onLoadMoreHistory={loadMoreHistory}
         />
       </div>
     );
