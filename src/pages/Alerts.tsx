@@ -19,6 +19,8 @@ import {
   MessageSquare,
   UtensilsCrossed,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,6 +71,15 @@ export default function Alerts() {
   const [aiInterventions, setAiInterventions] = useState<AiIntervention[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const {
     alerts: allAlerts,
@@ -268,13 +279,9 @@ export default function Alerts() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-3">
-                      {intervention.analysis}
-                    </p>
-
                     {/* Action Buttons */}
                     {intervention.actions.length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap mb-3">
                         {intervention.actions.map((action, idx) => {
                           const Icon = actionIcons[action.type] || Sparkles;
                           const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
@@ -293,6 +300,25 @@ export default function Alerts() {
                             </Button>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* Collapsible Analysis */}
+                    <button
+                      onClick={() => toggleExpand(intervention.id)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {expandedIds.has(intervention.id) ? (
+                        <><ChevronUp className="w-3.5 h-3.5" />Detaylı Analizi Gizle</>
+                      ) : (
+                        <><ChevronDown className="w-3.5 h-3.5" />Detaylı Analizi Gör</>
+                      )}
+                    </button>
+                    {expandedIds.has(intervention.id) && (
+                      <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
+                          {intervention.analysis}
+                        </p>
                       </div>
                     )}
                   </div>
