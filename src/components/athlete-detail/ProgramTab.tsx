@@ -193,7 +193,8 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       .from("assigned_workouts")
       .select("id, workout_name, day_notes, day_of_week, scheduled_date, status, program_id, exercises")
       .eq("athlete_id", athleteId)
-      .eq("program_id", programId);
+      .eq("program_id", programId)
+      .limit(7);
 
     const mapped = (data ?? []).map((d) => ({
       ...d,
