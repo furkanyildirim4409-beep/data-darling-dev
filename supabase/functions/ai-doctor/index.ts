@@ -253,7 +253,7 @@ AKSİYON ÜRETİMİ (ZORUNLU):
         coach_id: coachId,
         severity: i.severity || "low",
         title: String(i.title).slice(0, 200),
-        analysis: String(i.analysis).slice(0, 2000),
+        analysis: String(i.analysis).slice(0, 4000),
         athlete_name: athleteName,
         actions: Array.isArray(i.actions) ? i.actions : [],
       }));

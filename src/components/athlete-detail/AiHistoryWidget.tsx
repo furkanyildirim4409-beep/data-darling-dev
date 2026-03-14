@@ -390,10 +390,12 @@ export function AiHistoryWidget({ athleteId }: Props) {
                         {insight.actions.length > 0 && (
                           <div className="flex items-center gap-1.5 flex-wrap mt-2 mb-2">
                             {insight.actions.map((action, idx) => {
+                              const isActionCompleted = action.completed === true;
+                              const isActionResolving = resolvingIds.has(`${insight.id}-${action.label}`);
                               const ActionIcon = actionTypeIcons[action.type] || Sparkles;
                               const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
 
-                              if (isResolved) {
+                              if (isActionCompleted) {
                                 return (
                                   <Button
                                     key={idx}
@@ -415,10 +417,10 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                   size="sm"
                                   className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
                                   onClick={() => handleActionExecute(insight.id, action)}
-                                  disabled={isResolving}
+                                  disabled={isActionResolving}
                                 >
                                   <ActionIcon className="w-3 h-3" />
-                                  {action.label}
+                                  {isActionResolving ? "İşleniyor..." : action.label}
                                 </Button>
                               );
                             })}
