@@ -81,6 +81,10 @@ export function StatCard({
           <span className="text-[10px] md:text-xs text-muted-foreground ml-1 hidden sm:inline">geçen haftaya göre</span>
         </div>
       )}
+
+      {description && !change && (
+        <p className="mt-1.5 text-[10px] md:text-xs text-muted-foreground font-mono">{description}</p>
+      )}
     </div>
   );
 }
