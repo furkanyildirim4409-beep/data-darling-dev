@@ -311,83 +311,87 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           </Button>
         </div>
 
-        {/* Program List — vertical accordion style */}
-        <div className="space-y-3">
-          {allPrograms.map((prog) => {
-            const isExpanded = prog.id === selectedProgramId;
+        {/* Program List — fixed clickable rows */}
+        <div className="glass rounded-xl border border-border overflow-hidden">
+          {allPrograms.map((prog, idx) => {
+            const isSelected = prog.id === selectedProgramId;
             return (
-              <div key={prog.id} className="glass rounded-xl border border-border overflow-hidden transition-all">
-                {/* Clickable program row */}
-                <button
-                  onClick={() => setSelectedProgramId(isExpanded ? null : prog.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between p-4 text-left transition-colors",
-                    isExpanded ? "bg-primary/10 border-b border-primary/20" : "hover:bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                      isExpanded ? "bg-primary/20" : "bg-muted/50"
-                    )}>
-                      <Dumbbell className={cn("w-5 h-5", isExpanded ? "text-primary" : "text-muted-foreground")} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-foreground truncate">{prog.title}</span>
-                        {prog.difficulty && (
-                          <Badge variant="outline" className="text-[10px] bg-muted/50 shrink-0">
-                            {prog.difficulty}
-                          </Badge>
-                        )}
-                      </div>
-                      {prog.target_goal && (
-                        <p className="text-[11px] text-muted-foreground truncate">{prog.target_goal}</p>
+              <button
+                key={prog.id}
+                onClick={() => setSelectedProgramId(prog.id)}
+                className={cn(
+                  "w-full flex items-center justify-between p-4 text-left transition-colors",
+                  isSelected ? "bg-primary/10" : "hover:bg-muted/30",
+                  idx !== allPrograms.length - 1 && "border-b border-border"
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                    isSelected ? "bg-primary/20" : "bg-muted/50"
+                  )}>
+                    <Dumbbell className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-sm font-bold truncate", isSelected ? "text-primary" : "text-foreground")}>{prog.title}</span>
+                      {prog.difficulty && (
+                        <Badge variant="outline" className="text-[10px] bg-muted/50 shrink-0">
+                          {prog.difficulty}
+                        </Badge>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs h-7"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedProgramId(prog.id);
-                        setRemoveOpen(true);
-                      }}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Kaldır
-                    </Button>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    {prog.target_goal && (
+                      <p className="text-[11px] text-muted-foreground truncate">{prog.target_goal}</p>
                     )}
                   </div>
-                </button>
-
-                {/* Expanded workout preview */}
-                {isExpanded && (
-                  <div className="p-4">
-                    {loadingWorkouts ? (
-                      <Skeleton className="h-32 w-full rounded-lg" />
-                    ) : (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5" />
-                          Haftalık Şablon — {workouts.length} gün
-                        </h4>
-                        <WorkoutList workouts={workouts} onPreviewExercise={setPreviewExercise} />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs h-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedProgramId(prog.id);
+                      setRemoveOpen(true);
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Kaldır
+                  </Button>
+                </div>
+              </button>
             );
           })}
         </div>
+
+        {/* Preview Section */}
+        {selectedProgramId && selectedProgram ? (
+          <div className="glass rounded-xl border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                {selectedProgram.title} — Haftalık Şablon
+              </h4>
+              {!loadingWorkouts && (
+                <Badge variant="outline" className="text-[10px]">{workouts.length} gün</Badge>
+              )}
+            </div>
+            {selectedProgram.description && (
+              <p className="text-xs text-muted-foreground mb-4">{selectedProgram.description}</p>
+            )}
+            {loadingWorkouts ? (
+              <Skeleton className="h-32 w-full rounded-lg" />
+            ) : (
+              <WorkoutList workouts={workouts} onPreviewExercise={setPreviewExercise} />
+            )}
+          </div>
+        ) : (
+          <div className="glass rounded-xl border border-border p-8 text-center">
+            <p className="text-sm text-muted-foreground">Önizlemek için yukarıdan bir program seçin</p>
+          </div>
+        )}
       </div>
 
       {/* Exercise Preview Dialog */}
