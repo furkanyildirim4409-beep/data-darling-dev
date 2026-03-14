@@ -314,7 +314,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     let query = supabase
       .from("assigned_workouts")
       .select("id, workout_name, day_of_week, scheduled_date, status")
-      .eq("athlete_id", athleteId);
+      .eq("athlete_id", athleteId) as any;
 
     // Use batch_id if available, else fall back to program_id
     if (log.assignment_batch_id) {
