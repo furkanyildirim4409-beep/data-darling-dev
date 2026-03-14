@@ -248,7 +248,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
     setExpandedLogWorkouts(mapped);
   };
 
-  const selectedProgram = allPrograms.find(p => p.id === selectedProgramId);
+  const selectedProgram = allPrograms.find(p => p.id === selectedProgramId) ?? null;
 
   if (loading) {
     return (
