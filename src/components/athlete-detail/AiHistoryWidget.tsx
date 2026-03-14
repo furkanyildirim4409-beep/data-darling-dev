@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,7 +24,11 @@ import {
   Dumbbell,
   MessageSquare,
   UtensilsCrossed,
+  ChevronDown,
+  ChevronUp,
+  Check,
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface AiAction {
   type: "supplement" | "program" | "message" | "nutrition";
@@ -38,6 +43,7 @@ interface AiInsight {
   analysis: string;
   created_at: string;
   actions: AiAction[];
+  resolved?: boolean;
 }
 
 type SeverityKey = "high" | "medium" | "low";
@@ -90,18 +96,11 @@ const actionTypeIcons: Record<string, typeof Pill> = {
   nutrition: UtensilsCrossed,
 };
 
-const actionTypeLabels: Record<string, string> = {
-  supplement: "Supplement",
-  program: "Program",
-  message: "Mesaj",
-  nutrition: "Beslenme",
-};
-
-const actionTypeColors: Record<string, string> = {
-  supplement: "bg-purple-500/10 text-purple-400 border-purple-500/30",
-  program: "bg-primary/10 text-primary border-primary/30",
-  message: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-  nutrition: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+const actionColors: Record<string, string> = {
+  supplement: "border-purple-500/30 text-purple-400 hover:bg-purple-500/10",
+  program: "border-primary/30 text-primary hover:bg-primary/10",
+  message: "border-blue-500/30 text-blue-400 hover:bg-blue-500/10",
+  nutrition: "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10",
 };
 
 function formatSessionDate(iso: string): string {
@@ -124,13 +123,57 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleActionExecute = async (insightId: string, action: AiAction) => {
+    setResolvingIds((prev) => new Set(prev).add(insightId));
+
+    const { error } = await supabase
+      .from("ai_weekly_analyses")
+      .update({ resolved: true } as any)
+      .eq("id", insightId);
+
+    if (error) {
+      toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
+      setResolvingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(insightId);
+        return next;
+      });
+      return;
+    }
+
+    // Mark as resolved in local state (don't remove — it's a medical archive)
+    setInsights((prev) =>
+      prev.map((i) => (i.id === insightId ? { ...i, resolved: true } : i))
+    );
+    setResolvingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(insightId);
+      return next;
+    });
+
+    toast({
+      title: "✅ Aksiyon Alındı",
+      description: `${action.label} — Sporcuya bildirim gönderildi.`,
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       const { data } = await supabase
         .from("ai_weekly_analyses")
-        .select("id, severity, title, analysis, created_at, actions")
+        .select("id, severity, title, analysis, created_at, actions, resolved")
         .eq("athlete_id", athleteId)
         .order("created_at", { ascending: false })
         .limit(500);
@@ -315,6 +358,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 const sev = (insight.severity as SeverityKey) || "low";
                 const config = severityConfig[sev];
                 const Icon = config.icon;
+                const isResolved = !!insight.resolved;
+                const isResolving = resolvingIds.has(insight.id);
 
                 return (
                   <div
@@ -323,32 +368,66 @@ export function AiHistoryWidget({ athleteId }: Props) {
                   >
                     <div className="flex items-start gap-3">
                       <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.textColor}`} />
-                      <div className="min-w-0">
+                      <div className="min-w-0 w-full">
                         <p className="text-sm font-semibold text-foreground mb-1">
                           {insight.title}
                         </p>
-                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line mb-2">
-                          {insight.analysis}
-                        </p>
 
-                        {/* Prescribed Actions (Read-Only Tags) */}
+                        {/* Action Buttons */}
                         {insight.actions.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          <div className="flex items-center gap-1.5 flex-wrap mt-2 mb-2">
                             {insight.actions.map((action, idx) => {
                               const ActionIcon = actionTypeIcons[action.type] || Sparkles;
-                              const colorCls = actionTypeColors[action.type] || "bg-secondary text-muted-foreground border-border";
+                              const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
+
+                              if (isResolved) {
+                                return (
+                                  <Button
+                                    key={idx}
+                                    variant="outline"
+                                    size="sm"
+                                    disabled
+                                    className="text-[10px] gap-1 px-2 py-0.5 opacity-50"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Çözüldü ✓
+                                  </Button>
+                                );
+                              }
 
                               return (
-                                <Badge
+                                <Button
                                   key={idx}
                                   variant="outline"
-                                  className={`text-[10px] gap-1 px-2 py-0.5 ${colorCls}`}
+                                  size="sm"
+                                  className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
+                                  onClick={() => handleActionExecute(insight.id, action)}
+                                  disabled={isResolving}
                                 >
                                   <ActionIcon className="w-3 h-3" />
                                   {action.label}
-                                </Badge>
+                                </Button>
                               );
                             })}
+                          </div>
+                        )}
+
+                        {/* Collapsible Analysis */}
+                        <button
+                          onClick={() => toggleExpand(insight.id)}
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {expandedIds.has(insight.id) ? (
+                            <><ChevronUp className="w-3 h-3" />Detaylı Analizi Gizle</>
+                          ) : (
+                            <><ChevronDown className="w-3 h-3" />Detaylı Analizi Gör</>
+                          )}
+                        </button>
+                        {expandedIds.has(insight.id) && (
+                          <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
+                              {insight.analysis}
+                            </p>
                           </div>
                         )}
                       </div>

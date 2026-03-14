@@ -281,7 +281,7 @@ export default function Alerts() {
 
                     {/* Action Buttons */}
                     {intervention.actions.length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap mb-3">
                         {intervention.actions.map((action, idx) => {
                           const Icon = actionIcons[action.type] || Sparkles;
                           const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
@@ -302,12 +302,26 @@ export default function Alerts() {
                         })}
                       </div>
                     )}
+
+                    {/* Collapsible Analysis */}
+                    <button
+                      onClick={() => toggleExpand(intervention.id)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {expandedIds.has(intervention.id) ? (
+                        <><ChevronUp className="w-3.5 h-3.5" />Detaylı Analizi Gizle</>
+                      ) : (
+                        <><ChevronDown className="w-3.5 h-3.5" />Detaylı Analizi Gör</>
+                      )}
+                    </button>
+                    {expandedIds.has(intervention.id) && (
+                      <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
+                          {intervention.analysis}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       )}
 
       {/* Main Grid */}
