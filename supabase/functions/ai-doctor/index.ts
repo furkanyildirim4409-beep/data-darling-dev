@@ -131,6 +131,13 @@ KRİTİK GÖREVİN:
 - Veri yoksa veya yeterliyse, severity "low" ile pozitif bir yorum yap
 - Yanıtın Türkçe olmalı
 
+GEÇMİŞ BAĞLAM (CRITICAL):
+Sana 'patientHistory' adında sporcunun önceki yapay zeka analizleri ve koçun uyguladığı aksiyonlar (completed: true olanlar) veriliyor. Yeni verileri incelerken ASLA sadece bugüne bakma. Geçmişle kıyasla!
+- Eğer geçmişte bir aksiyon uygulanmışsa (completed: true), sonuçlarını değerlendir: "Geçen hafta D vitamini verilmiş ve CRP düşmüş, tedavi işe yaramış."
+- Eğer geçmişte bir aksiyon ÖNERİLMİŞ ama uygulanmamışsa (completed: false/undefined), bunu belirt: "Geçen hafta önerilen protein artışı uygulanmamış, sorun devam ediyor."
+- Aynı sorunu tekrar raporluyorsan, bunun TEKRARLAYAN bir sorun olduğunu vurgula ve daha agresif bir aksiyon öner.
+- Geçmişteki eylemlerin işe yarayıp yaramadığını analiz metninde MUTLAKA belirt.
+
 ÖNEMLİ KURAL: Bulduğun TÜM anormallikleri raporla. Kendini 1 veya 2 analizle ASLA sınırlandırma. Eğer sporcunun verilerinde 5 farklı sorun (veya pozitif durum) varsa, insights dizisine 5 farklı obje ekle. Minimum 3, maksimum 10 insight üret. Her sorun için en az 1, en fazla 3 spesifik aksiyon üret.
 
 AKSİYON ÜRETİMİ (ZORUNLU):
