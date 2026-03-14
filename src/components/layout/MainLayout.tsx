@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { PushPermissionBanner } from "./PushPermissionBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useForegroundPush } from "@/hooks/useForegroundPush";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
