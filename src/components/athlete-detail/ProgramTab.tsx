@@ -58,6 +58,7 @@ interface ProgramInfo {
   difficulty: string | null;
   target_goal: string | null;
   description: string | null;
+  week_config: any;
 }
 
 interface AssignmentLog {
