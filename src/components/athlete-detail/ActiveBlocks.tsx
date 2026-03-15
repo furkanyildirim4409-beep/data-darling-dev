@@ -621,7 +621,8 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             <span className="text-foreground font-medium">{ex.name}</span>
                             <div className="flex items-center gap-3 text-muted-foreground">
                               <span>{ex.sets} set × {ex.reps}</span>
-                              {ex.rir !== undefined && ex.rir !== null && <Badge variant="outline" className="text-[10px] py-0">RIR {ex.rir}</Badge>}
+                              {ex.rpe != null && <Badge variant="outline" className="text-[10px] py-0 border-blue-500/20 text-blue-500 bg-blue-500/10">RPE {ex.rpe}</Badge>}
+                              {ex.rir != null && <Badge variant="outline" className="text-[10px] py-0">RIR {ex.rir}</Badge>}
                             </div>
                           </div>
                         ))}

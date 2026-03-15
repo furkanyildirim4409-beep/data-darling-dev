@@ -425,6 +425,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                                 <Flame className="w-3.5 h-3.5 mr-0.5" />Tükeniş
                               </Badge>
                             )}
+                            {ex.rpe != null && (
+                              <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-blue-500/20 text-blue-500 bg-blue-500/10">
+                                RPE {ex.rpe}
+                              </Badge>
+                            )}
                             {hasRir && (
                               <Badge
                                 variant="outline"
