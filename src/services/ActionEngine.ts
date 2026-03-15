@@ -215,7 +215,7 @@ async function forkAndMutateProgram(
       message: `Programınız "${sourceProgram.title}" klonlandı ve hacim ${sign}${mutationPercentage}% güncellendi.`,
       type: "program",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceProgramId, forked_to: newProgramId },
+      metadata: { mutation_percentage: mutationPercentage, target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false, forked_from: sourceProgramId, forked_to: newProgramId },
     } as any);
 
     // Step I (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
