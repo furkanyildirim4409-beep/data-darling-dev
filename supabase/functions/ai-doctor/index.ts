@@ -145,7 +145,12 @@ AKSİYON ÜRETİMİ (ZORUNLU):
 - action.type SADECE şu 4 değerden biri olmalı: "supplement", "program", "message", "nutrition". Başka değer KULLANMA.
 - action.label: Buton metni olacak, kısa ve net (Örn: "D Vitamini Başlat", "Hacmi %20 Düşür", "Protein Hedefini Artır").
 - action.payload: Sporcuya gönderilecek bildirim cümlesi (Örn: "Günlük 2000 IU D Vitamini takviyesi sisteme eklendi.", "Antrenman hacminiz bu hafta %20 azaltıldı.").
-- low severity bulgular için de en az 1 pozitif aksiyon üret (Örn: type:"message", label:"Tebrik Mesajı Gönder", payload:"Harika gidiyorsun! Bu haftaki uyumluluğun mükemmel.").`;
+- low severity bulgular için de en az 1 pozitif aksiyon üret (Örn: type:"message", label:"Tebrik Mesajı Gönder", payload:"Harika gidiyorsun! Bu haftaki uyumluluğun mükemmel.").
+
+is_quantitative KURALI (ZORUNLU):
+- Her aksiyon için is_quantitative alanını MUTLAKA belirle.
+- Eğer eylem matematiksel olarak yüzde ile artırılıp azaltılabilecek bir şeyse (Örn: Antrenman hacmi, kalori hedefi, makro değerleri, set/tekrar sayısı) → is_quantitative: true
+- Eğer eylem sadece bir direktif, alışkanlık veya protokol ise (Örn: Su iç, esneme yap, hidrasyon protokolü uygula, anti-inflamatuar besinleri kontrol et) → is_quantitative: false`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
