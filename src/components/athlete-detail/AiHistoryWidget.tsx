@@ -451,6 +451,18 @@ export function AiHistoryWidget({ athleteId }: Props) {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <MutationConfigDialog
+        open={!!pendingAction}
+        onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+        action={pendingAction?.action ?? null}
+        onConfirm={(percentage) => {
+          if (pendingAction) {
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            setPendingAction(null);
+          }
+        }}
+      />
     </>
   );
 }
