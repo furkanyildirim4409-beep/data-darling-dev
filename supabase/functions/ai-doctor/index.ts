@@ -269,7 +269,7 @@ AKSİYON ÜRETİMİ (ZORUNLU):
         title: String(i.title).slice(0, 200),
         analysis: String(i.analysis).slice(0, 4000),
         athlete_name: athleteName,
-        actions: Array.isArray(i.actions) ? i.actions : [],
+        actions: Array.isArray(i.actions) ? i.actions.map((a: any) => ({ ...a, is_quantitative: a.is_quantitative ?? false })) : [],
       }));
 
       await adminClient.from("ai_weekly_analyses").insert(rows);

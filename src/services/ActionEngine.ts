@@ -5,6 +5,7 @@ export interface AiAction {
   label: string;
   payload: string;
   completed?: boolean;
+  is_quantitative?: boolean;
 }
 
 export interface ActionResult {

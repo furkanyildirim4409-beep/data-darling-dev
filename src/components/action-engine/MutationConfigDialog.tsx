@@ -74,30 +74,39 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
               </div>
             )}
 
-            {/* Slider Section */}
-            <div className="space-y-4">
-              <div className="text-center">
-                <span className="text-xs text-muted-foreground">Değişim Oranı</span>
-                <p className={cn("text-3xl font-black tabular-nums", valueColor)}>
-                  {valuePrefix}{value}%
+            {/* Slider or Directive Info */}
+            {action.is_quantitative !== false ? (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <span className="text-xs text-muted-foreground">Değişim Oranı</span>
+                  <p className={cn("text-3xl font-black tabular-nums", valueColor)}>
+                    {valuePrefix}{value}%
+                  </p>
+                </div>
+
+                <Slider
+                  value={sliderValue}
+                  onValueChange={setSliderValue}
+                  min={-50}
+                  max={50}
+                  step={5}
+                  className="w-full"
+                />
+
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>-50%</span>
+                  <span>0</span>
+                  <span>+50%</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/50 p-3">
+                <Sparkles className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Bu eylem matematiksel bir değişiklik gerektirmiyor. Doğrudan sporcuya direktif / protokol olarak iletilecektir.
                 </p>
               </div>
-
-              <Slider
-                value={sliderValue}
-                onValueChange={setSliderValue}
-                min={-50}
-                max={50}
-                step={5}
-                className="w-full"
-              />
-
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>-50%</span>
-                <span>0</span>
-                <span>+50%</span>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
