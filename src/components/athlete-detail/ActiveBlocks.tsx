@@ -164,7 +164,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     if (dietTemplateIds.size > 0) {
       const { data: templates } = await supabase
         .from("diet_templates")
-        .select("id, title, description, target_calories")
+        .select("id, title, description, target_calories, parent_template_id")
         .in("id", Array.from(dietTemplateIds));
 
       // Get macro totals from foods
