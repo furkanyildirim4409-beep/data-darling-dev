@@ -30,7 +30,7 @@ const mutateReps = (reps: string | null, pct: number): string | null => {
     .map((part) => {
       const trimmed = part.trim();
       const num = parseInt(trimmed, 10);
-      if (isNaN(num)) return trimmed; // preserve "AMRAP", "Max", etc.
+      if (isNaN(num)) return trimmed;
       return String(applyMutation(num, pct));
     })
     .join("-");
@@ -39,7 +39,11 @@ const mutateReps = (reps: string | null, pct: number): string | null => {
 /**
  * Deep-clone & mutate the athlete's active PROGRAM.
  * Hierarchy: programs → exercises (direct FK via program_id)
- * Includes orphan-prevention rollback on failure.
+ * Includes:
+ *  - assigned_workouts re-routing
+ *  - mutation_logs ledger
+ *  - garbage collection of old clones
+ *  - orphan-prevention rollback on failure
  */
 async function forkAndMutateProgram(
   athleteId: string,
@@ -55,7 +59,6 @@ async function forkAndMutateProgram(
     .single();
 
   if (!profile?.active_program_id) {
-    // No active program — send directive notification only
     await supabase.from("athlete_notifications").insert({
       athlete_id: athleteId,
       coach_id: coachId,
@@ -133,7 +136,7 @@ async function forkAndMutateProgram(
       if (exInsertErr) throw new Error(`Exercise clone failed: ${exInsertErr.message}`);
     }
 
-    // Step E: Assign new program to athlete
+    // Step E: Assign new program to athlete profile
     const { error: assignErr } = await supabase
       .from("profiles")
       .update({ active_program_id: newProgramId } as any)
@@ -141,8 +144,25 @@ async function forkAndMutateProgram(
 
     if (assignErr) throw new Error(`Profile assignment failed: ${assignErr.message}`);
 
-    // Step F: Success notification
+    // Step F (HOTFIX): Re-route pending calendar assignments to new program
+    await supabase
+      .from("assigned_workouts")
+      .update({ program_id: newProgramId } as any)
+      .eq("athlete_id", athleteId)
+      .eq("program_id", sourceProgramId)
+      .eq("status", "pending");
+
+    // Step G: Log mutation to ledger
     const sign = mutationPercentage > 0 ? "+" : "";
+    await supabase.from("mutation_logs").insert({
+      athlete_id: athleteId,
+      coach_id: coachId,
+      module_type: "program",
+      change_percentage: mutationPercentage,
+      message: `Program hacmi ${sign}${mutationPercentage}% güncellendi`,
+    } as any);
+
+    // Step H: Success notification
     await supabase.from("athlete_notifications").insert({
       athlete_id: athleteId,
       coach_id: coachId,
@@ -152,6 +172,11 @@ async function forkAndMutateProgram(
       source_insight_id: insightId,
       metadata: { mutation_percentage: mutationPercentage, forked_from: sourceProgramId, forked_to: newProgramId },
     } as any);
+
+    // Step I (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
+    if (sourceProgram.is_template === false) {
+      await supabase.from("programs").delete().eq("id", sourceProgramId);
+    }
   } catch (err) {
     // ROLLBACK: delete orphaned cloned program (cascade will clean exercises via FK)
     await supabase.from("programs").delete().eq("id", newProgramId);
@@ -162,7 +187,11 @@ async function forkAndMutateProgram(
 /**
  * Deep-clone & mutate the athlete's active NUTRITION plan.
  * Hierarchy: diet_templates → diet_template_foods (FK via template_id)
- * Includes orphan-prevention rollback on failure.
+ * Includes:
+ *  - nutrition_targets re-routing
+ *  - mutation_logs ledger
+ *  - garbage collection of old clones
+ *  - orphan-prevention rollback on failure
  */
 async function forkAndMutateNutrition(
   athleteId: string,
@@ -260,8 +289,17 @@ async function forkAndMutateNutrition(
 
     if (assignErr) throw new Error(`Nutrition target assignment failed: ${assignErr.message}`);
 
-    // Step F: Success notification
+    // Step F: Log mutation to ledger
     const sign = mutationPercentage > 0 ? "+" : "";
+    await supabase.from("mutation_logs").insert({
+      athlete_id: athleteId,
+      coach_id: coachId,
+      module_type: "nutrition",
+      change_percentage: mutationPercentage,
+      message: `Beslenme planı makroları ${sign}${mutationPercentage}% güncellendi`,
+    } as any);
+
+    // Step G: Success notification
     await supabase.from("athlete_notifications").insert({
       athlete_id: athleteId,
       coach_id: coachId,
@@ -271,6 +309,11 @@ async function forkAndMutateNutrition(
       source_insight_id: insightId,
       metadata: { mutation_percentage: mutationPercentage, forked_from: sourceTemplateId, forked_to: newTemplateId },
     } as any);
+
+    // Step H (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
+    if (sourceTemplate.is_template === false) {
+      await supabase.from("diet_templates").delete().eq("id", sourceTemplateId);
+    }
   } catch (err) {
     // ROLLBACK: delete orphaned cloned template (cascade will clean foods via FK)
     await supabase.from("diet_templates").delete().eq("id", newTemplateId);
@@ -297,7 +340,6 @@ export async function executeAiAction(
   // 1. Execute the real backend mutation based on action type
   switch (action.type) {
     case "supplement": {
-      // Idempotency: check if already assigned & active
       const { data: existing } = await supabase
         .from("assigned_supplements")
         .select("id")
@@ -316,7 +358,6 @@ export async function executeAiAction(
         if (error) throw new Error(`Supplement insert failed: ${error.message}`);
       }
 
-      // Notify athlete
       const { error: notifErr } = await supabase.from("athlete_notifications").insert({
         athlete_id: athleteId,
         coach_id: coachId,
@@ -343,11 +384,9 @@ export async function executeAiAction(
     }
 
     case "program": {
-      // Quantitative fork & mutate
       if (hasMutation && mutationPercentage !== 0) {
         await forkAndMutateProgram(athleteId, coachId, mutationPercentage!, insightId);
       } else {
-        // Qualitative directive — notification only
         const { error } = await supabase.from("athlete_notifications").insert({
           athlete_id: athleteId,
           coach_id: coachId,
@@ -363,11 +402,9 @@ export async function executeAiAction(
     }
 
     case "nutrition": {
-      // Quantitative fork & mutate
       if (hasMutation && mutationPercentage !== 0) {
         await forkAndMutateNutrition(athleteId, coachId, mutationPercentage!, insightId);
       } else {
-        // Qualitative directive — notification only
         const { error } = await supabase.from("athlete_notifications").insert({
           athlete_id: athleteId,
           coach_id: coachId,
