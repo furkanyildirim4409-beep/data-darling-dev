@@ -366,7 +366,7 @@ async function forkAndMutateNutrition(
       module_type: "nutrition",
       change_percentage: mutationPercentage,
       message: `Beslenme planı makroları ${sign}${mutationPercentage}% güncellendi`,
-      metadata: { removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false },
+      metadata: { target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false },
     } as any);
 
     // Step G: Success notification
