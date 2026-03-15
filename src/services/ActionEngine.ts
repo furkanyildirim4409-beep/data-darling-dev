@@ -54,7 +54,8 @@ async function forkAndMutateProgram(
   athleteId: string,
   coachId: string,
   mutationPercentage: number,
-  insightId: string
+  insightId: string,
+  mutationOptions?: MutationOptions
 ): Promise<void> {
   // Step A: Fetch active program ID from profile
   const { data: profile } = await supabase
