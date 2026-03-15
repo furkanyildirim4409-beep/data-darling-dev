@@ -23,6 +23,7 @@ import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
+import { SupplementsPanel } from "@/components/athlete-detail/SupplementsPanel";
 
 interface AthleteProfile {
   id: string;
@@ -243,6 +244,7 @@ export default function AthleteDetail() {
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
               "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
               "bloodwork-panel": <BloodworkPanel athleteId={athlete.id} />,
+              "supplements-panel": <SupplementsPanel athleteId={athlete.id} />,
             }}
           />
         </TabsContent>
