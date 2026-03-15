@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { executeAiAction, type AiAction } from "@/services/ActionEngine";
+import { MutationConfigDialog } from "@/components/action-engine/MutationConfigDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AiInsight {
