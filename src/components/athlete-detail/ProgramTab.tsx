@@ -152,7 +152,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
 
     // 3. Fetch program info for all
     const [programsRes, logsRes] = await Promise.all([
-      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config").in("id", uniqueProgramIds),
+      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config, parent_program_id").in("id", uniqueProgramIds),
       supabase.from("program_assignment_logs").select("program_id, created_at").eq("athlete_id", athleteId).eq("action", "assigned").order("created_at", { ascending: false }),
     ]);
 
