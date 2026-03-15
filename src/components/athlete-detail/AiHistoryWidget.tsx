@@ -457,9 +457,9 @@ export function AiHistoryWidget({ athleteId }: Props) {
         open={!!pendingAction}
         onOpenChange={(open) => { if (!open) setPendingAction(null); }}
         action={pendingAction?.action ?? null}
-        onConfirm={(percentage) => {
+        onConfirm={(percentage, options) => {
           if (pendingAction) {
-            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage, options);
             setPendingAction(null);
           }
         }}

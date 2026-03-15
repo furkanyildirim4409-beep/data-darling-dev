@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Dumbbell, UtensilsCrossed, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiAction } from "@/services/ActionEngine";
@@ -22,16 +24,19 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   action: AiAction | null;
-  onConfirm: (percentage: number) => void;
+  onConfirm: (percentage: number, options?: { removeRir?: boolean; removeFailure?: boolean }) => void;
 }
 
 export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: Props) {
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
+  const [removeRir, setRemoveRir] = useState(false);
+  const [removeFailure, setRemoveFailure] = useState(false);
 
-  // Reset slider every time dialog opens
   useEffect(() => {
     if (open) {
       setSliderValue([0]);
+      setRemoveRir(false);
+      setRemoveFailure(false);
     }
   }, [open]);
 
@@ -107,6 +112,27 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
                 </p>
               </div>
             )}
+
+            {/* Intensity Controls — only for program actions */}
+            {action?.type === "program" && (
+              <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-xs font-semibold text-foreground">Yoğunluk Kontrolleri</p>
+
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="remove-rir" className="text-xs text-muted-foreground cursor-pointer">
+                    RIR (Reps in Reserve) Hedeflerini Kaldır
+                  </Label>
+                  <Switch id="remove-rir" checked={removeRir} onCheckedChange={setRemoveRir} />
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="remove-failure" className="text-xs text-muted-foreground cursor-pointer">
+                    Tükeniş (Failure) Setlerini İptal Et
+                  </Label>
+                  <Switch id="remove-failure" checked={removeFailure} onCheckedChange={setRemoveFailure} />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -114,7 +140,7 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             İptal
           </Button>
-          <Button onClick={() => onConfirm(value)}>
+          <Button onClick={() => onConfirm(value, { removeRir, removeFailure })}>
             Onayla ve Uygula
           </Button>
         </DialogFooter>
