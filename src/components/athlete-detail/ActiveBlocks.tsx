@@ -414,6 +414,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             Hafta {dp.currentWeek}/{dp.totalWeeks}
                           </Badge>
                         )}
+                        {d.parentTemplateId && (
+                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
+                            🧬 AI Optimizasyonu
+                          </Badge>
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={(e) => e.stopPropagation()}>
