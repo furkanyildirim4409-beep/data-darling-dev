@@ -72,6 +72,7 @@ interface ProgramInfo {
   week_config: any;
   assigned_at: string | null;
   active_day_count: number;
+  parent_program_id: string | null;
 }
 
 interface AssignmentLog {
@@ -151,7 +152,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
 
     // 3. Fetch program info for all
     const [programsRes, logsRes] = await Promise.all([
-      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config").in("id", uniqueProgramIds),
+      supabase.from("programs").select("id, title, difficulty, target_goal, description, week_config, parent_program_id").in("id", uniqueProgramIds),
       supabase.from("program_assignment_logs").select("program_id, created_at").eq("athlete_id", athleteId).eq("action", "assigned").order("created_at", { ascending: false }),
     ]);
 
@@ -514,6 +515,11 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                       {prog.assigned_at && (
                         <Badge className="text-[10px] bg-secondary text-muted-foreground border-border hover:bg-secondary/80">
                           📅 {new Date(prog.assigned_at).toLocaleDateString('tr-TR')}
+                        </Badge>
+                      )}
+                      {prog.parent_program_id && (
+                        <Badge className="text-[10px] bg-chart-4/15 text-chart-4 border-chart-4/30 hover:bg-chart-4/20">
+                          🧬 Kişiselleştirilmiş
                         </Badge>
                       )}
                     </div>
