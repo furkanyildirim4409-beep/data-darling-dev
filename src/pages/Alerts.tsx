@@ -438,6 +438,18 @@ export default function Alerts() {
           </div>
         </div>
       </div>
+
+      <MutationConfigDialog
+        open={!!pendingAction}
+        onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+        action={pendingAction?.action ?? null}
+        onConfirm={(percentage) => {
+          if (pendingAction) {
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            setPendingAction(null);
+          }
+        }}
+      />
     </div>
   );
 }

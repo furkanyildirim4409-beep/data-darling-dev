@@ -123,6 +123,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ id: string; action: AiAction } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
