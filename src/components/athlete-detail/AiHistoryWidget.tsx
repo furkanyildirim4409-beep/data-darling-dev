@@ -133,7 +133,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
     });
   };
 
-  const handleActionExecute = async (insightId: string, action: AiAction) => {
+  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number) => {
     const insight = insights.find((i) => i.id === insightId);
     if (!insight || !user) return;
 
@@ -145,7 +145,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
         user.id,
         action,
         insightId,
-        insight.actions
+        insight.actions,
+        mutationPercentage
       );
 
       setInsights((prev) =>
@@ -158,7 +159,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
 
       toast({
         title: "✅ Aksiyon Alındı",
-        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+        description: `${action.label} — Sporcuya bildirim gönderildi.${mutationPercentage !== undefined ? ` (${mutationPercentage > 0 ? '+' : ''}${mutationPercentage}%)` : ''}`,
       });
     } catch (err: any) {
       toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
@@ -168,6 +169,14 @@ export function AiHistoryWidget({ athleteId }: Props) {
         next.delete(`${insightId}-${action.label}`);
         return next;
       });
+    }
+  };
+
+  const handleActionClick = (insightId: string, action: AiAction) => {
+    if (action.type === "program" || action.type === "nutrition") {
+      setPendingAction({ id: insightId, action });
+    } else {
+      handleActionExecute(insightId, action);
     }
   };
 
