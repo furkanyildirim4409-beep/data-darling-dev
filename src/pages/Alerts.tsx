@@ -319,7 +319,7 @@ export default function Alerts() {
                               variant="outline"
                               size="sm"
                               className={cn("text-xs gap-1.5 border", colorCls)}
-                              onClick={() => handleActionExecute(intervention.id, action)}
+                              onClick={() => handleActionClick(intervention.id, action)}
                               disabled={isActionResolving}
                             >
                               <Icon className="w-3.5 h-3.5" />
