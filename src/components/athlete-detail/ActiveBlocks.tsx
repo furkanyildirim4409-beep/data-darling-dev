@@ -120,7 +120,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     if (programIds.length > 0) {
       const { data: programs } = await supabase
         .from("programs")
-        .select("id, title, description, created_at")
+        .select("id, title, description, created_at, parent_program_id")
         .in("id", programIds);
 
       trainingList = (programs || []).map((p) => {
@@ -142,6 +142,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           startDate,
           totalDays,
           elapsedDays: Math.min(elapsedDays, totalDays),
+          parentProgramId: p.parent_program_id ?? null,
         };
       });
     }
