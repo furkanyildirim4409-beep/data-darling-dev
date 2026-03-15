@@ -377,7 +377,7 @@ async function forkAndMutateNutrition(
       message: `Beslenme planınız "${sourceTemplate.title}" klonlandı ve makrolar ${sign}${mutationPercentage}% güncellendi.`,
       type: "nutrition",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceTemplateId, forked_to: newTemplateId },
+      metadata: { mutation_percentage: mutationPercentage, target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false, forked_from: sourceTemplateId, forked_to: newTemplateId },
     } as any);
 
     // Step H (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
