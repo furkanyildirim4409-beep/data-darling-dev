@@ -29,6 +29,7 @@ interface ExerciseDetail {
   failure_set?: boolean;
   failureSet?: boolean;
   groupId?: string | null;
+  rpe?: number;
   rest_time?: string;
   notes?: string;
   actualSets?: PerformedSet[];
@@ -422,6 +423,11 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
                             {isFailure && (
                               <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[11px] px-2 py-0.5">
                                 <Flame className="w-3.5 h-3.5 mr-0.5" />Tükeniş
+                              </Badge>
+                            )}
+                            {ex.rpe != null && (
+                              <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-blue-500/20 text-blue-500 bg-blue-500/10">
+                                RPE {ex.rpe}
                               </Badge>
                             )}
                             {hasRir && (

@@ -109,7 +109,7 @@ interface DietData {
 interface WorkoutDay {
   dayOfWeek: string;
   workoutName: string;
-  exercises: { name: string; sets: number; reps: string; rir?: number }[];
+  exercises: { name: string; sets: number; reps: string; rir?: number; rpe?: number }[];
 }
 
 interface DietDayFood {
@@ -341,7 +341,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       const days: WorkoutDay[] = data.map((w: any) => ({
         dayOfWeek: w.day_of_week || "—",
         workoutName: w.workout_name || "Antrenman",
-        exercises: Array.isArray(w.exercises) ? w.exercises.map((e: any) => ({ name: e.name || e.exerciseName || "—", sets: e.sets || 0, reps: e.reps || "—", rir: e.rir })) : [],
+        exercises: Array.isArray(w.exercises) ? w.exercises.map((e: any) => ({ name: e.name || e.exerciseName || "—", sets: e.sets || 0, reps: e.reps || "—", rir: e.rir, rpe: e.rpe })) : [],
       })).sort((a, b) => DAY_LABELS.indexOf(a.dayOfWeek) - DAY_LABELS.indexOf(b.dayOfWeek));
       setWorkoutDays(days);
     }
@@ -621,7 +621,8 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             <span className="text-foreground font-medium">{ex.name}</span>
                             <div className="flex items-center gap-3 text-muted-foreground">
                               <span>{ex.sets} set × {ex.reps}</span>
-                              {ex.rir !== undefined && ex.rir !== null && <Badge variant="outline" className="text-[10px] py-0">RIR {ex.rir}</Badge>}
+                              {ex.rpe != null && <Badge variant="outline" className="text-[10px] py-0 border-blue-500/20 text-blue-500 bg-blue-500/10">RPE {ex.rpe}</Badge>}
+                              {ex.rir != null && <Badge variant="outline" className="text-[10px] py-0">RIR {ex.rir}</Badge>}
                             </div>
                           </div>
                         ))}
