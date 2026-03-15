@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw } from "lucide-react";
+import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -68,6 +68,14 @@ interface DietDay {
   foods: DietDayFood[];
 }
 
+interface MutationLog {
+  id: string;
+  module_type: string;
+  change_percentage: number;
+  message: string;
+  created_at: string;
+}
+
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 const MEAL_LABELS: Record<string, string> = {
   breakfast: "Kahvaltı",
@@ -97,6 +105,12 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
   const [dietDays, setDietDays] = useState<DietDay[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Mutation History dialog state
+  const [mutationHistoryOpen, setMutationHistoryOpen] = useState(false);
+  const [mutationHistoryType, setMutationHistoryType] = useState<"program" | "nutrition">("program");
+  const [mutationLogs, setMutationLogs] = useState<MutationLog[]>([]);
+  const [mutationLogsLoading, setMutationLogsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -176,7 +190,6 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       const ntData = ntRes.data as any;
       dietList = (templates || []).map((t) => {
         const tf = (foods || []).filter((f) => f.template_id === t.id);
-        const dayCount = new Set(tf.map(() => 1)).size || 1;
         const totalCal = tf.reduce((s, f) => s + (f.calories || 0), 0);
         const totalP = tf.reduce((s, f) => s + (Number(f.protein) || 0), 0);
         const totalC = tf.reduce((s, f) => s + (Number(f.carbs) || 0), 0);
@@ -205,12 +218,26 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const openMutationHistory = useCallback(async (type: "program" | "nutrition") => {
+    setMutationHistoryType(type);
+    setMutationHistoryOpen(true);
+    setMutationLogs([]);
+    setMutationLogsLoading(true);
+    const { data } = await supabase
+      .from("mutation_logs")
+      .select("id, module_type, change_percentage, message, created_at")
+      .eq("athlete_id", athleteId)
+      .eq("module_type", type)
+      .order("created_at", { ascending: false });
+    setMutationLogs((data as MutationLog[]) || []);
+    setMutationLogsLoading(false);
+  }, [athleteId]);
+
   const handleRevokeTraining = async (t: TrainingData) => {
     if (!user) return;
     const todayStr = format(new Date(), "yyyy-MM-dd");
     await supabase.from("assigned_workouts").delete().eq("athlete_id", athleteId).eq("program_id", t.programId).gte("scheduled_date", todayStr);
 
-    // Clear active_program_id only if it matches
     const { data: profile } = await supabase.from("profiles").select("active_program_id").eq("id", athleteId).maybeSingle();
     if (profile?.active_program_id === t.programId) {
       await supabase.from("profiles").update({ active_program_id: null } as any).eq("id", athleteId);
@@ -223,10 +250,8 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
 
   const handleRevokeDiet = async (d: DietData) => {
     if (!user) return;
-    // Remove from athlete_diet_assignments
     await supabase.from("athlete_diet_assignments").delete().eq("athlete_id", athleteId).eq("template_id", d.templateId);
 
-    // Clear from nutrition_targets if it's the primary
     const { data: nt } = await supabase.from("nutrition_targets").select("active_diet_template_id").eq("athlete_id", athleteId).maybeSingle();
     if (nt?.active_diet_template_id === d.templateId) {
       await supabase.from("nutrition_targets").update({ active_diet_template_id: null, diet_start_date: null, diet_duration_weeks: null, updated_at: new Date().toISOString() } as any).eq("athlete_id", athleteId);
@@ -348,6 +373,9 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => openMutationHistory("program")}>
+                              <History className="w-4 h-4 mr-2" />Mutasyon Geçmişi
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
                               <RefreshCw className="w-4 h-4 mr-2" />Değiştir
                             </DropdownMenuItem>
@@ -426,6 +454,9 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => openMutationHistory("nutrition")}>
+                              <History className="w-4 h-4 mr-2" />Mutasyon Geçmişi
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setReplacingDiet(d); setAssignDietOpen(true); }}>
                               <RefreshCw className="w-4 h-4 mr-2" />Değiştir
                             </DropdownMenuItem>
@@ -606,6 +637,71 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground italic text-center py-8">Şablonda henüz yiyecek eklenmemiş.</p>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mutation History Dialog */}
+      <Dialog open={mutationHistoryOpen} onOpenChange={setMutationHistoryOpen}>
+        <DialogContent className="max-w-md max-h-[70vh] p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-3">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-chart-4/20 flex items-center justify-center">
+                <History className="w-5 h-5 text-chart-4" />
+              </div>
+              <div>
+                <span className="block">Mutasyon Geçmişi</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {mutationHistoryType === "program" ? "Antrenman programı" : "Beslenme planı"} değişiklikleri
+                </span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[calc(70vh-100px)] px-6 pb-6">
+            {mutationLogsLoading ? (
+              <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+            ) : mutationLogs.length > 0 ? (
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+                <div className="space-y-4">
+                  {mutationLogs.map((log) => {
+                    const pct = Number(log.change_percentage);
+                    const isPositive = pct > 0;
+                    return (
+                      <div key={log.id} className="flex gap-3 relative">
+                        {/* Timeline dot */}
+                        <div className={`w-[15px] h-[15px] rounded-full border-2 shrink-0 mt-0.5 z-10 ${isPositive ? "border-emerald-500 bg-emerald-500/20" : "border-rose-500 bg-rose-500/20"}`} />
+                        <div className="flex-1 rounded-lg border border-border bg-secondary/30 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 font-mono ${isPositive ? "text-emerald-500 border-emerald-500/30 bg-emerald-500/10" : "text-rose-500 border-rose-500/30 bg-rose-500/10"}`}
+                            >
+                              {isPositive ? "+" : ""}{pct}%
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(log.created_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground">{log.message}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {new Date(log.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <History className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">Bu alanda henüz bir yapay zeka mutasyonu uygulanmadı.</p>
+              </div>
             )}
           </ScrollArea>
         </DialogContent>
