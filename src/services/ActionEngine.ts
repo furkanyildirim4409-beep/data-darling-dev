@@ -144,13 +144,16 @@ async function forkAndMutateProgram(
 
     if (assignErr) throw new Error(`Profile assignment failed: ${assignErr.message}`);
 
-    // Step F (HOTFIX): Re-route pending calendar assignments to new program
-    await supabase
+    // Step F (HOTFIX): Re-route future calendar assignments to new program
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { error: assignUpdateErr } = await supabase
       .from("assigned_workouts")
       .update({ program_id: newProgramId } as any)
       .eq("athlete_id", athleteId)
       .eq("program_id", sourceProgramId)
-      .eq("status", "pending");
+      .gte("scheduled_date", todayStr);
+
+    if (assignUpdateErr) throw new Error("Failed to re-route calendar: " + assignUpdateErr.message);
 
     // Step G: Log mutation to ledger
     const sign = mutationPercentage > 0 ? "+" : "";
