@@ -144,16 +144,24 @@ async function forkAndMutateProgram(
 
     if (assignErr) throw new Error(`Profile assignment failed: ${assignErr.message}`);
 
-    // Step F (HOTFIX): Re-route future calendar assignments to new program
+    // Step F (ULTIMATE HOTFIX): Re-route ALL future calendar assignments to new program
     const todayStr = new Date().toISOString().split("T")[0];
-    const { error: assignUpdateErr } = await supabase
+    const { data: updatedAssignments, error: assignUpdateErr } = await supabase
       .from("assigned_workouts")
       .update({ program_id: newProgramId } as any)
       .eq("athlete_id", athleteId)
-      .eq("program_id", sourceProgramId)
-      .gte("scheduled_date", todayStr);
+      .gte("scheduled_date", todayStr)
+      .select("id, scheduled_date, program_id");
 
-    if (assignUpdateErr) throw new Error("Failed to re-route calendar: " + assignUpdateErr.message);
+    if (assignUpdateErr) {
+      throw new Error(`Takvim güncelleme hatası (Supabase): ${assignUpdateErr.message}`);
+    }
+
+    if (!updatedAssignments || updatedAssignments.length === 0) {
+      console.warn(`[ActionEngine] Uyarı: ${athleteId} için güncellenecek gelecek takvim verisi bulunamadı veya RLS engelledi.`);
+    } else {
+      console.log(`[ActionEngine] Başarı: ${updatedAssignments.length} takvim günü yeni programa yönlendirildi (${newProgramId}).`);
+    }
 
     // Step G: Log mutation to ledger
     const sign = mutationPercentage > 0 ? "+" : "";
