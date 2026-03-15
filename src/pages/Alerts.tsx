@@ -27,7 +27,8 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { executeAiAction } from "@/services/ActionEngine";
+import { executeAiAction, type AiAction as AiActionType } from "@/services/ActionEngine";
+import { MutationConfigDialog } from "@/components/action-engine/MutationConfigDialog";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
@@ -75,6 +76,7 @@ export default function Alerts() {
   const [aiLoading, setAiLoading] = useState(true);
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ id: string; action: AiActionType } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -121,7 +123,7 @@ export default function Alerts() {
   }, [fetchAiInterventions]);
 
   // Handle action execute via encapsulated ActionEngine
-  const handleActionExecute = async (interventionId: string, action: AiAction) => {
+  const handleActionExecute = async (interventionId: string, action: AiActionType, mutationPercentage?: number) => {
     const intervention = aiInterventions.find((i) => i.id === interventionId);
     if (!intervention || !user) return;
 
@@ -133,7 +135,8 @@ export default function Alerts() {
         user.id,
         action,
         interventionId,
-        intervention.actions
+        intervention.actions,
+        mutationPercentage
       );
 
       if (result.isFullyResolved) {
@@ -146,7 +149,7 @@ export default function Alerts() {
 
       toast({
         title: "✅ Aksiyon Alındı",
-        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+        description: `${action.label} — Sporcuya bildirim gönderildi.${mutationPercentage !== undefined ? ` (${mutationPercentage > 0 ? '+' : ''}${mutationPercentage}%)` : ''}`,
       });
     } catch (err: any) {
       toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
@@ -156,6 +159,14 @@ export default function Alerts() {
         next.delete(`${interventionId}-${action.label}`);
         return next;
       });
+    }
+  };
+
+  const handleActionClick = (interventionId: string, action: AiActionType) => {
+    if (action.type === "program" || action.type === "nutrition") {
+      setPendingAction({ id: interventionId, action });
+    } else {
+      handleActionExecute(interventionId, action);
     }
   };
 
@@ -308,7 +319,7 @@ export default function Alerts() {
                               variant="outline"
                               size="sm"
                               className={cn("text-xs gap-1.5 border", colorCls)}
-                              onClick={() => handleActionExecute(intervention.id, action)}
+                              onClick={() => handleActionClick(intervention.id, action)}
                               disabled={isActionResolving}
                             >
                               <Icon className="w-3.5 h-3.5" />
@@ -427,6 +438,18 @@ export default function Alerts() {
           </div>
         </div>
       </div>
+
+      <MutationConfigDialog
+        open={!!pendingAction}
+        onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+        action={pendingAction?.action ?? null}
+        onConfirm={(percentage) => {
+          if (pendingAction) {
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            setPendingAction(null);
+          }
+        }}
+      />
     </div>
   );
 }

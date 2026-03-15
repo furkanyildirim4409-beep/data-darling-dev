@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { executeAiAction, type AiAction } from "@/services/ActionEngine";
+import { MutationConfigDialog } from "@/components/action-engine/MutationConfigDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AiInsight {
@@ -122,6 +123,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ id: string; action: AiAction } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -131,7 +133,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
     });
   };
 
-  const handleActionExecute = async (insightId: string, action: AiAction) => {
+  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number) => {
     const insight = insights.find((i) => i.id === insightId);
     if (!insight || !user) return;
 
@@ -143,7 +145,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
         user.id,
         action,
         insightId,
-        insight.actions
+        insight.actions,
+        mutationPercentage
       );
 
       setInsights((prev) =>
@@ -156,7 +159,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
 
       toast({
         title: "✅ Aksiyon Alındı",
-        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+        description: `${action.label} — Sporcuya bildirim gönderildi.${mutationPercentage !== undefined ? ` (${mutationPercentage > 0 ? '+' : ''}${mutationPercentage}%)` : ''}`,
       });
     } catch (err: any) {
       toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
@@ -166,6 +169,14 @@ export function AiHistoryWidget({ athleteId }: Props) {
         next.delete(`${insightId}-${action.label}`);
         return next;
       });
+    }
+  };
+
+  const handleActionClick = (insightId: string, action: AiAction) => {
+    if (action.type === "program" || action.type === "nutrition") {
+      setPendingAction({ id: insightId, action });
+    } else {
+      handleActionExecute(insightId, action);
     }
   };
 
@@ -402,7 +413,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                   variant="outline"
                                   size="sm"
                                   className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
-                                  onClick={() => handleActionExecute(insight.id, action)}
+                                  onClick={() => handleActionClick(insight.id, action)}
                                   disabled={isActionResolving}
                                 >
                                   <ActionIcon className="w-3 h-3" />
@@ -440,6 +451,18 @@ export function AiHistoryWidget({ athleteId }: Props) {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <MutationConfigDialog
+        open={!!pendingAction}
+        onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+        action={pendingAction?.action ?? null}
+        onConfirm={(percentage) => {
+          if (pendingAction) {
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            setPendingAction(null);
+          }
+        }}
+      />
     </>
   );
 }
