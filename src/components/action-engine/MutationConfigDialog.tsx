@@ -47,6 +47,7 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
 
   const valueColor = value < 0 ? "text-destructive" : value > 0 ? "text-success" : "text-muted-foreground";
   const valuePrefix = value > 0 ? "+" : "";
+  const previewRpe = Math.min(10, Math.max(1, Math.round(10 * (1 + value / 100))));
 
   const parsedRir = targetRir !== "" ? Math.min(5, Math.max(0, parseInt(targetRir, 10) || 0)) : null;
 
