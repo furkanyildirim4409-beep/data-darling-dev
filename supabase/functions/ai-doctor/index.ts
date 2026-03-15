@@ -145,7 +145,12 @@ AKSİYON ÜRETİMİ (ZORUNLU):
 - action.type SADECE şu 4 değerden biri olmalı: "supplement", "program", "message", "nutrition". Başka değer KULLANMA.
 - action.label: Buton metni olacak, kısa ve net (Örn: "D Vitamini Başlat", "Hacmi %20 Düşür", "Protein Hedefini Artır").
 - action.payload: Sporcuya gönderilecek bildirim cümlesi (Örn: "Günlük 2000 IU D Vitamini takviyesi sisteme eklendi.", "Antrenman hacminiz bu hafta %20 azaltıldı.").
-- low severity bulgular için de en az 1 pozitif aksiyon üret (Örn: type:"message", label:"Tebrik Mesajı Gönder", payload:"Harika gidiyorsun! Bu haftaki uyumluluğun mükemmel.").`;
+- low severity bulgular için de en az 1 pozitif aksiyon üret (Örn: type:"message", label:"Tebrik Mesajı Gönder", payload:"Harika gidiyorsun! Bu haftaki uyumluluğun mükemmel.").
+
+is_quantitative KURALI (ZORUNLU):
+- Her aksiyon için is_quantitative alanını MUTLAKA belirle.
+- Eğer eylem matematiksel olarak yüzde ile artırılıp azaltılabilecek bir şeyse (Örn: Antrenman hacmi, kalori hedefi, makro değerleri, set/tekrar sayısı) → is_quantitative: true
+- Eğer eylem sadece bir direktif, alışkanlık veya protokol ise (Örn: Su iç, esneme yap, hidrasyon protokolü uygula, anti-inflamatuar besinleri kontrol et) → is_quantitative: false`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -195,8 +200,9 @@ AKSİYON ÜRETİMİ (ZORUNLU):
                               },
                               label: { type: "string", description: "Buton metni (Örn: 'D Vitamini Başlat')" },
                               payload: { type: "string", description: "Sporcuya gönderilecek bildirim mesajı" },
+                              is_quantitative: { type: "boolean", description: "ZORUNLU: Eylem matematiksel olarak (% ile) artırılıp azaltılabilecek bir şeyse (Örn: Antrenman hacmi, kalori, makro) true yap. Eylem sadece bir direktif, alışkanlık veya protokol ise (Örn: Su iç, esneme yap, hidrasyon sağla) false yap." },
                             },
-                            required: ["type", "label", "payload"],
+                            required: ["type", "label", "payload", "is_quantitative"],
                             additionalProperties: false,
                           },
                         },
@@ -268,7 +274,7 @@ AKSİYON ÜRETİMİ (ZORUNLU):
         title: String(i.title).slice(0, 200),
         analysis: String(i.analysis).slice(0, 4000),
         athlete_name: athleteName,
-        actions: Array.isArray(i.actions) ? i.actions : [],
+        actions: Array.isArray(i.actions) ? i.actions.map((a: any) => ({ ...a, is_quantitative: a.is_quantitative ?? false })) : [],
       }));
 
       await adminClient.from("ai_weekly_analyses").insert(rows);
