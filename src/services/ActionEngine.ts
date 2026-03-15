@@ -202,6 +202,7 @@ async function forkAndMutateProgram(
       module_type: "program",
       change_percentage: mutationPercentage,
       message: `Program hacmi ${sign}${mutationPercentage}% güncellendi`,
+      metadata: { removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false },
     } as any);
 
     // Step H: Success notification
@@ -212,7 +213,7 @@ async function forkAndMutateProgram(
       message: `Programınız "${sourceProgram.title}" klonlandı ve hacim ${sign}${mutationPercentage}% güncellendi.`,
       type: "program",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, forked_from: sourceProgramId, forked_to: newProgramId },
+      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceProgramId, forked_to: newProgramId },
     } as any);
 
     // Step I (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
@@ -363,6 +364,7 @@ async function forkAndMutateNutrition(
       module_type: "nutrition",
       change_percentage: mutationPercentage,
       message: `Beslenme planı makroları ${sign}${mutationPercentage}% güncellendi`,
+      metadata: { removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false },
     } as any);
 
     // Step G: Success notification
@@ -373,7 +375,7 @@ async function forkAndMutateNutrition(
       message: `Beslenme planınız "${sourceTemplate.title}" klonlandı ve makrolar ${sign}${mutationPercentage}% güncellendi.`,
       type: "nutrition",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, forked_from: sourceTemplateId, forked_to: newTemplateId },
+      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceTemplateId, forked_to: newTemplateId },
     } as any);
 
     // Step H (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
