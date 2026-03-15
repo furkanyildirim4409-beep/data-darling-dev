@@ -31,6 +31,7 @@ interface TrainingData {
   startDate: string | null;
   totalDays: number;
   elapsedDays: number;
+  parentProgramId: string | null;
 }
 
 interface DietData {

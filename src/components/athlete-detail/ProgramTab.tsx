@@ -517,6 +517,11 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
                           📅 {new Date(prog.assigned_at).toLocaleDateString('tr-TR')}
                         </Badge>
                       )}
+                      {prog.parent_program_id && (
+                        <Badge className="text-[10px] bg-chart-4/15 text-chart-4 border-chart-4/30 hover:bg-chart-4/20">
+                          🧬 Kişiselleştirilmiş
+                        </Badge>
+                      )}
                     </div>
                     {prog.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1">{prog.description}</p>
