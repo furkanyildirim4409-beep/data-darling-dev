@@ -146,7 +146,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
         action,
         insightId,
         insight.actions,
-        mutationPercentage
+        mutationPercentage,
+        options
       );
 
       setInsights((prev) =>
