@@ -14,6 +14,11 @@ export interface ActionResult {
   isFullyResolved: boolean;
 }
 
+export interface MutationOptions {
+  removeRir?: boolean;
+  removeFailure?: boolean;
+}
+
 /** Math helper: scale a numeric value by percentage, minimum 1 */
 const applyMutation = (val: number, pct: number): number =>
   Math.max(1, Math.round(val * (1 + pct / 100)));
@@ -49,7 +54,8 @@ async function forkAndMutateProgram(
   athleteId: string,
   coachId: string,
   mutationPercentage: number,
-  insightId: string
+  insightId: string,
+  mutationOptions?: MutationOptions
 ): Promise<void> {
   // Step A: Fetch active program ID from profile
   const { data: profile } = await supabase
@@ -118,11 +124,11 @@ async function forkAndMutateProgram(
       const clonedExercises = sourceExercises.map((ex) => ({
         name: ex.name,
         program_id: newProgramId,
-        sets: ex.sets ? applyMutation(ex.sets, mutationPercentage) : ex.sets,
+        sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
         reps: mutateReps(ex.reps, mutationPercentage),
-        rir: ex.rir,
+        rir: mutationOptions?.removeRir ? null : ex.rir,
         rir_per_set: ex.rir_per_set,
-        failure_set: ex.failure_set,
+        failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
         rest_time: ex.rest_time,
         order_index: ex.order_index,
         notes: ex.notes,
@@ -164,8 +170,10 @@ async function forkAndMutateProgram(
         if (Array.isArray(fw.exercises)) {
           mutatedExercises = (fw.exercises as any[]).map((ex: any) => ({
             ...ex,
-            sets: ex.sets ? applyMutation(Number(ex.sets), mutationPercentage) : ex.sets,
+            sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
             reps: mutateReps(String(ex.reps ?? ""), mutationPercentage),
+            rir: mutationOptions?.removeRir ? null : ex.rir,
+            failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
           }));
         }
 
@@ -231,7 +239,8 @@ async function forkAndMutateNutrition(
   athleteId: string,
   coachId: string,
   mutationPercentage: number,
-  insightId: string
+  insightId: string,
+  mutationOptions?: MutationOptions
 ): Promise<void> {
   // Step A: Fetch active diet template from nutrition_targets
   const { data: target } = await supabase
@@ -389,10 +398,11 @@ export async function executeAiAction(
   action: AiAction,
   insightId: string,
   currentActions: AiAction[],
-  mutationPercentage?: number
+  mutationPercentage?: number,
+  mutationOptions?: MutationOptions
 ): Promise<ActionResult> {
   const hasMutation = mutationPercentage !== undefined && mutationPercentage !== null;
-  const metadata = hasMutation ? { mutation_percentage: mutationPercentage } : {};
+  const metadata = hasMutation ? { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir, removed_failure: mutationOptions?.removeFailure } : {};
 
   // 1. Execute the real backend mutation based on action type
   switch (action.type) {
@@ -442,7 +452,7 @@ export async function executeAiAction(
 
     case "program": {
       if (hasMutation && mutationPercentage !== 0) {
-        await forkAndMutateProgram(athleteId, coachId, mutationPercentage!, insightId);
+        await forkAndMutateProgram(athleteId, coachId, mutationPercentage!, insightId, mutationOptions);
       } else {
         const { error } = await supabase.from("athlete_notifications").insert({
           athlete_id: athleteId,
@@ -460,7 +470,7 @@ export async function executeAiAction(
 
     case "nutrition": {
       if (hasMutation && mutationPercentage !== 0) {
-        await forkAndMutateNutrition(athleteId, coachId, mutationPercentage!, insightId);
+        await forkAndMutateNutrition(athleteId, coachId, mutationPercentage!, insightId, mutationOptions);
       } else {
         const { error } = await supabase.from("athlete_notifications").insert({
           athlete_id: athleteId,
