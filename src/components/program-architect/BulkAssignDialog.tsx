@@ -79,6 +79,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
         .from("programs")
         .select("id, title, description, difficulty, week_config")
         .eq("coach_id", user.id)
+        .eq("is_template", true)
         .order("created_at", { ascending: false });
 
       if (cancelled || error) {

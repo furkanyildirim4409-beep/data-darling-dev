@@ -548,30 +548,54 @@ export type Database = {
       }
       diet_templates: {
         Row: {
+          athlete_id: string | null
           coach_id: string
           created_at: string | null
           description: string | null
           id: string
+          is_template: boolean
+          parent_template_id: string | null
           target_calories: number | null
           title: string
         }
         Insert: {
+          athlete_id?: string | null
           coach_id: string
           created_at?: string | null
           description?: string | null
           id?: string
+          is_template?: boolean
+          parent_template_id?: string | null
           target_calories?: number | null
           title: string
         }
         Update: {
+          athlete_id?: string | null
           coach_id?: string
           created_at?: string | null
           description?: string | null
           id?: string
+          is_template?: boolean
+          parent_template_id?: string | null
           target_calories?: number | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "diet_templates_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diet_templates_parent_template_id_fkey"
+            columns: ["parent_template_id"]
+            isOneToOne: false
+            referencedRelation: "diet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exercise_library: {
         Row: {
@@ -1025,44 +1049,67 @@ export type Database = {
       }
       programs: {
         Row: {
+          athlete_id: string | null
           automation_rules: Json | null
           coach_id: string | null
           created_at: string | null
           description: string | null
           difficulty: string | null
           id: string
+          is_template: boolean
+          parent_program_id: string | null
           target_goal: string | null
           title: string
           week_config: Json | null
         }
         Insert: {
+          athlete_id?: string | null
           automation_rules?: Json | null
           coach_id?: string | null
           created_at?: string | null
           description?: string | null
           difficulty?: string | null
           id?: string
+          is_template?: boolean
+          parent_program_id?: string | null
           target_goal?: string | null
           title: string
           week_config?: Json | null
         }
         Update: {
+          athlete_id?: string | null
           automation_rules?: Json | null
           coach_id?: string | null
           created_at?: string | null
           description?: string | null
           difficulty?: string | null
           id?: string
+          is_template?: boolean
+          parent_program_id?: string | null
           target_goal?: string | null
           title?: string
           week_config?: Json | null
         }
         Relationships: [
           {
+            foreignKeyName: "programs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "programs_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programs_parent_program_id_fkey"
+            columns: ["parent_program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]

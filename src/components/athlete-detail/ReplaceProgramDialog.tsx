@@ -111,6 +111,7 @@ export function ReplaceProgramDialog({
         .from("programs")
         .select("id, title, description, difficulty")
         .eq("coach_id", user.id)
+        .eq("is_template", true)
         .order("title");
 
       if (cancelled || !progs) { setLoading(false); return; }
