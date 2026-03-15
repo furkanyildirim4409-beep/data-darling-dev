@@ -341,7 +341,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       const days: WorkoutDay[] = data.map((w: any) => ({
         dayOfWeek: w.day_of_week || "—",
         workoutName: w.workout_name || "Antrenman",
-        exercises: Array.isArray(w.exercises) ? w.exercises.map((e: any) => ({ name: e.name || e.exerciseName || "—", sets: e.sets || 0, reps: e.reps || "—", rir: e.rir })) : [],
+        exercises: Array.isArray(w.exercises) ? w.exercises.map((e: any) => ({ name: e.name || e.exerciseName || "—", sets: e.sets || 0, reps: e.reps || "—", rir: e.rir, rpe: e.rpe })) : [],
       })).sort((a, b) => DAY_LABELS.indexOf(a.dayOfWeek) - DAY_LABELS.indexOf(b.dayOfWeek));
       setWorkoutDays(days);
     }
