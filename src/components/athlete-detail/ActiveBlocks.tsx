@@ -87,6 +87,7 @@ interface TrainingData {
   programName: string;
   description: string | null;
   startDate: string | null;
+  endDate: string | null;
   totalDays: number;
   elapsedDays: number;
   parentProgramId: string | null;
@@ -213,10 +214,15 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           programName: p.title,
           description: p.description,
           startDate,
+          endDate,
           totalDays,
           elapsedDays: Math.min(elapsedDays, totalDays),
           parentProgramId: p.parent_program_id ?? null,
         };
+      }).filter(t => {
+        if (!t.endDate) return true;
+        const todayTime = new Date(new Date().toISOString().split("T")[0]).getTime();
+        return new Date(t.endDate).getTime() >= todayTime;
       });
     }
     setTrainings(trainingList);
@@ -266,6 +272,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           durationWeeks: isPrimary ? (ntData?.diet_duration_weeks || null) : null,
           parentTemplateId: (t as any).parent_template_id ?? null,
         };
+      }).filter(d => {
+        if (!d.startDate || !d.durationWeeks) return true;
+        const todayTime = new Date(new Date().toISOString().split("T")[0]).getTime();
+        const endMs = new Date(d.startDate).getTime() + (d.durationWeeks * 7 * 86400000);
+        return endMs >= todayTime;
       });
     }
     setDiets(dietList);
