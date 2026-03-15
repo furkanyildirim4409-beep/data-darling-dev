@@ -763,6 +763,7 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          metadata: Json | null
           module_type: string
         }
         Insert: {
@@ -772,6 +773,7 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
+          metadata?: Json | null
           module_type: string
         }
         Update: {
@@ -781,6 +783,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
+          metadata?: Json | null
           module_type?: string
         }
         Relationships: []
