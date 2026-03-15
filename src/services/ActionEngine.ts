@@ -14,9 +14,27 @@ export interface ActionResult {
   isFullyResolved: boolean;
 }
 
-/** Math helper: scale a value by percentage, minimum 1 */
+/** Math helper: scale a numeric value by percentage, minimum 1 */
 const applyMutation = (val: number, pct: number): number =>
   Math.max(1, Math.round(val * (1 + pct / 100)));
+
+/**
+ * Parse and mutate a reps text field.
+ * Supports: "10", "8-12", "10-12-15" (drop sets), "AMRAP", "Max" etc.
+ * Non-numeric tokens are preserved as-is.
+ */
+const mutateReps = (reps: string | null, pct: number): string | null => {
+  if (!reps) return reps;
+  return reps
+    .split("-")
+    .map((part) => {
+      const trimmed = part.trim();
+      const num = parseInt(trimmed, 10);
+      if (isNaN(num)) return trimmed; // preserve "AMRAP", "Max", etc.
+      return String(applyMutation(num, pct));
+    })
+    .join("-");
+};
 
 /**
  * Deep-clone & mutate the athlete's active PROGRAM.
