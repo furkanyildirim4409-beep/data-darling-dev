@@ -44,6 +44,7 @@ interface DietData {
   fat: number;
   startDate: string | null;
   durationWeeks: number | null;
+  parentTemplateId: string | null;
 }
 
 interface WorkoutDay {
