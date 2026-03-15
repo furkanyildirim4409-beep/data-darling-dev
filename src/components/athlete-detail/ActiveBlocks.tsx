@@ -133,6 +133,7 @@ interface MutationLog {
   change_percentage: number;
   message: string;
   created_at: string;
+  metadata?: { removed_rir?: boolean; removed_failure?: boolean; [key: string]: any } | null;
 }
 
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
@@ -294,7 +295,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     setMutationLogsLoading(true);
     const { data } = await supabase
       .from("mutation_logs")
-      .select("id, module_type, change_percentage, message, created_at")
+      .select("id, module_type, change_percentage, message, created_at, metadata")
       .eq("athlete_id", athleteId)
       .eq("module_type", type)
       .order("created_at", { ascending: false });
@@ -762,6 +763,20 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             {new Date(log.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                           </p>
+                          {log.metadata && (log.metadata.removed_rir || log.metadata.removed_failure) && (
+                            <div className="flex items-center gap-2 mt-2">
+                              {log.metadata.removed_rir && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-500/10 text-amber-500 border-amber-500/20">
+                                  RIR İptal Edildi
+                                </Badge>
+                              )}
+                              {log.metadata.removed_failure && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-rose-500/10 text-rose-500 border-rose-500/20">
+                                  Tükeniş (Failure) İptal Edildi
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
