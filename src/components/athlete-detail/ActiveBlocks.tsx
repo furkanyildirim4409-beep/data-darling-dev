@@ -87,6 +87,7 @@ interface TrainingData {
   programName: string;
   description: string | null;
   startDate: string | null;
+  endDate: string | null;
   totalDays: number;
   elapsedDays: number;
   parentProgramId: string | null;
