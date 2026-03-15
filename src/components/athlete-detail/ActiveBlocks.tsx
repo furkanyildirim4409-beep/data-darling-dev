@@ -295,7 +295,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     setMutationLogsLoading(true);
     const { data } = await supabase
       .from("mutation_logs")
-      .select("id, module_type, change_percentage, message, created_at")
+      .select("id, module_type, change_percentage, message, created_at, metadata")
       .eq("athlete_id", athleteId)
       .eq("module_type", type)
       .order("created_at", { ascending: false });
