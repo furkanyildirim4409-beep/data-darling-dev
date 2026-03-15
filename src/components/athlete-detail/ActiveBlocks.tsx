@@ -44,6 +44,7 @@ interface DietData {
   fat: number;
   startDate: string | null;
   durationWeeks: number | null;
+  parentTemplateId: string | null;
 }
 
 interface WorkoutDay {
@@ -163,7 +164,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     if (dietTemplateIds.size > 0) {
       const { data: templates } = await supabase
         .from("diet_templates")
-        .select("id, title, description, target_calories")
+        .select("id, title, description, target_calories, parent_template_id")
         .in("id", Array.from(dietTemplateIds));
 
       // Get macro totals from foods
@@ -192,6 +193,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           fat: isPrimary ? (ntRes.data?.fat_g || Math.round(totalF)) : Math.round(totalF),
           startDate: isPrimary ? (ntData?.diet_start_date || null) : null,
           durationWeeks: isPrimary ? (ntData?.diet_duration_weeks || null) : null,
+          parentTemplateId: (t as any).parent_template_id ?? null,
         };
       });
     }
@@ -336,7 +338,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                         </Badge>
                         {t.parentProgramId && (
                           <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
-                            🧬 Kişisel
+                            🧬 AI Optimizasyonu
                           </Badge>
                         )}
                         <DropdownMenu>
@@ -410,6 +412,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                         {dp && (
                           <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] px-1.5 py-0.5">
                             Hafta {dp.currentWeek}/{dp.totalWeeks}
+                          </Badge>
+                        )}
+                        {d.parentTemplateId && (
+                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
+                            🧬 AI Optimizasyonu
                           </Badge>
                         )}
                         <DropdownMenu>
