@@ -398,10 +398,11 @@ export async function executeAiAction(
   action: AiAction,
   insightId: string,
   currentActions: AiAction[],
-  mutationPercentage?: number
+  mutationPercentage?: number,
+  mutationOptions?: MutationOptions
 ): Promise<ActionResult> {
   const hasMutation = mutationPercentage !== undefined && mutationPercentage !== null;
-  const metadata = hasMutation ? { mutation_percentage: mutationPercentage } : {};
+  const metadata = hasMutation ? { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir, removed_failure: mutationOptions?.removeFailure } : {};
 
   // 1. Execute the real backend mutation based on action type
   switch (action.type) {
