@@ -124,11 +124,11 @@ async function forkAndMutateProgram(
       const clonedExercises = sourceExercises.map((ex) => ({
         name: ex.name,
         program_id: newProgramId,
-        sets: ex.sets ? applyMutation(ex.sets, mutationPercentage) : ex.sets,
+        sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
         reps: mutateReps(ex.reps, mutationPercentage),
-        rir: ex.rir,
+        rir: mutationOptions?.removeRir ? null : ex.rir,
         rir_per_set: ex.rir_per_set,
-        failure_set: ex.failure_set,
+        failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
         rest_time: ex.rest_time,
         order_index: ex.order_index,
         notes: ex.notes,
