@@ -133,6 +133,7 @@ interface MutationLog {
   change_percentage: number;
   message: string;
   created_at: string;
+  metadata?: { removed_rir?: boolean; removed_failure?: boolean; [key: string]: any } | null;
 }
 
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
