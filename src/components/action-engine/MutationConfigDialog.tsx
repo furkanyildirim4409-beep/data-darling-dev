@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Dumbbell, UtensilsCrossed, Sparkles, Target } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Sparkles, Target, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiAction } from "@/services/ActionEngine";
 
