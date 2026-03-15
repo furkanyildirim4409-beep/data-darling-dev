@@ -144,23 +144,46 @@ async function forkAndMutateProgram(
 
     if (assignErr) throw new Error(`Profile assignment failed: ${assignErr.message}`);
 
-    // Step F (ULTIMATE HOTFIX): Re-route ALL future calendar assignments to new program
+    // Step F (SNAPSHOT MUTATION FIX): Fetch future assignments and deeply mutate their JSONB snapshots
     const todayStr = new Date().toISOString().split("T")[0];
-    const { data: updatedAssignments, error: assignUpdateErr } = await supabase
+
+    const { data: futureWorkouts, error: fwErr } = await supabase
       .from("assigned_workouts")
-      .update({ program_id: newProgramId } as any)
+      .select("*")
       .eq("athlete_id", athleteId)
-      .gte("scheduled_date", todayStr)
-      .select("id, scheduled_date, program_id");
+      .gte("scheduled_date", todayStr);
 
-    if (assignUpdateErr) {
-      throw new Error(`Takvim güncelleme hatası (Supabase): ${assignUpdateErr.message}`);
-    }
+    if (fwErr) throw new Error(`Gelecek takvim verisi çekilemedi: ${fwErr.message}`);
 
-    if (!updatedAssignments || updatedAssignments.length === 0) {
-      console.warn(`[ActionEngine] Uyarı: ${athleteId} için güncellenecek gelecek takvim verisi bulunamadı veya RLS engelledi.`);
+    if (futureWorkouts && futureWorkouts.length > 0) {
+      let updatedCount = 0;
+      for (const fw of futureWorkouts) {
+        let mutatedExercises = fw.exercises;
+
+        // Deeply mutate the JSONB snapshot if it's a valid array
+        if (Array.isArray(fw.exercises)) {
+          mutatedExercises = (fw.exercises as any[]).map((ex: any) => ({
+            ...ex,
+            sets: ex.sets ? applyMutation(Number(ex.sets), mutationPercentage) : ex.sets,
+            reps: mutateReps(String(ex.reps ?? ""), mutationPercentage),
+          }));
+        }
+
+        // Update the row with BOTH the new Program ID AND the deeply mutated JSONB exercises
+        const { error: fwUpdateErr } = await supabase
+          .from("assigned_workouts")
+          .update({
+            program_id: newProgramId,
+            exercises: mutatedExercises,
+          } as any)
+          .eq("id", fw.id);
+
+        if (fwUpdateErr) throw new Error(`Snapshot ID ${fw.id} güncellenemedi: ${fwUpdateErr.message}`);
+        updatedCount++;
+      }
+      console.log(`[ActionEngine] Başarı: ${updatedCount} takvim gününün JSONB snapshot'ı mutasyona uğratıldı (${newProgramId}).`);
     } else {
-      console.log(`[ActionEngine] Başarı: ${updatedAssignments.length} takvim günü yeni programa yönlendirildi (${newProgramId}).`);
+      console.warn(`[ActionEngine] Uyarı: ${athleteId} için mutasyona uğratılacak gelecek takvim verisi bulunamadı.`);
     }
 
     // Step G: Log mutation to ledger
