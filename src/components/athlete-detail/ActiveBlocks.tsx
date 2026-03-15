@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,13 +13,70 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History } from "lucide-react";
+import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History, GitFork } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
 import { AssignTrainingDialog } from "@/components/athlete-detail/AssignTrainingDialog";
+
+/** Small popover badge for AI-optimized programs/diets */
+function AiOptBadge({ parentId, module, athleteId }: { parentId: string; module: "program" | "nutrition"; athleteId: string }) {
+  const [info, setInfo] = useState<{ parentName: string; pct: number | null } | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open || info) return;
+    (async () => {
+      let parentName = "—";
+      if (module === "program") {
+        const { data } = await supabase.from("programs").select("title").eq("id", parentId).maybeSingle();
+        parentName = data?.title ?? "Silinmiş Program";
+      } else {
+        const { data } = await supabase.from("diet_templates").select("title").eq("id", parentId).maybeSingle();
+        parentName = data?.title ?? "Silinmiş Plan";
+      }
+      const { data: log } = await supabase
+        .from("mutation_logs")
+        .select("change_percentage")
+        .eq("athlete_id", athleteId)
+        .eq("module_type", module)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setInfo({ parentName, pct: log?.change_percentage ? Number(log.change_percentage) : null });
+    })();
+  }, [open, info, parentId, module, athleteId]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+        <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5 cursor-pointer hover:bg-chart-4/20 transition-colors">
+          🧬 AI Optimizasyonu
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" side="top" align="end" onClick={(e) => e.stopPropagation()}>
+        {!info ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Skeleton className="h-3 w-full" /></div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <GitFork className="w-3 h-3" />
+              <span>Orijinal Şablon</span>
+            </div>
+            <p className="text-sm font-medium text-foreground truncate">{info.parentName}</p>
+            {info.pct !== null && (
+              <Badge variant="outline" className={`text-[10px] ${info.pct >= 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}>
+                {info.pct > 0 ? "+" : ""}{info.pct}% mutasyon
+              </Badge>
+            )}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface ActiveBlocksProps {
   athleteId: string;
@@ -362,9 +420,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                           Hafta {currentWeek}/{totalWeeks}
                         </Badge>
                         {t.parentProgramId && (
-                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
-                            🧬 AI Optimizasyonu
-                          </Badge>
+                          <AiOptBadge
+                            parentId={t.parentProgramId}
+                            module="program"
+                            athleteId={athleteId}
+                          />
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -443,9 +503,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                           </Badge>
                         )}
                         {d.parentTemplateId && (
-                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
-                            🧬 AI Optimizasyonu
-                          </Badge>
+                          <AiOptBadge
+                            parentId={d.parentTemplateId}
+                            module="nutrition"
+                            athleteId={athleteId}
+                          />
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
