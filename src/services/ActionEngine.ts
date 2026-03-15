@@ -116,7 +116,7 @@ async function forkAndMutateProgram(
         name: ex.name,
         program_id: newProgramId,
         sets: ex.sets ? applyMutation(ex.sets, mutationPercentage) : ex.sets,
-        reps: ex.reps, // text field — preserved as-is
+        reps: mutateReps(ex.reps, mutationPercentage),
         rir: ex.rir,
         rir_per_set: ex.rir_per_set,
         failure_set: ex.failure_set,
