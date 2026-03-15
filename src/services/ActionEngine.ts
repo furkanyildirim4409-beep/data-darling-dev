@@ -176,6 +176,9 @@ async function forkAndMutateProgram(
             rpe: ex.rpe ? Math.min(10, Math.max(1, Math.round(Number(ex.rpe) * (1 + mutationPercentage / 100)))) : ex.rpe, // RPE AUTO-SCALING
             rir: mutationOptions?.targetRir !== undefined ? mutationOptions.targetRir : ex.rir, // TARGET RIR
             failure_set: mutationOptions?.cancelFailure ? false : ex.failure_set, // FAILURE CANCEL
+            rir_per_set: (mutationOptions?.targetRir !== undefined && mutationOptions?.targetRir !== null) || mutationOptions?.cancelFailure 
+              ? null 
+              : ex.rir_per_set, // SYNC FIX: wipe legacy per-set RIR when new global rules apply
           }));
         }
 
