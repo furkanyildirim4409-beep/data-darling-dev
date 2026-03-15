@@ -173,8 +173,9 @@ async function forkAndMutateProgram(
             ...ex,
             sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
             reps: mutateReps(String(ex.reps ?? ""), mutationPercentage),
-            rir: mutationOptions?.removeRir ? null : ex.rir,
-            failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
+            rpe: ex.rpe ? Math.min(10, Math.max(1, Math.round(Number(ex.rpe) * (1 + mutationPercentage / 100)))) : ex.rpe, // RPE AUTO-SCALING
+            rir: mutationOptions?.targetRir !== undefined ? mutationOptions.targetRir : ex.rir, // TARGET RIR
+            failure_set: mutationOptions?.cancelFailure ? false : ex.failure_set, // FAILURE CANCEL
           }));
         }
 
