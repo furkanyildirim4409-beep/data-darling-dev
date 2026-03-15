@@ -239,7 +239,8 @@ async function forkAndMutateNutrition(
   athleteId: string,
   coachId: string,
   mutationPercentage: number,
-  insightId: string
+  insightId: string,
+  mutationOptions?: MutationOptions
 ): Promise<void> {
   // Step A: Fetch active diet template from nutrition_targets
   const { data: target } = await supabase
