@@ -193,6 +193,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           fat: isPrimary ? (ntRes.data?.fat_g || Math.round(totalF)) : Math.round(totalF),
           startDate: isPrimary ? (ntData?.diet_start_date || null) : null,
           durationWeeks: isPrimary ? (ntData?.diet_duration_weeks || null) : null,
+          parentTemplateId: (t as any).parent_template_id ?? null,
         };
       });
     }
