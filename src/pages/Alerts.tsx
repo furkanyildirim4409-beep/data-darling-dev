@@ -120,53 +120,43 @@ export default function Alerts() {
     fetchAiInterventions();
   }, [fetchAiInterventions]);
 
-  // Handle action execute — persists per-action completion to JSONB
+  // Handle action execute via encapsulated ActionEngine
   const handleActionExecute = async (interventionId: string, action: AiAction) => {
     const intervention = aiInterventions.find((i) => i.id === interventionId);
-    if (!intervention) return;
+    if (!intervention || !user) return;
 
     setResolvingIds((prev) => new Set(prev).add(`${interventionId}-${action.label}`));
 
-    const updatedActions = intervention.actions.map((a) =>
-      a.label === action.label ? { ...a, completed: true } : a
-    );
-    const allCompleted = updatedActions.every((a) => a.completed);
+    try {
+      const result = await executeAiAction(
+        intervention.athlete_id,
+        user.id,
+        action,
+        interventionId,
+        intervention.actions
+      );
 
-    const { error } = await supabase
-      .from("ai_weekly_analyses")
-      .update({ actions: updatedActions, resolved: allCompleted } as any)
-      .eq("id", interventionId);
+      if (result.isFullyResolved) {
+        setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
+      } else {
+        setAiInterventions((prev) =>
+          prev.map((i) => (i.id === interventionId ? { ...i, actions: result.updatedActions } : i))
+        );
+      }
 
-    if (error) {
-      toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
+      toast({
+        title: "✅ Aksiyon Alındı",
+        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
+    } finally {
       setResolvingIds((prev) => {
         const next = new Set(prev);
         next.delete(`${interventionId}-${action.label}`);
         return next;
       });
-      return;
     }
-
-    if (allCompleted) {
-      // All actions done — remove from queue
-      setAiInterventions((prev) => prev.filter((i) => i.id !== interventionId));
-    } else {
-      // Optimistically update the actions array in local state
-      setAiInterventions((prev) =>
-        prev.map((i) => (i.id === interventionId ? { ...i, actions: updatedActions } : i))
-      );
-    }
-
-    setResolvingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(`${interventionId}-${action.label}`);
-      return next;
-    });
-
-    toast({
-      title: "✅ Aksiyon Alındı",
-      description: `${action.label} — Sporcuya bildirim gönderildi.`,
-    });
   };
 
   // Get alerts based on quick filter

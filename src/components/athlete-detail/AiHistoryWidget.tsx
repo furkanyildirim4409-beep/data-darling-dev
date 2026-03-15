@@ -29,13 +29,8 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-interface AiAction {
-  type: "supplement" | "program" | "message" | "nutrition";
-  label: string;
-  payload: string;
-  completed?: boolean;
-}
+import { executeAiAction, type AiAction } from "@/services/ActionEngine";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AiInsight {
   id: string;
