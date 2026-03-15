@@ -123,7 +123,7 @@ export default function Alerts() {
   }, [fetchAiInterventions]);
 
   // Handle action execute via encapsulated ActionEngine
-  const handleActionExecute = async (interventionId: string, action: AiActionType, mutationPercentage?: number) => {
+  const handleActionExecute = async (interventionId: string, action: AiActionType, mutationPercentage?: number, options?: { removeRir?: boolean; removeFailure?: boolean }) => {
     const intervention = aiInterventions.find((i) => i.id === interventionId);
     if (!intervention || !user) return;
 
