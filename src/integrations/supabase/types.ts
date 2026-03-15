@@ -198,6 +198,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          metadata: Json | null
           source_insight_id: string | null
           title: string
           type: string
@@ -209,6 +210,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          metadata?: Json | null
           source_insight_id?: string | null
           title: string
           type?: string
@@ -220,6 +222,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          metadata?: Json | null
           source_insight_id?: string | null
           title?: string
           type?: string

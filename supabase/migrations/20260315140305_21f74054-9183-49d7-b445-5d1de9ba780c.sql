@@ -1,0 +1,1 @@
+ALTER TABLE athlete_notifications ADD COLUMN metadata jsonb DEFAULT '{}'::jsonb;
