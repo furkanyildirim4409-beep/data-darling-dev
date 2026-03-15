@@ -15,8 +15,8 @@ export interface ActionResult {
 }
 
 export interface MutationOptions {
-  removeRir?: boolean;
-  removeFailure?: boolean;
+  targetRir?: number | null;
+  cancelFailure?: boolean;
 }
 
 /** Math helper: scale a numeric value by percentage, minimum 1 */
