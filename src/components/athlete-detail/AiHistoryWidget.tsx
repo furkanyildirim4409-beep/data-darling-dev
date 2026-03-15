@@ -133,7 +133,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
     });
   };
 
-  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number) => {
+  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number, options?: { removeRir?: boolean; removeFailure?: boolean }) => {
     const insight = insights.find((i) => i.id === insightId);
     if (!insight || !user) return;
 
@@ -146,7 +146,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
         action,
         insightId,
         insight.actions,
-        mutationPercentage
+        mutationPercentage,
+        options
       );
 
       setInsights((prev) =>
@@ -456,9 +457,9 @@ export function AiHistoryWidget({ athleteId }: Props) {
         open={!!pendingAction}
         onOpenChange={(open) => { if (!open) setPendingAction(null); }}
         action={pendingAction?.action ?? null}
-        onConfirm={(percentage) => {
+        onConfirm={(percentage, options) => {
           if (pendingAction) {
-            handleActionExecute(pendingAction.id, pendingAction.action, percentage);
+            handleActionExecute(pendingAction.id, pendingAction.action, percentage, options);
             setPendingAction(null);
           }
         }}
