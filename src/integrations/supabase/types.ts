@@ -755,6 +755,36 @@ export type Database = {
         }
         Relationships: []
       }
+      mutation_logs: {
+        Row: {
+          athlete_id: string
+          change_percentage: number
+          coach_id: string
+          created_at: string
+          id: string
+          message: string
+          module_type: string
+        }
+        Insert: {
+          athlete_id: string
+          change_percentage: number
+          coach_id: string
+          created_at?: string
+          id?: string
+          message: string
+          module_type: string
+        }
+        Update: {
+          athlete_id?: string
+          change_percentage?: number
+          coach_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          module_type?: string
+        }
+        Relationships: []
+      }
       nutrition_logs: {
         Row: {
           foods: Json
