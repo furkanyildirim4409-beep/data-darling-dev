@@ -72,6 +72,7 @@ interface ProgramInfo {
   week_config: any;
   assigned_at: string | null;
   active_day_count: number;
+  parent_program_id: string | null;
 }
 
 interface AssignmentLog {
