@@ -452,7 +452,7 @@ export async function executeAiAction(
 
     case "program": {
       if (hasMutation && mutationPercentage !== 0) {
-        await forkAndMutateProgram(athleteId, coachId, mutationPercentage!, insightId);
+        await forkAndMutateProgram(athleteId, coachId, mutationPercentage!, insightId, mutationOptions);
       } else {
         const { error } = await supabase.from("athlete_notifications").insert({
           athlete_id: athleteId,
