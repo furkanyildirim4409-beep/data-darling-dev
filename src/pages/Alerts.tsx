@@ -123,7 +123,7 @@ export default function Alerts() {
   }, [fetchAiInterventions]);
 
   // Handle action execute via encapsulated ActionEngine
-  const handleActionExecute = async (interventionId: string, action: AiAction) => {
+  const handleActionExecute = async (interventionId: string, action: AiActionType, mutationPercentage?: number) => {
     const intervention = aiInterventions.find((i) => i.id === interventionId);
     if (!intervention || !user) return;
 
@@ -135,7 +135,8 @@ export default function Alerts() {
         user.id,
         action,
         interventionId,
-        intervention.actions
+        intervention.actions,
+        mutationPercentage
       );
 
       if (result.isFullyResolved) {
@@ -148,7 +149,7 @@ export default function Alerts() {
 
       toast({
         title: "✅ Aksiyon Alındı",
-        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+        description: `${action.label} — Sporcuya bildirim gönderildi.${mutationPercentage !== undefined ? ` (${mutationPercentage > 0 ? '+' : ''}${mutationPercentage}%)` : ''}`,
       });
     } catch (err: any) {
       toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
@@ -158,6 +159,14 @@ export default function Alerts() {
         next.delete(`${interventionId}-${action.label}`);
         return next;
       });
+    }
+  };
+
+  const handleActionClick = (interventionId: string, action: AiActionType) => {
+    if (action.type === "program" || action.type === "nutrition") {
+      setPendingAction({ id: interventionId, action });
+    } else {
+      handleActionExecute(interventionId, action);
     }
   };
 
