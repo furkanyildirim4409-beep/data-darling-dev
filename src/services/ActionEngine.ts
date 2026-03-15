@@ -292,13 +292,36 @@ async function forkAndMutateNutrition(
       if (foodInsertErr) throw new Error(`Food clone failed: ${foodInsertErr.message}`);
     }
 
-    // Step E: Update nutrition_targets to point to new template
-    const { error: assignErr } = await supabase
+    // Step E: Update nutrition_targets to point to new template (with verification)
+    const { data: updatedTargets, error: assignErr } = await supabase
       .from("nutrition_targets")
       .update({ active_diet_template_id: newTemplateId } as any)
-      .eq("id", target.id);
+      .eq("id", target.id)
+      .select("id, active_diet_template_id");
 
     if (assignErr) throw new Error(`Nutrition target assignment failed: ${assignErr.message}`);
+
+    if (!updatedTargets || updatedTargets.length === 0) {
+      console.warn(`[ActionEngine] Uyarı: nutrition_targets güncellenemedi (RLS veya predicate uyumsuzluğu). Target ID: ${target.id}`);
+    } else {
+      console.log(`[ActionEngine] Başarı: nutrition_targets güncellendi → ${newTemplateId}`);
+    }
+
+    // Step E2: Sync athlete_diet_assignments if any exist
+    const { data: updatedDietAssignments, error: dietAssignErr } = await supabase
+      .from("athlete_diet_assignments")
+      .update({ template_id: newTemplateId } as any)
+      .eq("athlete_id", athleteId)
+      .eq("template_id", sourceTemplateId)
+      .select("id");
+
+    if (dietAssignErr) {
+      console.warn(`[ActionEngine] athlete_diet_assignments sync hatası: ${dietAssignErr.message}`);
+    } else if (!updatedDietAssignments || updatedDietAssignments.length === 0) {
+      console.warn(`[ActionEngine] athlete_diet_assignments'ta eşleşen kayıt bulunamadı (beklenen davranış olabilir).`);
+    } else {
+      console.log(`[ActionEngine] ${updatedDietAssignments.length} diet assignment yeni template'e yönlendirildi.`);
+    }
 
     // Step F: Log mutation to ledger
     const sign = mutationPercentage > 0 ? "+" : "";
