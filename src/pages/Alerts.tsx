@@ -136,7 +136,8 @@ export default function Alerts() {
         action,
         interventionId,
         intervention.actions,
-        mutationPercentage
+        mutationPercentage,
+        options
       );
 
       if (result.isFullyResolved) {
