@@ -70,6 +70,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
         .from("programs")
         .select("id, title, description")
         .eq("coach_id", user.id)
+        .eq("is_template", true)
         .order("created_at", { ascending: false });
 
       if (!progs?.length) {
