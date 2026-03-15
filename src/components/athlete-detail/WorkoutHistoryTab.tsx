@@ -29,6 +29,7 @@ interface ExerciseDetail {
   failure_set?: boolean;
   failureSet?: boolean;
   groupId?: string | null;
+  rpe?: number;
   rest_time?: string;
   notes?: string;
   actualSets?: PerformedSet[];
