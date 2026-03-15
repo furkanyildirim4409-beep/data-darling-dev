@@ -14,6 +14,11 @@ export interface ActionResult {
   isFullyResolved: boolean;
 }
 
+export interface MutationOptions {
+  removeRir?: boolean;
+  removeFailure?: boolean;
+}
+
 /** Math helper: scale a numeric value by percentage, minimum 1 */
 const applyMutation = (val: number, pct: number): number =>
   Math.max(1, Math.round(val * (1 + pct / 100)));
