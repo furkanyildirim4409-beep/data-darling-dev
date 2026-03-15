@@ -446,9 +446,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                           </Badge>
                         )}
                         {d.parentTemplateId && (
-                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4 border-chart-4/20 text-[10px] px-1.5 py-0.5">
-                            🧬 AI Optimizasyonu
-                          </Badge>
+                          <AiOptBadge
+                            parentId={d.parentTemplateId}
+                            module="nutrition"
+                            athleteId={athleteId}
+                          />
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
