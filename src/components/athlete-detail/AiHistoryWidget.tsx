@@ -413,7 +413,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                   variant="outline"
                                   size="sm"
                                   className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
-                                  onClick={() => handleActionExecute(insight.id, action)}
+                                  onClick={() => handleActionClick(insight.id, action)}
                                   disabled={isActionResolving}
                                 >
                                   <ActionIcon className="w-3 h-3" />
