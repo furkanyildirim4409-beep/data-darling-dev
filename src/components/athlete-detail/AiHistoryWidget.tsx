@@ -133,7 +133,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
     });
   };
 
-  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number, options?: { removeRir?: boolean; removeFailure?: boolean }) => {
+  const handleActionExecute = async (insightId: string, action: AiAction, mutationPercentage?: number, options?: { targetRir?: number | null; cancelFailure?: boolean }) => {
     const insight = insights.find((i) => i.id === insightId);
     if (!insight || !user) return;
 

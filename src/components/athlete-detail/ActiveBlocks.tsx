@@ -763,16 +763,16 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             {new Date(log.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                           </p>
-                          {log.metadata && (log.metadata.removed_rir || log.metadata.removed_failure) && (
+                          {log.metadata && (log.metadata.target_rir !== undefined && log.metadata.target_rir !== null || log.metadata.cancelled_failure) && (
                             <div className="flex items-center gap-2 mt-2">
-                              {log.metadata.removed_rir && (
+                              {log.metadata.target_rir !== undefined && log.metadata.target_rir !== null && (
                                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-500/10 text-amber-500 border-amber-500/20">
-                                  RIR İptal Edildi
+                                  Hedef RIR: {log.metadata.target_rir}
                                 </Badge>
                               )}
-                              {log.metadata.removed_failure && (
+                              {log.metadata.cancelled_failure && (
                                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-rose-500/10 text-rose-500 border-rose-500/20">
-                                  Tükeniş (Failure) İptal Edildi
+                                  Tükeniş İptal
                                 </Badge>
                               )}
                             </div>

@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dumbbell, UtensilsCrossed, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dumbbell, UtensilsCrossed, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiAction } from "@/services/ActionEngine";
 
@@ -24,19 +25,19 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   action: AiAction | null;
-  onConfirm: (percentage: number, options?: { removeRir?: boolean; removeFailure?: boolean }) => void;
+  onConfirm: (percentage: number, options?: { targetRir?: number | null; cancelFailure?: boolean }) => void;
 }
 
 export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: Props) {
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
-  const [removeRir, setRemoveRir] = useState(false);
-  const [removeFailure, setRemoveFailure] = useState(false);
+  const [targetRir, setTargetRir] = useState<string>("");
+  const [cancelFailure, setCancelFailure] = useState(false);
 
   useEffect(() => {
     if (open) {
       setSliderValue([0]);
-      setRemoveRir(false);
-      setRemoveFailure(false);
+      setTargetRir("");
+      setCancelFailure(false);
     }
   }, [open]);
 
@@ -46,6 +47,8 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
 
   const valueColor = value < 0 ? "text-destructive" : value > 0 ? "text-success" : "text-muted-foreground";
   const valuePrefix = value > 0 ? "+" : "";
+
+  const parsedRir = targetRir !== "" ? Math.min(5, Math.max(0, parseInt(targetRir, 10) || 0)) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,18 +121,41 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
               <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
                 <p className="text-xs font-semibold text-foreground">Yoğunluk Kontrolleri</p>
 
+                {/* Target RIR Input */}
                 <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="remove-rir" className="text-xs text-muted-foreground cursor-pointer">
-                    RIR (Reps in Reserve) Hedeflerini Kaldır
-                  </Label>
-                  <Switch id="remove-rir" checked={removeRir} onCheckedChange={setRemoveRir} />
+                  <div className="flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5 text-muted-foreground" />
+                    <Label htmlFor="target-rir" className="text-xs text-muted-foreground cursor-pointer">
+                      Hedef RIR Belirle (0-5)
+                    </Label>
+                  </div>
+                  <Input
+                    id="target-rir"
+                    type="number"
+                    min={0}
+                    max={5}
+                    placeholder="—"
+                    value={targetRir}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") { setTargetRir(""); return; }
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n)) setTargetRir(String(Math.min(5, Math.max(0, n))));
+                    }}
+                    className="w-16 h-8 text-center text-sm font-mono px-2"
+                  />
                 </div>
+                {parsedRir !== null && (
+                  <p className="text-[10px] text-muted-foreground -mt-2 ml-5">
+                    Tüm egzersizlerin RIR değeri <span className="font-semibold text-foreground">{parsedRir}</span> olarak ayarlanacak.
+                  </p>
+                )}
 
                 <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="remove-failure" className="text-xs text-muted-foreground cursor-pointer">
+                  <Label htmlFor="cancel-failure" className="text-xs text-muted-foreground cursor-pointer">
                     Tükeniş (Failure) Setlerini İptal Et
                   </Label>
-                  <Switch id="remove-failure" checked={removeFailure} onCheckedChange={setRemoveFailure} />
+                  <Switch id="cancel-failure" checked={cancelFailure} onCheckedChange={setCancelFailure} />
                 </div>
               </div>
             )}
@@ -140,7 +166,7 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             İptal
           </Button>
-          <Button onClick={() => onConfirm(value, { removeRir, removeFailure })}>
+          <Button onClick={() => onConfirm(value, { targetRir: parsedRir, cancelFailure })}>
             Onayla ve Uygula
           </Button>
         </DialogFooter>
