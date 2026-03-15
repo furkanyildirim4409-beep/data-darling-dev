@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Dumbbell, UtensilsCrossed, Sparkles, Target } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Sparkles, Target, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiAction } from "@/services/ActionEngine";
 
@@ -47,6 +47,7 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
 
   const valueColor = value < 0 ? "text-destructive" : value > 0 ? "text-success" : "text-muted-foreground";
   const valuePrefix = value > 0 ? "+" : "";
+  const previewRpe = Math.min(10, Math.max(1, Math.round(10 * (1 + value / 100))));
 
   const parsedRir = targetRir !== "" ? Math.min(5, Math.max(0, parseInt(targetRir, 10) || 0)) : null;
 
@@ -113,6 +114,20 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Bu eylem matematiksel bir değişiklik gerektirmiyor. Doğrudan sporcuya direktif / protokol olarak iletilecektir.
                 </p>
+              </div>
+            )}
+
+            {/* RPE Auto-Scaling Preview */}
+            {action?.type === "program" && value !== 0 && (
+              <div className="mt-4 px-3 py-2.5 bg-blue-500/10 border border-blue-500/20 rounded-md flex items-start gap-2.5 text-blue-500">
+                <Activity className="w-4 h-4 mt-0.5 shrink-0" />
+                <div className="text-xs">
+                  <span className="font-semibold block mb-0.5">RPE Auto-Scaling Aktif</span>
+                  <p className="text-blue-500/80">
+                    Egzersizlerin zorluk (RPE) değerleri {valuePrefix}{value}% oranında otomatik ölçeklenecek.
+                    <br/><span className="font-mono mt-1 inline-block opacity-90">(Örn: 10 RPE → {previewRpe} RPE)</span>
+                  </p>
+                </div>
               </div>
             )}
 
