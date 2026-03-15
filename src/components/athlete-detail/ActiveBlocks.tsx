@@ -109,7 +109,7 @@ interface DietData {
 interface WorkoutDay {
   dayOfWeek: string;
   workoutName: string;
-  exercises: { name: string; sets: number; reps: string; rir?: number }[];
+  exercises: { name: string; sets: number; reps: string; rir?: number; rpe?: number }[];
 }
 
 interface DietDayFood {
