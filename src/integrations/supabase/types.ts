@@ -53,6 +53,44 @@ export type Database = {
         }
         Relationships: []
       }
+      assigned_supplements: {
+        Row: {
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_and_dosage: string
+          source_insight_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_and_dosage: string
+          source_insight_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_and_dosage?: string
+          source_insight_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_supplements_source_insight_id_fkey"
+            columns: ["source_insight_id"]
+            isOneToOne: false
+            referencedRelation: "ai_weekly_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assigned_workouts: {
         Row: {
           assignment_batch_id: string | null
@@ -148,6 +186,50 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "diet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      athlete_notifications: {
+        Row: {
+          athlete_id: string
+          coach_id: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          source_insight_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          athlete_id: string
+          coach_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          source_insight_id?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          source_insight_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_notifications_source_insight_id_fkey"
+            columns: ["source_insight_id"]
+            isOneToOne: false
+            referencedRelation: "ai_weekly_analyses"
             referencedColumns: ["id"]
           },
         ]

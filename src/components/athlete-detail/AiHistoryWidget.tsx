@@ -29,13 +29,8 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-interface AiAction {
-  type: "supplement" | "program" | "message" | "nutrition";
-  label: string;
-  payload: string;
-  completed?: boolean;
-}
+import { executeAiAction, type AiAction } from "@/services/ActionEngine";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AiInsight {
   id: string;
@@ -120,6 +115,7 @@ interface Props {
 }
 
 export function AiHistoryWidget({ athleteId }: Props) {
+  const { user } = useAuth();
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
@@ -137,48 +133,40 @@ export function AiHistoryWidget({ athleteId }: Props) {
 
   const handleActionExecute = async (insightId: string, action: AiAction) => {
     const insight = insights.find((i) => i.id === insightId);
-    if (!insight) return;
+    if (!insight || !user) return;
 
     setResolvingIds((prev) => new Set(prev).add(`${insightId}-${action.label}`));
 
-    const updatedActions = insight.actions.map((a) =>
-      a.label === action.label ? { ...a, completed: true } : a
-    );
-    const allCompleted = updatedActions.every((a) => a.completed);
+    try {
+      const result = await executeAiAction(
+        athleteId,
+        user.id,
+        action,
+        insightId,
+        insight.actions
+      );
 
-    const { error } = await supabase
-      .from("ai_weekly_analyses")
-      .update({ actions: updatedActions, resolved: allCompleted } as any)
-      .eq("id", insightId);
+      setInsights((prev) =>
+        prev.map((i) =>
+          i.id === insightId
+            ? { ...i, actions: result.updatedActions, resolved: result.isFullyResolved }
+            : i
+        )
+      );
 
-    if (error) {
-      toast({ title: "Hata", description: "Aksiyon işlenemedi.", variant: "destructive" });
+      toast({
+        title: "✅ Aksiyon Alındı",
+        description: `${action.label} — Sporcuya bildirim gönderildi.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Hata", description: err?.message || "Aksiyon işlenemedi.", variant: "destructive" });
+    } finally {
       setResolvingIds((prev) => {
         const next = new Set(prev);
         next.delete(`${insightId}-${action.label}`);
         return next;
       });
-      return;
     }
-
-    // Optimistically update local state (archive — never remove)
-    setInsights((prev) =>
-      prev.map((i) =>
-        i.id === insightId
-          ? { ...i, actions: updatedActions, resolved: allCompleted }
-          : i
-      )
-    );
-    setResolvingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(`${insightId}-${action.label}`);
-      return next;
-    });
-
-    toast({
-      title: "✅ Aksiyon Alındı",
-      description: `${action.label} — Sporcuya bildirim gönderildi.`,
-    });
   };
 
   useEffect(() => {
