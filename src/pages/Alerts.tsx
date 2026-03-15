@@ -76,6 +76,7 @@ export default function Alerts() {
   const [aiLoading, setAiLoading] = useState(true);
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ id: string; action: AiActionType } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
