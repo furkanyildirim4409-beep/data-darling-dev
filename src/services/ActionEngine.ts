@@ -23,8 +23,12 @@ export async function executeAiAction(
   coachId: string,
   action: AiAction,
   insightId: string,
-  currentActions: AiAction[]
+  currentActions: AiAction[],
+  mutationPercentage?: number
 ): Promise<ActionResult> {
+  const hasMutation = mutationPercentage !== undefined && mutationPercentage !== null;
+  const metadata = hasMutation ? { mutation_percentage: mutationPercentage } : {};
+
   // 1. Execute the real backend mutation based on action type
   switch (action.type) {
     case "supplement": {
@@ -55,7 +59,7 @@ export async function executeAiAction(
         message: action.payload || action.label,
         type: "supplement",
         source_insight_id: insightId,
-      });
+      } as any);
       if (notifErr) throw new Error(`Notification insert failed: ${notifErr.message}`);
       break;
     }
@@ -68,7 +72,7 @@ export async function executeAiAction(
         message: action.payload || action.label,
         type: "message",
         source_insight_id: insightId,
-      });
+      } as any);
       if (error) throw new Error(`Notification insert failed: ${error.message}`);
       break;
     }
@@ -81,7 +85,8 @@ export async function executeAiAction(
         message: action.payload || action.label,
         type: "program",
         source_insight_id: insightId,
-      });
+        metadata,
+      } as any);
       if (error) throw new Error(`Notification insert failed: ${error.message}`);
       break;
     }
@@ -94,7 +99,8 @@ export async function executeAiAction(
         message: action.payload || action.label,
         type: "nutrition",
         source_insight_id: insightId,
-      });
+        metadata,
+      } as any);
       if (error) throw new Error(`Notification insert failed: ${error.message}`);
       break;
     }
