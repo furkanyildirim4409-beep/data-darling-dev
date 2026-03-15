@@ -126,9 +126,10 @@ async function forkAndMutateProgram(
         program_id: newProgramId,
         sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
         reps: mutateReps(ex.reps, mutationPercentage),
-        rir: mutationOptions?.removeRir ? null : ex.rir,
+        rpe: ex.rpe ? Math.min(10, Math.max(1, Math.round(Number(ex.rpe) * (1 + mutationPercentage / 100)))) : ex.rpe, // RPE AUTO-SCALING
+        rir: mutationOptions?.targetRir !== undefined ? mutationOptions.targetRir : ex.rir, // TARGET RIR
         rir_per_set: ex.rir_per_set,
-        failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
+        failure_set: mutationOptions?.cancelFailure ? false : ex.failure_set, // FAILURE CANCEL
         rest_time: ex.rest_time,
         order_index: ex.order_index,
         notes: ex.notes,
