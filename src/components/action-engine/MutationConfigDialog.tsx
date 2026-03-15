@@ -117,6 +117,20 @@ export function MutationConfigDialog({ open, onOpenChange, action, onConfirm }: 
               </div>
             )}
 
+            {/* RPE Auto-Scaling Preview */}
+            {action?.type === "program" && value !== 0 && (
+              <div className="mt-4 px-3 py-2.5 bg-blue-500/10 border border-blue-500/20 rounded-md flex items-start gap-2.5 text-blue-500">
+                <Activity className="w-4 h-4 mt-0.5 shrink-0" />
+                <div className="text-xs">
+                  <span className="font-semibold block mb-0.5">RPE Auto-Scaling Aktif</span>
+                  <p className="text-blue-500/80">
+                    Egzersizlerin zorluk (RPE) değerleri {valuePrefix}{value}% oranında otomatik ölçeklenecek.
+                    <br/><span className="font-mono mt-1 inline-block opacity-90">(Örn: 10 RPE → {previewRpe} RPE)</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Intensity Controls — only for program actions */}
             {action?.type === "program" && (
               <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
