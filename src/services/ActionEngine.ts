@@ -15,8 +15,8 @@ export interface ActionResult {
 }
 
 export interface MutationOptions {
-  removeRir?: boolean;
-  removeFailure?: boolean;
+  targetRir?: number | null;
+  cancelFailure?: boolean;
 }
 
 /** Math helper: scale a numeric value by percentage, minimum 1 */
@@ -126,9 +126,10 @@ async function forkAndMutateProgram(
         program_id: newProgramId,
         sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
         reps: mutateReps(ex.reps, mutationPercentage),
-        rir: mutationOptions?.removeRir ? null : ex.rir,
+        rpe: ex.rpe ? Math.min(10, Math.max(1, Math.round(Number(ex.rpe) * (1 + mutationPercentage / 100)))) : ex.rpe, // RPE AUTO-SCALING
+        rir: mutationOptions?.targetRir !== undefined ? mutationOptions.targetRir : ex.rir, // TARGET RIR
         rir_per_set: ex.rir_per_set,
-        failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
+        failure_set: mutationOptions?.cancelFailure ? false : ex.failure_set, // FAILURE CANCEL
         rest_time: ex.rest_time,
         order_index: ex.order_index,
         notes: ex.notes,
@@ -172,8 +173,9 @@ async function forkAndMutateProgram(
             ...ex,
             sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
             reps: mutateReps(String(ex.reps ?? ""), mutationPercentage),
-            rir: mutationOptions?.removeRir ? null : ex.rir,
-            failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
+            rpe: ex.rpe ? Math.min(10, Math.max(1, Math.round(Number(ex.rpe) * (1 + mutationPercentage / 100)))) : ex.rpe, // RPE AUTO-SCALING
+            rir: mutationOptions?.targetRir !== undefined ? mutationOptions.targetRir : ex.rir, // TARGET RIR
+            failure_set: mutationOptions?.cancelFailure ? false : ex.failure_set, // FAILURE CANCEL
           }));
         }
 
@@ -202,7 +204,7 @@ async function forkAndMutateProgram(
       module_type: "program",
       change_percentage: mutationPercentage,
       message: `Program hacmi ${sign}${mutationPercentage}% güncellendi`,
-      metadata: { removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false },
+      metadata: { target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false },
     } as any);
 
     // Step H: Success notification
@@ -213,7 +215,7 @@ async function forkAndMutateProgram(
       message: `Programınız "${sourceProgram.title}" klonlandı ve hacim ${sign}${mutationPercentage}% güncellendi.`,
       type: "program",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceProgramId, forked_to: newProgramId },
+      metadata: { mutation_percentage: mutationPercentage, target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false, forked_from: sourceProgramId, forked_to: newProgramId },
     } as any);
 
     // Step I (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
@@ -364,7 +366,7 @@ async function forkAndMutateNutrition(
       module_type: "nutrition",
       change_percentage: mutationPercentage,
       message: `Beslenme planı makroları ${sign}${mutationPercentage}% güncellendi`,
-      metadata: { removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false },
+      metadata: { target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false },
     } as any);
 
     // Step G: Success notification
@@ -375,7 +377,7 @@ async function forkAndMutateNutrition(
       message: `Beslenme planınız "${sourceTemplate.title}" klonlandı ve makrolar ${sign}${mutationPercentage}% güncellendi.`,
       type: "nutrition",
       source_insight_id: insightId,
-      metadata: { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir || false, removed_failure: mutationOptions?.removeFailure || false, forked_from: sourceTemplateId, forked_to: newTemplateId },
+      metadata: { mutation_percentage: mutationPercentage, target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false, forked_from: sourceTemplateId, forked_to: newTemplateId },
     } as any);
 
     // Step H (GARBAGE COLLECTION): Delete old clone if it was already an AI fork
@@ -404,7 +406,7 @@ export async function executeAiAction(
   mutationOptions?: MutationOptions
 ): Promise<ActionResult> {
   const hasMutation = mutationPercentage !== undefined && mutationPercentage !== null;
-  const metadata = hasMutation ? { mutation_percentage: mutationPercentage, removed_rir: mutationOptions?.removeRir, removed_failure: mutationOptions?.removeFailure } : {};
+  const metadata = hasMutation ? { mutation_percentage: mutationPercentage, target_rir: mutationOptions?.targetRir ?? null, cancelled_failure: mutationOptions?.cancelFailure || false } : {};
 
   // 1. Execute the real backend mutation based on action type
   switch (action.type) {
