@@ -244,6 +244,7 @@ export default function AthleteDetail() {
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
               "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
               "bloodwork-panel": <BloodworkPanel athleteId={athlete.id} />,
+              "supplements-panel": <SupplementsPanel athleteId={athlete.id} />,
             }}
           />
         </TabsContent>
