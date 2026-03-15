@@ -170,8 +170,10 @@ async function forkAndMutateProgram(
         if (Array.isArray(fw.exercises)) {
           mutatedExercises = (fw.exercises as any[]).map((ex: any) => ({
             ...ex,
-            sets: ex.sets ? applyMutation(Number(ex.sets), mutationPercentage) : ex.sets,
+            sets: ex.sets, // CRITICAL FIX: Preserve original sets, NEVER mutate sets
             reps: mutateReps(String(ex.reps ?? ""), mutationPercentage),
+            rir: mutationOptions?.removeRir ? null : ex.rir,
+            failure_set: mutationOptions?.removeFailure ? false : ex.failure_set,
           }));
         }
 
