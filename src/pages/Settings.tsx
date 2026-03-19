@@ -50,7 +50,7 @@ const subscriptionPlans = [
 ];
 
 export default function Settings() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, activeCoachId, refreshProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
