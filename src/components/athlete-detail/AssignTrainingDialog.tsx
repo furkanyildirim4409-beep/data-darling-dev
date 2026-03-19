@@ -101,7 +101,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
   }, [open, user]);
 
   const handleAssign = async (prog: ProgramOption) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setAssigning(prog.id);
 
     // Fetch exercises grouped by day
