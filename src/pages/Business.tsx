@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
+import { usePermissions } from "@/hooks/usePermissions";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
