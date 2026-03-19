@@ -50,6 +50,7 @@ export default function Business() {
     addPayment, updatePaymentStatus, deletePayment,
     totalPaid, totalPending,
   } = usePayments();
+  const { canManageFinances } = usePermissions();
 
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
