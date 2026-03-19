@@ -220,6 +220,7 @@ export function ProgramLibrary({
   onLoadTemplate
 }: ProgramLibraryProps) {
   const { user, activeCoachId } = useAuth();
+  const { canCreatePrograms, canDeleteAthletes } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
