@@ -1456,6 +1456,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_team_member_of: {
+        Args: { _head_coach_id: string }
+        Returns: boolean
+      }
       is_coach_of: { Args: { _athlete_id: string }; Returns: boolean }
       link_athlete_to_coach: {
         Args: { _athlete_email: string; _coach_id: string }
