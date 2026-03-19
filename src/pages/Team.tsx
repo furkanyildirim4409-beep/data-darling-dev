@@ -58,7 +58,9 @@ const permissionCategories = [
 
 export default function Team() {
   const { toast } = useToast();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const { data: teamMembers = [], isLoading } = useTeamMembers();
+  const updateMember = useUpdateTeamMember();
+  const deleteMember = useDeleteTeamMember();
   
   // Dialog states
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -91,25 +93,25 @@ export default function Team() {
   };
 
   const handleMemberUpdate = (updatedMember: TeamMember) => {
-    setTeamMembers(prev => 
-      prev.map(m => m.id === updatedMember.id ? updatedMember : m)
-    );
-  };
-
-  const handleMemberAdd = (newMember: TeamMember) => {
-    setTeamMembers(prev => [...prev, newMember]);
-    toast({
-      title: "Üye Eklendi",
-      description: `${newMember.name} takıma başarıyla eklendi.`,
+    updateMember.mutate({
+      id: updatedMember.id,
+      full_name: updatedMember.name,
+      email: updatedMember.email,
+      role: updatedMember.role,
+      permissions: updatedMember.permissions,
+      phone: updatedMember.phone,
     });
   };
 
   const handleDeleteMember = (e: React.MouseEvent, memberId: string) => {
     e.stopPropagation();
-    setTeamMembers(prev => prev.filter(m => m.id !== memberId));
-    toast({
-      title: "Üye Silindi",
-      description: "Takım üyesi başarıyla kaldırıldı.",
+    deleteMember.mutate(memberId, {
+      onSuccess: () => {
+        toast({
+          title: "Üye Silindi",
+          description: "Takım üyesi başarıyla kaldırıldı.",
+        });
+      },
     });
   };
 
@@ -130,7 +132,7 @@ export default function Team() {
           simulateIncomingMessage(randomMember.id, randomMember.name);
         }
       }
-    }, 45000); // Every 45 seconds, 30% chance
+    }, 45000);
 
     return () => clearInterval(interval);
   }, [teamMembers, simulateIncomingMessage, getMemberPresence]);
