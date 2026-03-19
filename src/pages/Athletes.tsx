@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Athletes() {
-  const { user } = useAuth();
+  const { user, isSubCoach, teamMemberPermissions } = useAuth();
   const { athletes, isLoading, error, refetch } = useAthletes();
   const [showRapidResponse, setShowRapidResponse] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
