@@ -79,6 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(profileData);
       setRole(profileData.role);
     }
+
+    // Fetch team_members linkage for sub-coach detection
+    const { data: teamData } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    setTeamMember(teamData ?? null);
   };
 
   useEffect(() => {
