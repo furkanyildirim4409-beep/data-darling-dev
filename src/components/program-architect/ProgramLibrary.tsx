@@ -575,7 +575,7 @@ export function ProgramLibrary({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
-          {builderMode === "exercise" && (
+          {builderMode === "exercise" && canCreatePrograms && (
             <ExerciseLibraryEditor exercises={allExercisesForEditor} onRefresh={handleEditorRefresh} onOpen={fetchAllForEditor} />
           )}
         </div>
