@@ -174,7 +174,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
     // Log assignment
     await supabase.from("program_assignment_logs").insert({
       athlete_id: athleteId,
-      coach_id: user.id,
+      coach_id: activeCoachId,
       program_id: prog.id,
       program_title: prog.title,
       assignment_batch_id: batchId,

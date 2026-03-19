@@ -248,7 +248,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           for (const athleteId of selectedAthleteIds) {
             payload.push({
-              coach_id: user.id,
+              coach_id: activeCoachId,
               athlete_id: athleteId,
               program_id: programId,
             scheduled_date: format(addDays(startDate, dayIdx), "yyyy-MM-dd"),

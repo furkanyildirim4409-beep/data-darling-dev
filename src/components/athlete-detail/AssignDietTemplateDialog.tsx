@@ -117,7 +117,7 @@ export function AssignDietTemplateDialog({
       .upsert(
         {
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           active_diet_template_id: tpl.id,
           diet_start_date: format(startDate, "yyyy-MM-dd"),
           diet_duration_weeks: Number(durationWeeks),

@@ -192,13 +192,12 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
 
   const handleRemoveTemplate = async () => {
     setRemovingTemplate(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setRemovingTemplate(false); return; }
+    if (!activeCoachId) { setRemovingTemplate(false); return; }
     const { error } = await supabase
       .from("nutrition_targets")
       .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
       .eq("athlete_id", athleteId)
-      .eq("coach_id", user.id);
+      .eq("coach_id", activeCoachId);
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {

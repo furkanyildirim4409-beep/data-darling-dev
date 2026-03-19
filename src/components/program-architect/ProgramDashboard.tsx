@@ -465,7 +465,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           title: data.name,
           description: data.description ?? "",
           target_calories: data.targetCalories ?? null,
-          coach_id: user.id,
+          coach_id: activeCoachId,
         }).select().single();
 
         if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }

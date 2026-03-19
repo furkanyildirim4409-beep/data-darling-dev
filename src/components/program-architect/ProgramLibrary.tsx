@@ -528,7 +528,7 @@ export function ProgramLibrary({
             carbs: item.carbs || 0,
             fat: item.fats || 0,
             serving_size: "100g",
-            coach_id: user.id,
+            coach_id: activeCoachId!,
           }, { onConflict: "name,coach_id" })
           .select("id")
           .single();

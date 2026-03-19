@@ -205,10 +205,11 @@ export default function Settings() {
     
     try {
       // Fetch data from various tables
+      const coachId = activeCoachId || user.id;
       const [athletesResult, programsResult, paymentsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('coach_id', user.id),
-        supabase.from('programs').select('*').eq('coach_id', user.id),
-        supabase.from('payments').select('*').eq('coach_id', user.id)
+        supabase.from('profiles').select('*').eq('coach_id', coachId),
+        supabase.from('programs').select('*').eq('coach_id', coachId),
+        supabase.from('payments').select('*').eq('coach_id', coachId)
       ]);
 
       const exportData = {

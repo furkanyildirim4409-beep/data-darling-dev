@@ -285,7 +285,7 @@ export function ReplaceProgramDialog({
       await supabase.from("profiles").update({ active_program_id: selectedProgramId } as any).eq("id", athleteId);
       await supabase.from("program_assignment_logs").insert({
         athlete_id: athleteId,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         program_id: selectedProgramId,
         program_title: selectedProgram.title,
         action: "assigned",

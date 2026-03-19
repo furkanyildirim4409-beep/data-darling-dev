@@ -91,7 +91,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
 
     const rows = Array.from(selectedIds).map((id) => ({
       athlete_id: id,
-      coach_id: user.id,
+      coach_id: activeCoachId,
       active_diet_template_id: templateId,
       diet_start_date: format(startDate, "yyyy-MM-dd"),
       diet_duration_weeks: Number(durationWeeks),
