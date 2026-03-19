@@ -55,6 +55,7 @@ interface ActiveTemplate {
 
 export function NutritionTab({ athleteId }: NutritionTabProps) {
   const { activeCoachId } = useAuth();
+  const { canAssignPrograms, canEditAthletes } = usePermissions();
   // ─── Target State ───
   const [targets, setTargets] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [formValues, setFormValues] = useState<NutritionTargets>(DEFAULT_TARGETS);
