@@ -124,13 +124,13 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   }, [user, activeCoachId]);
 
   const fetchDietTemplates = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoading(true);
 
     const { data: tpls, error } = await supabase
       .from("diet_templates")
       .select("id, title, description, target_calories, created_at")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .eq("is_template", true)
       .order("created_at", { ascending: false });
 
