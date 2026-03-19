@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Link, Mail, Zap, Users, Copy, Check } from "lucide-react";
+import { Link, Mail, Zap, Users, Copy, Check, Filter } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { AthleteRoster } from "@/components/athletes/AthleteRoster";
 import { RapidResponse } from "@/components/athletes/RapidResponse";
 import { useAthletes } from "@/hooks/useAthletes";
@@ -12,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Athletes() {
-  const { user } = useAuth();
+  const { user, isSubCoach, teamMemberPermissions } = useAuth();
   const { athletes, isLoading, error, refetch } = useAthletes();
   const [showRapidResponse, setShowRapidResponse] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -102,11 +103,19 @@ export default function Athletes() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Sporcular</h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">
-            {isLoading ? <Skeleton className="h-4 w-32 inline-block" /> : (
-              <><span className="font-mono text-foreground">{athletes.length}</span> sporcu yönetiliyor</>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm md:text-base text-muted-foreground">
+              {isLoading ? <Skeleton className="h-4 w-32 inline-block" /> : (
+                <><span className="font-mono text-foreground">{athletes.length}</span> sporcu yönetiliyor</>
+              )}
+            </p>
+            {isSubCoach && teamMemberPermissions !== 'full' && !isLoading && (
+              <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 text-xs gap-1">
+                <Filter className="w-3 h-3" />
+                Atanan Sporcular
+              </Badge>
             )}
-          </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           {athletesNeedingAttention.length > 0 && (
