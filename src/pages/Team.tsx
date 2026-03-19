@@ -380,7 +380,6 @@ export default function Team() {
         open={profileDrawerOpen}
         onOpenChange={setProfileDrawerOpen}
         member={selectedMember}
-        onMemberUpdate={handleMemberUpdate}
       />
 
       <AddMemberDialog
