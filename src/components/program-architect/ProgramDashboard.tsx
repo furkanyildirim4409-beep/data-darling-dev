@@ -86,12 +86,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   });
 
   const fetchPrograms = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("programs")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .eq("is_template", true)
       .order("created_at", { ascending: false });
 
