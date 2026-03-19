@@ -21,7 +21,7 @@ export interface BusinessPulseData {
 }
 
 export function useBusinessPulse(): BusinessPulseData {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [data, setData] = useState<BusinessPulseData>({
     chartData: [],
     currentAthletes: 0,
@@ -34,13 +34,13 @@ export function useBusinessPulse(): BusinessPulseData {
   });
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeCoachId) {
       setData((d) => ({ ...d, isLoading: false }));
       return;
     }
 
     const fetchData = async () => {
-      const coachId = user.id;
+      const coachId = activeCoachId;
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
