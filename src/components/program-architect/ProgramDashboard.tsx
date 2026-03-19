@@ -398,7 +398,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
   const handleImportProgram = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !activeCoachId) return;
     e.target.value = "";
 
     setImporting(true);
