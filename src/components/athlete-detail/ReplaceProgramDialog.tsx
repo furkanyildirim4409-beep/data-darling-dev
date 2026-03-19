@@ -254,7 +254,7 @@ export function ReplaceProgramDialog({
         });
 
         payload.push({
-          coach_id: user.id,
+          coach_id: activeCoachId,
           athlete_id: athleteId,
           program_id: selectedProgramId,
           scheduled_date: targetDate,
