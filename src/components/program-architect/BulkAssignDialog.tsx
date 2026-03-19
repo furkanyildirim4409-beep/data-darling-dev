@@ -55,7 +55,7 @@ interface WeekConfigDay {
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
 
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
