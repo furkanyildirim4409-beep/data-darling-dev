@@ -62,7 +62,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
       .from("profiles")
       .select("id, full_name, avatar_url")
       .eq("role", "athlete")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .then(({ data }) => {
         setAthletes((data || []).map((a) => ({ id: a.id, name: a.full_name || "İsimsiz", avatar: a.avatar_url || undefined })));
         setLoading(false);
