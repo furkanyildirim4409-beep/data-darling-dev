@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
  * in the conversation was sent by the athlete (i.e. coach hasn't replied yet).
  */
 export function useUnansweredChats(athleteIds: string[]) {
-  const { user } = useAuth();
-  const coachId = user?.id;
+  const { user, activeCoachId } = useAuth();
+  const coachId = user?.id; // message identity = real user
   const [unansweredIds, setUnansweredIds] = useState<Set<string>>(new Set());
 
   const fetch = useCallback(async () => {

@@ -15,18 +15,18 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useAlerts() {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [alerts, setAlerts] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAlerts = useCallback(async () => {
-    if (!user) {
+    if (!user || !activeCoachId) {
       setAlerts([]);
       setIsLoading(false);
       return;
     }
 
-    const coachId = user.id;
+    const coachId = activeCoachId;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
@@ -167,7 +167,7 @@ export function useAlerts() {
 
     setAlerts(generated);
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchAlerts();
@@ -175,7 +175,7 @@ export function useAlerts() {
 
   // Realtime: re-scan when profiles or checkins change
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("alerts-realtime")
@@ -188,7 +188,7 @@ export function useAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAlerts]);
+  }, [user, activeCoachId, fetchAlerts]);
 
   // Derived counts
   const criticalCount = alerts.filter((a) => a.level === "critical").length;

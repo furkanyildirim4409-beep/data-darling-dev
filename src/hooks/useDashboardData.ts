@@ -55,7 +55,7 @@ function getWeekBounds(): { weekStart: string; weekEnd: string } {
 }
 
 export function useDashboardData() {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [athletes, setAthletes] = useState<DashboardAthlete[]>([]);
   const [riskDistribution, setRiskDistribution] = useState<RiskDistribution>({
     low: { count: 0, label: "Düşük Risk" },
@@ -78,13 +78,13 @@ export function useDashboardData() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!user) {
+    if (!user || !activeCoachId) {
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    const coachId = user.id;
+    const coachId = activeCoachId;
     const today = new Date().toISOString().split("T")[0];
     const { weekStart, weekEnd } = getWeekBounds();
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -272,14 +272,14 @@ export function useDashboardData() {
     });
     setCompliance({ workoutCompliance, checkinCompliance });
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     const channel = supabase
       .channel("dashboard-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "workout_logs" }, () => fetchAll())

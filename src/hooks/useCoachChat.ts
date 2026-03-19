@@ -28,8 +28,8 @@ export interface ChatMessage {
 }
 
 export function useCoachChat() {
-  const { user } = useAuth();
-  const coachId = user?.id;
+  const { user, activeCoachId } = useAuth();
+  const coachId = user?.id; // message identity = real user
 
   const [athletes, setAthletes] = useState<ChatAthlete[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
@@ -51,13 +51,14 @@ export function useCoachChat() {
 
   // Fetch athletes + latest messages + unread counts in bulk
   const fetchAthletes = useCallback(async () => {
-    if (!coachId) return;
+    if (!coachId || !activeCoachId) return;
     setIsLoadingAthletes(true);
 
+    // Use activeCoachId to fetch the agency's athletes
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
-      .eq('coach_id', coachId);
+      .eq('coach_id', activeCoachId);
 
     if (!profiles || profiles.length === 0) {
       setAthletes([]);
@@ -119,7 +120,7 @@ export function useCoachChat() {
     setAthletes(mapped);
     setTotalUnread(mapped.reduce((sum, a) => sum + a.unreadCount, 0));
     setIsLoadingAthletes(false);
-  }, [coachId]);
+  }, [coachId, activeCoachId]);
 
   const MSG_PAGE_SIZE = 50;
 

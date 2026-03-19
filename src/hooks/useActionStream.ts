@@ -23,19 +23,19 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useActionStream() {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const athleteMapRef = useRef<Map<string, string>>(new Map());
   const athleteIdsRef = useRef<Set<string>>(new Set());
 
   const fetchActions = useCallback(async () => {
-    if (!user) {
+    if (!user || !activeCoachId) {
       setIsLoading(false);
       return;
     }
 
-    const coachId = user.id;
+    const coachId = activeCoachId;
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: athletes } = await supabase
@@ -160,11 +160,11 @@ export function useActionStream() {
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   // Realtime subscriptions
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("action-stream-realtime")
@@ -237,7 +237,7 @@ export function useActionStream() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchActions();

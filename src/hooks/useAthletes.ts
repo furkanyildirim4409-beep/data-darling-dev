@@ -35,13 +35,13 @@ function mapProfileToAthlete(row: any): Athlete {
 }
 
 export function useAthletes(): UseAthletesReturn {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAthletes = useCallback(async () => {
-    if (!user) {
+    if (!user || !activeCoachId) {
       setAthletes([]);
       setIsLoading(false);
       return;
@@ -55,7 +55,7 @@ export function useAthletes(): UseAthletesReturn {
         .from("profiles")
         .select("*")
         .eq("role", "athlete")
-        .eq("coach_id", user.id);
+        .eq("coach_id", activeCoachId);
 
       if (fetchError) throw fetchError;
 
@@ -66,7 +66,7 @@ export function useAthletes(): UseAthletesReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchAthletes();
@@ -74,7 +74,7 @@ export function useAthletes(): UseAthletesReturn {
 
   // Realtime subscription
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("athletes-realtime")
@@ -84,7 +84,7 @@ export function useAthletes(): UseAthletesReturn {
           event: "*",
           schema: "public",
           table: "profiles",
-          filter: `coach_id=eq.${user.id}`,
+          filter: `coach_id=eq.${activeCoachId}`,
         },
         () => {
           fetchAthletes();
@@ -95,7 +95,7 @@ export function useAthletes(): UseAthletesReturn {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAthletes]);
+  }, [user, activeCoachId, fetchAthletes]);
 
   return { athletes, isLoading, error, refetch: fetchAthletes };
 }
