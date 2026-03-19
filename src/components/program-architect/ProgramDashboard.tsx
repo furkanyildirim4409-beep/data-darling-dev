@@ -171,7 +171,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
     setDietTemplates(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     if (viewMode === "exercise") {
