@@ -23,7 +23,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useActionStream() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const athleteMapRef = useRef<Map<string, string>>(new Map());
