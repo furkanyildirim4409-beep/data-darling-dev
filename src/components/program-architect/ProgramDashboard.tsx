@@ -259,7 +259,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         description: program.description,
         difficulty: program.difficulty,
         target_goal: program.targetGoal,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         week_config: progData?.week_config ?? ([] as any),
         automation_rules: progData?.automation_rules ?? ([] as any),
       })
