@@ -65,7 +65,7 @@ interface ProgramDashboardProps {
 }
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const importRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
