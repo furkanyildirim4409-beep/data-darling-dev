@@ -109,7 +109,7 @@ export function AssignDietTemplateDialog({
   }, [open, user]);
 
   const handleAssign = async (tpl: TemplateWithMacros) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setAssigning(tpl.id);
 
     const { error } = await supabase
