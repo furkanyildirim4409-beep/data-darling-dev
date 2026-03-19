@@ -1243,6 +1243,65 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          athletes_count: number
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string
+          head_coach_id: string
+          id: string
+          permissions: string
+          phone: string | null
+          role: string
+          start_date: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          athletes_count?: number
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          head_coach_id: string
+          id?: string
+          permissions?: string
+          phone?: string | null
+          role?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          athletes_count?: number
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          head_coach_id?: string
+          id?: string
+          permissions?: string
+          phone?: string | null
+          role?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
