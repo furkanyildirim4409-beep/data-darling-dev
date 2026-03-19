@@ -449,12 +449,16 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             <DropdownMenuItem onClick={() => openMutationHistory("program")}>
                               <History className="w-4 h-4 mr-2" />Mutasyon Geçmişi
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
-                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
-                              <Trash2 className="w-4 h-4 mr-2" />Kaldır
-                            </DropdownMenuItem>
+                            {canAssignPrograms && (
+                              <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
+                                <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                              </DropdownMenuItem>
+                            )}
+                            {canDeleteAthletes && (
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
+                                <Trash2 className="w-4 h-4 mr-2" />Kaldır
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
