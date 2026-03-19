@@ -33,6 +33,10 @@ interface AuthContextType {
   profile: Profile | null;
   role: 'coach' | 'athlete' | null;
   isLoading: boolean;
+  teamMember: any | null;
+  isSubCoach: boolean;
+  activeCoachId: string | null;
+  teamMemberPermissions: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
