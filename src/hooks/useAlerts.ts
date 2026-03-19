@@ -189,7 +189,7 @@ export function useAlerts() {
 
     setAlerts(generated);
     setIsLoading(false);
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAlerts();

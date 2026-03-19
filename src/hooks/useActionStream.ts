@@ -182,7 +182,7 @@ export function useActionStream() {
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   // Realtime subscriptions
   useEffect(() => {

@@ -298,7 +298,7 @@ export function useDashboardData() {
     });
     setCompliance({ workoutCompliance, checkinCompliance });
     setIsLoading(false);
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAll();
