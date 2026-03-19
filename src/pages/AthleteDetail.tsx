@@ -181,7 +181,7 @@ export default function AthleteDetail() {
             {aiScanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
             {aiScanning ? "Analiz Ediliyor..." : "🧠 AI Taraması"}
           </Button>
-          <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>
+          {canEditAthletes && <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>}
           <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="w-5 h-5" /></Button>
         </div>
       </div>

@@ -578,9 +578,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           ) : (
             <div className="p-3 text-center">
               <p className="text-[11px] text-muted-foreground italic mb-2">Henüz beslenme planı atanmadı.</p>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignDietOpen(true)}>
-                <Plus className="w-3.5 h-3.5" />Beslenme Planı Ata
-              </Button>
+              {canAssignPrograms && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignDietOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" />Beslenme Planı Ata
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
