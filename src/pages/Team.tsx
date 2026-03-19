@@ -397,7 +397,6 @@ export default function Team() {
       <AddMemberDialog
         open={addMemberDialogOpen}
         onOpenChange={setAddMemberDialogOpen}
-        onMemberAdd={handleMemberAdd}
       />
 
       {chatMember && (
