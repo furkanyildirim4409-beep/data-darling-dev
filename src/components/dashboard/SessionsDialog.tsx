@@ -41,7 +41,7 @@ export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
 
     const fetchSessions = async () => {
       setIsLoading(true);
