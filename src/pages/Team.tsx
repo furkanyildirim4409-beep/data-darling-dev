@@ -12,7 +12,7 @@ import { TeamChatDialog } from "@/components/team/TeamChatDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
-import { useTeamMembers, useUpdateTeamMember, useDeleteTeamMember } from "@/hooks/useTeam";
+import { useTeamMembers, useDeleteTeamMember } from "@/hooks/useTeam";
 
 const permissionStyles = {
   full: { label: "Tam Erişim", className: "bg-primary/10 text-primary border-primary/20" },
