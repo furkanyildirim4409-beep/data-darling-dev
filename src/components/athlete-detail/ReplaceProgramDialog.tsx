@@ -170,7 +170,7 @@ export function ReplaceProgramDialog({
       // 2. Log removal of old program
       await supabase.from("program_assignment_logs").insert({
         athlete_id: athleteId,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         program_id: oldProgramId,
         program_title: oldProgramName,
         action: "removed",
