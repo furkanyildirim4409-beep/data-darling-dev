@@ -482,12 +482,12 @@ export function ProgramLibrary({
 
   // Fetch coach's food library from DB
   const fetchCoachFoods = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoadingCoachFoods(true);
     const { data } = await supabase
       .from("food_items")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .order("name");
     if (data) {
       setCoachFoods(data.map((r: any) => ({
