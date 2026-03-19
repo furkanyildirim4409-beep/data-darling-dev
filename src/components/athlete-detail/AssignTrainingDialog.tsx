@@ -139,7 +139,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
 
         rows.push({
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           program_id: prog.id,
           assignment_batch_id: batchId,
           workout_name: `${prog.title} — ${dayOfWeek}`,
