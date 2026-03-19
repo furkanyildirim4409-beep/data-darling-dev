@@ -43,6 +43,12 @@ interface AppSidebarProps {
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
   const { totalUnread } = useCoachChat();
+  const { isSubCoach } = useAuth();
+
+  const filteredNavItems = useMemo(
+    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
+    [isSubCoach]
+  );
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
