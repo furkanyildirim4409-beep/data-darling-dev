@@ -152,7 +152,7 @@ export function ReplaceProgramDialog({
   const totalWorkouts = selectedProgram ? selectedProgram.activeDayCount * durationWeeks : 0;
 
   const handleReplace = async () => {
-    if (!user || !selectedProgramId || !selectedProgram) return;
+    if (!user || !activeCoachId || !selectedProgramId || !selectedProgram) return;
     setSaving(true);
 
     try {
