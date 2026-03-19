@@ -218,7 +218,7 @@ export function ProgramLibrary({
   builderMode,
   onLoadTemplate
 }: ProgramLibraryProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
