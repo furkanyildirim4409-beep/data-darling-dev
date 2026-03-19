@@ -180,7 +180,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const totalAssignments = totalDays * selectedAthleteIds.length;
 
   const handleAssign = async () => {
-    if (!user || selectedProgramIds.length === 0 || selectedAthleteIds.length === 0) return;
+    if (!user || !activeCoachId || selectedProgramIds.length === 0 || selectedAthleteIds.length === 0) return;
     setSaving(true);
 
     try {
