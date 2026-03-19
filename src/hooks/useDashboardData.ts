@@ -55,7 +55,7 @@ function getWeekBounds(): { weekStart: string; weekEnd: string } {
 }
 
 export function useDashboardData() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [athletes, setAthletes] = useState<DashboardAthlete[]>([]);
   const [riskDistribution, setRiskDistribution] = useState<RiskDistribution>({
     low: { count: 0, label: "Düşük Risk" },
