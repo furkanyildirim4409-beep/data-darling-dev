@@ -127,7 +127,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
     load();
     return () => { cancelled = true; };
-  }, [open, user]);
+  }, [open, user, activeCoachId]);
 
   // Reset on close
   useEffect(() => {
