@@ -160,8 +160,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!activeCoachId) {
       toast({ title: "Hata", description: "Oturum bulunamadı.", variant: "destructive" });
       setIsSaving(false);
       return;
@@ -171,7 +170,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       .upsert(
         {
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           daily_calories: formValues.daily_calories,
           protein_g: formValues.protein_g,
           carbs_g: formValues.carbs_g,
