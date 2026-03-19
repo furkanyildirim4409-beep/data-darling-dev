@@ -395,12 +395,12 @@ export function ProgramLibrary({
 
   // Fetch templates
   const fetchTemplates = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoadingTemplates(true);
     const { data, error } = await supabase
       .from("workout_templates")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
