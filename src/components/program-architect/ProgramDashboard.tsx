@@ -243,7 +243,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   };
 
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     // Fetch full program data + exercises in parallel
     const [{ data: progData }, { data: exercises }] = await Promise.all([
