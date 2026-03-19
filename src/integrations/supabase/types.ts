@@ -1243,6 +1243,52 @@ export type Database = {
         }
         Relationships: []
       }
+      team_member_athletes: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          head_coach_id: string
+          id: string
+          team_member_id: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          head_coach_id: string
+          id?: string
+          team_member_id: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          head_coach_id?: string
+          id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_member_athletes_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_member_athletes_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_member_athletes_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           athletes_count: number
