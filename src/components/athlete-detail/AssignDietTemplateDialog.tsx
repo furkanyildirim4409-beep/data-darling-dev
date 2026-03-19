@@ -62,7 +62,7 @@ export function AssignDietTemplateDialog({
   onAssigned,
   activeTemplateId,
 }: AssignDietTemplateDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [templates, setTemplates] = useState<TemplateWithMacros[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
