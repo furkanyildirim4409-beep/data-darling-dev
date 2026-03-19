@@ -92,17 +92,6 @@ export default function Team() {
     setProfileDrawerOpen(true);
   };
 
-  const handleMemberUpdate = (updatedMember: TeamMember) => {
-    updateMember.mutate({
-      id: updatedMember.id,
-      full_name: updatedMember.name,
-      email: updatedMember.email,
-      role: updatedMember.role,
-      permissions: updatedMember.permissions,
-      phone: updatedMember.phone,
-    });
-  };
-
   const handleDeleteMember = (e: React.MouseEvent, memberId: string) => {
     e.stopPropagation();
     deleteMember.mutate(memberId, {

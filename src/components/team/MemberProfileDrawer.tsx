@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateTeamMember } from "@/hooks/useTeam";
 
 export interface TeamMember {
   id: string;
@@ -54,7 +55,6 @@ interface MemberProfileDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   member: TeamMember | null;
-  onMemberUpdate: (member: TeamMember) => void;
 }
 
 const permissionStyles = {
@@ -124,20 +124,21 @@ export function MemberProfileDrawer({
   open, 
   onOpenChange, 
   member,
-  onMemberUpdate 
 }: MemberProfileDrawerProps) {
   const { toast } = useToast();
+  const updateMember = useUpdateTeamMember();
   const [editMode, setEditMode] = useState(false);
   const [editedMember, setEditedMember] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
 
-  // Initialize state when member changes
-  useState(() => {
-    if (member) {
+  // Properly initialize state when member changes
+  useEffect(() => {
+    if (member && open) {
       setEditedMember({ ...member });
       setPermissions(getDefaultPermissions(member.permissions));
+      setEditMode(false);
     }
-  });
+  }, [member, open]);
 
   if (!member) return null;
 
@@ -150,14 +151,29 @@ export function MemberProfileDrawer({
   const perm = permissionStyles[member.permissions];
   const auditLogs = generateAuditLogs(member.name);
 
-  const handleSave = () => {
-    if (editedMember) {
-      onMemberUpdate(editedMember);
+  const handleSave = async () => {
+    if (!editedMember) return;
+    try {
+      await updateMember.mutateAsync({
+        id: editedMember.id,
+        full_name: editedMember.name,
+        email: editedMember.email,
+        role: editedMember.role,
+        permissions: editedMember.permissions,
+        phone: editedMember.phone,
+      });
       toast({
         title: "Profil Güncellendi",
-        description: `${editedMember.name} bilgileri kaydedildi.`,
+        description: `${editedMember.name} bilgileri kaydedildi. ✅`,
       });
       setEditMode(false);
+      onOpenChange(false);
+    } catch {
+      toast({
+        title: "Hata",
+        description: "Profil güncellenirken bir hata oluştu.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -213,9 +229,9 @@ export function MemberProfileDrawer({
           <TabsContent value="general" className="flex-1 overflow-auto mt-4 space-y-4">
             <div className="flex justify-end">
               {editMode ? (
-                <Button size="sm" onClick={handleSave}>
+                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
                   <Save className="w-4 h-4 mr-1.5" />
-                  Kaydet
+                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
                 </Button>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => {
