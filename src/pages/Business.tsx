@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
+import { usePermissions } from "@/hooks/usePermissions";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
@@ -49,6 +50,7 @@ export default function Business() {
     addPayment, updatePaymentStatus, deletePayment,
     totalPaid, totalPending,
   } = usePayments();
+  const { canManageFinances } = usePermissions();
 
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -72,21 +74,25 @@ export default function Business() {
           <p className="text-muted-foreground mt-1">Gelir, ödemeler ve planlama</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="border-border hover:bg-secondary"
-            onClick={() => setSchedulerDialogOpen(true)}
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Seans Planla
-          </Button>
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-            onClick={() => setPaymentDialogOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Yeni Ödeme
-          </Button>
+          {canManageFinances && (
+            <Button
+              variant="outline"
+              className="border-border hover:bg-secondary"
+              onClick={() => setSchedulerDialogOpen(true)}
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Seans Planla
+            </Button>
+          )}
+          {canManageFinances && (
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+              onClick={() => setPaymentDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Ödeme
+            </Button>
+          )}
         </div>
       </div>
 
@@ -163,8 +169,9 @@ export default function Business() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Status dropdown */}
+                    <div className="flex items-center gap-3">
+                    {/* Status dropdown - only interactive if canManageFinances */}
+                    {canManageFinances ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Badge
@@ -194,19 +201,34 @@ export default function Business() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs border",
+                          payment.status === "paid" && "bg-success/10 text-success border-success/20",
+                          payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                          payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                        )}
+                      >
+                        {statusLabels[payment.status] || payment.status}
+                      </Badge>
+                    )}
 
                     <span className="font-mono font-semibold text-foreground whitespace-nowrap">
                       ₺{Number(payment.amount).toLocaleString("tr-TR")}
                     </span>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(payment.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canManageFinances && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(payment.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Loader2, Users, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ function getNextMonday(): Date {
 
 export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, templateName }: AssignDietTemplateBulkDialogProps) {
   const { user, activeCoachId } = useAuth();
+  const { canAssignPrograms } = usePermissions();
   const [athletes, setAthletes] = useState<AthleteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -190,7 +192,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
-          <Button onClick={handleAssign} disabled={selectedIds.size === 0 || submitting}>
+          <Button onClick={handleAssign} disabled={selectedIds.size === 0 || submitting || !canAssignPrograms}>
             {submitting && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
             Ata ({selectedIds.size})
           </Button>

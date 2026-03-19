@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
@@ -219,6 +220,7 @@ export function ProgramLibrary({
   onLoadTemplate
 }: ProgramLibraryProps) {
   const { user, activeCoachId } = useAuth();
+  const { canCreatePrograms, canDeleteAthletes } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
@@ -573,7 +575,7 @@ export function ProgramLibrary({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-foreground">Kütüphane</h2>
-          {builderMode === "exercise" && (
+          {builderMode === "exercise" && canCreatePrograms && (
             <ExerciseLibraryEditor exercises={allExercisesForEditor} onRefresh={handleEditorRefresh} onOpen={fetchAllForEditor} />
           )}
         </div>
@@ -719,14 +721,16 @@ export function ProgramLibrary({
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={(e) => handleDeleteTemplate(e, template.id)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {canDeleteAthletes && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => handleDeleteTemplate(e, template.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

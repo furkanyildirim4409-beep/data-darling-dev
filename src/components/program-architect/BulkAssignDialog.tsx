@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { addDays, format, startOfWeek } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -57,6 +58,7 @@ const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cum
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
   const { user, activeCoachId } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
+  const { canAssignPrograms } = usePermissions();
 
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
@@ -550,7 +552,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
                 </Button>
                 <Button
                   onClick={handleAssign}
-                  disabled={selectedAthleteIds.length === 0 || selectedProgramIds.length === 0 || saving}
+                  disabled={selectedAthleteIds.length === 0 || selectedProgramIds.length === 0 || saving || !canAssignPrograms}
                   className="flex-1 sm:flex-none bg-primary text-primary-foreground"
                 >
                   {saving ? (
