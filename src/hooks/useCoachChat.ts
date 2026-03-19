@@ -120,7 +120,7 @@ export function useCoachChat() {
     setAthletes(mapped);
     setTotalUnread(mapped.reduce((sum, a) => sum + a.unreadCount, 0));
     setIsLoadingAthletes(false);
-  }, [coachId]);
+  }, [coachId, activeCoachId]);
 
   const MSG_PAGE_SIZE = 50;
 
