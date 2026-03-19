@@ -28,8 +28,8 @@ export interface ChatMessage {
 }
 
 export function useCoachChat() {
-  const { user } = useAuth();
-  const coachId = user?.id;
+  const { user, activeCoachId } = useAuth();
+  const coachId = user?.id; // message identity = real user
 
   const [athletes, setAthletes] = useState<ChatAthlete[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
