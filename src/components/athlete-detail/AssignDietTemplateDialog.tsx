@@ -70,7 +70,7 @@ export function AssignDietTemplateDialog({
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setStartDate(getNextMonday());
     setDurationWeeks("4");
     (async () => {
