@@ -15,7 +15,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useAlerts() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [alerts, setAlerts] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,16 +26,38 @@ export function useAlerts() {
       return;
     }
 
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from("team_member_athletes")
+        .select("athlete_id")
+        .eq("team_member_id", teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setAlerts([]);
+        setIsLoading(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
     const coachId = activeCoachId;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
+    let profilesQuery = supabase
+      .from("profiles")
+      .select("id, full_name, readiness_score, updated_at")
+      .eq("coach_id", coachId)
+      .eq("role", "athlete");
+
+    if (assignedIds) {
+      profilesQuery = profilesQuery.in("id", assignedIds);
+    }
+
     const [profilesRes, workoutsRes, checkinsRes, paymentsRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, full_name, readiness_score, updated_at")
-        .eq("coach_id", coachId)
-        .eq("role", "athlete"),
+      profilesQuery,
       supabase
         .from("assigned_workouts")
         .select("id, status, athlete_id")
@@ -167,7 +189,7 @@ export function useAlerts() {
 
     setAlerts(generated);
     setIsLoading(false);
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAlerts();

@@ -23,7 +23,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useActionStream() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const athleteMapRef = useRef<Map<string, string>>(new Map());
@@ -35,14 +35,36 @@ export function useActionStream() {
       return;
     }
 
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from("team_member_athletes")
+        .select("athlete_id")
+        .eq("team_member_id", teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setActions([]);
+        setIsLoading(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
     const coachId = activeCoachId;
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: athletes } = await supabase
+    let profilesQuery = supabase
       .from("profiles")
       .select("id, full_name")
       .eq("coach_id", coachId)
       .eq("role", "athlete");
+
+    if (assignedIds) {
+      profilesQuery = profilesQuery.in("id", assignedIds);
+    }
+
+    const { data: athletes } = await profilesQuery;
 
     const athleteList = athletes ?? [];
     if (athleteList.length === 0) {
@@ -160,7 +182,7 @@ export function useActionStream() {
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   // Realtime subscriptions
   useEffect(() => {
