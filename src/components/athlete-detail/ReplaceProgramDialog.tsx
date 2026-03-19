@@ -102,7 +102,7 @@ export function ReplaceProgramDialog({
 
   // Fetch coach programs
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     let cancelled = false;
 
     const load = async () => {
