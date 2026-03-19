@@ -169,8 +169,9 @@ export default function Business() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Status dropdown */}
+                    <div className="flex items-center gap-3">
+                    {/* Status dropdown - only interactive if canManageFinances */}
+                    {canManageFinances ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Badge
@@ -200,6 +201,19 @@ export default function Business() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs border",
+                          payment.status === "paid" && "bg-success/10 text-success border-success/20",
+                          payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                          payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                        )}
+                      >
+                        {statusLabels[payment.status] || payment.status}
+                      </Badge>
+                    )}
 
                     <span className="font-mono font-semibold text-foreground whitespace-nowrap">
                       ₺{Number(payment.amount).toLocaleString("tr-TR")}
