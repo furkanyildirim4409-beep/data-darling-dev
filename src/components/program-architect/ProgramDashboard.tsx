@@ -418,7 +418,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           description: data.description ?? "",
           difficulty: data.difficulty ?? null,
           target_goal: data.targetGoal ?? null,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           week_config: data.weekConfig ?? ([] as any),
           automation_rules: data.automationRules ?? ([] as any),
         }).select().single();
