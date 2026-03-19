@@ -74,21 +74,25 @@ export default function Business() {
           <p className="text-muted-foreground mt-1">Gelir, ödemeler ve planlama</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="border-border hover:bg-secondary"
-            onClick={() => setSchedulerDialogOpen(true)}
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Seans Planla
-          </Button>
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-            onClick={() => setPaymentDialogOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Yeni Ödeme
-          </Button>
+          {canManageFinances && (
+            <Button
+              variant="outline"
+              className="border-border hover:bg-secondary"
+              onClick={() => setSchedulerDialogOpen(true)}
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Seans Planla
+            </Button>
+          )}
+          {canManageFinances && (
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+              onClick={() => setPaymentDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Ödeme
+            </Button>
+          )}
         </div>
       </div>
 
