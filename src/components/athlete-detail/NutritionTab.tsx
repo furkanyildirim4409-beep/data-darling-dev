@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { AssignDietTemplateDialog } from "./AssignDietTemplateDialog";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ interface ActiveTemplate {
 
 export function NutritionTab({ athleteId }: NutritionTabProps) {
   const { activeCoachId } = useAuth();
+  const { canAssignPrograms, canEditAthletes } = usePermissions();
   // ─── Target State ───
   const [targets, setTargets] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [formValues, setFormValues] = useState<NutritionTargets>(DEFAULT_TARGETS);
@@ -298,18 +300,22 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
           </div>
           {!isEditing ? (
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="border-success/30 text-success hover:bg-success/10"
-                onClick={() => setShowTemplateDialog(true)}
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Şablondan Ata
-              </Button>
-              <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
-                <Edit className="w-4 h-4 mr-2" />
-                {hasExisting ? "Düzenle" : "Hedef Ata"}
-              </Button>
+              {canAssignPrograms && (
+                <Button
+                  variant="outline"
+                  className="border-success/30 text-success hover:bg-success/10"
+                  onClick={() => setShowTemplateDialog(true)}
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Şablondan Ata
+                </Button>
+              )}
+              {canEditAthletes && (
+                <Button onClick={() => setIsEditing(true)} className="bg-success text-success-foreground hover:bg-success/90">
+                  <Edit className="w-4 h-4 mr-2" />
+                  {hasExisting ? "Düzenle" : "Hedef Ata"}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="flex gap-2">

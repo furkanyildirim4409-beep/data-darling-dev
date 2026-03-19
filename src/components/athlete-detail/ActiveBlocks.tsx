@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History, GitFork } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
@@ -146,6 +147,7 @@ const MEAL_LABELS: Record<string, string> = {
 
 export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const { user } = useAuth();
+  const { canAssignPrograms, canDeleteAthletes } = usePermissions();
   const [isLoading, setIsLoading] = useState(true);
   const [trainings, setTrainings] = useState<TrainingData[]>([]);
   const [diets, setDiets] = useState<DietData[]>([]);
@@ -448,12 +450,16 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             <DropdownMenuItem onClick={() => openMutationHistory("program")}>
                               <History className="w-4 h-4 mr-2" />Mutasyon Geçmişi
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
-                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
-                              <Trash2 className="w-4 h-4 mr-2" />Kaldır
-                            </DropdownMenuItem>
+                            {canAssignPrograms && (
+                              <DropdownMenuItem onClick={() => { setReplacingTraining(t); setAssignProgramOpen(true); }}>
+                                <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                              </DropdownMenuItem>
+                            )}
+                            {canDeleteAthletes && (
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeTraining(t)}>
+                                <Trash2 className="w-4 h-4 mr-2" />Kaldır
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -479,9 +485,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           ) : (
             <div className="p-3 text-center">
               <p className="text-[11px] text-muted-foreground italic mb-2">Henüz antrenman programı atanmadı.</p>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignProgramOpen(true)}>
-                <Plus className="w-3.5 h-3.5" />Antrenman Programı Ata
-              </Button>
+              {canAssignPrograms && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignProgramOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" />Antrenman Programı Ata
+                </Button>
+              )}
             </div>
           )}
 
@@ -531,12 +539,16 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
                             <DropdownMenuItem onClick={() => openMutationHistory("nutrition")}>
                               <History className="w-4 h-4 mr-2" />Mutasyon Geçmişi
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setReplacingDiet(d); setAssignDietOpen(true); }}>
-                              <RefreshCw className="w-4 h-4 mr-2" />Değiştir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeDiet(d)}>
-                              <Trash2 className="w-4 h-4 mr-2" />Kaldır
-                            </DropdownMenuItem>
+                            {canAssignPrograms && (
+                              <DropdownMenuItem onClick={() => { setReplacingDiet(d); setAssignDietOpen(true); }}>
+                                <RefreshCw className="w-4 h-4 mr-2" />Değiştir
+                              </DropdownMenuItem>
+                            )}
+                            {canDeleteAthletes && (
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRevokeDiet(d)}>
+                                <Trash2 className="w-4 h-4 mr-2" />Kaldır
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -567,9 +579,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           ) : (
             <div className="p-3 text-center">
               <p className="text-[11px] text-muted-foreground italic mb-2">Henüz beslenme planı atanmadı.</p>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignDietOpen(true)}>
-                <Plus className="w-3.5 h-3.5" />Beslenme Planı Ata
-              </Button>
+              {canAssignPrograms && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignDietOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" />Beslenme Planı Ata
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

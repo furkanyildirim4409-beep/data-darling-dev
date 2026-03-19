@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { AssignProgramDialog } from "./AssignProgramDialog";
 import { BulkAssignDialog } from "./BulkAssignDialog";
 import { AssignDietTemplateBulkDialog } from "./AssignDietTemplateBulkDialog";
@@ -66,6 +67,7 @@ interface ProgramDashboardProps {
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
   const { user, activeCoachId } = useAuth();
+  const { canCreatePrograms, canAssignPrograms, canEditAthletes, canDeleteAthletes } = usePermissions();
   const importRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
@@ -552,7 +554,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </div>
           </div>
 
-          {viewMode === "exercise" && (
+          {viewMode === "exercise" && canAssignPrograms && (
             <Button
               variant="outline"
               onClick={() => setBulkAssignOpen(true)}
@@ -563,23 +565,27 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            onClick={() => importRef.current?.click()}
-            disabled={importing}
-            className="border-border"
-          >
-            {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-            İçe Aktar
-          </Button>
+          {canCreatePrograms && (
+            <Button
+              variant="outline"
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              className="border-border"
+            >
+              {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+              İçe Aktar
+            </Button>
+          )}
 
-          <Button
-            onClick={() => onCreateProgram(viewMode)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
-          </Button>
+          {canCreatePrograms && (
+            <Button
+              onClick={() => onCreateProgram(viewMode)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -658,23 +664,31 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                     <DropdownMenuContent align="end" className="bg-card border-border">
                       {item.type === "exercise" && (
                         <>
-                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Düzenle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program: item })}>
-                            <Users className="w-4 h-4 mr-2" />
-                            Sporculara Ata
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(item, false)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Kopyala
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(item, true)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Klonla &amp; Düzenle
-                          </DropdownMenuItem>
-                          {onSaveAsTemplate && (
+                          {canEditAthletes && (
+                            <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </DropdownMenuItem>
+                          )}
+                          {canAssignPrograms && (
+                            <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program: item })}>
+                              <Users className="w-4 h-4 mr-2" />
+                              Sporculara Ata
+                            </DropdownMenuItem>
+                          )}
+                          {canCreatePrograms && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleDuplicate(item, false)}>
+                                <Copy className="w-4 h-4 mr-2" />
+                                Kopyala
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDuplicate(item, true)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Klonla &amp; Düzenle
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {onSaveAsTemplate && canCreatePrograms && (
                             <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
                               <Save className="w-4 h-4 mr-2" />
                               Şablon Olarak Kaydet
@@ -688,23 +702,31 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                       )}
                       {item.type === "nutrition" && (
                         <>
-                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Düzenle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
-                            <Users className="w-4 h-4 mr-2" />
-                            Sporculara Ata
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, false)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Kopyala
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicateDiet(item, true)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Klonla &amp; Düzenle
-                          </DropdownMenuItem>
-                          {onSaveAsTemplate && (
+                          {canEditAthletes && (
+                            <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </DropdownMenuItem>
+                          )}
+                          {canAssignPrograms && (
+                            <DropdownMenuItem onClick={() => setDietAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                              <Users className="w-4 h-4 mr-2" />
+                              Sporculara Ata
+                            </DropdownMenuItem>
+                          )}
+                          {canCreatePrograms && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleDuplicateDiet(item, false)}>
+                                <Copy className="w-4 h-4 mr-2" />
+                                Kopyala
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDuplicateDiet(item, true)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Klonla &amp; Düzenle
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {onSaveAsTemplate && canCreatePrograms && (
                             <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
                               <Save className="w-4 h-4 mr-2" />
                               Şablon Olarak Kaydet
@@ -716,13 +738,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                           </DropdownMenuItem>
                         </>
                       )}
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(item)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Sil
-                      </DropdownMenuItem>
+                      {canDeleteAthletes && (
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(item)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Sil
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

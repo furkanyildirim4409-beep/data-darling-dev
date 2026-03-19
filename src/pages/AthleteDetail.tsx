@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple, History, Brain, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { EnergyBank } from "@/components/athlete-detail/EnergyBank";
 import { SmartContract } from "@/components/athlete-detail/SmartContract";
 import { BodyModel3D } from "@/components/athlete-detail/BodyModel3D";
@@ -55,6 +56,7 @@ interface WorkoutSummary {
 export default function AthleteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canEditAthletes } = usePermissions();
   const [activeTab, setActiveTab] = useState("general");
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
   const [latestCheckIn, setLatestCheckIn] = useState<CheckInData | null>(null);
@@ -179,7 +181,7 @@ export default function AthleteDetail() {
             {aiScanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
             {aiScanning ? "Analiz Ediliyor..." : "🧠 AI Taraması"}
           </Button>
-          <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>
+          {canEditAthletes && <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>}
           <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="w-5 h-5" /></Button>
         </div>
       </div>
