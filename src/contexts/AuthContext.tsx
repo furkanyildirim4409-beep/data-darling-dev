@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<'coach' | 'athlete' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [teamMember, setTeamMember] = useState<any | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
