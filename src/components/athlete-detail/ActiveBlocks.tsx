@@ -147,7 +147,7 @@ const MEAL_LABELS: Record<string, string> = {
 
 export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const { canAssignPrograms, canDeleteAthletes } = usePermissions();
   const [trainings, setTrainings] = useState<TrainingData[]>([]);
   const [diets, setDiets] = useState<DietData[]>([]);
 
