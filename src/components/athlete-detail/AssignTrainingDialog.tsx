@@ -53,7 +53,7 @@ function getNextMonday(): Date {
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned }: AssignTrainingDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
