@@ -738,13 +738,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                           </DropdownMenuItem>
                         </>
                       )}
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(item)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Sil
-                      </DropdownMenuItem>
+                      {canDeleteAthletes && (
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(item)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Sil
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
