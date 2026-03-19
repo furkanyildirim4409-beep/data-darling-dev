@@ -56,6 +56,7 @@ interface WorkoutSummary {
 export default function AthleteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canEditAthletes } = usePermissions();
   const [activeTab, setActiveTab] = useState("general");
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
   const [latestCheckIn, setLatestCheckIn] = useState<CheckInData | null>(null);
