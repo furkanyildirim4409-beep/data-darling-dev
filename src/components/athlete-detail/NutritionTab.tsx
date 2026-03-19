@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { AssignDietTemplateDialog } from "./AssignDietTemplateDialog";
 import { Badge } from "@/components/ui/badge";

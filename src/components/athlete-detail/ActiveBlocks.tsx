@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History, GitFork } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
