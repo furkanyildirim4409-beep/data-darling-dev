@@ -36,7 +36,7 @@ const statusLabels = {
 };
 
 export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
