@@ -219,14 +219,16 @@ export default function Business() {
                       ₺{Number(payment.amount).toLocaleString("tr-TR")}
                     </span>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(payment.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canManageFinances && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(payment.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
