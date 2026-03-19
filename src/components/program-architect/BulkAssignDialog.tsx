@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { addDays, format, startOfWeek } from "date-fns";
 import { tr } from "date-fns/locale";

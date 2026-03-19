@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
