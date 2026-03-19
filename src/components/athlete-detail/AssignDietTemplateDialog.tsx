@@ -78,7 +78,7 @@ export function AssignDietTemplateDialog({
       const { data: tpls } = await supabase
         .from("diet_templates")
         .select("id, title, description, target_calories")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .order("created_at", { ascending: false });
 
       if (!tpls?.length) {
