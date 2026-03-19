@@ -664,23 +664,31 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                     <DropdownMenuContent align="end" className="bg-card border-border">
                       {item.type === "exercise" && (
                         <>
-                          <DropdownMenuItem onClick={() => onEditProgram(item)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Düzenle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program: item })}>
-                            <Users className="w-4 h-4 mr-2" />
-                            Sporculara Ata
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(item, false)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Kopyala
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(item, true)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Klonla &amp; Düzenle
-                          </DropdownMenuItem>
-                          {onSaveAsTemplate && (
+                          {canEditAthletes && (
+                            <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </DropdownMenuItem>
+                          )}
+                          {canAssignPrograms && (
+                            <DropdownMenuItem onClick={() => setAssignDialog({ open: true, program: item })}>
+                              <Users className="w-4 h-4 mr-2" />
+                              Sporculara Ata
+                            </DropdownMenuItem>
+                          )}
+                          {canCreatePrograms && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleDuplicate(item, false)}>
+                                <Copy className="w-4 h-4 mr-2" />
+                                Kopyala
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDuplicate(item, true)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Klonla &amp; Düzenle
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {onSaveAsTemplate && canCreatePrograms && (
                             <DropdownMenuItem onClick={() => onSaveAsTemplate(item)}>
                               <Save className="w-4 h-4 mr-2" />
                               Şablon Olarak Kaydet
