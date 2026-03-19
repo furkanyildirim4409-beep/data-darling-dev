@@ -216,13 +216,13 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   };
 
   const handleDuplicateDiet = async (item: ProgramData, openInEditor = false) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
     if (!tpl) { toast.error("Şablon bulunamadı"); return; }
 
     const { data: newTpl, error } = await supabase
       .from("diet_templates")
-      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: user.id })
+      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: activeCoachId })
       .select().single();
     if (error || !newTpl) { toast.error("Kopyalama başarısız"); return; }
 
