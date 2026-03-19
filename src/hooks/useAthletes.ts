@@ -35,7 +35,7 @@ function mapProfileToAthlete(row: any): Athlete {
 }
 
 export function useAthletes(): UseAthletesReturn {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +51,33 @@ export function useAthletes(): UseAthletesReturn {
       setError(null);
       setIsLoading(true);
 
-      const { data, error: fetchError } = await supabase
+      // Data scoping for sub-coaches without full permissions
+      let assignedIds: string[] | null = null;
+      if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("team_member_athletes")
+          .select("athlete_id")
+          .eq("team_member_id", teamMember.id);
+
+        if (assignmentError || !assignmentData || assignmentData.length === 0) {
+          setAthletes([]);
+          setIsLoading(false);
+          return;
+        }
+        assignedIds = assignmentData.map(a => a.athlete_id);
+      }
+
+      let query = supabase
         .from("profiles")
         .select("*")
         .eq("role", "athlete")
         .eq("coach_id", activeCoachId);
+
+      if (assignedIds && assignedIds.length > 0) {
+        query = query.in('id', assignedIds);
+      }
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -66,7 +88,7 @@ export function useAthletes(): UseAthletesReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeCoachId]);
+  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAthletes();
