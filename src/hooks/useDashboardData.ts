@@ -272,14 +272,14 @@ export function useDashboardData() {
     });
     setCompliance({ workoutCompliance, checkinCompliance });
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     const channel = supabase
       .channel("dashboard-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "workout_logs" }, () => fetchAll())

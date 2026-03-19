@@ -160,11 +160,11 @@ export function useActionStream() {
     items.sort((a, b) => b.rawTime - a.rawTime);
     setActions(items.slice(0, 15));
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   // Realtime subscriptions
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("action-stream-realtime")
@@ -237,7 +237,7 @@ export function useActionStream() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchActions();

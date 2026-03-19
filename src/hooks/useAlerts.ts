@@ -167,7 +167,7 @@ export function useAlerts() {
 
     setAlerts(generated);
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchAlerts();
@@ -175,7 +175,7 @@ export function useAlerts() {
 
   // Realtime: re-scan when profiles or checkins change
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("alerts-realtime")
@@ -188,7 +188,7 @@ export function useAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAlerts]);
+  }, [user, activeCoachId, fetchAlerts]);
 
   // Derived counts
   const criticalCount = alerts.filter((a) => a.level === "critical").length;

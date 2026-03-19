@@ -74,7 +74,7 @@ export function useAthletes(): UseAthletesReturn {
 
   // Realtime subscription
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const channel = supabase
       .channel("athletes-realtime")
@@ -84,7 +84,7 @@ export function useAthletes(): UseAthletesReturn {
           event: "*",
           schema: "public",
           table: "profiles",
-          filter: `coach_id=eq.${user.id}`,
+          filter: `coach_id=eq.${activeCoachId}`,
         },
         () => {
           fetchAthletes();
@@ -95,7 +95,7 @@ export function useAthletes(): UseAthletesReturn {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAthletes]);
+  }, [user, activeCoachId, fetchAthletes]);
 
   return { athletes, isLoading, error, refetch: fetchAthletes };
 }

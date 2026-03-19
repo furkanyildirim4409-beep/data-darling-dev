@@ -65,10 +65,10 @@ export function usePayments() {
   }, [fetchPayments]);
 
   const addPayment = async (data: PaymentInsert) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     const { error } = await supabase.from("payments").insert({
-      coach_id: user.id,
+      coach_id: activeCoachId,
       athlete_id: data.athlete_id,
       amount: data.amount,
       description: data.description || null,

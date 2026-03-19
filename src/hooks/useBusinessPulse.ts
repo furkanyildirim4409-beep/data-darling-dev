@@ -126,7 +126,7 @@ export function useBusinessPulse(): BusinessPulseData {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, activeCoachId]);
 
   return data;
 }
