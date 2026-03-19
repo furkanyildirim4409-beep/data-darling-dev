@@ -58,7 +58,7 @@ export function usePayments() {
     setPayments(paymentList);
     setAthletes(athleteList);
     setIsLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchPayments();
