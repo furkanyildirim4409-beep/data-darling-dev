@@ -59,7 +59,6 @@ const permissionCategories = [
 export default function Team() {
   const { toast } = useToast();
   const { data: teamMembers = [], isLoading } = useTeamMembers();
-  const updateMember = useUpdateTeamMember();
   const deleteMember = useDeleteTeamMember();
   
   // Dialog states
