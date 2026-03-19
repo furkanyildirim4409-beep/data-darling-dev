@@ -83,6 +83,26 @@ export function useDashboardData() {
       return;
     }
 
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from("team_member_athletes")
+        .select("athlete_id")
+        .eq("team_member_id", teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setAthletes([]);
+        setRiskDistribution({ low: { count: 0, label: "Düşük Risk" }, medium: { count: 0, label: "Orta Risk" }, high: { count: 0, label: "Yüksek Risk" } });
+        setCriticalAthletes([]);
+        setStats({ totalAthletes: 0, todaySessions: 0, completedToday: 0, criticalAlerts: 0, nutritionLoggersToday: 0, nutritionLoggersYesterday: 0 });
+        setCompliance({ workoutCompliance: 0, checkinCompliance: 0 });
+        setIsLoading(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
     setIsLoading(true);
     const coachId = activeCoachId;
     const today = new Date().toISOString().split("T")[0];
@@ -95,11 +115,17 @@ export function useDashboardData() {
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
     // Step 1: Fetch athletes
-    const { data: athletesData } = await supabase
+    let profilesQuery = supabase
       .from("profiles")
       .select("id, full_name, readiness_score, email, avatar_url, streak")
       .eq("coach_id", coachId)
       .eq("role", "athlete");
+
+    if (assignedIds) {
+      profilesQuery = profilesQuery.in("id", assignedIds);
+    }
+
+    const { data: athletesData } = await profilesQuery;
 
     const athleteList: DashboardAthlete[] = athletesData ?? [];
     if (athleteList.length === 0) {
