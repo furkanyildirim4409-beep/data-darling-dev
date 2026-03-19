@@ -192,7 +192,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
-          <Button onClick={handleAssign} disabled={selectedIds.size === 0 || submitting}>
+          <Button onClick={handleAssign} disabled={selectedIds.size === 0 || submitting || !canAssignPrograms}>
             {submitting && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
             Ata ({selectedIds.size})
           </Button>

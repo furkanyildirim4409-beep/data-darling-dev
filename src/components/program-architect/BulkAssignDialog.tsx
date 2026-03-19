@@ -552,7 +552,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
                 </Button>
                 <Button
                   onClick={handleAssign}
-                  disabled={selectedAthleteIds.length === 0 || selectedProgramIds.length === 0 || saving}
+                  disabled={selectedAthleteIds.length === 0 || selectedProgramIds.length === 0 || saving || !canAssignPrograms}
                   className="flex-1 sm:flex-none bg-primary text-primary-foreground"
                 >
                   {saving ? (
