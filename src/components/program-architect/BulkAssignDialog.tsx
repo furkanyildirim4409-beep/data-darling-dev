@@ -78,7 +78,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
       const { data, error } = await supabase
         .from("programs")
         .select("id, title, description, difficulty, week_config")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("created_at", { ascending: false });
 
