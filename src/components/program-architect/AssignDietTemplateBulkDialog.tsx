@@ -86,7 +86,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
   };
 
   const handleAssign = async () => {
-    if (!user || selectedIds.size === 0) return;
+    if (!user || !activeCoachId || selectedIds.size === 0) return;
     setSubmitting(true);
 
     const rows = Array.from(selectedIds).map((id) => ({
