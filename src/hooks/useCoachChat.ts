@@ -28,7 +28,7 @@ export interface ChatMessage {
 }
 
 export function useCoachChat() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const coachId = user?.id; // message identity = real user
 
   const [athletes, setAthletes] = useState<ChatAthlete[]>([]);
@@ -54,11 +54,33 @@ export function useCoachChat() {
     if (!coachId || !activeCoachId) return;
     setIsLoadingAthletes(true);
 
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from('team_member_athletes')
+        .select('athlete_id')
+        .eq('team_member_id', teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setAthletes([]);
+        setIsLoadingAthletes(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
     // Use activeCoachId to fetch the agency's athletes
-    const { data: profiles } = await supabase
+    let profilesQuery = supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
       .eq('coach_id', activeCoachId);
+
+    if (assignedIds) {
+      profilesQuery = profilesQuery.in('id', assignedIds);
+    }
+
+    const { data: profiles } = await profilesQuery;
 
     if (!profiles || profiles.length === 0) {
       setAthletes([]);
@@ -120,7 +142,7 @@ export function useCoachChat() {
     setAthletes(mapped);
     setTotalUnread(mapped.reduce((sum, a) => sum + a.unreadCount, 0));
     setIsLoadingAthletes(false);
-  }, [coachId, activeCoachId]);
+  }, [coachId, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
 
   const MSG_PAGE_SIZE = 50;
 
