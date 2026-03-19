@@ -49,6 +49,12 @@ export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { totalUnread } = useCoachChat();
+  const { isSubCoach } = useAuth();
+
+  const filteredNavItems = useMemo(
+    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
+    [isSubCoach]
+  );
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
