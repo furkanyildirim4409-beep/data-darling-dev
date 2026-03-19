@@ -121,7 +121,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     }));
     setPrograms(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   const fetchDietTemplates = useCallback(async () => {
     if (!user) return;
