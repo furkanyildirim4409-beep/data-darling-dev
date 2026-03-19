@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -34,10 +35,18 @@ import {
   DollarSign,
   Calendar,
   Settings,
+  UserPlus,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateTeamMember } from "@/hooks/useTeam";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAthletes } from "@/hooks/useAthletes";
+import {
+  useTeamMemberAssignments,
+  useUpdateTeamMemberAssignments,
+} from "@/hooks/useTeamAssignments";
 
 export interface TeamMember {
   id: string;
@@ -63,8 +72,7 @@ const permissionStyles = {
   "read-only": { label: "Salt Okunur", className: "bg-muted text-muted-foreground border-border" },
 };
 
-// Mock audit log data
-const generateAuditLogs = (memberName: string) => [
+const generateAuditLogs = (_memberName: string) => [
   { id: 1, action: "Ahmet Yılmaz'ın programını güncelledi", time: "2 saat önce", type: "program" },
   { id: 2, action: "Zeynep Kaya için beslenme planı oluşturdu", time: "5 saat önce", type: "nutrition" },
   { id: 3, action: "Sistem ayarlarını değiştirdi", time: "1 gün önce", type: "settings" },
@@ -90,7 +98,6 @@ const getActionIcon = (type: string) => {
   }
 };
 
-// Permission checkboxes
 const permissionItems = [
   { id: "view_athletes", label: "Sporcuları Görüntüle", category: "Sporcular" },
   { id: "edit_athletes", label: "Sporcu Düzenle", category: "Sporcular" },
@@ -126,17 +133,34 @@ export function MemberProfileDrawer({
   member,
 }: MemberProfileDrawerProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const updateMember = useUpdateTeamMember();
   const [editMode, setEditMode] = useState(false);
   const [editedMember, setEditedMember] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
 
-  // Properly initialize state when member changes
+  // Assignment state
+  const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { athletes } = useAthletes();
+  const { data: assignedIds } = useTeamMemberAssignments(member?.id || "");
+  const updateAssignments = useUpdateTeamMemberAssignments();
+
+  // Sync fetched assignments into local state
+  useEffect(() => {
+    if (assignedIds && open) {
+      setSelectedAthleteIds(assignedIds);
+    }
+  }, [assignedIds, open]);
+
+  // Reset state when member changes
   useEffect(() => {
     if (member && open) {
       setEditedMember({ ...member });
       setPermissions(getDefaultPermissions(member.permissions));
       setEditMode(false);
+      setSearchQuery("");
     }
   }, [member, open]);
 
@@ -177,6 +201,39 @@ export function MemberProfileDrawer({
     }
   };
 
+  const handleSaveAssignments = async () => {
+    if (!user) return;
+    try {
+      await updateAssignments.mutateAsync({
+        teamMemberId: member.id,
+        headCoachId: user.id,
+        athleteIds: selectedAthleteIds,
+      });
+      toast({
+        title: "Atamalar Güncellendi",
+        description: "Öğrenci atamaları başarıyla güncellendi. ✅",
+      });
+    } catch {
+      toast({
+        title: "Hata",
+        description: "Atamalar güncellenirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleAthleteSelection = (athleteId: string) => {
+    setSelectedAthleteIds((prev) =>
+      prev.includes(athleteId)
+        ? prev.filter((id) => id !== athleteId)
+        : [...prev, athleteId]
+    );
+  };
+
+  const filteredAthletes = athletes.filter((a) =>
+    a.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const togglePermission = (id: string) => {
     setPermissions(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -215,13 +272,17 @@ export function MemberProfileDrawer({
               <User className="w-4 h-4 mr-1.5" />
               Genel
             </TabsTrigger>
+            <TabsTrigger value="assignments" className="flex-1">
+              <UserPlus className="w-4 h-4 mr-1.5" />
+              Atamalar
+            </TabsTrigger>
             <TabsTrigger value="permissions" className="flex-1">
               <Shield className="w-4 h-4 mr-1.5" />
               Yetkiler
             </TabsTrigger>
             <TabsTrigger value="audit" className="flex-1">
               <History className="w-4 h-4 mr-1.5" />
-              İşlem Geçmişi
+              Geçmiş
             </TabsTrigger>
           </TabsList>
 
@@ -339,6 +400,79 @@ export function MemberProfileDrawer({
                   <p className="text-xs text-muted-foreground">İşlem Kaydı</p>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Assignments Tab */}
+          <TabsContent value="assignments" className="flex-1 overflow-hidden mt-4 flex flex-col">
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Sporcu ara..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background/50"
+              />
+            </div>
+
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-muted-foreground">
+                {selectedAthleteIds.length} / {athletes.length} sporcu atandı
+              </p>
+            </div>
+
+            <ScrollArea className="flex-1 pr-4">
+              <div className="space-y-2">
+                {filteredAthletes.map((athlete) => {
+                  const isSelected = selectedAthleteIds.includes(athlete.id);
+                  const athleteInitials = athlete.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase();
+
+                  return (
+                    <label
+                      key={athlete.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                        isSelected
+                          ? "bg-primary/5 border-primary/30"
+                          : "bg-background/50 border-border hover:border-primary/20"
+                      )}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleAthleteSelection(athlete.id)}
+                      />
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={athlete.avatar} />
+                        <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                          {athleteInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-foreground">{athlete.name}</span>
+                    </label>
+                  );
+                })}
+
+                {filteredAthletes.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    {searchQuery ? "Sporcu bulunamadı." : "Henüz sporcu yok."}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="pt-3 border-t border-border mt-3">
+              <Button
+                className="w-full"
+                onClick={handleSaveAssignments}
+                disabled={updateAssignments.isPending}
+              >
+                <Save className="w-4 h-4 mr-1.5" />
+                {updateAssignments.isPending ? "Kaydediliyor..." : "Atamaları Kaydet"}
+              </Button>
             </div>
           </TabsContent>
 
