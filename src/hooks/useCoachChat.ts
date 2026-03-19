@@ -28,7 +28,7 @@ export interface ChatMessage {
 }
 
 export function useCoachChat() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const coachId = user?.id; // message identity = real user
 
   const [athletes, setAthletes] = useState<ChatAthlete[]>([]);
