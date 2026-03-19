@@ -69,7 +69,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
       const { data: progs } = await supabase
         .from("programs")
         .select("id, title, description")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("created_at", { ascending: false });
 
