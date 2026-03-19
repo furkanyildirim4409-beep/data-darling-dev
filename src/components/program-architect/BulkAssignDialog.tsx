@@ -58,6 +58,7 @@ const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cum
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
   const { user, activeCoachId } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
+  const { canAssignPrograms } = usePermissions();
 
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
