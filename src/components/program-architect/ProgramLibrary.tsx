@@ -425,7 +425,7 @@ export function ProgramLibrary({
       }));
     }
     setLoadingTemplates(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchTemplates();
