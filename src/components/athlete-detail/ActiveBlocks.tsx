@@ -484,9 +484,11 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           ) : (
             <div className="p-3 text-center">
               <p className="text-[11px] text-muted-foreground italic mb-2">Henüz antrenman programı atanmadı.</p>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignProgramOpen(true)}>
-                <Plus className="w-3.5 h-3.5" />Antrenman Programı Ata
-              </Button>
+              {canAssignPrograms && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAssignProgramOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" />Antrenman Programı Ata
+                </Button>
+              )}
             </div>
           )}
 
