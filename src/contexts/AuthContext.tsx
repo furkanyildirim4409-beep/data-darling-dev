@@ -154,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRole(null);
+    setTeamMember(null);
   };
 
   const refreshProfile = async () => {
