@@ -12,7 +12,7 @@ import { TeamChatDialog } from "@/components/team/TeamChatDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
-import { useTeamMembers, useUpdateTeamMember, useDeleteTeamMember } from "@/hooks/useTeam";
+import { useTeamMembers, useDeleteTeamMember } from "@/hooks/useTeam";
 
 const permissionStyles = {
   full: { label: "Tam Erişim", className: "bg-primary/10 text-primary border-primary/20" },
@@ -59,7 +59,6 @@ const permissionCategories = [
 export default function Team() {
   const { toast } = useToast();
   const { data: teamMembers = [], isLoading } = useTeamMembers();
-  const updateMember = useUpdateTeamMember();
   const deleteMember = useDeleteTeamMember();
   
   // Dialog states
@@ -90,17 +89,6 @@ export default function Team() {
   const handleMemberClick = (member: TeamMember) => {
     setSelectedMember(member);
     setProfileDrawerOpen(true);
-  };
-
-  const handleMemberUpdate = (updatedMember: TeamMember) => {
-    updateMember.mutate({
-      id: updatedMember.id,
-      full_name: updatedMember.name,
-      email: updatedMember.email,
-      role: updatedMember.role,
-      permissions: updatedMember.permissions,
-      phone: updatedMember.phone,
-    });
   };
 
   const handleDeleteMember = (e: React.MouseEvent, memberId: string) => {
@@ -297,8 +285,24 @@ export default function Team() {
             <h2 className="text-xl font-semibold text-foreground">Yetki Matrisi</h2>
             <p className="text-sm text-muted-foreground">Rol bazlı erişim kontrolü</p>
           </div>
-        </div>
+      </div>
 
+      {/* Empty State */}
+      {!isLoading && teamMembers.length === 0 && (
+        <div className="flex flex-col items-center justify-center p-12 mt-2 border-2 border-dashed rounded-xl border-border/50 bg-muted/10">
+          <div className="w-16 h-16 mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <Users className="w-8 h-8 text-primary" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">Takımınız Henüz Boş</h3>
+          <p className="text-muted-foreground text-center max-w-sm mb-6">
+            Asistan antrenör, diyetisyen veya fizyoterapist ekleyerek ajansınızı büyütmeye başlayın.
+          </p>
+          <Button onClick={() => setAddMemberDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            İlk Üyeyi Ekle
+          </Button>
+        </div>
+      )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -391,7 +395,6 @@ export default function Team() {
         open={profileDrawerOpen}
         onOpenChange={setProfileDrawerOpen}
         member={selectedMember}
-        onMemberUpdate={handleMemberUpdate}
       />
 
       <AddMemberDialog
