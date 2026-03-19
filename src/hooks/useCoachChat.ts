@@ -51,13 +51,14 @@ export function useCoachChat() {
 
   // Fetch athletes + latest messages + unread counts in bulk
   const fetchAthletes = useCallback(async () => {
-    if (!coachId) return;
+    if (!coachId || !activeCoachId) return;
     setIsLoadingAthletes(true);
 
+    // Use activeCoachId to fetch the agency's athletes
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
-      .eq('coach_id', coachId);
+      .eq('coach_id', activeCoachId);
 
     if (!profiles || profiles.length === 0) {
       setAthletes([]);
