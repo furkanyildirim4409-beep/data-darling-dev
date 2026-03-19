@@ -92,7 +92,7 @@ export function ReplaceProgramDialog({
   oldProgramName,
   onComplete,
 }: ReplaceProgramDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<string>("");
@@ -102,7 +102,7 @@ export function ReplaceProgramDialog({
 
   // Fetch coach programs
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     let cancelled = false;
 
     const load = async () => {
@@ -110,7 +110,7 @@ export function ReplaceProgramDialog({
       const { data: progs } = await supabase
         .from("programs")
         .select("id, title, description, difficulty")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("title");
 
@@ -152,7 +152,7 @@ export function ReplaceProgramDialog({
   const totalWorkouts = selectedProgram ? selectedProgram.activeDayCount * durationWeeks : 0;
 
   const handleReplace = async () => {
-    if (!user || !selectedProgramId || !selectedProgram) return;
+    if (!user || !activeCoachId || !selectedProgramId || !selectedProgram) return;
     setSaving(true);
 
     try {
@@ -170,7 +170,7 @@ export function ReplaceProgramDialog({
       // 2. Log removal of old program
       await supabase.from("program_assignment_logs").insert({
         athlete_id: athleteId,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         program_id: oldProgramId,
         program_title: oldProgramName,
         action: "removed",
@@ -254,7 +254,7 @@ export function ReplaceProgramDialog({
         });
 
         payload.push({
-          coach_id: user.id,
+          coach_id: activeCoachId,
           athlete_id: athleteId,
           program_id: selectedProgramId,
           scheduled_date: targetDate,
@@ -285,7 +285,7 @@ export function ReplaceProgramDialog({
       await supabase.from("profiles").update({ active_program_id: selectedProgramId } as any).eq("id", athleteId);
       await supabase.from("program_assignment_logs").insert({
         athlete_id: athleteId,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         program_id: selectedProgramId,
         program_title: selectedProgram.title,
         action: "assigned",

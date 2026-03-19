@@ -36,12 +36,12 @@ const statusLabels = {
 };
 
 export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
 
     const fetchSessions = async () => {
       setIsLoading(true);
@@ -50,7 +50,7 @@ export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
       const { data: workouts } = await supabase
         .from("assigned_workouts")
         .select("id, status, athlete_id, created_at, program_id")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("scheduled_date", today);
 
       if (!workouts || workouts.length === 0) {

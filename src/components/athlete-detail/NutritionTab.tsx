@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { AssignDietTemplateDialog } from "./AssignDietTemplateDialog";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ interface ActiveTemplate {
 }
 
 export function NutritionTab({ athleteId }: NutritionTabProps) {
+  const { activeCoachId } = useAuth();
   // ─── Target State ───
   const [targets, setTargets] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [formValues, setFormValues] = useState<NutritionTargets>(DEFAULT_TARGETS);
@@ -158,8 +160,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!activeCoachId) {
       toast({ title: "Hata", description: "Oturum bulunamadı.", variant: "destructive" });
       setIsSaving(false);
       return;
@@ -169,7 +170,7 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       .upsert(
         {
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           daily_calories: formValues.daily_calories,
           protein_g: formValues.protein_g,
           carbs_g: formValues.carbs_g,
@@ -191,13 +192,12 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
 
   const handleRemoveTemplate = async () => {
     setRemovingTemplate(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setRemovingTemplate(false); return; }
+    if (!activeCoachId) { setRemovingTemplate(false); return; }
     const { error } = await supabase
       .from("nutrition_targets")
       .update({ active_diet_template_id: null, updated_at: new Date().toISOString() })
       .eq("athlete_id", athleteId)
-      .eq("coach_id", user.id);
+      .eq("coach_id", activeCoachId);
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     } else {

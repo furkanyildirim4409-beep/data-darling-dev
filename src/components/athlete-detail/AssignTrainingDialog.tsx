@@ -53,7 +53,7 @@ function getNextMonday(): Date {
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned }: AssignTrainingDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setStartDate(getNextMonday());
     setDurationWeeks("4");
     (async () => {
@@ -69,7 +69,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
       const { data: progs } = await supabase
         .from("programs")
         .select("id, title, description")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("created_at", { ascending: false });
 
@@ -101,7 +101,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
   }, [open, user]);
 
   const handleAssign = async (prog: ProgramOption) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setAssigning(prog.id);
 
     // Fetch exercises grouped by day
@@ -139,7 +139,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
 
         rows.push({
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           program_id: prog.id,
           assignment_batch_id: batchId,
           workout_name: `${prog.title} — ${dayOfWeek}`,
@@ -174,7 +174,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
     // Log assignment
     await supabase.from("program_assignment_logs").insert({
       athlete_id: athleteId,
-      coach_id: user.id,
+      coach_id: activeCoachId,
       program_id: prog.id,
       program_title: prog.title,
       assignment_batch_id: batchId,

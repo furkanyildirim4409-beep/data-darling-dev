@@ -65,7 +65,7 @@ interface ProgramDashboardProps {
 }
 
 export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const importRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
@@ -86,12 +86,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   });
 
   const fetchPrograms = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("programs")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .eq("is_template", true)
       .order("created_at", { ascending: false });
 
@@ -121,16 +121,16 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     }));
     setPrograms(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   const fetchDietTemplates = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoading(true);
 
     const { data: tpls, error } = await supabase
       .from("diet_templates")
       .select("id, title, description, target_calories, created_at")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .eq("is_template", true)
       .order("created_at", { ascending: false });
 
@@ -171,7 +171,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
     setDietTemplates(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     if (viewMode === "exercise") {
@@ -216,13 +216,13 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   };
 
   const handleDuplicateDiet = async (item: ProgramData, openInEditor = false) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     const { data: tpl } = await supabase.from("diet_templates").select("*").eq("id", item.id).single();
     if (!tpl) { toast.error("Şablon bulunamadı"); return; }
 
     const { data: newTpl, error } = await supabase
       .from("diet_templates")
-      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: user.id })
+      .insert({ title: `${tpl.title} (Kopya)`, description: tpl.description, target_calories: tpl.target_calories, coach_id: activeCoachId })
       .select().single();
     if (error || !newTpl) { toast.error("Kopyalama başarısız"); return; }
 
@@ -243,7 +243,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   };
 
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
 
     // Fetch full program data + exercises in parallel
     const [{ data: progData }, { data: exercises }] = await Promise.all([
@@ -259,7 +259,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         description: program.description,
         difficulty: program.difficulty,
         target_goal: program.targetGoal,
-        coach_id: user.id,
+        coach_id: activeCoachId,
         week_config: progData?.week_config ?? ([] as any),
         automation_rules: progData?.automation_rules ?? ([] as any),
       })
@@ -398,7 +398,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
 
   const handleImportProgram = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !activeCoachId) return;
     e.target.value = "";
 
     setImporting(true);
@@ -418,7 +418,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           description: data.description ?? "",
           difficulty: data.difficulty ?? null,
           target_goal: data.targetGoal ?? null,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           week_config: data.weekConfig ?? ([] as any),
           automation_rules: data.automationRules ?? ([] as any),
         }).select().single();
@@ -465,7 +465,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           title: data.name,
           description: data.description ?? "",
           target_calories: data.targetCalories ?? null,
-          coach_id: user.id,
+          coach_id: activeCoachId,
         }).select().single();
 
         if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }

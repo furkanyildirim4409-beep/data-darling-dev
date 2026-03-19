@@ -55,7 +55,7 @@ interface WeekConfigDay {
 const DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const { athletes, isLoading: athletesLoading } = useAthletes();
 
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
@@ -70,7 +70,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
   // Fetch all programs with active day counts
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     let cancelled = false;
 
     const load = async () => {
@@ -78,7 +78,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
       const { data, error } = await supabase
         .from("programs")
         .select("id, title, description, difficulty, week_config")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("created_at", { ascending: false });
 
@@ -127,7 +127,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
     load();
     return () => { cancelled = true; };
-  }, [open, user]);
+  }, [open, user, activeCoachId]);
 
   // Reset on close
   useEffect(() => {
@@ -180,7 +180,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
   const totalAssignments = totalDays * selectedAthleteIds.length;
 
   const handleAssign = async () => {
-    if (!user || selectedProgramIds.length === 0 || selectedAthleteIds.length === 0) return;
+    if (!user || !activeCoachId || selectedProgramIds.length === 0 || selectedAthleteIds.length === 0) return;
     setSaving(true);
 
     try {
@@ -248,7 +248,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
           for (const athleteId of selectedAthleteIds) {
             payload.push({
-              coach_id: user.id,
+              coach_id: activeCoachId,
               athlete_id: athleteId,
               program_id: programId,
             scheduled_date: format(addDays(startDate, dayIdx), "yyyy-MM-dd"),

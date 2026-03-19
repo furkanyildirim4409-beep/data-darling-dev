@@ -218,7 +218,7 @@ export function ProgramLibrary({
   builderMode,
   onLoadTemplate
 }: ProgramLibraryProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"items" | "templates">("items");
@@ -395,12 +395,12 @@ export function ProgramLibrary({
 
   // Fetch templates
   const fetchTemplates = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoadingTemplates(true);
     const { data, error } = await supabase
       .from("workout_templates")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
@@ -425,7 +425,7 @@ export function ProgramLibrary({
       }));
     }
     setLoadingTemplates(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     fetchTemplates();
@@ -482,12 +482,12 @@ export function ProgramLibrary({
 
   // Fetch coach's food library from DB
   const fetchCoachFoods = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setLoadingCoachFoods(true);
     const { data } = await supabase
       .from("food_items")
       .select("*")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .order("name");
     if (data) {
       setCoachFoods(data.map((r: any) => ({
@@ -502,7 +502,7 @@ export function ProgramLibrary({
       })));
     }
     setLoadingCoachFoods(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     if (builderMode === "nutrition") {
@@ -528,7 +528,7 @@ export function ProgramLibrary({
             carbs: item.carbs || 0,
             fat: item.fats || 0,
             serving_size: "100g",
-            coach_id: user.id,
+            coach_id: activeCoachId!,
           }, { onConflict: "name,coach_id" })
           .select("id")
           .single();

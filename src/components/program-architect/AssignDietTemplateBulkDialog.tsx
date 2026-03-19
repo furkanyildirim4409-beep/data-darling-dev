@@ -43,7 +43,7 @@ function getNextMonday(): Date {
 }
 
 export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, templateName }: AssignDietTemplateBulkDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [athletes, setAthletes] = useState<AthleteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setSelectedIds(new Set());
     setStartDate(getNextMonday());
     setDurationWeeks("4");
@@ -62,7 +62,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
       .from("profiles")
       .select("id, full_name, avatar_url")
       .eq("role", "athlete")
-      .eq("coach_id", user.id)
+      .eq("coach_id", activeCoachId)
       .then(({ data }) => {
         setAthletes((data || []).map((a) => ({ id: a.id, name: a.full_name || "İsimsiz", avatar: a.avatar_url || undefined })));
         setLoading(false);
@@ -86,12 +86,12 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
   };
 
   const handleAssign = async () => {
-    if (!user || selectedIds.size === 0) return;
+    if (!user || !activeCoachId || selectedIds.size === 0) return;
     setSubmitting(true);
 
     const rows = Array.from(selectedIds).map((id) => ({
       athlete_id: id,
-      coach_id: user.id,
+      coach_id: activeCoachId,
       active_diet_template_id: templateId,
       diet_start_date: format(startDate, "yyyy-MM-dd"),
       diet_duration_weeks: Number(durationWeeks),

@@ -62,7 +62,7 @@ export function AssignDietTemplateDialog({
   onAssigned,
   activeTemplateId,
 }: AssignDietTemplateDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [templates, setTemplates] = useState<TemplateWithMacros[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function AssignDietTemplateDialog({
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setStartDate(getNextMonday());
     setDurationWeeks("4");
     (async () => {
@@ -78,7 +78,7 @@ export function AssignDietTemplateDialog({
       const { data: tpls } = await supabase
         .from("diet_templates")
         .select("id, title, description, target_calories")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .order("created_at", { ascending: false });
 
       if (!tpls?.length) {
@@ -109,7 +109,7 @@ export function AssignDietTemplateDialog({
   }, [open, user]);
 
   const handleAssign = async (tpl: TemplateWithMacros) => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setAssigning(tpl.id);
 
     const { error } = await supabase
@@ -117,7 +117,7 @@ export function AssignDietTemplateDialog({
       .upsert(
         {
           athlete_id: athleteId,
-          coach_id: user.id,
+          coach_id: activeCoachId,
           active_diet_template_id: tpl.id,
           diet_start_date: format(startDate, "yyyy-MM-dd"),
           diet_duration_weeks: Number(durationWeeks),
