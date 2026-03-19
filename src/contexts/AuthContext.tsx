@@ -163,8 +163,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isSubCoach = !!teamMember;
+  const activeCoachId = teamMember ? teamMember.head_coach_id : user?.id ?? null;
+  const teamMemberPermissions = teamMember?.permissions ?? null;
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, isLoading, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
