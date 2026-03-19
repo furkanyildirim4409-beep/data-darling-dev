@@ -52,7 +52,7 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setSelectedIds(new Set());
     setStartDate(getNextMonday());
     setDurationWeeks("4");
