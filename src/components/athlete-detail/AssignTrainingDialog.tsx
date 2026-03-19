@@ -61,7 +61,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
   const [durationWeeks, setDurationWeeks] = useState("4");
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     setStartDate(getNextMonday());
     setDurationWeeks("4");
     (async () => {
