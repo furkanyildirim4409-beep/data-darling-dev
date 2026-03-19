@@ -70,7 +70,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
 
   // Fetch all programs with active day counts
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !activeCoachId) return;
     let cancelled = false;
 
     const load = async () => {
