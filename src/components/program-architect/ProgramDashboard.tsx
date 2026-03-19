@@ -554,7 +554,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </div>
           </div>
 
-          {viewMode === "exercise" && (
+          {viewMode === "exercise" && canAssignPrograms && (
             <Button
               variant="outline"
               onClick={() => setBulkAssignOpen(true)}
@@ -565,23 +565,27 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            onClick={() => importRef.current?.click()}
-            disabled={importing}
-            className="border-border"
-          >
-            {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-            İçe Aktar
-          </Button>
+          {canCreatePrograms && (
+            <Button
+              variant="outline"
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              className="border-border"
+            >
+              {importing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+              İçe Aktar
+            </Button>
+          )}
 
-          <Button
-            onClick={() => onCreateProgram(viewMode)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
-          </Button>
+          {canCreatePrograms && (
+            <Button
+              onClick={() => onCreateProgram(viewMode)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
+            </Button>
+          )}
         </div>
       </div>
 
