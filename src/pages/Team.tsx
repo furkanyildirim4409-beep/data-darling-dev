@@ -3,6 +3,7 @@ import { Plus, Mail, Phone, Shield, Check, X, Eye, Edit2, Trash2, Users, Message
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MemberProfileDrawer, TeamMember } from "@/components/team/MemberProfileDrawer";
@@ -11,49 +12,7 @@ import { TeamChatDialog } from "@/components/team/TeamChatDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
-
-const initialTeamMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "Koç Davis",
-    role: "Baş Antrenör",
-    email: "davis@dynabolic.com",
-    phone: "+90 (555) 123 45 67",
-    avatar: "",
-    permissions: "full",
-    athletes: 47,
-  },
-  {
-    id: "2",
-    name: "Mike Reynolds",
-    role: "Yardımcı Antrenör",
-    email: "mike@dynabolic.com",
-    phone: "+90 (555) 234 56 78",
-    avatar: "",
-    permissions: "limited",
-    athletes: 15,
-  },
-  {
-    id: "3",
-    name: "Lisa Park",
-    role: "Diyetisyen",
-    email: "lisa@dynabolic.com",
-    phone: "+90 (555) 345 67 89",
-    avatar: "",
-    permissions: "read-only",
-    athletes: 32,
-  },
-  {
-    id: "4",
-    name: "Carlos Mendez",
-    role: "Fizyoterapist",
-    email: "carlos@dynabolic.com",
-    phone: "+90 (555) 456 78 90",
-    avatar: "",
-    permissions: "read-only",
-    athletes: 12,
-  },
-];
+import { useTeamMembers, useUpdateTeamMember, useDeleteTeamMember } from "@/hooks/useTeam";
 
 const permissionStyles = {
   full: { label: "Tam Erişim", className: "bg-primary/10 text-primary border-primary/20" },
@@ -99,7 +58,9 @@ const permissionCategories = [
 
 export default function Team() {
   const { toast } = useToast();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const { data: teamMembers = [], isLoading } = useTeamMembers();
+  const updateMember = useUpdateTeamMember();
+  const deleteMember = useDeleteTeamMember();
   
   // Dialog states
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -132,25 +93,25 @@ export default function Team() {
   };
 
   const handleMemberUpdate = (updatedMember: TeamMember) => {
-    setTeamMembers(prev => 
-      prev.map(m => m.id === updatedMember.id ? updatedMember : m)
-    );
-  };
-
-  const handleMemberAdd = (newMember: TeamMember) => {
-    setTeamMembers(prev => [...prev, newMember]);
-    toast({
-      title: "Üye Eklendi",
-      description: `${newMember.name} takıma başarıyla eklendi.`,
+    updateMember.mutate({
+      id: updatedMember.id,
+      full_name: updatedMember.name,
+      email: updatedMember.email,
+      role: updatedMember.role,
+      permissions: updatedMember.permissions,
+      phone: updatedMember.phone,
     });
   };
 
   const handleDeleteMember = (e: React.MouseEvent, memberId: string) => {
     e.stopPropagation();
-    setTeamMembers(prev => prev.filter(m => m.id !== memberId));
-    toast({
-      title: "Üye Silindi",
-      description: "Takım üyesi başarıyla kaldırıldı.",
+    deleteMember.mutate(memberId, {
+      onSuccess: () => {
+        toast({
+          title: "Üye Silindi",
+          description: "Takım üyesi başarıyla kaldırıldı.",
+        });
+      },
     });
   };
 
@@ -171,7 +132,7 @@ export default function Team() {
           simulateIncomingMessage(randomMember.id, randomMember.name);
         }
       }
-    }, 45000); // Every 45 seconds, 30% chance
+    }, 45000);
 
     return () => clearInterval(interval);
   }, [teamMembers, simulateIncomingMessage, getMemberPresence]);
@@ -180,6 +141,34 @@ export default function Team() {
   const fullAccessCount = teamMembers.filter(m => m.permissions === "full").length;
   const limitedAccessCount = teamMembers.filter(m => m.permissions === "limited").length;
   const readOnlyCount = teamMembers.filter(m => m.permissions === "read-only").length;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Takım</h1>
+            <p className="text-muted-foreground mt-1">Personeli ve izinleri yönetin</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="glass rounded-xl p-5 border border-border">
+              <div className="flex items-start gap-4">
+                <Skeleton className="w-14 h-14 rounded-full" />
+                <div className="flex-1 space-y-3">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-56" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -408,7 +397,6 @@ export default function Team() {
       <AddMemberDialog
         open={addMemberDialogOpen}
         onOpenChange={setAddMemberDialogOpen}
-        onMemberAdd={handleMemberAdd}
       />
 
       {chatMember && (

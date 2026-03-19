@@ -27,12 +27,12 @@ import { CalendarIcon, User, Mail, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { TeamMember } from "./MemberProfileDrawer";
+import { useAddTeamMember } from "@/hooks/useTeam";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMemberAdd: (member: TeamMember) => void;
 }
 
 const roles = [
@@ -50,7 +50,7 @@ const permissionLevels = [
   { value: "read-only", label: "Salt Okunur" },
 ];
 
-export function AddMemberDialog({ open, onOpenChange, onMemberAdd }: AddMemberDialogProps) {
+export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
@@ -58,30 +58,41 @@ export function AddMemberDialog({ open, onOpenChange, onMemberAdd }: AddMemberDi
   const [startDate, setStartDate] = useState<Date>();
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const handleSubmit = () => {
+  const addMember = useAddTeamMember();
+  const { toast } = useToast();
+
+  const handleSubmit = async () => {
     if (!name || !email || !role || !startDate) return;
 
-    const newMember: TeamMember = {
-      id: `member-${Date.now()}`,
-      name,
-      email,
-      role,
-      phone: "+90 (555) 000 00 00",
-      avatar: "",
-      permissions,
-      athletes: 0,
-      startDate: format(startDate, "dd.MM.yyyy"),
-    };
+    try {
+      await addMember.mutateAsync({
+        full_name: name,
+        email,
+        role,
+        permissions,
+        start_date: format(startDate, "yyyy-MM-dd"),
+      });
 
-    onMemberAdd(newMember);
-    onOpenChange(false);
+      toast({
+        title: "Üye Eklendi",
+        description: `${name} takıma başarıyla eklendi.`,
+      });
 
-    // Reset form
-    setName("");
-    setEmail("");
-    setRole("");
-    setPermissions("limited");
-    setStartDate(undefined);
+      onOpenChange(false);
+
+      // Reset form
+      setName("");
+      setEmail("");
+      setRole("");
+      setPermissions("limited");
+      setStartDate(undefined);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Üye eklenirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const isValid = name && email && role && startDate;
@@ -209,10 +220,10 @@ export function AddMemberDialog({ open, onOpenChange, onMemberAdd }: AddMemberDi
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isValid}
+            disabled={!isValid || addMember.isPending}
             className="bg-primary text-primary-foreground"
           >
-            Üye Ekle
+            {addMember.isPending ? "Ekleniyor..." : "Üye Ekle"}
           </Button>
         </DialogFooter>
       </DialogContent>
