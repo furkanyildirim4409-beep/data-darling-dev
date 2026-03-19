@@ -3,6 +3,7 @@ import { Plus, Mail, Phone, Shield, Check, X, Eye, Edit2, Trash2, Users, Message
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MemberProfileDrawer, TeamMember } from "@/components/team/MemberProfileDrawer";
@@ -11,49 +12,7 @@ import { TeamChatDialog } from "@/components/team/TeamChatDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
-
-const initialTeamMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "Koç Davis",
-    role: "Baş Antrenör",
-    email: "davis@dynabolic.com",
-    phone: "+90 (555) 123 45 67",
-    avatar: "",
-    permissions: "full",
-    athletes: 47,
-  },
-  {
-    id: "2",
-    name: "Mike Reynolds",
-    role: "Yardımcı Antrenör",
-    email: "mike@dynabolic.com",
-    phone: "+90 (555) 234 56 78",
-    avatar: "",
-    permissions: "limited",
-    athletes: 15,
-  },
-  {
-    id: "3",
-    name: "Lisa Park",
-    role: "Diyetisyen",
-    email: "lisa@dynabolic.com",
-    phone: "+90 (555) 345 67 89",
-    avatar: "",
-    permissions: "read-only",
-    athletes: 32,
-  },
-  {
-    id: "4",
-    name: "Carlos Mendez",
-    role: "Fizyoterapist",
-    email: "carlos@dynabolic.com",
-    phone: "+90 (555) 456 78 90",
-    avatar: "",
-    permissions: "read-only",
-    athletes: 12,
-  },
-];
+import { useTeamMembers, useUpdateTeamMember, useDeleteTeamMember } from "@/hooks/useTeam";
 
 const permissionStyles = {
   full: { label: "Tam Erişim", className: "bg-primary/10 text-primary border-primary/20" },
