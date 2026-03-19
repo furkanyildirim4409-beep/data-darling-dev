@@ -15,7 +15,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function useAlerts() {
-  const { user, activeCoachId } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [alerts, setAlerts] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
