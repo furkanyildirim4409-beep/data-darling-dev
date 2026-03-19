@@ -92,7 +92,7 @@ export function ReplaceProgramDialog({
   oldProgramName,
   onComplete,
 }: ReplaceProgramDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<string>("");
