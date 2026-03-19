@@ -43,7 +43,7 @@ function getNextMonday(): Date {
 }
 
 export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, templateName }: AssignDietTemplateBulkDialogProps) {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [athletes, setAthletes] = useState<AthleteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
