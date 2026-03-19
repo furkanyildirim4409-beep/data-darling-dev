@@ -502,7 +502,7 @@ export function ProgramLibrary({
       })));
     }
     setLoadingCoachFoods(false);
-  }, [user]);
+  }, [user, activeCoachId]);
 
   useEffect(() => {
     if (builderMode === "nutrition") {
