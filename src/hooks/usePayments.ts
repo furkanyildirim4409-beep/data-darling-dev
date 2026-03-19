@@ -25,25 +25,25 @@ export interface PaymentInsert {
 }
 
 export function usePayments() {
-  const { user } = useAuth();
+  const { user, activeCoachId } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [athletes, setAthletes] = useState<{ id: string; full_name: string | null }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchPayments = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeCoachId) return;
     setIsLoading(true);
 
     const [paymentsRes, athletesRes] = await Promise.all([
       supabase
         .from("payments")
         .select("*")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .order("payment_date", { ascending: false }),
       supabase
         .from("profiles")
         .select("id, full_name")
-        .eq("coach_id", user.id)
+        .eq("coach_id", activeCoachId)
         .eq("role", "athlete"),
     ]);
 
