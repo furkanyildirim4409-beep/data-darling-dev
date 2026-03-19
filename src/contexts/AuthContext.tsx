@@ -33,6 +33,10 @@ interface AuthContextType {
   profile: Profile | null;
   role: 'coach' | 'athlete' | null;
   isLoading: boolean;
+  teamMember: any | null;
+  isSubCoach: boolean;
+  activeCoachId: string | null;
+  teamMemberPermissions: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<'coach' | 'athlete' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [teamMember, setTeamMember] = useState<any | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -74,6 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(profileData);
       setRole(profileData.role);
     }
+
+    // Fetch team_members linkage for sub-coach detection
+    const { data: teamData } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    setTeamMember(teamData ?? null);
   };
 
   useEffect(() => {
@@ -140,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRole(null);
+    setTeamMember(null);
   };
 
   const refreshProfile = async () => {
@@ -148,8 +163,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isSubCoach = !!teamMember;
+  const activeCoachId = teamMember ? teamMember.head_coach_id : user?.id ?? null;
+  const teamMemberPermissions = teamMember?.permissions ?? null;
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, isLoading, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

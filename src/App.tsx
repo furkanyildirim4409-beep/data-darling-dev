@@ -2,10 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import CommandCenter from "./pages/CommandCenter";
 import Athletes from "./pages/Athletes";
@@ -24,6 +24,11 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isSubCoach } = useAuth();
+  return isSubCoach ? <Navigate to="/" replace /> : <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -48,11 +53,11 @@ const App = () => (
                 <Route path="/athletes/:id" element={<AthleteDetail />} />
                 <Route path="/programs" element={<Programs />} />
                 <Route path="/alerts" element={<Alerts />} />
-                <Route path="/business" element={<Business />} />
-                <Route path="/store" element={<StoreManager />} />
-                <Route path="/content" element={<ContentStudio />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/business" element={<AdminRoute><Business /></AdminRoute>} />
+                <Route path="/store" element={<AdminRoute><StoreManager /></AdminRoute>} />
+                <Route path="/content" element={<AdminRoute><ContentStudio /></AdminRoute>} />
+                <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
+                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/messages" element={<Messages />} />
               </Route>

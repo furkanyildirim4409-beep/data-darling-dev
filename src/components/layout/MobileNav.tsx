@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
+import { useAuth } from "@/contexts/AuthContext";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -32,12 +33,12 @@ const navItems = [
   { path: "/athletes", label: "Sporcular", icon: Users },
   { path: "/programs", label: "Program Mimarı", icon: ClipboardList },
   { path: "/alerts", label: "Hızlı Müdahale", icon: Zap, showBadge: true },
-  { path: "/business", label: "İş Yönetimi", icon: Briefcase },
-  { path: "/store", label: "Mağaza", icon: ShoppingBag },
-  { path: "/content", label: "İçerik Stüdyosu", icon: Palette },
+  { path: "/business", label: "İş Yönetimi", icon: Briefcase, adminOnly: true },
+  { path: "/store", label: "Mağaza", icon: ShoppingBag, adminOnly: true },
+  { path: "/content", label: "İçerik Stüdyosu", icon: Palette, adminOnly: true },
   { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
-  { path: "/team", label: "Takım", icon: UserCog },
-  { path: "/settings", label: "Ayarlar", icon: Settings },
+  { path: "/team", label: "Takım", icon: UserCog, adminOnly: true },
+  { path: "/settings", label: "Ayarlar", icon: Settings, adminOnly: true },
 ];
 
 interface MobileNavProps {
@@ -48,6 +49,12 @@ export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { totalUnread } = useCoachChat();
+  const { isSubCoach } = useAuth();
+
+  const filteredNavItems = useMemo(
+    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
+    [isSubCoach]
+  );
 
   // Calculate alert counts
   const alertCounts = useMemo(() => {
@@ -81,7 +88,7 @@ export function MobileNav({ className }: MobileNavProps) {
         </SheetHeader>
 
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto scrollbar-thin">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive =
               location.pathname === item.path ||
               (item.path !== "/" && location.pathname.startsWith(item.path));
