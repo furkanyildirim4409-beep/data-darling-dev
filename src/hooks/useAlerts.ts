@@ -56,22 +56,31 @@ export function useAlerts() {
       profilesQuery = profilesQuery.in("id", assignedIds);
     }
 
+    let workoutsQuery = supabase
+      .from("assigned_workouts")
+      .select("id, status, athlete_id")
+      .eq("coach_id", coachId)
+      .gte("scheduled_date", sevenDaysAgo);
+    if (assignedIds) workoutsQuery = workoutsQuery.in("athlete_id", assignedIds);
+
+    let checkinsQuery = supabase
+      .from("daily_checkins")
+      .select("id, user_id, created_at")
+      .gte("created_at", fortyEightHoursAgo);
+    if (assignedIds) checkinsQuery = checkinsQuery.in("user_id", assignedIds);
+
+    let paymentsQuery = supabase
+      .from("payments")
+      .select("id, athlete_id, status, payment_date, amount")
+      .eq("coach_id", coachId)
+      .eq("status", "overdue");
+    if (assignedIds) paymentsQuery = paymentsQuery.in("athlete_id", assignedIds);
+
     const [profilesRes, workoutsRes, checkinsRes, paymentsRes] = await Promise.all([
       profilesQuery,
-      supabase
-        .from("assigned_workouts")
-        .select("id, status, athlete_id")
-        .eq("coach_id", coachId)
-        .gte("scheduled_date", sevenDaysAgo),
-      supabase
-        .from("daily_checkins")
-        .select("id, user_id, created_at")
-        .gte("created_at", fortyEightHoursAgo),
-      supabase
-        .from("payments")
-        .select("id, athlete_id, status, payment_date, amount")
-        .eq("coach_id", coachId)
-        .eq("status", "overdue"),
+      workoutsQuery,
+      checkinsQuery,
+      paymentsQuery,
     ]);
 
     const profiles = profilesRes.data ?? [];
