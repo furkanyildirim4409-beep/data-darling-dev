@@ -155,13 +155,15 @@ export function useDashboardData() {
         .select("id, status, athlete_id, scheduled_date")
         .eq("coach_id", coachId)
         .gte("scheduled_date", weekStart)
-        .lte("scheduled_date", weekEnd),
+        .lte("scheduled_date", weekEnd)
+        .in("athlete_id", athleteIds),
       // Today's sessions
       supabase
         .from("assigned_workouts")
         .select("id, status, athlete_id")
         .eq("coach_id", coachId)
-        .eq("scheduled_date", today),
+        .eq("scheduled_date", today)
+        .in("athlete_id", athleteIds),
       // Recent checkins (48h)
       supabase
         .from("daily_checkins")
