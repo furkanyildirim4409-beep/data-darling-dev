@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface TeamContact {
-  id: string; // user_id (profiles.id)
+  id: string;
   name: string;
   avatar: string;
   role: string;
@@ -22,7 +23,7 @@ export interface TeamMessage {
 }
 
 export function useTeamChat() {
-  const { user, activeCoachId, isSubCoach, teamMember } = useAuth();
+  const { user, activeCoachId, isSubCoach } = useAuth();
   const userId = user?.id;
 
   const [contacts, setContacts] = useState<TeamContact[]>([]);
@@ -35,7 +36,6 @@ export function useTeamChat() {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selectedContactIdRef = useRef<string | null>(null);
 
-  // Keep ref in sync
   useEffect(() => {
     selectedContactIdRef.current = selectedContactId;
   }, [selectedContactId]);
@@ -48,7 +48,6 @@ export function useTeamChat() {
     let contactProfiles: { id: string; name: string; avatar: string; role: string }[] = [];
 
     if (!isSubCoach) {
-      // Head Coach: see all active team members with user_id
       const { data: members } = await supabase
         .from('team_members')
         .select('user_id, full_name, avatar_url, role')
@@ -63,8 +62,6 @@ export function useTeamChat() {
         role: m.role,
       }));
     } else {
-      // Sub-Coach: see Head Coach + other team members
-      // 1. Head Coach profile
       const { data: headCoach } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
@@ -80,7 +77,6 @@ export function useTeamChat() {
         });
       }
 
-      // 2. Other team members
       const { data: peers } = await supabase
         .from('team_members')
         .select('user_id, full_name, avatar_url, role')
@@ -100,13 +96,15 @@ export function useTeamChat() {
       }
     }
 
+    // Hardening: strip any null/undefined IDs
+    contactProfiles = contactProfiles.filter(c => !!c.id);
+
     if (contactProfiles.length === 0) {
       setContacts([]);
       setIsLoadingContacts(false);
       return;
     }
 
-    // Fetch unread counts + latest messages
     const contactIds = contactProfiles.map(c => c.id);
 
     const { data: allMessages } = await supabase
@@ -152,7 +150,7 @@ export function useTeamChat() {
     setIsLoadingContacts(false);
   }, [userId, activeCoachId, isSubCoach]);
 
-  // Fetch messages for a contact
+  // Fetch messages for a contact — no `contacts` in deps to avoid stale closures
   const fetchMessages = useCallback(async (contactId: string) => {
     if (!userId) return;
     setIsLoadingMessages(true);
@@ -177,52 +175,68 @@ export function useTeamChat() {
       .eq('receiver_id', userId)
       .eq('is_read', false);
 
-    setContacts(prev => prev.map(c => c.id === contactId ? { ...c, unreadCount: 0 } : c));
-    setTotalUnread(prev => {
-      const was = contacts.find(c => c.id === contactId)?.unreadCount || 0;
-      return Math.max(0, prev - was);
+    // Use functional updaters to avoid stale closure
+    setContacts(prev => {
+      const target = prev.find(c => c.id === contactId);
+      const wasUnread = target?.unreadCount || 0;
+      if (wasUnread > 0) {
+        setTotalUnread(prevTotal => Math.max(0, prevTotal - wasUnread));
+      }
+      return prev.map(c => c.id === contactId ? { ...c, unreadCount: 0 } : c);
     });
-  }, [userId, contacts]);
+  }, [userId]);
 
   const selectContact = useCallback((contactId: string) => {
     setSelectedContactId(contactId);
     fetchMessages(contactId);
   }, [fetchMessages]);
 
-  // Send message with optimistic UI
+  // Send message with optimistic UI + error surfacing + reversion
   const sendMessage = useCallback(async (content: string) => {
     if (!userId || !selectedContactId || !content.trim()) return;
 
+    const text = content.trim();
+    const tempId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
     const optimistic: TeamMessage = {
-      id: crypto.randomUUID(),
+      id: tempId,
       sender_id: userId,
       receiver_id: selectedContactId,
-      content: content.trim(),
+      content: text,
       is_read: false,
-      created_at: new Date().toISOString(),
+      created_at: now,
     };
 
+    // Optimistic: append message
     setMessages(prev => [...prev, optimistic]);
+
+    // Optimistic: update contact lastMessage
+    const contactId = selectedContactId;
     setContacts(prev =>
       prev.map(c =>
-        c.id === selectedContactId
-          ? { ...c, lastMessage: { content: optimistic.content, created_at: optimistic.created_at, sender_id: userId } }
+        c.id === contactId
+          ? { ...c, lastMessage: { content: text, created_at: now, sender_id: userId } }
           : c
       )
     );
 
-    const { error } = await supabase.from('team_messages').insert({
-      sender_id: userId,
-      receiver_id: selectedContactId,
-      content: content.trim(),
-    });
+    const { error } = await supabase
+      .from('team_messages')
+      .insert({ sender_id: userId, receiver_id: contactId, content: text })
+      .select()
+      .single();
 
     if (error) {
-      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+      toast.error('Mesaj gönderilemedi: ' + error.message);
+      // Revert optimistic message
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      // Revert contact lastMessage by re-fetching contacts
+      fetchContacts();
     }
-  }, [userId, selectedContactId]);
+  }, [userId, selectedContactId, fetchContacts]);
 
-  // Realtime subscription
+  // Realtime subscription — listen to ALL inserts, filter manually
   useEffect(() => {
     if (!userId) return;
 
@@ -234,10 +248,41 @@ export function useTeamChat() {
           event: 'INSERT',
           schema: 'public',
           table: 'team_messages',
-          filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
           const newMsg = payload.new as TeamMessage;
+
+          // Ignore messages not involving this user
+          if (newMsg.sender_id !== userId && newMsg.receiver_id !== userId) return;
+
+          // Deduplicate: if sent by current user, the optimistic update already added it
+          if (newMsg.sender_id === userId) {
+            // Replace optimistic message with the real one (matching by content+receiver+timestamp proximity)
+            setMessages(prev => {
+              const hasOptimistic = prev.some(
+                m => m.sender_id === userId && m.receiver_id === newMsg.receiver_id && m.content === newMsg.content && m.id !== newMsg.id
+              );
+              if (hasOptimistic) {
+                // Replace the first optimistic match with the real message
+                let replaced = false;
+                return prev.map(m => {
+                  if (!replaced && m.sender_id === userId && m.receiver_id === newMsg.receiver_id && m.content === newMsg.content && m.id !== newMsg.id) {
+                    replaced = true;
+                    return newMsg;
+                  }
+                  return m;
+                });
+              }
+              // No optimistic match (e.g. sent from another tab) — append if active chat
+              if (newMsg.receiver_id === selectedContactIdRef.current) {
+                return [...prev, newMsg];
+              }
+              return prev;
+            });
+            return;
+          }
+
+          // Incoming message from someone else
           const senderId = newMsg.sender_id;
 
           if (senderId === selectedContactIdRef.current) {
@@ -248,14 +293,14 @@ export function useTeamChat() {
             setContacts(prev =>
               prev.map(c =>
                 c.id === senderId
-                  ? { ...c, unreadCount: c.unreadCount + 1, lastMessage: { content: newMsg.content, created_at: newMsg.created_at, sender_id: senderId } }
+                  ? { ...c, unreadCount: c.unreadCount + 1 }
                   : c
               )
             );
             setTotalUnread(prev => prev + 1);
           }
 
-          // Update latest message for sender
+          // Update lastMessage for sender contact & re-sort
           setContacts(prev => {
             const updated = prev.map(c =>
               c.id === senderId
