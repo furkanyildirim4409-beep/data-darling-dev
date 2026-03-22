@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,26 +23,51 @@ interface AiInsight {
 type SeverityKey = "high" | "medium" | "low";
 
 export function AiDoctorRadar() {
+  const { user, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchInsights = async () => {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data } = await supabase
-        .from("ai_weekly_analyses")
-        .select("*")
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: false })
-        .limit(500);
+  const fetchInsights = useCallback(async () => {
+    if (!user) return;
 
-      setInsights((data as any[]) || []);
-      setIsLoading(false);
-    };
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from('team_member_athletes')
+        .select('athlete_id')
+        .eq('team_member_id', teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setInsights([]);
+        setIsLoading(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    let query = supabase
+      .from("ai_weekly_analyses")
+      .select("*")
+      .gte("created_at", sevenDaysAgo)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (assignedIds) {
+      query = query.in("athlete_id", assignedIds);
+    }
+
+    const { data } = await query;
+    setInsights((data as any[]) || []);
+    setIsLoading(false);
+  }, [user, isSubCoach, teamMember, teamMemberPermissions]);
+
+  useEffect(() => {
     fetchInsights();
-  }, []);
+  }, [fetchInsights]);
 
   // Deduplicate: keep only latest scan per athlete
   const latestInsights = useMemo(() => {
