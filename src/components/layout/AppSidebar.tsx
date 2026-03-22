@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAlerts } from "@/hooks/useAlerts";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +20,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { allAlerts, getHealthAlerts, getPaymentAlerts } from "@/data/alerts";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navItems = [
@@ -44,18 +44,18 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
   const { totalUnread } = useCoachChat();
   const { isSubCoach } = useAuth();
+  const { criticalCount, warningCount } = useAlerts();
 
   const filteredNavItems = useMemo(
     () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
     [isSubCoach]
   );
 
-  // Calculate alert counts
-  const alertCounts = useMemo(() => {
-    const critical = allAlerts.filter(a => a.level === "critical").length;
-    const warning = allAlerts.filter(a => a.level === "warning").length;
-    return { critical, warning, total: critical + warning };
-  }, []);
+  const alertCounts = useMemo(() => ({
+    critical: criticalCount,
+    warning: warningCount,
+    total: criticalCount + warningCount,
+  }), [criticalCount, warningCount]);
 
   return (
     <aside

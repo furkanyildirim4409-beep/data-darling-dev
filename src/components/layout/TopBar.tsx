@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, User, Settings, Clock, CreditCard, UserCheck, AlertCircle, Search } from "lucide-react";
+import { Bell, ChevronDown, LogOut, User, Settings, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAlerts } from "@/hooks/useAlerts";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -21,58 +22,16 @@ import { MobileNav } from "./MobileNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-// Mock notifications data
-const mockNotifications = [
-  {
-    id: 1,
-    message: "Ahmet programı tamamladı",
-    time: "2 dk önce",
-    icon: UserCheck,
-    type: "success",
-    read: false,
-  },
-  {
-    id: 2,
-    message: "Yeni ödeme alındı: ₺1,500",
-    time: "15 dk önce",
-    icon: CreditCard,
-    type: "success",
-    read: false,
-  },
-  {
-    id: 3,
-    message: "Selin check-in geciktirdi",
-    time: "32 dk önce",
-    icon: Clock,
-    type: "warning",
-    read: false,
-  },
-  {
-    id: 4,
-    message: "Mert'in risk skoru kritik seviyede",
-    time: "1 saat önce",
-    icon: AlertCircle,
-    type: "danger",
-    read: false,
-  },
-  {
-    id: 5,
-    message: "3 yeni sporcu kaydı tamamlandı",
-    time: "2 saat önce",
-    icon: UserCheck,
-    type: "info",
-    read: true,
-  },
-];
-
-function getNotificationStyles(type: string) {
+function getAlertTypeStyle(type: string) {
   switch (type) {
-    case "success":
-      return "text-success bg-success/10";
-    case "warning":
-      return "text-warning bg-warning/10";
-    case "danger":
+    case "health":
       return "text-destructive bg-destructive/10";
+    case "payment":
+      return "text-warning bg-warning/10";
+    case "program":
+      return "text-primary bg-primary/10";
+    case "checkin":
+      return "text-muted-foreground bg-muted";
     default:
       return "text-primary bg-primary/10";
   }
@@ -82,24 +41,26 @@ export function TopBar() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { profile, signOut } = useAuth();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { alerts, criticalCount, warningCount } = useAlerts();
   const [isOpen, setIsOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const topNotifications = useMemo(() => alerts.slice(0, 8), [alerts]);
+  const unreadCount = useMemo(
+    () => topNotifications.filter(n => !readIds.has(n.id as string)).length,
+    [topNotifications, readIds]
+  );
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      // Mark all as read when opening
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setReadIds(new Set(topNotifications.map(n => n.id as string)));
     }
   };
 
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  const markAsRead = (id: string) => {
+    setReadIds(prev => new Set(prev).add(id));
   };
 
   return (
@@ -172,12 +133,12 @@ export function TopBar() {
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-foreground">Bildirimler</h3>
-                {notifications.some(n => !n.read) && (
+                {unreadCount > 0 && (
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     className="text-xs text-primary hover:text-primary/80"
-                    onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                    onClick={() => setReadIds(new Set(topNotifications.map(n => n.id as string)))}
                   >
                     Tümünü okundu işaretle
                   </Button>
@@ -186,35 +147,45 @@ export function TopBar() {
             </div>
             
             <div className="max-h-80 overflow-y-auto">
-              {notifications.map((notification) => {
-                const Icon = notification.icon;
+              {topNotifications.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  Bildirim bulunmuyor
+                </div>
+              ) : topNotifications.map((notification) => {
+                const isRead = readIds.has(notification.id as string);
                 return (
                   <div
                     key={notification.id}
                     className={cn(
                       "flex items-start gap-3 p-4 border-b border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors",
-                      !notification.read && "bg-primary/5"
+                      !isRead && "bg-primary/5"
                     )}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => {
+                      markAsRead(notification.id as string);
+                      if (notification.athleteId) {
+                        setIsOpen(false);
+                        navigate(`/athletes/${notification.athleteId}`);
+                      }
+                    }}
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                      getNotificationStyles(notification.type)
+                      getAlertTypeStyle(notification.type)
                     )}>
-                      <Icon className="w-4 h-4" />
+                      <Bell className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         "text-sm text-foreground",
-                        !notification.read && "font-medium"
+                        !isRead && "font-medium"
                       )}>
-                        {notification.message}
+                        {notification.title}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {notification.time}
                       </p>
                     </div>
-                    {!notification.read && (
+                    {!isRead && (
                       <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
                     )}
                   </div>
