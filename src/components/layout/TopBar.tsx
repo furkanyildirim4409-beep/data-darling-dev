@@ -133,12 +133,12 @@ export function TopBar() {
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-foreground">Bildirimler</h3>
-                {notifications.some(n => !n.read) && (
+                {unreadCount > 0 && (
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     className="text-xs text-primary hover:text-primary/80"
-                    onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                    onClick={() => setReadIds(new Set(topNotifications.map(n => n.id as string)))}
                   >
                     Tümünü okundu işaretle
                   </Button>
@@ -147,35 +147,45 @@ export function TopBar() {
             </div>
             
             <div className="max-h-80 overflow-y-auto">
-              {notifications.map((notification) => {
-                const Icon = notification.icon;
+              {topNotifications.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  Bildirim bulunmuyor
+                </div>
+              ) : topNotifications.map((notification) => {
+                const isRead = readIds.has(notification.id as string);
                 return (
                   <div
                     key={notification.id}
                     className={cn(
                       "flex items-start gap-3 p-4 border-b border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors",
-                      !notification.read && "bg-primary/5"
+                      !isRead && "bg-primary/5"
                     )}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => {
+                      markAsRead(notification.id as string);
+                      if (notification.athleteId) {
+                        setIsOpen(false);
+                        navigate(`/athletes/${notification.athleteId}`);
+                      }
+                    }}
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                      getNotificationStyles(notification.type)
+                      getAlertTypeStyle(notification.type)
                     )}>
-                      <Icon className="w-4 h-4" />
+                      <Bell className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         "text-sm text-foreground",
-                        !notification.read && "font-medium"
+                        !isRead && "font-medium"
                       )}>
-                        {notification.message}
+                        {notification.title}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {notification.time}
                       </p>
                     </div>
-                    {!notification.read && (
+                    {!isRead && (
                       <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
                     )}
                   </div>
