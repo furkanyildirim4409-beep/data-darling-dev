@@ -62,17 +62,16 @@ export function useTeamChat() {
         role: m.role,
       }));
     } else {
-      const { data: headCoach } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .eq('id', activeCoachId)
-        .single();
+      // Use security definer RPC to bypass profiles RLS
+      const { data: headCoachInfo } = await supabase
+        .rpc('get_coach_info', { _coach_id: activeCoachId });
 
-      if (headCoach) {
+      if (headCoachInfo) {
+        const info = headCoachInfo as { full_name: string; avatar_url: string };
         contactProfiles.push({
-          id: headCoach.id,
-          name: headCoach.full_name || 'Baş Antrenör',
-          avatar: headCoach.avatar_url || '',
+          id: activeCoachId,
+          name: info.full_name || 'Baş Antrenör',
+          avatar: info.avatar_url || '',
           role: 'Baş Antrenör',
         });
       }
