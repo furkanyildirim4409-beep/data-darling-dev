@@ -156,13 +156,22 @@ export default function Team() {
             Personeli ve izinleri yönetin
           </p>
         </div>
-        <Button 
-          className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-          onClick={() => setAddMemberDialogOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Takım Üyesi Ekle
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setTemplatesDialogOpen(true)}
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Yetki Şablonları
+          </Button>
+          <Button 
+            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+            onClick={() => setAddMemberDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Takım Üyesi Ekle
+          </Button>
+        </div>
       </div>
 
       {/* Team Grid */}
