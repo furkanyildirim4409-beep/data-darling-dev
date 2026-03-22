@@ -409,6 +409,11 @@ export default function Team() {
           memberUserId={chatMember.userId}
         />
       )}
+
+      <PermissionTemplatesDialog
+        open={templatesDialogOpen}
+        onOpenChange={setTemplatesDialogOpen}
+      />
     </div>
   );
 }
