@@ -58,11 +58,13 @@ const ALL_TRUE: GranularPermissions = {
 };
 
 const ALL_FALSE: GranularPermissions = {
-  athletes: { view: true, edit: false, delete: false },   // view stays true so they can at least see the roster
+  athletes: { view: true, edit: false, delete: false },
   workouts: { view: true, create: false, edit: false, delete: false, assign: false },
   diets: { view: true, create: false, edit: false, delete: false, assign: false },
   finances: { view: false, manage: false },
   team: { view: true, invite: false, editPermissions: false },
+  store: { view: false, manage: false },
+  content: { view: false, manage: false },
 };
 
 const LIMITED: GranularPermissions = {
