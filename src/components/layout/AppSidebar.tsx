@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
+import { useTeamChat } from "@/hooks/useTeamChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlerts } from "@/hooks/useAlerts";
 import { NavLink, useLocation } from "react-router-dom";
