@@ -65,7 +65,7 @@ const actionColors: Record<string, string> = {
 };
 
 export default function Alerts() {
-  const { user } = useAuth();
+  const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
