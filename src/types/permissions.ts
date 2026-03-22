@@ -73,6 +73,8 @@ const LIMITED: GranularPermissions = {
   diets: { view: true, create: true, edit: true, delete: false, assign: true },
   finances: { view: false, manage: false },
   team: { view: true, invite: false, editPermissions: false },
+  store: { view: true, manage: false },
+  content: { view: true, manage: false },
 };
 
 /**
