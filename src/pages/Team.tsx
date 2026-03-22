@@ -110,20 +110,6 @@ export default function Team() {
     clearUnread(member.id);
   };
 
-  // Simulate incoming message (for demo - triggered randomly)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7 && teamMembers.length > 0) {
-        const randomMember = teamMembers[Math.floor(Math.random() * teamMembers.length)];
-        const memberPresence = getMemberPresence(randomMember.id);
-        if (memberPresence?.isOnline) {
-          simulateIncomingMessage(randomMember.id, randomMember.name);
-        }
-      }
-    }, 45000);
-
-    return () => clearInterval(interval);
-  }, [teamMembers, simulateIncomingMessage, getMemberPresence]);
 
   // Calculate stats
   const fullAccessCount = teamMembers.filter(m => m.permissions === "full").length;
