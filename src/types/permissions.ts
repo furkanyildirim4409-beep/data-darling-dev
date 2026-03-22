@@ -6,6 +6,8 @@ export interface GranularPermissions {
   diets: { view: boolean; create: boolean; edit: boolean; delete: boolean; assign: boolean };
   finances: { view: boolean; manage: boolean };
   team: { view: boolean; invite: boolean; editPermissions: boolean };
+  store: { view: boolean; manage: boolean };
+  content: { view: boolean; manage: boolean };
 }
 
 /** Flat boolean flags consumed by UI components */
