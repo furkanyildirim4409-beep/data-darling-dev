@@ -111,6 +111,7 @@ export function useActionStream() {
         .from("program_assignment_logs")
         .select("id, athlete_id, program_title, created_at, action")
         .eq("coach_id", coachId)
+        .in("athlete_id", athleteIds)
         .gte("created_at", threeDaysAgo)
         .order("created_at", { ascending: false })
         .limit(10),
