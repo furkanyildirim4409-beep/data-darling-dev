@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeamMember } from "@/components/team/MemberProfileDrawer";
 import { format } from "date-fns";
+import type { GranularPermissions } from "@/types/permissions";
+import type { Json } from "@/integrations/supabase/types";
 
 interface TeamMemberRow {
   id: string;
@@ -14,6 +16,7 @@ interface TeamMemberRow {
   phone: string | null;
   avatar_url: string | null;
   permissions: string;
+  custom_permissions: Json | null;
   status: string;
   athletes_count: number;
   start_date: string | null;
@@ -31,6 +34,7 @@ function mapRowToTeamMember(row: TeamMemberRow): TeamMember {
     phone: row.phone || "",
     avatar: row.avatar_url || "",
     permissions: row.permissions as "full" | "limited" | "read-only",
+    custom_permissions: row.custom_permissions as GranularPermissions | null,
     athletes: row.athletes_count,
     startDate: row.start_date
       ? format(new Date(row.start_date), "dd.MM.yyyy")
@@ -63,7 +67,7 @@ interface AddTeamMemberInput {
   role: string;
   permissions: "full" | "limited" | "read-only";
   phone?: string;
-  start_date?: string | null; // ISO date string
+  start_date?: string | null;
 }
 
 export function useAddTeamMember() {
@@ -102,6 +106,7 @@ interface UpdateTeamMemberInput {
   email?: string;
   role?: string;
   permissions?: "full" | "limited" | "read-only";
+  custom_permissions?: GranularPermissions | null;
   phone?: string;
   athletes_count?: number;
 }
@@ -111,9 +116,17 @@ export function useUpdateTeamMember() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: UpdateTeamMemberInput) => {
+      const payload: Record<string, unknown> = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+      // Cast custom_permissions to Json for Supabase
+      if ('custom_permissions' in updates) {
+        payload.custom_permissions = updates.custom_permissions as unknown as Json;
+      }
       const { data, error } = await supabase
         .from("team_members")
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(payload)
         .eq("id", id)
         .select()
         .single();

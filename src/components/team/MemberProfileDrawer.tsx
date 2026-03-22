@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -47,6 +46,12 @@ import {
   useTeamMemberAssignments,
   useUpdateTeamMemberAssignments,
 } from "@/hooks/useTeamAssignments";
+import { PermissionMatrix } from "@/components/team/PermissionMatrix";
+import { usePermissionTemplates } from "@/hooks/usePermissionTemplates";
+import {
+  getDefaultPermissions,
+  type GranularPermissions,
+} from "@/types/permissions";
 
 export interface TeamMember {
   id: string;
@@ -57,6 +62,7 @@ export interface TeamMember {
   phone: string;
   avatar: string;
   permissions: "full" | "limited" | "read-only";
+  custom_permissions?: GranularPermissions | null;
   athletes: number;
   startDate?: string;
 }
@@ -99,34 +105,7 @@ const getActionIcon = (type: string) => {
   }
 };
 
-const permissionItems = [
-  { id: "view_athletes", label: "Sporcuları Görüntüle", category: "Sporcular" },
-  { id: "edit_athletes", label: "Sporcu Düzenle", category: "Sporcular" },
-  { id: "delete_athletes", label: "Sporcu Sil", category: "Sporcular" },
-  { id: "view_programs", label: "Programları Görüntüle", category: "Programlar" },
-  { id: "create_programs", label: "Program Oluştur", category: "Programlar" },
-  { id: "assign_programs", label: "Program Ata", category: "Programlar" },
-  { id: "view_finance", label: "Finansı Görüntüle", category: "Finans" },
-  { id: "create_invoices", label: "Fatura Oluştur", category: "Finans" },
-  { id: "receive_payments", label: "Ödeme Al", category: "Finans" },
-  { id: "view_team", label: "Takımı Görüntüle", category: "Takım" },
-  { id: "invite_members", label: "Üye Davet Et", category: "Takım" },
-  { id: "edit_permissions", label: "Yetki Düzenle", category: "Takım" },
-];
-
-const getDefaultPermissions = (level: string): Record<string, boolean> => {
-  const base: Record<string, boolean> = {};
-  permissionItems.forEach(item => {
-    if (level === "full") {
-      base[item.id] = true;
-    } else if (level === "limited") {
-      base[item.id] = ["view_athletes", "edit_athletes", "view_programs", "create_programs", "view_team"].includes(item.id);
-    } else {
-      base[item.id] = item.id.startsWith("view_");
-    }
-  });
-  return base;
-};
+const CUSTOM_KEY = "__custom__";
 
 export function MemberProfileDrawer({ 
   open, 
@@ -138,7 +117,13 @@ export function MemberProfileDrawer({
   const updateMember = useUpdateTeamMember();
   const [editMode, setEditMode] = useState(false);
   const [editedMember, setEditedMember] = useState<TeamMember | null>(null);
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+
+  // Permission state
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [granularPermissions, setGranularPermissions] = useState<GranularPermissions>(
+    getDefaultPermissions("read-only")
+  );
+  const { templates } = usePermissionTemplates();
 
   // Assignment state
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
@@ -148,22 +133,29 @@ export function MemberProfileDrawer({
   const { data: assignedIds } = useTeamMemberAssignments(member?.id || "");
   const updateAssignments = useUpdateTeamMemberAssignments();
 
-  // Sync fetched assignments into local state
   useEffect(() => {
     if (assignedIds && open) {
       setSelectedAthleteIds(assignedIds);
     }
   }, [assignedIds, open]);
 
-  // Reset state when member changes
   useEffect(() => {
     if (member && open) {
       setEditedMember({ ...member });
-      setPermissions(getDefaultPermissions(member.permissions));
+      // Initialize granular permissions from custom_permissions or legacy tier
+      const initial = member.custom_permissions
+        ? member.custom_permissions
+        : getDefaultPermissions(member.permissions);
+      setGranularPermissions(initial);
+      // Try to match a template
+      const matchedTpl = templates?.find(
+        (t) => JSON.stringify(t.permissions) === JSON.stringify(initial)
+      );
+      setSelectedTemplateId(matchedTpl ? matchedTpl.id : CUSTOM_KEY);
       setEditMode(false);
       setSearchQuery("");
     }
-  }, [member, open]);
+  }, [member, open, templates]);
 
   if (!member) return null;
 
@@ -176,6 +168,14 @@ export function MemberProfileDrawer({
   const perm = permissionStyles[member.permissions];
   const auditLogs = generateAuditLogs(member.name);
 
+  const handleTemplateChange = (value: string) => {
+    setSelectedTemplateId(value);
+    if (value !== CUSTOM_KEY) {
+      const tpl = templates?.find((t) => t.id === value);
+      if (tpl) setGranularPermissions(tpl.permissions as GranularPermissions);
+    }
+  };
+
   const handleSave = async () => {
     if (!editedMember) return;
     try {
@@ -184,8 +184,8 @@ export function MemberProfileDrawer({
         full_name: editedMember.name,
         email: editedMember.email,
         role: editedMember.role,
-        permissions: editedMember.permissions,
         phone: editedMember.phone,
+        custom_permissions: granularPermissions,
       });
       toast({
         title: "Profil Güncellendi",
@@ -234,16 +234,6 @@ export function MemberProfileDrawer({
   const filteredAthletes = athletes.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const togglePermission = (id: string) => {
-    setPermissions(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const groupedPermissions = permissionItems.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, typeof permissionItems>);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -365,27 +355,6 @@ export function MemberProfileDrawer({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="permissions">Yetki Seviyesi</Label>
-                <Select 
-                  value={editMode ? editedMember?.permissions : member.permissions}
-                  onValueChange={(value: "full" | "limited" | "read-only") => {
-                    setEditedMember(prev => prev ? { ...prev, permissions: value } : null);
-                    setPermissions(getDefaultPermissions(value));
-                  }}
-                  disabled={!editMode}
-                >
-                  <SelectTrigger className="bg-background/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="full">Tam Erişim</SelectItem>
-                    <SelectItem value="limited">Sınırlı</SelectItem>
-                    <SelectItem value="read-only">Salt Okunur</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {/* Quick Stats */}
@@ -478,32 +447,57 @@ export function MemberProfileDrawer({
           </TabsContent>
 
           {/* Permissions Tab */}
-          <TabsContent value="permissions" className="flex-1 overflow-hidden mt-4">
-            <ScrollArea className="h-full pr-4">
-              <div className="space-y-6">
-                {Object.entries(groupedPermissions).map(([category, items]) => (
-                  <div key={category}>
-                    <h3 className="text-sm font-semibold text-foreground mb-3">{category}</h3>
-                    <div className="space-y-3">
-                      {items.map((item) => (
-                        <div 
-                          key={item.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border"
-                        >
-                          <Label htmlFor={item.id} className="text-sm cursor-pointer">
-                            {item.label}
-                          </Label>
-                          <Switch
-                            id={item.id}
-                            checked={permissions[item.id] || false}
-                            onCheckedChange={() => togglePermission(item.id)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <TabsContent value="permissions" className="flex-1 overflow-hidden mt-4 flex flex-col">
+            <div className="flex justify-end mb-4">
+              {editMode ? (
+                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
+                  <Save className="w-4 h-4 mr-1.5" />
+                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => {
+                  setEditedMember({ ...member });
+                  setEditMode(true);
+                }}>
+                  <Edit2 className="w-4 h-4 mr-1.5" />
+                  Düzenle
+                </Button>
+              )}
+            </div>
+
+            {/* Template Selector */}
+            <div className="grid gap-2 mb-4">
+              <Label>
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  Yetki Şablonu
+                </div>
+              </Label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={handleTemplateChange}
+                disabled={!editMode}
+              >
+                <SelectTrigger className="bg-background/50">
+                  <SelectValue placeholder="Şablon seçin..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {templates?.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={CUSTOM_KEY}>Özel Yetki</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <ScrollArea className="flex-1 pr-4">
+              <PermissionMatrix
+                value={granularPermissions}
+                onChange={setGranularPermissions}
+                disabled={!editMode || selectedTemplateId !== CUSTOM_KEY}
+              />
             </ScrollArea>
           </TabsContent>
 

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import type { GranularPermissions } from "@/types/permissions";
 
 interface CreateSubCoachInput {
   email: string;
@@ -8,10 +8,10 @@ interface CreateSubCoachInput {
   fullName: string;
   role: string;
   permissions: "full" | "limited" | "read-only";
+  custom_permissions?: GranularPermissions;
 }
 
 export function useCreateSubCoach() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -23,6 +23,7 @@ export function useCreateSubCoach() {
           fullName: input.fullName,
           role: input.role,
           permissions: input.permissions,
+          custom_permissions: input.custom_permissions || null,
         },
       });
 
