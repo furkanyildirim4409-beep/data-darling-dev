@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MemberProfileDrawer, TeamMember } from "@/components/team/MemberProfileDrawer";
 import { AddMemberDialog } from "@/components/team/AddMemberDialog";
 import { TeamChatDialog } from "@/components/team/TeamChatDialog";
+import { PermissionTemplatesDialog } from "@/components/team/PermissionTemplatesDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
@@ -67,6 +68,7 @@ export default function Team() {
   const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
   const [chatDialogOpen, setChatDialogOpen] = useState(false);
   const [chatMember, setChatMember] = useState<TeamMember | null>(null);
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
 
   // Presence tracking
   const memberIds = teamMembers.map(m => m.id);
@@ -154,13 +156,22 @@ export default function Team() {
             Personeli ve izinleri yönetin
           </p>
         </div>
-        <Button 
-          className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
-          onClick={() => setAddMemberDialogOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Takım Üyesi Ekle
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setTemplatesDialogOpen(true)}
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Yetki Şablonları
+          </Button>
+          <Button 
+            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+            onClick={() => setAddMemberDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Takım Üyesi Ekle
+          </Button>
+        </div>
       </div>
 
       {/* Team Grid */}
@@ -398,6 +409,11 @@ export default function Team() {
           memberUserId={chatMember.userId}
         />
       )}
+
+      <PermissionTemplatesDialog
+        open={templatesDialogOpen}
+        onOpenChange={setTemplatesDialogOpen}
+      />
     </div>
   );
 }
