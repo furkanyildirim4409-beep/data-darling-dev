@@ -1537,6 +1537,7 @@ export type Database = {
         Returns: Json
       }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
+      get_my_head_coach_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
