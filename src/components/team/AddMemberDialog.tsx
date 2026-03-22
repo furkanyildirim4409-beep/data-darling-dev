@@ -17,17 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, User, Mail, Briefcase } from "lucide-react";
-import { format } from "date-fns";
-import { tr } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { useAddTeamMember } from "@/hooks/useTeam";
+import { User, Mail, Briefcase, Lock } from "lucide-react";
+import { useCreateSubCoach } from "@/hooks/useCreateSubCoach";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddMemberDialogProps {
@@ -37,7 +28,7 @@ interface AddMemberDialogProps {
 
 const roles = [
   "Baş Antrenör",
-  "Yardımcı Antrenör", 
+  "Yardımcı Antrenör",
   "Diyetisyen",
   "Fizyoterapist",
   "Sporcu Koordinatörü",
@@ -53,49 +44,46 @@ const permissionLevels = [
 export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [permissions, setPermissions] = useState<"full" | "limited" | "read-only">("limited");
-  const [startDate, setStartDate] = useState<Date>();
-  const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const addMember = useAddTeamMember();
+  const createSubCoach = useCreateSubCoach();
   const { toast } = useToast();
 
   const handleSubmit = async () => {
-    if (!name || !email || !role || !startDate) return;
+    if (!name || !email || !role || !password || password.length < 6) return;
 
     try {
-      await addMember.mutateAsync({
-        full_name: name,
+      await createSubCoach.mutateAsync({
+        fullName: name,
         email,
+        password,
         role,
         permissions,
-        start_date: format(startDate, "yyyy-MM-dd"),
       });
 
       toast({
-        title: "Üye Eklendi",
-        description: `${name} takıma başarıyla eklendi.`,
+        title: "Hesap Oluşturuldu",
+        description: "Hesap başarıyla oluşturuldu. E-posta ve şifreyi asistanınızla paylaşın.",
       });
 
       onOpenChange(false);
-
-      // Reset form
       setName("");
       setEmail("");
+      setPassword("");
       setRole("");
       setPermissions("limited");
-      setStartDate(undefined);
     } catch (error: any) {
       toast({
         title: "Hata",
-        description: error.message || "Üye eklenirken bir hata oluştu.",
+        description: error.message || "Hesap oluşturulurken bir hata oluştu.",
         variant: "destructive",
       });
     }
   };
 
-  const isValid = name && email && role && startDate;
+  const isValid = name && email && role && password && password.length >= 6;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,10 +91,10 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />
-            Yeni Takım Üyesi
+            Yeni Hesap Oluştur
           </DialogTitle>
           <DialogDescription>
-            Takıma yeni bir üye ekleyin. Tüm alanları doldurun.
+            Takıma yeni bir asistan hesabı oluşturun. Tüm alanları doldurun.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,6 +130,26 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
             </div>
           </div>
 
+          {/* Password */}
+          <div className="grid gap-2">
+            <Label htmlFor="member-password">Geçici Şifre</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="member-password"
+                type="password"
+                placeholder="Min. 6 karakter"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-9 bg-background/50"
+                minLength={6}
+              />
+            </div>
+            {password && password.length < 6 && (
+              <p className="text-xs text-destructive">Şifre en az 6 karakter olmalıdır.</p>
+            )}
+          </div>
+
           {/* Role */}
           <div className="grid gap-2">
             <Label htmlFor="member-role">Rol</Label>
@@ -165,8 +173,8 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
           {/* Permission Level */}
           <div className="grid gap-2">
             <Label htmlFor="member-permissions">Yetki Seviyesi</Label>
-            <Select 
-              value={permissions} 
+            <Select
+              value={permissions}
               onValueChange={(v: "full" | "limited" | "read-only") => setPermissions(v)}
             >
               <SelectTrigger className="bg-background/50">
@@ -181,37 +189,6 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Start Date */}
-          <div className="grid gap-2">
-            <Label>Başlangıç Tarihi</Label>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal bg-background/50",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP", { locale: tr }) : "Tarih seçin..."}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => {
-                    setStartDate(date);
-                    setCalendarOpen(false);
-                  }}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
 
         <DialogFooter>
@@ -220,10 +197,10 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isValid || addMember.isPending}
+            disabled={!isValid || createSubCoach.isPending}
             className="bg-primary text-primary-foreground"
           >
-            {addMember.isPending ? "Ekleniyor..." : "Üye Ekle"}
+            {createSubCoach.isPending ? "Oluşturuluyor..." : "Hesap Oluştur"}
           </Button>
         </DialogFooter>
       </DialogContent>
