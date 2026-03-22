@@ -17,9 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Mail, Briefcase, Lock } from "lucide-react";
+import { User, Mail, Briefcase, Lock, Shield } from "lucide-react";
 import { useCreateSubCoach } from "@/hooks/useCreateSubCoach";
+import { usePermissionTemplates } from "@/hooks/usePermissionTemplates";
 import { useToast } from "@/hooks/use-toast";
+import { PermissionMatrix } from "@/components/team/PermissionMatrix";
+import { getDefaultPermissions, type GranularPermissions } from "@/types/permissions";
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -35,24 +38,41 @@ const roles = [
   "İdari Personel",
 ];
 
-const permissionLevels = [
-  { value: "full", label: "Tam Erişim" },
-  { value: "limited", label: "Sınırlı Erişim" },
-  { value: "read-only", label: "Salt Okunur" },
-];
+const CUSTOM_KEY = "__custom__";
 
 export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
-  const [permissions, setPermissions] = useState<"full" | "limited" | "read-only">("limited");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [customPermissions, setCustomPermissions] = useState<GranularPermissions>(
+    getDefaultPermissions("read-only")
+  );
 
   const createSubCoach = useCreateSubCoach();
+  const { data: templates } = usePermissionTemplates();
   const { toast } = useToast();
 
+  const isCustom = selectedTemplateId === CUSTOM_KEY;
+
+  const resolvePermissions = (): GranularPermissions => {
+    if (isCustom) return customPermissions;
+    const tpl = templates?.find((t) => t.id === selectedTemplateId);
+    if (tpl) return tpl.permissions as GranularPermissions;
+    return getDefaultPermissions("limited");
+  };
+
+  const handleTemplateChange = (value: string) => {
+    setSelectedTemplateId(value);
+    if (value !== CUSTOM_KEY) {
+      const tpl = templates?.find((t) => t.id === value);
+      if (tpl) setCustomPermissions(tpl.permissions as GranularPermissions);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!name || !email || !role || !password || password.length < 6) return;
+    if (!name || !email || !role || !password || password.length < 6 || !selectedTemplateId) return;
 
     try {
       await createSubCoach.mutateAsync({
@@ -60,7 +80,8 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
         email,
         password,
         role,
-        permissions,
+        permissions: "limited",
+        custom_permissions: resolvePermissions(),
       });
 
       toast({
@@ -73,7 +94,8 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       setEmail("");
       setPassword("");
       setRole("");
-      setPermissions("limited");
+      setSelectedTemplateId("");
+      setCustomPermissions(getDefaultPermissions("read-only"));
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -83,11 +105,11 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
     }
   };
 
-  const isValid = name && email && role && password && password.length >= 6;
+  const isValid = name && email && role && password && password.length >= 6 && selectedTemplateId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border sm:max-w-[425px]">
+      <DialogContent className="bg-card border-border sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />
@@ -170,25 +192,35 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
             </Select>
           </div>
 
-          {/* Permission Level */}
+          {/* Permission Template */}
           <div className="grid gap-2">
-            <Label htmlFor="member-permissions">Yetki Seviyesi</Label>
-            <Select
-              value={permissions}
-              onValueChange={(v: "full" | "limited" | "read-only") => setPermissions(v)}
-            >
+            <Label>
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Yetki Şablonu
+              </div>
+            </Label>
+            <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
               <SelectTrigger className="bg-background/50">
-                <SelectValue />
+                <SelectValue placeholder="Şablon seçin..." />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
-                {permissionLevels.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
+                {templates?.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
                   </SelectItem>
                 ))}
+                <SelectItem value={CUSTOM_KEY}>Özel Yetki</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Custom Permission Matrix */}
+          {isCustom && (
+            <div className="pt-2">
+              <PermissionMatrix value={customPermissions} onChange={setCustomPermissions} />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

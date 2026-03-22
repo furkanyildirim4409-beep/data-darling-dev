@@ -19,7 +19,6 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify calling user is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -44,7 +43,7 @@ Deno.serve(async (req) => {
 
     const headCoachId = claimsData.claims.sub as string;
 
-    const { email, password, fullName, role, permissions } = await req.json();
+    const { email, password, fullName, role, permissions, custom_permissions } = await req.json();
 
     if (!email || !password || !fullName || !role) {
       return new Response(
@@ -60,7 +59,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Create auth user via admin API (bypasses session override)
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -75,7 +73,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Insert team_members linkage with user_id already set
     const { error: teamError } = await adminClient.from("team_members").insert({
       head_coach_id: headCoachId,
       user_id: newUser.user.id,
@@ -83,6 +80,7 @@ Deno.serve(async (req) => {
       full_name: fullName,
       role: role,
       permissions: permissions || "limited",
+      custom_permissions: custom_permissions || null,
       status: "active",
     });
 
