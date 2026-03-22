@@ -1,28 +1,30 @@
 
 
-## `rir_per_set` Synchronization Bug — Part 2 of 2
+## Wire TeamChatDialog to Real Supabase Backend
 
-### Discovery
+### Problem
+`TeamChatDialog.tsx` uses hardcoded mock messages. `TeamMember.id` maps to `team_members.id` (row ID), not `user_id` (auth ID), which is what `useTeamChat` needs. The `TeamMember` interface lacks a `user_id` field entirely.
 
-The existing code **already handles the fallback correctly** on both fronts:
+### Changes
 
-**Line 162 — Display fallback:**
-```typescript
-const val = exercise.rirPerSet?.[i] ?? exercise.rir ?? 2;
-```
-The `?.` optional chaining on `rirPerSet` already returns `undefined` when the array is `null`, causing the `??` to fall back to `exercise.rir`. This is exactly the desired behavior.
+**1. Add `user_id` to `TeamMember` interface and mapping** (`MemberProfileDrawer.tsx` + `useTeam.ts`)
+- Add `userId?: string | null` to the `TeamMember` interface
+- Map `row.user_id` to `userId` in `mapRowToTeamMember`
 
-**Line 177 — Edit reconstruction:**
-```typescript
-const newArray = [...(exercise.rirPerSet || Array(exercise.sets).fill(exercise.rir ?? 2))];
-```
-When `rirPerSet` is `null`/`undefined`, it reconstructs the full array using `exercise.rir` as the fill value for all untouched sets, then applies the edited value at index `i`.
+**2. Rewrite `TeamChatDialog.tsx`**
+- Change props: accept `memberUserId?: string | null` instead of just name/initials/role
+- Import and use the `useTeamChat` hook
+- On dialog open (`useEffect` on `open + memberUserId`): call `selectContact(memberUserId)` if valid
+- Guard: if `memberUserId` is null/undefined, show disabled placeholder: "Bu kullanıcının henüz aktif bir hesabı yok."
+- Render messages from the hook's `messages` array, mapping `sender_id === user.id` to "me" vs "other"
+- Wire input to `sendMessage(content)` from the hook
+- Add auto-scroll via `useRef` + `useEffect` on messages length
+- Show loading skeleton when `isLoadingMessages` is true
+- Remove all mock data and local message state
 
-### Conclusion
+**3. Update `Team.tsx` call site**
+- Pass `memberUserId={chatMember.userId}` to `TeamChatDialog`
 
-**No code changes are required.** The `SortableExerciseItem.tsx` component already gracefully handles `null` `rirPerSet` by:
-1. Falling back to `exercise.rir` (then `2`) for display
-2. Reconstructing the array from `exercise.rir` when a coach edits any individual set
-
-The Part 1 engine fix (nullifying `rir_per_set` on mutation) will flow cleanly through the existing UI logic without any visual or data inconsistencies.
+**4. Remove fake notification simulation**
+- Delete the `setInterval` in `Team.tsx` that calls `simulateIncomingMessage` — the real `useTeamChat` hook handles unread counts via realtime now
 
