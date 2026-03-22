@@ -53,6 +53,8 @@ const ALL_TRUE: GranularPermissions = {
   diets: { view: true, create: true, edit: true, delete: true, assign: true },
   finances: { view: true, manage: true },
   team: { view: true, invite: true, editPermissions: true },
+  store: { view: true, manage: true },
+  content: { view: true, manage: true },
 };
 
 const ALL_FALSE: GranularPermissions = {
