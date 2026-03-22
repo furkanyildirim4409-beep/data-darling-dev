@@ -121,6 +121,12 @@ export function flattenPermissions(g: GranularPermissions): FlatPermissions {
     canViewTeam: g.team?.view ?? true,
     canInviteMembers: g.team?.invite ?? false,
     canEditPermissions: g.team?.editPermissions ?? false,
+
+    canViewStore: g.store?.view ?? false,
+    canManageStore: g.store?.manage ?? false,
+
+    canViewContent: g.content?.view ?? false,
+    canManageContent: g.content?.manage ?? false,
   };
 }
 

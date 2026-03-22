@@ -71,6 +71,24 @@ const MODULES: ModuleConfig[] = [
       { key: 'editPermissions', label: 'Yetki Düzenleme' },
     ],
   },
+  {
+    key: 'store',
+    label: 'Mağaza',
+    icon: ShoppingBag,
+    fields: [
+      { key: 'view', label: 'Görüntüleme' },
+      { key: 'manage', label: 'Yönetim' },
+    ],
+  },
+  {
+    key: 'content',
+    label: 'İçerik Stüdyosu',
+    icon: Palette,
+    fields: [
+      { key: 'view', label: 'Görüntüleme' },
+      { key: 'manage', label: 'Yönetim' },
+    ],
+  },
 ];
 
 export function PermissionMatrix({ value, onChange, disabled = false }: PermissionMatrixProps) {
