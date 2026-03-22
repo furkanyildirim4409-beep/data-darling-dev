@@ -409,6 +409,7 @@ export default function Team() {
           memberName={chatMember.name}
           memberInitials={chatMember.name.split(" ").map(n => n[0]).join("").toUpperCase()}
           memberRole={chatMember.role}
+          memberUserId={chatMember.userId}
         />
       )}
     </div>
