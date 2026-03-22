@@ -946,6 +946,38 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_templates: {
+        Row: {
+          created_at: string
+          head_coach_id: string
+          id: string
+          name: string
+          permissions: Json
+        }
+        Insert: {
+          created_at?: string
+          head_coach_id: string
+          id?: string
+          name: string
+          permissions?: Json
+        }
+        Update: {
+          created_at?: string
+          head_coach_id?: string
+          id?: string
+          name?: string
+          permissions?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_templates_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active_program_id: string | null
@@ -1294,6 +1326,7 @@ export type Database = {
           athletes_count: number
           avatar_url: string | null
           created_at: string
+          custom_permissions: Json | null
           email: string
           full_name: string
           head_coach_id: string
@@ -1310,6 +1343,7 @@ export type Database = {
           athletes_count?: number
           avatar_url?: string | null
           created_at?: string
+          custom_permissions?: Json | null
           email: string
           full_name: string
           head_coach_id: string
@@ -1326,6 +1360,7 @@ export type Database = {
           athletes_count?: number
           avatar_url?: string | null
           created_at?: string
+          custom_permissions?: Json | null
           email?: string
           full_name?: string
           head_coach_id?: string

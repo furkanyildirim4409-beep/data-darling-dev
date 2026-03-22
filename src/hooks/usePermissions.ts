@@ -1,44 +1,30 @@
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  type GranularPermissions,
+  type FlatPermissions,
+  getDefaultPermissions,
+  flattenPermissions,
+  fullAccessPermissions,
+} from '@/types/permissions';
 
-export interface Permissions {
-  canEditAthletes: boolean;
-  canDeleteAthletes: boolean;
-  canCreatePrograms: boolean;
-  canAssignPrograms: boolean;
-  canManageFinances: boolean;
-}
+// Re-export FlatPermissions as Permissions for backward compatibility
+export type Permissions = FlatPermissions;
 
 export function usePermissions(): Permissions {
-  const { isSubCoach, teamMemberPermissions } = useAuth();
+  const { isSubCoach, teamMember, teamMemberPermissions } = useAuth();
 
-  // Head coach or full-access sub-coach: everything allowed
-  if (!isSubCoach || teamMemberPermissions === 'full') {
-    return {
-      canEditAthletes: true,
-      canDeleteAthletes: true,
-      canCreatePrograms: true,
-      canAssignPrograms: true,
-      canManageFinances: true,
-    };
+  // Head coach or not a sub-coach → unrestricted
+  if (!isSubCoach) {
+    return fullAccessPermissions();
   }
 
-  // Read-only: nothing allowed
-  if (teamMemberPermissions === 'read-only') {
-    return {
-      canEditAthletes: false,
-      canDeleteAthletes: false,
-      canCreatePrograms: false,
-      canAssignPrograms: false,
-      canManageFinances: false,
-    };
+  // Sub-coach with JSONB custom_permissions → use granular engine
+  const custom: GranularPermissions | null = teamMember?.custom_permissions ?? null;
+  if (custom) {
+    return flattenPermissions(custom);
   }
 
-  // Limited: can edit/assign but not delete or manage finances
-  return {
-    canEditAthletes: true,
-    canDeleteAthletes: false,
-    canCreatePrograms: true,
-    canAssignPrograms: true,
-    canManageFinances: false,
-  };
+  // Legacy fallback: map old 3-tier string to granular then flatten
+  const tier = (teamMemberPermissions as 'full' | 'limited' | 'read-only') ?? 'read-only';
+  return flattenPermissions(getDefaultPermissions(tier));
 }
