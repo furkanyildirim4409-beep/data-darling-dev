@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
+import { useTeamChat } from "@/hooks/useTeamChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlerts } from "@/hooks/useAlerts";
 import { NavLink, useLocation } from "react-router-dom";
@@ -42,7 +43,9 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
-  const { totalUnread } = useCoachChat();
+  const { totalUnread: athleteUnread } = useCoachChat();
+  const { totalUnread: teamUnread } = useTeamChat();
+  const totalUnread = athleteUnread + teamUnread;
   const { isSubCoach } = useAuth();
   const { criticalCount, warningCount } = useAlerts();
 
