@@ -123,7 +123,7 @@ export function MemberProfileDrawer({
   const [granularPermissions, setGranularPermissions] = useState<GranularPermissions>(
     getDefaultPermissions("read-only")
   );
-  const { templates } = usePermissionTemplates();
+  const { data: templates } = usePermissionTemplates();
 
   // Assignment state
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);

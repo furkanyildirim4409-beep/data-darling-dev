@@ -51,7 +51,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   );
 
   const createSubCoach = useCreateSubCoach();
-  const { templates } = usePermissionTemplates();
+  const { data: templates } = usePermissionTemplates();
   const { toast } = useToast();
 
   const isCustom = selectedTemplateId === CUSTOM_KEY;
