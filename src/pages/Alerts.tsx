@@ -102,12 +102,35 @@ export default function Alerts() {
   const fetchAiInterventions = useCallback(async () => {
     if (!user) return;
     setAiLoading(true);
-    const { data } = await supabase
+
+    // Assignment scoping for restricted sub-coaches
+    let assignedIds: string[] | null = null;
+    if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      const { data: assignmentData } = await supabase
+        .from('team_member_athletes')
+        .select('athlete_id')
+        .eq('team_member_id', teamMember.id);
+
+      if (!assignmentData || assignmentData.length === 0) {
+        setAiInterventions([]);
+        setAiLoading(false);
+        return;
+      }
+      assignedIds = assignmentData.map(a => a.athlete_id);
+    }
+
+    let query = supabase
       .from("ai_weekly_analyses")
       .select("id, athlete_id, athlete_name, severity, title, analysis, actions, created_at")
       .eq("resolved", false)
       .in("severity", ["high", "medium"])
       .order("created_at", { ascending: false });
+
+    if (assignedIds) {
+      query = query.in("athlete_id", assignedIds);
+    }
+
+    const { data } = await query;
 
     const items = (data || []).map((row: any) => ({
       ...row,
@@ -116,7 +139,7 @@ export default function Alerts() {
 
     setAiInterventions(items);
     setAiLoading(false);
-  }, [user]);
+  }, [user, isSubCoach, teamMember, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAiInterventions();
