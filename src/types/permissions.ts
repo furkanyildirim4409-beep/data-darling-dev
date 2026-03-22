@@ -35,6 +35,12 @@ export interface FlatPermissions {
   canViewTeam: boolean;
   canInviteMembers: boolean;
   canEditPermissions: boolean;
+  // Store
+  canViewStore: boolean;
+  canManageStore: boolean;
+  // Content
+  canViewContent: boolean;
+  canManageContent: boolean;
 }
 
 // ---------------------------------------------------------------------------
