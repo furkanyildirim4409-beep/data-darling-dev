@@ -50,6 +50,7 @@ import {
 
 export interface TeamMember {
   id: string;
+  userId?: string | null;
   name: string;
   role: string;
   email: string;

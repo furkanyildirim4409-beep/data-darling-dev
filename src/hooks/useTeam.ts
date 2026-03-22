@@ -24,6 +24,7 @@ interface TeamMemberRow {
 function mapRowToTeamMember(row: TeamMemberRow): TeamMember {
   return {
     id: row.id,
+    userId: row.user_id,
     name: row.full_name,
     role: row.role,
     email: row.email,
