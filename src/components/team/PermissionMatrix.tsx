@@ -1,4 +1,4 @@
-import { Users, Dumbbell, Apple, DollarSign, Shield } from 'lucide-react';
+import { Users, Dumbbell, Apple, DollarSign, Shield, ShoppingBag, Palette } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
