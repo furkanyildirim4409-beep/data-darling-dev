@@ -68,6 +68,7 @@ export default function Team() {
   const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
   const [chatDialogOpen, setChatDialogOpen] = useState(false);
   const [chatMember, setChatMember] = useState<TeamMember | null>(null);
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
 
   // Presence tracking
   const memberIds = teamMembers.map(m => m.id);
