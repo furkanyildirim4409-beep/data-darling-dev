@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MemberProfileDrawer, TeamMember } from "@/components/team/MemberProfileDrawer";
 import { AddMemberDialog } from "@/components/team/AddMemberDialog";
 import { TeamChatDialog } from "@/components/team/TeamChatDialog";
+import { PermissionTemplatesDialog } from "@/components/team/PermissionTemplatesDialog";
 import { useTeamPresence } from "@/hooks/useTeamPresence";
 import { PresenceIndicator } from "@/components/team/PresenceIndicator";
 import { NotificationBadge } from "@/components/team/NotificationBadge";
