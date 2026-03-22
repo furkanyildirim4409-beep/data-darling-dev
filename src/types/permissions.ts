@@ -6,6 +6,8 @@ export interface GranularPermissions {
   diets: { view: boolean; create: boolean; edit: boolean; delete: boolean; assign: boolean };
   finances: { view: boolean; manage: boolean };
   team: { view: boolean; invite: boolean; editPermissions: boolean };
+  store: { view: boolean; manage: boolean };
+  content: { view: boolean; manage: boolean };
 }
 
 /** Flat boolean flags consumed by UI components */
@@ -33,6 +35,12 @@ export interface FlatPermissions {
   canViewTeam: boolean;
   canInviteMembers: boolean;
   canEditPermissions: boolean;
+  // Store
+  canViewStore: boolean;
+  canManageStore: boolean;
+  // Content
+  canViewContent: boolean;
+  canManageContent: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,14 +53,18 @@ const ALL_TRUE: GranularPermissions = {
   diets: { view: true, create: true, edit: true, delete: true, assign: true },
   finances: { view: true, manage: true },
   team: { view: true, invite: true, editPermissions: true },
+  store: { view: true, manage: true },
+  content: { view: true, manage: true },
 };
 
 const ALL_FALSE: GranularPermissions = {
-  athletes: { view: true, edit: false, delete: false },   // view stays true so they can at least see the roster
+  athletes: { view: true, edit: false, delete: false },
   workouts: { view: true, create: false, edit: false, delete: false, assign: false },
   diets: { view: true, create: false, edit: false, delete: false, assign: false },
   finances: { view: false, manage: false },
   team: { view: true, invite: false, editPermissions: false },
+  store: { view: false, manage: false },
+  content: { view: false, manage: false },
 };
 
 const LIMITED: GranularPermissions = {
@@ -61,6 +73,8 @@ const LIMITED: GranularPermissions = {
   diets: { view: true, create: true, edit: true, delete: false, assign: true },
   finances: { view: false, manage: false },
   team: { view: true, invite: false, editPermissions: false },
+  store: { view: true, manage: false },
+  content: { view: true, manage: false },
 };
 
 /**
@@ -107,6 +121,12 @@ export function flattenPermissions(g: GranularPermissions): FlatPermissions {
     canViewTeam: g.team?.view ?? true,
     canInviteMembers: g.team?.invite ?? false,
     canEditPermissions: g.team?.editPermissions ?? false,
+
+    canViewStore: g.store?.view ?? false,
+    canManageStore: g.store?.manage ?? false,
+
+    canViewContent: g.content?.view ?? false,
+    canManageContent: g.content?.manage ?? false,
   };
 }
 
