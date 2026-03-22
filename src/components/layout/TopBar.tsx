@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, User, Settings, Clock, CreditCard, UserCheck, AlertCircle, Search } from "lucide-react";
+import { Bell, ChevronDown, LogOut, User, Settings, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAlerts } from "@/hooks/useAlerts";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -21,58 +22,16 @@ import { MobileNav } from "./MobileNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-// Mock notifications data
-const mockNotifications = [
-  {
-    id: 1,
-    message: "Ahmet programı tamamladı",
-    time: "2 dk önce",
-    icon: UserCheck,
-    type: "success",
-    read: false,
-  },
-  {
-    id: 2,
-    message: "Yeni ödeme alındı: ₺1,500",
-    time: "15 dk önce",
-    icon: CreditCard,
-    type: "success",
-    read: false,
-  },
-  {
-    id: 3,
-    message: "Selin check-in geciktirdi",
-    time: "32 dk önce",
-    icon: Clock,
-    type: "warning",
-    read: false,
-  },
-  {
-    id: 4,
-    message: "Mert'in risk skoru kritik seviyede",
-    time: "1 saat önce",
-    icon: AlertCircle,
-    type: "danger",
-    read: false,
-  },
-  {
-    id: 5,
-    message: "3 yeni sporcu kaydı tamamlandı",
-    time: "2 saat önce",
-    icon: UserCheck,
-    type: "info",
-    read: true,
-  },
-];
-
-function getNotificationStyles(type: string) {
+function getAlertTypeStyle(type: string) {
   switch (type) {
-    case "success":
-      return "text-success bg-success/10";
-    case "warning":
-      return "text-warning bg-warning/10";
-    case "danger":
+    case "health":
       return "text-destructive bg-destructive/10";
+    case "payment":
+      return "text-warning bg-warning/10";
+    case "program":
+      return "text-primary bg-primary/10";
+    case "checkin":
+      return "text-muted-foreground bg-muted";
     default:
       return "text-primary bg-primary/10";
   }
@@ -82,24 +41,26 @@ export function TopBar() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { profile, signOut } = useAuth();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { alerts, criticalCount, warningCount } = useAlerts();
   const [isOpen, setIsOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const topNotifications = useMemo(() => alerts.slice(0, 8), [alerts]);
+  const unreadCount = useMemo(
+    () => topNotifications.filter(n => !readIds.has(n.id as string)).length,
+    [topNotifications, readIds]
+  );
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      // Mark all as read when opening
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setReadIds(new Set(topNotifications.map(n => n.id as string)));
     }
   };
 
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  const markAsRead = (id: string) => {
+    setReadIds(prev => new Set(prev).add(id));
   };
 
   return (
