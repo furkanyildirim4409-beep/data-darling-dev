@@ -41,6 +41,17 @@ const mutateReps = (reps: string | null, pct: number): string | null => {
     .join("-");
 };
 
+/** Parse and scale a serving_size string like "100 g" → "130 g" at +30% */
+const mutateServingSize = (size: string | null, pct: number): string | null => {
+  if (!size) return size;
+  const match = size.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+  if (!match) return size; // unparseable like "1 avuç" — preserve
+  const num = parseFloat(match[1]);
+  const unit = match[2]; // "g", "ml", "adet", etc.
+  const scaledNum = Math.max(1, Math.round(num * (1 + pct / 100)));
+  return `${scaledNum}${unit ? ' ' + unit.trim() : ''}`;
+};
+
 /**
  * Deep-clone & mutate the athlete's active PROGRAM.
  * Hierarchy: programs → exercises (direct FK via program_id)
@@ -253,7 +264,7 @@ async function forkAndMutateNutrition(
   // Step A: Fetch active diet template from nutrition_targets
   const { data: target } = await supabase
     .from("nutrition_targets")
-    .select("id, active_diet_template_id")
+    .select("id, active_diet_template_id, daily_calories, protein_g, carbs_g, fat_g")
     .eq("athlete_id", athleteId)
     .eq("coach_id", coachId)
     .maybeSingle();
@@ -317,7 +328,7 @@ async function forkAndMutateNutrition(
         template_id: newTemplateId,
         meal_type: f.meal_type,
         food_name: f.food_name,
-        serving_size: f.serving_size,
+        serving_size: mutateServingSize(f.serving_size, mutationPercentage),
         day_number: f.day_number,
         calories: f.calories ? applyMutation(f.calories, mutationPercentage) : f.calories,
         protein: f.protein ? applyMutation(Number(f.protein), mutationPercentage) : f.protein,
@@ -346,6 +357,19 @@ async function forkAndMutateNutrition(
     } else {
       console.log(`[ActionEngine] Başarı: nutrition_targets güncellendi → ${newTemplateId}`);
     }
+
+    // Step E1: Scale daily macro targets in nutrition_targets
+    const { error: macroScaleErr } = await supabase
+      .from("nutrition_targets")
+      .update({
+        daily_calories: applyMutation(target.daily_calories || 0, mutationPercentage),
+        protein_g: applyMutation(target.protein_g || 0, mutationPercentage),
+        carbs_g: applyMutation(target.carbs_g || 0, mutationPercentage),
+        fat_g: applyMutation(target.fat_g || 0, mutationPercentage),
+      } as any)
+      .eq("id", target.id);
+
+    if (macroScaleErr) console.warn(`[ActionEngine] nutrition_targets makro ölçekleme hatası: ${macroScaleErr.message}`);
 
     // Step E2: Sync athlete_diet_assignments if any exist
     const { data: updatedDietAssignments, error: dietAssignErr } = await supabase

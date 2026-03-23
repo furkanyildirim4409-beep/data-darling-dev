@@ -474,6 +474,7 @@ export type Database = {
           mood: number | null
           notes: string | null
           sleep: number | null
+          sleep_hours: number | null
           soreness: number | null
           stress: number | null
           user_id: string
@@ -485,6 +486,7 @@ export type Database = {
           mood?: number | null
           notes?: string | null
           sleep?: number | null
+          sleep_hours?: number | null
           soreness?: number | null
           stress?: number | null
           user_id: string
@@ -496,6 +498,7 @@ export type Database = {
           mood?: number | null
           notes?: string | null
           sleep?: number | null
+          sleep_hours?: number | null
           soreness?: number | null
           stress?: number | null
           user_id?: string
@@ -765,6 +768,7 @@ export type Database = {
           coach_id: string
           created_at: string
           id: string
+          is_acknowledged: boolean
           message: string
           metadata: Json | null
           module_type: string
@@ -775,6 +779,7 @@ export type Database = {
           coach_id: string
           created_at?: string
           id?: string
+          is_acknowledged?: boolean
           message: string
           metadata?: Json | null
           module_type: string
@@ -785,6 +790,7 @@ export type Database = {
           coach_id?: string
           created_at?: string
           id?: string
+          is_acknowledged?: boolean
           message?: string
           metadata?: Json | null
           module_type?: string
