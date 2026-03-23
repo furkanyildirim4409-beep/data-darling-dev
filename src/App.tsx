@@ -44,6 +44,11 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/force-password-reset" element={
+                <ProtectedRoute>
+                  <ForcePasswordReset />
+                </ProtectedRoute>
+              } />
               <Route
                 element={
                   <ProtectedRoute allowedRoles={['coach']}>
