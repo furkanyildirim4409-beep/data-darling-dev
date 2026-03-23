@@ -47,26 +47,28 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Öne Çıkanlar</h3>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsTemplateBuilderOpen(true)}
-              className="border-primary/30 text-primary hover:bg-primary/10"
-            >
-              <Wand2 className="w-3 h-3 mr-1.5" />
-              Şablon Editörü
-            </Button>
-            <Button
-              variant={editMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEditMode(!editMode)}
-              className={cn(editMode && "bg-primary text-primary-foreground")}
-            >
-              <Edit2 className="w-3 h-3 mr-1.5" />
-              Düzenle
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTemplateBuilderOpen(true)}
+                className="border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <Wand2 className="w-3 h-3 mr-1.5" />
+                Şablon Editörü
+              </Button>
+              <Button
+                variant={editMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEditMode(!editMode)}
+                className={cn(editMode && "bg-primary text-primary-foreground")}
+              >
+                <Edit2 className="w-3 h-3 mr-1.5" />
+                Düzenle
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Large Add Story Button */}
