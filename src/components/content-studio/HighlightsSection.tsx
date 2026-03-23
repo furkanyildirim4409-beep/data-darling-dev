@@ -171,7 +171,6 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
                   </Button>
                 </div>
               )}
-              </div>
             </div>
           </div>
         )}
