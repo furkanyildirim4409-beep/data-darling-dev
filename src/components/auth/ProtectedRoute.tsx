@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -8,6 +8,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading, role } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -21,6 +22,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!user) { return <Navigate to="/login" replace />; }
+
+  if (user?.user_metadata?.needs_password_reset === true && location.pathname !== '/force-password-reset') {
+    return <Navigate to="/force-password-reset" replace />;
+  }
 
   if (allowedRoles && allowedRoles.length > 0) {
     if (!role || !allowedRoles.includes(role)) {

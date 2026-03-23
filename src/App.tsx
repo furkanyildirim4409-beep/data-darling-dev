@@ -22,6 +22,7 @@ import Performance from "./pages/Performance";
 import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForcePasswordReset from "./pages/ForcePasswordReset";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,11 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/force-password-reset" element={
+                <ProtectedRoute>
+                  <ForcePasswordReset />
+                </ProtectedRoute>
+              } />
               <Route
                 element={
                   <ProtectedRoute allowedRoles={['coach']}>
