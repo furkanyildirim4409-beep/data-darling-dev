@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useTeamChat } from "@/hooks/useTeamChat";
-import { useAuth } from "@/contexts/AuthContext";
 import { useAlerts } from "@/hooks/useAlerts";
+import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -28,12 +28,12 @@ const navItems = [
   { path: "/athletes", label: "Sporcular", icon: Users },
   { path: "/programs", label: "Program Mimarı", icon: ClipboardList },
   { path: "/alerts", label: "Hızlı Müdahale", icon: Zap, showBadge: true },
-  { path: "/business", label: "İş Yönetimi", icon: Briefcase, adminOnly: true },
-  { path: "/store", label: "Mağaza", icon: ShoppingBag, adminOnly: true },
-  { path: "/content", label: "İçerik Stüdyosu", icon: Palette, adminOnly: true },
+  { path: "/business", label: "İş Yönetimi", icon: Briefcase, permissionKey: "canViewFinances" as keyof Permissions },
+  { path: "/store", label: "Mağaza", icon: ShoppingBag, permissionKey: "canViewStore" as keyof Permissions },
+  { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },
   { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
-  { path: "/team", label: "Takım", icon: UserCog, adminOnly: true },
-  { path: "/settings", label: "Ayarlar", icon: Settings, adminOnly: true },
+  { path: "/team", label: "Takım", icon: UserCog, permissionKey: "canViewTeam" as keyof Permissions },
+  { path: "/settings", label: "Ayarlar", icon: Settings, permissionKey: "canViewTeam" as keyof Permissions },
 ];
 
 interface AppSidebarProps {
@@ -46,12 +46,12 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { totalUnread: athleteUnread } = useCoachChat();
   const { totalUnread: teamUnread } = useTeamChat();
   const totalUnread = athleteUnread + teamUnread;
-  const { isSubCoach } = useAuth();
+  const permissions = usePermissions();
   const { criticalCount, warningCount } = useAlerts();
 
   const filteredNavItems = useMemo(
-    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
-    [isSubCoach]
+    () => navItems.filter(item => !item.permissionKey || permissions[item.permissionKey]),
+    [permissions]
   );
 
   const alertCounts = useMemo(() => ({
