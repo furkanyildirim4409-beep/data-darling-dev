@@ -11,7 +11,11 @@ import { cn } from "@/lib/utils";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toast } from "@/hooks/use-toast";
 
-export function ProfileSettings() {
+interface ProfileSettingsProps {
+  canManage?: boolean;
+}
+
+export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
   const [instagramConnected, setInstagramConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const { profile, updateProfile } = useProfile();
