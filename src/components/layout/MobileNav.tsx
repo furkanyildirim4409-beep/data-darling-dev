@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
-import { useAuth } from "@/contexts/AuthContext";
 import { useAlerts } from "@/hooks/useAlerts";
+import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
