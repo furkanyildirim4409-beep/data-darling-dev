@@ -105,6 +105,7 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
           onChange={(e) => setTitle(e.target.value)}
           className="mt-1.5 bg-background/50"
           placeholder="örn: Profesyonel Fitness Koçu"
+          disabled={!canManage}
         />
       </div>
 
