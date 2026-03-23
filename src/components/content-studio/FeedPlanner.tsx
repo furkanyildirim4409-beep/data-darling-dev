@@ -122,33 +122,35 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
       </Badge>
 
       {/* More Button - Dropdown Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button 
-            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 z-10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="w-3 h-3 text-white" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-card border-border">
-          <DropdownMenuItem 
-            className="cursor-pointer"
-            onClick={() => onEdit(post)}
-          >
-            <Edit2 className="w-4 h-4 mr-2" />
-            Düzenle
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            className="cursor-pointer text-destructive focus:text-destructive"
-            onClick={() => onDelete(post.id)}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Sil
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canManage && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="w-3 h-3 text-white" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-card border-border">
+            <DropdownMenuItem 
+              className="cursor-pointer"
+              onClick={() => onEdit(post)}
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Düzenle
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={() => onDelete(post.id)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Sil
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
