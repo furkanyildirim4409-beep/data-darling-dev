@@ -72,14 +72,16 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         </div>
 
         {/* Large Add Story Button */}
-        <Button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="w-full mb-4 h-12 bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 text-primary hover:bg-primary/30 hover:text-primary-foreground transition-all group"
-          variant="outline"
-        >
-          <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-          <span className="font-semibold">Yeni Hikaye Ekle</span>
-        </Button>
+        {canManage && (
+          <Button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="w-full mb-4 h-12 bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 text-primary hover:bg-primary/30 hover:text-primary-foreground transition-all group"
+            variant="outline"
+          >
+            <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+            <span className="font-semibold">Yeni Hikaye Ekle</span>
+          </Button>
+        )}
 
         {/* Highlights Row */}
         <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-thin">
