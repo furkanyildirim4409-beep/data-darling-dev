@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import CommandCenter from "./pages/CommandCenter";
 import Athletes from "./pages/Athletes";
 import AthleteDetail from "./pages/AthleteDetail";
@@ -25,9 +26,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { isSubCoach } = useAuth();
-  return isSubCoach ? <Navigate to="/" replace /> : <>{children}</>;
+function PermissionRoute({ children, permissionKey }: { children: React.ReactNode; permissionKey: keyof Permissions }) {
+  const permissions = usePermissions();
+  if (!permissions[permissionKey]) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 const App = () => (
