@@ -235,19 +235,21 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
       </div>
 
       {/* Save Button */}
-      <Button onClick={handleSave} disabled={isSaving} className="w-full bg-primary text-primary-foreground">
-        {isSaving ? (
-          <>
-            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            Kaydediliyor...
-          </>
-        ) : (
-          <>
-            <Save className="w-4 h-4 mr-2" />
-            Değişiklikleri Kaydet
-          </>
-        )}
-      </Button>
+      {canManage && (
+        <Button onClick={handleSave} disabled={isSaving} className="w-full bg-primary text-primary-foreground">
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Kaydediliyor...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Değişiklikleri Kaydet
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

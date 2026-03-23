@@ -154,20 +154,23 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
                   {highlights.find((h) => h.id === selectedId)?.count} hikaye
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setIsUploadModalOpen(true);
-                  }}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Hikaye Ekle
-                </Button>
-                <Button variant="ghost" size="sm" className="text-destructive">
-                  Sil
-                </Button>
+              {canManage && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setIsUploadModalOpen(true);
+                    }}
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Hikaye Ekle
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive">
+                    Sil
+                  </Button>
+                </div>
+              )}
               </div>
             </div>
           </div>

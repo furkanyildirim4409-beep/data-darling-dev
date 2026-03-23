@@ -326,6 +326,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
                 post={post} 
                 onEdit={handleEditPost}
                 onDelete={(id) => setDeletePostId(id)}
+                canManage={canManage}
               />
             ))}
           </div>

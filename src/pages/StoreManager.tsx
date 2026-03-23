@@ -287,7 +287,17 @@ export default function StoreManager() {
                 {isCreatingNew ? "Yeni Ürün Oluştur" : selectedProduct ? "Ürünü Düzenle" : "Ürün Editörü"}
               </h2>
               <ScrollArea className="h-[calc(100vh-340px)]">
-                {(selectedProduct || isCreatingNew) ? (
+                {!canManageStore ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <ShieldAlert className="w-12 h-12 mb-4 opacity-50 text-warning" />
+                    <p className="text-sm text-center font-medium">
+                      Bu modülü düzenleme yetkiniz yok
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Yönetici ile iletişime geçin
+                    </p>
+                  </div>
+                ) : (selectedProduct || isCreatingNew) ? (
                   <ProductEditor 
                     productType={productType} 
                     onProductChange={handleProductChange}
