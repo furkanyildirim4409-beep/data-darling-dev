@@ -21,7 +21,11 @@ const defaultHighlights: Highlight[] = [
   { id: "5", name: "Motivasyon", icon: <Heart className="w-5 h-5" />, color: "from-destructive to-destructive/50", count: 31 },
 ];
 
-export function HighlightsSection() {
+interface HighlightsSectionProps {
+  canManage?: boolean;
+}
+
+export function HighlightsSection({ canManage = true }: HighlightsSectionProps) {
   const [highlights, setHighlights] = useState<Highlight[]>(defaultHighlights);
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
