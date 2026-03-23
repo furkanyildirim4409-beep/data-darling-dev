@@ -358,6 +358,19 @@ async function forkAndMutateNutrition(
       console.log(`[ActionEngine] Başarı: nutrition_targets güncellendi → ${newTemplateId}`);
     }
 
+    // Step E1: Scale daily macro targets in nutrition_targets
+    const { error: macroScaleErr } = await supabase
+      .from("nutrition_targets")
+      .update({
+        daily_calories: applyMutation(target.daily_calories || 0, mutationPercentage),
+        protein_g: applyMutation(target.protein_g || 0, mutationPercentage),
+        carbs_g: applyMutation(target.carbs_g || 0, mutationPercentage),
+        fat_g: applyMutation(target.fat_g || 0, mutationPercentage),
+      } as any)
+      .eq("id", target.id);
+
+    if (macroScaleErr) console.warn(`[ActionEngine] nutrition_targets makro ölçekleme hatası: ${macroScaleErr.message}`);
+
     // Step E2: Sync athlete_diet_assignments if any exist
     const { data: updatedDietAssignments, error: dietAssignErr } = await supabase
       .from("athlete_diet_assignments")
