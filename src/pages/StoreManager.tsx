@@ -274,6 +274,7 @@ export default function StoreManager() {
                   onDeleteProduct={handleDeleteProduct}
                   onOpenDetail={handleOpenDetail}
                   filterType={productType}
+                  readOnly={!canManageStore}
                 />
               </ScrollArea>
             </div>
