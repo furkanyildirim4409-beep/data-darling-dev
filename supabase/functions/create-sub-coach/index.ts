@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName, role: "coach" },
+      user_metadata: { full_name: fullName, role: "coach", needs_password_reset: true },
     });
 
     if (createError) {

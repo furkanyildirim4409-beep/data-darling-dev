@@ -22,6 +22,7 @@ import Performance from "./pages/Performance";
 import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForcePasswordReset from "./pages/ForcePasswordReset";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
