@@ -86,17 +86,19 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         {/* Highlights Row */}
         <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-thin">
           {/* Add New Button */}
-          <button 
-            onClick={() => setIsUploadModalOpen(true)}
-            className="flex flex-col items-center gap-2 shrink-0 group"
-          >
-            <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/50 flex items-center justify-center bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all group-hover:scale-105 glow-lime">
-              <Plus className="w-6 h-6 text-primary" />
-            </div>
-            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
-              Yeni Ekle
-            </span>
-          </button>
+          {canManage && (
+            <button 
+              onClick={() => setIsUploadModalOpen(true)}
+              className="flex flex-col items-center gap-2 shrink-0 group"
+            >
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/50 flex items-center justify-center bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all group-hover:scale-105 glow-lime">
+                <Plus className="w-6 h-6 text-primary" />
+              </div>
+              <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                Yeni Ekle
+              </span>
+            </button>
+          )}
 
           {/* Existing Highlights */}
           {highlights.map((highlight) => (
