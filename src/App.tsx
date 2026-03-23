@@ -55,11 +55,11 @@ const App = () => (
                 <Route path="/athletes/:id" element={<AthleteDetail />} />
                 <Route path="/programs" element={<Programs />} />
                 <Route path="/alerts" element={<Alerts />} />
-                <Route path="/business" element={<AdminRoute><Business /></AdminRoute>} />
-                <Route path="/store" element={<AdminRoute><StoreManager /></AdminRoute>} />
-                <Route path="/content" element={<AdminRoute><ContentStudio /></AdminRoute>} />
-                <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
-                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="/business" element={<PermissionRoute permissionKey="canViewFinances"><Business /></PermissionRoute>} />
+                <Route path="/store" element={<PermissionRoute permissionKey="canViewStore"><StoreManager /></PermissionRoute>} />
+                <Route path="/content" element={<PermissionRoute permissionKey="canViewContent"><ContentStudio /></PermissionRoute>} />
+                <Route path="/team" element={<PermissionRoute permissionKey="canViewTeam"><Team /></PermissionRoute>} />
+                <Route path="/settings" element={<PermissionRoute permissionKey="canViewTeam"><Settings /></PermissionRoute>} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/messages" element={<Messages />} />
               </Route>

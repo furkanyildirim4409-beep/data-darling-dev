@@ -46,12 +46,12 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { totalUnread: athleteUnread } = useCoachChat();
   const { totalUnread: teamUnread } = useTeamChat();
   const totalUnread = athleteUnread + teamUnread;
-  const { isSubCoach } = useAuth();
+  const permissions = usePermissions();
   const { criticalCount, warningCount } = useAlerts();
 
   const filteredNavItems = useMemo(
-    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
-    [isSubCoach]
+    () => navItems.filter(item => !item.permissionKey || permissions[item.permissionKey]),
+    [permissions]
   );
 
   const alertCounts = useMemo(() => ({

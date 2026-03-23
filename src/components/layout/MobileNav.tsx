@@ -49,12 +49,12 @@ export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { totalUnread } = useCoachChat();
-  const { isSubCoach } = useAuth();
+  const permissions = usePermissions();
   const { criticalCount, warningCount } = useAlerts();
 
   const filteredNavItems = useMemo(
-    () => navItems.filter(item => !(isSubCoach && (item as any).adminOnly)),
-    [isSubCoach]
+    () => navItems.filter(item => !item.permissionKey || permissions[item.permissionKey]),
+    [permissions]
   );
 
   const alertCounts = useMemo(() => ({
