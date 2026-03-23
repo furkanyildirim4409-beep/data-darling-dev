@@ -155,7 +155,11 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
   );
 }
 
-export function FeedPlanner() {
+interface FeedPlannerProps {
+  canManage?: boolean;
+}
+
+export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [posts, setPosts] = useState<Post[]>(mockPosts);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
