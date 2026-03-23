@@ -264,7 +264,7 @@ async function forkAndMutateNutrition(
   // Step A: Fetch active diet template from nutrition_targets
   const { data: target } = await supabase
     .from("nutrition_targets")
-    .select("id, active_diet_template_id")
+    .select("id, active_diet_template_id, daily_calories, protein_g, carbs_g, fat_g")
     .eq("athlete_id", athleteId)
     .eq("coach_id", coachId)
     .maybeSingle();
