@@ -62,8 +62,9 @@ interface SortablePostProps {
   canManage?: boolean;
 }
 
-function SortablePost({ post, onEdit, onDelete }: SortablePostProps) {
+function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePostProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    disabled: !canManage,
     id: post.id,
   });
 
