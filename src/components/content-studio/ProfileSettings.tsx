@@ -121,6 +121,7 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
           className="mt-1.5 bg-background/50 resize-none"
           rows={3}
           placeholder="Kendinizi tanıtın..."
+          disabled={!canManage}
         />
         <p className="text-xs text-muted-foreground mt-1 text-right">{bio.length}/150</p>
       </div>
