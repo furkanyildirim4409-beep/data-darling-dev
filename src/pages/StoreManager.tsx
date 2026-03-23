@@ -7,8 +7,9 @@ import { ProductList, StoreProduct } from "@/components/store-manager/ProductLis
 import { ProductDetailDialog } from "@/components/store-manager/ProductDetailDialog";
 import { MobilePreview } from "@/components/store-manager/MobilePreview";
 import { SalesChart } from "@/components/store-manager/SalesChart";
-import { BookOpen, Package, UserCheck, Plus } from "lucide-react";
+import { BookOpen, Package, UserCheck, Plus, ShieldAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Mock products data
 const mockProducts: StoreProduct[] = [
