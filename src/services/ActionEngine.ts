@@ -328,7 +328,7 @@ async function forkAndMutateNutrition(
         template_id: newTemplateId,
         meal_type: f.meal_type,
         food_name: f.food_name,
-        serving_size: f.serving_size,
+        serving_size: mutateServingSize(f.serving_size, mutationPercentage),
         day_number: f.day_number,
         calories: f.calories ? applyMutation(f.calories, mutationPercentage) : f.calories,
         protein: f.protein ? applyMutation(Number(f.protein), mutationPercentage) : f.protein,
