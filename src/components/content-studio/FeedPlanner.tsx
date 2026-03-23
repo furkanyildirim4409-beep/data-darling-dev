@@ -252,12 +252,14 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         </div>
 
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Yeni Gönderi
-            </Button>
-          </DialogTrigger>
+          {canManage && (
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-primary text-primary-foreground">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Yeni Gönderi
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="glass border-border">
             <DialogHeader>
               <DialogTitle>Yeni Gönderi Oluştur</DialogTitle>
