@@ -59,6 +59,7 @@ interface SortablePostProps {
   post: Post;
   onEdit: (post: Post) => void;
   onDelete: (postId: string) => void;
+  canManage?: boolean;
 }
 
 function SortablePost({ post, onEdit, onDelete }: SortablePostProps) {
