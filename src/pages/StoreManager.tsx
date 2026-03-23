@@ -252,10 +252,12 @@ export default function StoreManager() {
             </TabsTrigger>
           </TabsList>
 
-          <Button onClick={handleNewProduct} className="bg-primary text-primary-foreground">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Yeni Ürün Ekle
-          </Button>
+          {canManageStore && (
+            <Button onClick={handleNewProduct} className="bg-primary text-primary-foreground">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Yeni Ürün Ekle
+            </Button>
+          )}
         </div>
 
         {/* Main Content Grid */}
