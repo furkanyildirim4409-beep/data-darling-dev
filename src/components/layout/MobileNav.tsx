@@ -33,12 +33,12 @@ const navItems = [
   { path: "/athletes", label: "Sporcular", icon: Users },
   { path: "/programs", label: "Program Mimarı", icon: ClipboardList },
   { path: "/alerts", label: "Hızlı Müdahale", icon: Zap, showBadge: true },
-  { path: "/business", label: "İş Yönetimi", icon: Briefcase, adminOnly: true },
-  { path: "/store", label: "Mağaza", icon: ShoppingBag, adminOnly: true },
-  { path: "/content", label: "İçerik Stüdyosu", icon: Palette, adminOnly: true },
+  { path: "/business", label: "İş Yönetimi", icon: Briefcase, permissionKey: "canViewFinances" as keyof Permissions },
+  { path: "/store", label: "Mağaza", icon: ShoppingBag, permissionKey: "canViewStore" as keyof Permissions },
+  { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },
   { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
-  { path: "/team", label: "Takım", icon: UserCog, adminOnly: true },
-  { path: "/settings", label: "Ayarlar", icon: Settings, adminOnly: true },
+  { path: "/team", label: "Takım", icon: UserCog, permissionKey: "canViewTeam" as keyof Permissions },
+  { path: "/settings", label: "Ayarlar", icon: Settings, permissionKey: "canViewTeam" as keyof Permissions },
 ];
 
 interface MobileNavProps {
