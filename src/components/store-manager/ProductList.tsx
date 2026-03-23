@@ -23,6 +23,7 @@ interface ProductListProps {
   onDeleteProduct: (id: string) => void;
   onOpenDetail?: (product: StoreProduct) => void;
   filterType: "digital" | "physical" | "service";
+  readOnly?: boolean;
 }
 
 const typeIcons = {
