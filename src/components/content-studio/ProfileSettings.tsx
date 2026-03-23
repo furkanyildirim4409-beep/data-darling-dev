@@ -175,53 +175,55 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
       </div>
 
       {/* Instagram Connect */}
-      <div className="space-y-3">
-        <Label className="text-xs text-muted-foreground">Sosyal Medya Bağlantısı</Label>
-        {instagramConnected ? (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 border border-pink-500/20">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center">
-                <Instagram className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">@{profile.username.replace("@", "")}</span>
-                  <CheckCircle2 className="w-4 h-4 text-success" />
+      {canManage && (
+        <div className="space-y-3">
+          <Label className="text-xs text-muted-foreground">Sosyal Medya Bağlantısı</Label>
+          {instagramConnected ? (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 border border-pink-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center">
+                  <Instagram className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-xs text-muted-foreground">Bağlı</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">@{profile.username.replace("@", "")}</span>
+                    <CheckCircle2 className="w-4 h-4 text-success" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Bağlı</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleInstagramDisconnect}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Kaldır
+              </Button>
             </div>
+          ) : (
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleInstagramDisconnect}
-              className="text-xs text-muted-foreground hover:text-destructive"
+              variant="outline"
+              onClick={handleInstagramConnect}
+              disabled={isConnecting}
+              className="w-full h-12 border-dashed border-2 hover:border-pink-500/50 hover:bg-pink-500/5 transition-all"
             >
-              Kaldır
+              {isConnecting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Bağlanıyor...
+                </>
+              ) : (
+                <>
+                  <Instagram className="w-5 h-5 mr-2 text-pink-500" />
+                  <span>Instagram Bağla</span>
+                  <Link2 className="w-4 h-4 ml-2 text-muted-foreground" />
+                </>
+              )}
             </Button>
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            onClick={handleInstagramConnect}
-            disabled={isConnecting}
-            className="w-full h-12 border-dashed border-2 hover:border-pink-500/50 hover:bg-pink-500/5 transition-all"
-          >
-            {isConnecting ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Bağlanıyor...
-              </>
-            ) : (
-              <>
-                <Instagram className="w-5 h-5 mr-2 text-pink-500" />
-                <span>Instagram Bağla</span>
-                <Link2 className="w-4 h-4 ml-2 text-muted-foreground" />
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Verified Badge */}
       <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
