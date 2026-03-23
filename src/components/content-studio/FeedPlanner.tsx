@@ -59,10 +59,12 @@ interface SortablePostProps {
   post: Post;
   onEdit: (post: Post) => void;
   onDelete: (postId: string) => void;
+  canManage?: boolean;
 }
 
-function SortablePost({ post, onEdit, onDelete }: SortablePostProps) {
+function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePostProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    disabled: !canManage,
     id: post.id,
   });
 
@@ -82,7 +84,7 @@ function SortablePost({ post, onEdit, onDelete }: SortablePostProps) {
     >
       {/* Drag Handle Area */}
       <div 
-        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        className={cn("absolute inset-0", canManage ? "cursor-grab active:cursor-grabbing" : "cursor-default")}
         {...attributes}
         {...listeners}
       >
@@ -120,38 +122,44 @@ function SortablePost({ post, onEdit, onDelete }: SortablePostProps) {
       </Badge>
 
       {/* More Button - Dropdown Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button 
-            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 z-10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="w-3 h-3 text-white" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-card border-border">
-          <DropdownMenuItem 
-            className="cursor-pointer"
-            onClick={() => onEdit(post)}
-          >
-            <Edit2 className="w-4 h-4 mr-2" />
-            Düzenle
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            className="cursor-pointer text-destructive focus:text-destructive"
-            onClick={() => onDelete(post.id)}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Sil
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canManage && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="w-3 h-3 text-white" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-card border-border">
+            <DropdownMenuItem 
+              className="cursor-pointer"
+              onClick={() => onEdit(post)}
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Düzenle
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={() => onDelete(post.id)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Sil
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
 
-export function FeedPlanner() {
+interface FeedPlannerProps {
+  canManage?: boolean;
+}
+
+export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [posts, setPosts] = useState<Post[]>(mockPosts);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -244,12 +252,14 @@ export function FeedPlanner() {
         </div>
 
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Yeni Gönderi
-            </Button>
-          </DialogTrigger>
+          {canManage && (
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-primary text-primary-foreground">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Yeni Gönderi
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="glass border-border">
             <DialogHeader>
               <DialogTitle>Yeni Gönderi Oluştur</DialogTitle>
@@ -316,6 +326,7 @@ export function FeedPlanner() {
                 post={post} 
                 onEdit={handleEditPost}
                 onDelete={(id) => setDeletePostId(id)}
+                canManage={canManage}
               />
             ))}
           </div>

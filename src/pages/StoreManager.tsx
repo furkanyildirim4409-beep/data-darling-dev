@@ -7,8 +7,9 @@ import { ProductList, StoreProduct } from "@/components/store-manager/ProductLis
 import { ProductDetailDialog } from "@/components/store-manager/ProductDetailDialog";
 import { MobilePreview } from "@/components/store-manager/MobilePreview";
 import { SalesChart } from "@/components/store-manager/SalesChart";
-import { BookOpen, Package, UserCheck, Plus } from "lucide-react";
+import { BookOpen, Package, UserCheck, Plus, ShieldAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Mock products data
 const mockProducts: StoreProduct[] = [
@@ -107,6 +108,7 @@ const defaultProduct: ProductData = {
 };
 
 export default function StoreManager() {
+  const { canManageStore } = usePermissions();
   const [productType, setProductType] = useState<"digital" | "physical" | "service">("service");
   const [products, setProducts] = useState<StoreProduct[]>(mockProducts);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
@@ -250,10 +252,12 @@ export default function StoreManager() {
             </TabsTrigger>
           </TabsList>
 
-          <Button onClick={handleNewProduct} className="bg-primary text-primary-foreground">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Yeni Ürün Ekle
-          </Button>
+          {canManageStore && (
+            <Button onClick={handleNewProduct} className="bg-primary text-primary-foreground">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Yeni Ürün Ekle
+            </Button>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -270,6 +274,7 @@ export default function StoreManager() {
                   onDeleteProduct={handleDeleteProduct}
                   onOpenDetail={handleOpenDetail}
                   filterType={productType}
+                  readOnly={!canManageStore}
                 />
               </ScrollArea>
             </div>
@@ -282,7 +287,17 @@ export default function StoreManager() {
                 {isCreatingNew ? "Yeni Ürün Oluştur" : selectedProduct ? "Ürünü Düzenle" : "Ürün Editörü"}
               </h2>
               <ScrollArea className="h-[calc(100vh-340px)]">
-                {(selectedProduct || isCreatingNew) ? (
+                {!canManageStore ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <ShieldAlert className="w-12 h-12 mb-4 opacity-50 text-warning" />
+                    <p className="text-sm text-center font-medium">
+                      Bu modülü düzenleme yetkiniz yok
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Yönetici ile iletişime geçin
+                    </p>
+                  </div>
+                ) : (selectedProduct || isCreatingNew) ? (
                   <ProductEditor 
                     productType={productType} 
                     onProductChange={handleProductChange}
