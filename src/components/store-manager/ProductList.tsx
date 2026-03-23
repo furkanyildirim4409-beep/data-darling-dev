@@ -44,7 +44,8 @@ export function ProductList({
   onSelectProduct, 
   onDeleteProduct,
   onOpenDetail,
-  filterType 
+  filterType,
+  readOnly = false,
 }: ProductListProps) {
   const filteredProducts = products.filter((p) => p.type === filterType);
 
