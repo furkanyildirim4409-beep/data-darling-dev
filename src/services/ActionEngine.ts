@@ -41,6 +41,17 @@ const mutateReps = (reps: string | null, pct: number): string | null => {
     .join("-");
 };
 
+/** Parse and scale a serving_size string like "100 g" → "130 g" at +30% */
+const mutateServingSize = (size: string | null, pct: number): string | null => {
+  if (!size) return size;
+  const match = size.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+  if (!match) return size; // unparseable like "1 avuç" — preserve
+  const num = parseFloat(match[1]);
+  const unit = match[2]; // "g", "ml", "adet", etc.
+  const scaledNum = Math.max(1, Math.round(num * (1 + pct / 100)));
+  return `${scaledNum}${unit ? ' ' + unit.trim() : ''}`;
+};
+
 /**
  * Deep-clone & mutate the athlete's active PROGRAM.
  * Hierarchy: programs → exercises (direct FK via program_id)
