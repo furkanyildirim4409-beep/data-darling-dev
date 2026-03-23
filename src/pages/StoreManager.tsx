@@ -108,6 +108,7 @@ const defaultProduct: ProductData = {
 };
 
 export default function StoreManager() {
+  const { canManageStore } = usePermissions();
   const [productType, setProductType] = useState<"digital" | "physical" | "service">("service");
   const [products, setProducts] = useState<StoreProduct[]>(mockProducts);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
