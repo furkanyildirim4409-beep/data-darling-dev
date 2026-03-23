@@ -84,7 +84,7 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
     >
       {/* Drag Handle Area */}
       <div 
-        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        className={cn("absolute inset-0", canManage ? "cursor-grab active:cursor-grabbing" : "cursor-default")}
         {...attributes}
         {...listeners}
       >
