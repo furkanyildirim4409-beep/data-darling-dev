@@ -4,7 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, Play, Pause } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2 } from "lucide-react";
+import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { ChatAthlete, ChatMessage } from "@/hooks/useCoachChat";
@@ -24,36 +25,6 @@ interface ActiveChatProps {
   showBackButton?: boolean;
 }
 
-function MiniAudioPlayer({ src }: { src: string }) {
-  const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const toggle = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(src);
-      audioRef.current.onended = () => setPlaying(false);
-    }
-    if (playing) {
-      audioRef.current.pause();
-      setPlaying(false);
-    } else {
-      audioRef.current.play();
-      setPlaying(true);
-    }
-  };
-
-  return (
-    <button onClick={toggle} className="flex items-center gap-2 py-1">
-      {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-      <span className="text-xs">Ses kaydı</span>
-      <div className="flex gap-0.5">
-        {[...Array(12)].map((_, i) => (
-          <div key={i} className="w-0.5 rounded-full bg-current opacity-60" style={{ height: `${6 + Math.random() * 10}px` }} />
-        ))}
-      </div>
-    </button>
-  );
-}
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
@@ -227,7 +198,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                           </a>
                         )}
                         {msg.media_type === 'audio' && msg.media_url && (
-                          <MiniAudioPlayer src={msg.media_url} />
+                          <CustomAudioPlayer src={msg.media_url} />
                         )}
                         {/* Text content (skip placeholder text for media-only messages) */}
                         {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Send, ImagePlus, Mic, Square, Loader2, Bell, BellOff, Play, Pause } from "lucide-react";
+import { X, Send, ImagePlus, Mic, Square, Loader2, Bell, BellOff } from "lucide-react";
+import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,19 +16,6 @@ interface QuickChatPopoverProps {
   onClose: () => void;
 }
 
-function MiniAudioPlayer({ src }: { src: string }) {
-  const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const toggle = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(src);
-      audioRef.current.onended = () => setPlaying(false);
-    }
-    if (playing) {
-      audioRef.current.pause();
-      setPlaying(false);
-    } else {
       audioRef.current.play();
       setPlaying(true);
     }
@@ -365,7 +353,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
                     </a>
                   )}
                   {msg.media_type === 'audio' && msg.media_url && (
-                    <MiniAudioPlayer src={msg.media_url} />
+                    <CustomAudioPlayer src={msg.media_url} />
                   )}
                   {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (
                     <span>{msg.content}</span>
