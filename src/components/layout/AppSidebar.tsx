@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Palette,
   MessageCircle,
+  Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,6 +29,7 @@ const navItems = [
   { path: "/athletes", label: "Sporcular", icon: Users },
   { path: "/programs", label: "Program Mimarı", icon: ClipboardList },
   { path: "/alerts", label: "Hızlı Müdahale", icon: Zap, showBadge: true },
+  { path: "/disputes", label: "Yüce Divan", icon: Scale },
   { path: "/business", label: "İş Yönetimi", icon: Briefcase, permissionKey: "canViewFinances" as keyof Permissions },
   { path: "/store", label: "Mağaza", icon: ShoppingBag, permissionKey: "canViewStore" as keyof Permissions },
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },

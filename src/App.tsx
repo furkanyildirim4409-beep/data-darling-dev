@@ -20,6 +20,7 @@ import StoreManager from "./pages/StoreManager";
 import ContentStudio from "./pages/ContentStudio";
 import Performance from "./pages/Performance";
 import Messages from "./pages/Messages";
+import Disputes from "./pages/Disputes";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForcePasswordReset from "./pages/ForcePasswordReset";
@@ -68,6 +69,7 @@ const App = () => (
                 <Route path="/settings" element={<PermissionRoute permissionKey="canViewTeam"><Settings /></PermissionRoute>} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/messages" element={<Messages />} />
+                <Route path="/disputes" element={<Disputes />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
