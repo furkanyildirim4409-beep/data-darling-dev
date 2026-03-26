@@ -16,18 +16,7 @@ interface QuickChatPopoverProps {
   onClose: () => void;
 }
 
-      audioRef.current.play();
-      setPlaying(true);
-    }
-  };
 
-  return (
-    <button onClick={toggle} className="flex items-center gap-2 py-1">
-      {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-      <span className="text-xs">Ses kaydı</span>
-    </button>
-  );
-}
 
 export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const [input, setInput] = useState("");
