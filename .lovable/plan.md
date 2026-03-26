@@ -1,30 +1,31 @@
 
 
-## Wire TeamChatDialog to Real Supabase Backend
+## Audio Player UI & Bugfix Sync — Plan
 
-### Problem
-`TeamChatDialog.tsx` uses hardcoded mock messages. `TeamMember.id` maps to `team_members.id` (row ID), not `user_id` (auth ID), which is what `useTeamChat` needs. The `TeamMember` interface lacks a `user_id` field entirely.
+### Overview
+
+Replace the basic `MiniAudioPlayer` (play/pause + static waveform) with a premium `CustomAudioPlayer` (progress bar, seek, timestamps) across all 3 chat surfaces, and fix the ChatWidget's missing audio rendering.
+
+### Current State
+
+- **`MiniAudioPlayer`** is defined inline in both `ActiveChat.tsx` and `QuickChatPopover.tsx` — basic toggle with fake waveform bars, no progress/seek
+- **`ChatWidget.tsx`** renders images but has NO audio playback at all (missing audio case)
+- **`useMediaUpload.ts`** already correctly passes `'audio'` type for recordings — the media_type bug does NOT exist in this codebase (recordings go through `uploadFile(blob, 'webm', 'audio')` directly)
 
 ### Changes
 
-**1. Add `user_id` to `TeamMember` interface and mapping** (`MemberProfileDrawer.tsx` + `useTeam.ts`)
-- Add `userId?: string | null` to the `TeamMember` interface
-- Map `row.user_id` to `userId` in `mapRowToTeamMember`
+| File | Change |
+|------|--------|
+| `src/components/ui/CustomAudioPlayer.tsx` | **New file** — premium player with hidden `<audio>`, play/pause button, seekable progress bar, time display |
+| `src/components/chat/ActiveChat.tsx` | Remove inline `MiniAudioPlayer`, import `CustomAudioPlayer`, use it at line 230 |
+| `src/components/athletes/QuickChatPopover.tsx` | Remove inline `MiniAudioPlayer`, import `CustomAudioPlayer`, use it at line 368 |
+| `src/components/athlete-detail/ChatWidget.tsx` | Add audio rendering: `{msg.media_type === "audio" && msg.media_url && <CustomAudioPlayer src={msg.media_url} />}` after the image block (line 264) |
 
-**2. Rewrite `TeamChatDialog.tsx`**
-- Change props: accept `memberUserId?: string | null` instead of just name/initials/role
-- Import and use the `useTeamChat` hook
-- On dialog open (`useEffect` on `open + memberUserId`): call `selectContact(memberUserId)` if valid
-- Guard: if `memberUserId` is null/undefined, show disabled placeholder: "Bu kullanıcının henüz aktif bir hesabı yok."
-- Render messages from the hook's `messages` array, mapping `sender_id === user.id` to "me" vs "other"
-- Wire input to `sendMessage(content)` from the hook
-- Add auto-scroll via `useRef` + `useEffect` on messages length
-- Show loading skeleton when `isLoadingMessages` is true
-- Remove all mock data and local message state
+### CustomAudioPlayer Component
 
-**3. Update `Team.tsx` call site**
-- Pass `memberUserId={chatMember.userId}` to `TeamChatDialog`
+Exact implementation as specified: rounded-full container, hidden `<audio>` element, circular play/pause button with `primary` colors, clickable progress bar with `bg-secondary` track and `bg-primary` fill, timestamps in `text-[9px]`. Handles `onEnded` to reset state.
 
-**4. Remove fake notification simulation**
-- Delete the `setInterval` in `Team.tsx` that calls `simulateIncomingMessage` — the real `useTeamChat` hook handles unread counts via realtime now
+### No media_type Bug Fix Needed
+
+The `useMediaUpload` hook already hardcodes `'audio'` type when calling `uploadFile` from `startRecording`. The `handleImageSelect` function validates `file.type.startsWith('image/')`. There is no generic file upload path where `.webm` could be misclassified as an image.
 
