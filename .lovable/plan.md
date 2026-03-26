@@ -1,31 +1,83 @@
 
 
-## Audio Player UI & Bugfix Sync — Plan
+## Supreme Court — Dispute Dashboard (Part 1 of 3)
 
 ### Overview
 
-Replace the basic `MiniAudioPlayer` (play/pause + static waveform) with a premium `CustomAudioPlayer` (progress bar, seek, timestamps) across all 3 chat surfaces, and fix the ChatWidget's missing audio rendering.
+Create a "Yüce Divan" page listing disputed challenges, with a data hook, UI page, and routing/navigation integration.
 
-### Current State
+### Important Schema Corrections
 
-- **`MiniAudioPlayer`** is defined inline in both `ActiveChat.tsx` and `QuickChatPopover.tsx` — basic toggle with fake waveform bars, no progress/seek
-- **`ChatWidget.tsx`** renders images but has NO audio playback at all (missing audio case)
-- **`useMediaUpload.ts`** already correctly passes `'audio'` type for recordings — the media_type bug does NOT exist in this codebase (recordings go through `uploadFile(blob, 'webm', 'audio')` directly)
+The user's plan has a few column name mismatches that must be corrected:
+- Join uses `challenged_id` — actual column is **`opponent_id`** → fix the Supabase join to `profiles!opponent_id`
+- References `bio_coins_reward` — actual column is **`wager_coins`**
+- References `challenged_value` — actual column is **`opponent_value`**
+
+### RLS Consideration
+
+The `challenges` table has no coach-specific RLS policy. Current policies only allow challenger/opponent users and completed-status public reads. Coaches cannot query `status = 'disputed'` challenges unless they are a participant.
+
+**Options:**
+1. Add an RLS policy for coaches (requires migration)
+2. Query via an edge function with service role
+
+We should add an RLS policy so coaches can view disputed challenges for their athletes. This requires a migration:
+
+```sql
+CREATE POLICY "Coaches can view disputed challenges"
+ON public.challenges
+FOR SELECT
+TO authenticated
+USING (
+  status = 'disputed' AND (
+    is_coach_of(challenger_id) OR is_coach_of(opponent_id)
+  )
+);
+```
+
+---
 
 ### Changes
 
 | File | Change |
 |------|--------|
-| `src/components/ui/CustomAudioPlayer.tsx` | **New file** — premium player with hidden `<audio>`, play/pause button, seekable progress bar, time display |
-| `src/components/chat/ActiveChat.tsx` | Remove inline `MiniAudioPlayer`, import `CustomAudioPlayer`, use it at line 230 |
-| `src/components/athletes/QuickChatPopover.tsx` | Remove inline `MiniAudioPlayer`, import `CustomAudioPlayer`, use it at line 368 |
-| `src/components/athlete-detail/ChatWidget.tsx` | Add audio rendering: `{msg.media_type === "audio" && msg.media_url && <CustomAudioPlayer src={msg.media_url} />}` after the image block (line 264) |
+| **Migration** | Add RLS policy for coaches to view disputed challenges |
+| `src/hooks/useDisputes.ts` | **New** — fetch disputed challenges with double profile join |
+| `src/pages/Disputes.tsx` | **New** — dispute dashboard with skeleton loading, empty state, and card grid |
+| `src/App.tsx` | Add `/disputes` route inside MainLayout |
+| `src/components/layout/AppSidebar.tsx` | Add "Yüce Divan" nav item with `Scale` icon |
 
-### CustomAudioPlayer Component
+---
 
-Exact implementation as specified: rounded-full container, hidden `<audio>` element, circular play/pause button with `primary` colors, clickable progress bar with `bg-secondary` track and `bg-primary` fill, timestamps in `text-[9px]`. Handles `onEnded` to reset state.
+### 1. Migration — RLS Policy
 
-### No media_type Bug Fix Needed
+Allow coaches to SELECT disputed challenges where they coach either participant.
 
-The `useMediaUpload` hook already hardcodes `'audio'` type when calling `uploadFile` from `startRecording`. The `handleImageSelect` function validates `file.type.startsWith('image/')`. There is no generic file upload path where `.webm` could be misclassified as an image.
+### 2. `src/hooks/useDisputes.ts`
+
+```typescript
+const { data, error } = await supabase
+  .from("challenges")
+  .select('*, challenger:profiles!challenger_id(full_name, avatar_url), opponent:profiles!opponent_id(full_name, avatar_url)')
+  .eq("status", "disputed")
+  .order("created_at", { ascending: false });
+```
+
+Map results to flatten `challengerName`, `challengerAvatar`, `opponentName`, `opponentAvatar` using safe access (`c.challenger?.full_name`).
+
+### 3. `src/pages/Disputes.tsx`
+
+- Header with `Scale` icon and title "Yüce Divan"
+- Loading: 6-item skeleton grid
+- Empty state: centered `Scale` icon + "Adalet sağlandı. Şu an itiraz edilen bir düello yok."
+- Grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`): dispute cards
+- Each card: challenge type header + `wager_coins` badge, VS layout (challenger avatar/name/value vs opponent avatar/name/value), "İncele ve Karar Ver" button (console.log for now)
+
+### 4. `src/App.tsx`
+
+Add `<Route path="/disputes" element={<Disputes />} />` inside the MainLayout block.
+
+### 5. `src/components/layout/AppSidebar.tsx`
+
+Add nav item after alerts: `{ path: "/disputes", label: "Yüce Divan", icon: Scale }`. Import `Scale` from lucide-react.
 
