@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Send, MessageSquare } from "lucide-react";
+import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ChatMessage } from "@/hooks/useCoachChat";
@@ -261,6 +262,9 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
                 >
                   {msg.media_type === "image" && msg.media_url && (
                     <img src={msg.media_url} alt="" className="rounded-lg mb-1 max-h-32 object-cover" />
+                  )}
+                  {msg.media_type === "audio" && msg.media_url && (
+                    <CustomAudioPlayer src={msg.media_url} />
                   )}
                   <p className="text-sm">{msg.content}</p>
                   <p
