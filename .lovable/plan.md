@@ -1,30 +1,39 @@
 
 
-## Academy Management Module (Epic 4)
+## Academy Content Studio UI Overhaul (Prompt 1/3)
 
-### Changes
+### Single file change: `src/pages/Akademi.tsx` — full rewrite
 
-| File | Change |
-|------|--------|
-| `src/pages/Akademi.tsx` | **New** — Academy management page with content grid and add-content dialog |
-| `src/App.tsx` | Add `/akademi` route, import Akademi page |
-| `src/components/layout/AppSidebar.tsx` | Add "Akademi" nav item with `GraduationCap` icon |
+### 1. New data model
 
-### 1. `src/pages/Akademi.tsx`
+Add `tags` and `thumbnail` fields to `AcademyItem`. Extend initial mock data accordingly. Add more mock items (~6-8) for a fuller grid.
 
-- Header with `GraduationCap` icon, title "Akademi Yönetimi", and "+ Yeni İçerik Ekle" button
-- Mock data state with ~4 items (title, category: Antrenman/Beslenme/Mental, type: Video/Makale, description)
-- Responsive grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`) of content cards:
-  - Category badge (color-coded), type badge, title, description preview, hover effects
-- Add Content Dialog (shadcn `Dialog`) with form fields:
-  - Başlık (Input), Açıklama (Textarea), Kategori (Select), İçerik Tipi (Select), Medya Linki (Input)
-  - Submit adds to local state + `toast.success("İçerik eklendi")`
+### 2. Search & Filter Bar
 
-### 2. `src/App.tsx`
+Below the header, a flex row with:
+- **Search Input** with `Search` icon — filters by title (case-insensitive)
+- **Category Select** — "Tümü" + 3 categories
+- **Type Select** — "Tümü", "Video", "Makale"
+- **Sort Select** — "En Yeni", "En Eski", "A-Z"
 
-Add `<Route path="/akademi" element={<Akademi />} />` inside the MainLayout routes block. Import `Akademi` at top.
+State: `searchQuery`, `filterCategory`, `filterType`, `sortBy`. Derive `filteredItems` with `useMemo`.
 
-### 3. `src/components/layout/AppSidebar.tsx`
+### 3. Redesigned Content Cards
 
-Add nav item after "İçerik Stüdyosu": `{ path: "/akademi", label: "Akademi", icon: GraduationCap }`. Import `GraduationCap` from lucide-react.
+Each card becomes a horizontal layout with:
+- **Left thumbnail area** (fixed ~120px wide): if `thumbnail` exists show image, else show a gradient placeholder with Video/FileText icon
+- **Right content area**: larger title (`text-base font-semibold`), `line-clamp-2` description, row of category + type badges
+- **Triple-dot menu** (top-right): `DropdownMenu` with "Düzenle", "Arşivle" (placeholder toasts), and "Sil" (destructive, calls delete)
+
+### 4. Upgraded Dialog
+
+- `max-w-2xl`, `max-h-[85vh] overflow-y-auto`
+- Title: "Yeni İçerik Ekle"
+- New fields: **Thumbnail URL** input, **Tags** input (comma-separated)
+- Textarea gets `min-h-[150px]` and helper text
+- Form state extended with `thumbnail` and `tags`
+
+### 5. Imports to add
+
+`Search`, `MoreVertical`, `Pencil`, `Archive` from lucide-react. `DropdownMenu` components from shadcn.
 
