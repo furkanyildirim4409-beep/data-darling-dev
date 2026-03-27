@@ -13,7 +13,7 @@ export const useResolveDispute = (onSuccess?: () => void) => {
 
   const { mutate: resolveDispute, isPending: isResolving } = useMutation({
     mutationFn: async (params: ResolveDisputeParams) => {
-      const { data, error } = await supabase.rpc("resolve_dispute", params);
+      const { data, error } = await (supabase.rpc as any)("resolve_dispute", params);
       if (error) throw error;
       return data;
     },
