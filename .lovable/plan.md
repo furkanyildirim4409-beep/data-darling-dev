@@ -1,39 +1,66 @@
 
 
-## Academy Content Studio UI Overhaul (Prompt 1/3)
+## Academy DB Wiring (Epic 4 - Prompt 2/3)
 
-### Single file change: `src/pages/Akademi.tsx` — full rewrite
+### Overview
 
-### 1. New data model
+Create the `academy_content` Supabase table with RLS policies, then rewire `Akademi.tsx` to use real CRUD operations instead of mock data.
 
-Add `tags` and `thumbnail` fields to `AcademyItem`. Extend initial mock data accordingly. Add more mock items (~6-8) for a fuller grid.
+### Changes
 
-### 2. Search & Filter Bar
+| Step | What |
+|------|------|
+| **Migration** | Create `academy_content` table with RLS policies |
+| **Akademi.tsx** | Replace mock data with Supabase fetch/insert/delete + loading skeletons |
 
-Below the header, a flex row with:
-- **Search Input** with `Search` icon — filters by title (case-insensitive)
-- **Category Select** — "Tümü" + 3 categories
-- **Type Select** — "Tümü", "Video", "Makale"
-- **Sort Select** — "En Yeni", "En Eski", "A-Z"
+### 1. Migration — `academy_content` table
 
-State: `searchQuery`, `filterCategory`, `filterType`, `sortBy`. Derive `filteredItems` with `useMemo`.
+```sql
+CREATE TABLE public.academy_content (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  coach_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'Antrenman',
+  type TEXT NOT NULL DEFAULT 'Video',
+  url TEXT DEFAULT '',
+  thumbnail TEXT DEFAULT '',
+  tags TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-### 3. Redesigned Content Cards
+ALTER TABLE public.academy_content ENABLE ROW LEVEL SECURITY;
 
-Each card becomes a horizontal layout with:
-- **Left thumbnail area** (fixed ~120px wide): if `thumbnail` exists show image, else show a gradient placeholder with Video/FileText icon
-- **Right content area**: larger title (`text-base font-semibold`), `line-clamp-2` description, row of category + type badges
-- **Triple-dot menu** (top-right): `DropdownMenu` with "Düzenle", "Arşivle" (placeholder toasts), and "Sil" (destructive, calls delete)
+-- Coach owns their content
+CREATE POLICY "Coaches manage own academy content"
+  ON public.academy_content FOR ALL TO authenticated
+  USING (coach_id = auth.uid())
+  WITH CHECK (coach_id = auth.uid());
 
-### 4. Upgraded Dialog
+-- Team members can manage head coach's content
+CREATE POLICY "Team members manage academy content"
+  ON public.academy_content FOR ALL TO authenticated
+  USING (is_active_team_member_of(coach_id))
+  WITH CHECK (is_active_team_member_of(coach_id));
 
-- `max-w-2xl`, `max-h-[85vh] overflow-y-auto`
-- Title: "Yeni İçerik Ekle"
-- New fields: **Thumbnail URL** input, **Tags** input (comma-separated)
-- Textarea gets `min-h-[150px]` and helper text
-- Form state extended with `thumbnail` and `tags`
+-- Athletes can read their coach's content
+CREATE POLICY "Athletes can view coach academy content"
+  ON public.academy_content FOR SELECT TO authenticated
+  USING (is_coach_of(auth.uid()) OR coach_id = (
+    SELECT coach_id FROM profiles WHERE id = auth.uid()
+  ));
+```
 
-### 5. Imports to add
+Uses existing RLS pattern: coach ownership + team member delegation + athlete read access via `coach_id` linkage.
 
-`Search`, `MoreVertical`, `Pencil`, `Archive` from lucide-react. `DropdownMenu` components from shadcn.
+### 2. `Akademi.tsx` — Supabase wiring
+
+- Import `supabase`, `useAuth` (for `activeCoachId`), `useEffect`, `Skeleton`
+- Remove `initialData` array
+- Add `isLoading` state, initialize `items` as empty array
+- **fetchContent**: `supabase.from('academy_content').select('*').eq('coach_id', activeCoachId).order('created_at', { ascending: false })` — map DB rows to `AcademyItem` (map `created_at` to `createdAt` as timestamp number)
+- **handleSubmit**: `supabase.from('academy_content').insert({ coach_id: activeCoachId, title, description, category, type, url, thumbnail, tags: tagsArray })` — on success re-fetch + toast + close dialog
+- **handleDelete**: `supabase.from('academy_content').delete().eq('id', id)` — on success re-fetch + toast
+- **Loading UI**: Show 3x `<Skeleton className="h-[140px] w-full rounded-xl" />` in the grid while `isLoading`
+- **Error handling**: `toast.error` on any Supabase error
 
