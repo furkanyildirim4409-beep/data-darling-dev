@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_content: {
+        Row: {
+          category: string
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          tags: string[] | null
+          thumbnail: string | null
+          title: string
+          type: string
+          url: string | null
+        }
+        Insert: {
+          category?: string
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          thumbnail?: string | null
+          title: string
+          type?: string
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          thumbnail?: string | null
+          title?: string
+          type?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       ai_weekly_analyses: {
         Row: {
           actions: Json | null
