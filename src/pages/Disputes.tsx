@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Scale, Coins } from "lucide-react";
 import { useDisputes } from "@/hooks/useDisputes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import DisputeResolutionModal from "@/components/disputes/DisputeResolutionModal";
 
 export default function Disputes() {
   const { data: disputes, isLoading } = useDisputes();
+  const [selectedDispute, setSelectedDispute] = useState<any>(null);
 
   return (
     <div className="space-y-6">
@@ -126,7 +129,7 @@ export default function Disputes() {
                 <Button
                   className="w-full"
                   size="sm"
-                  onClick={() => console.log("Review dispute:", d.id)}
+                  onClick={() => setSelectedDispute(d)}
                 >
                   <Scale className="w-4 h-4 mr-1.5" />
                   İncele ve Karar Ver
@@ -136,6 +139,12 @@ export default function Disputes() {
           ))}
         </div>
       )}
+
+      <DisputeResolutionModal
+        isOpen={!!selectedDispute}
+        onClose={() => setSelectedDispute(null)}
+        dispute={selectedDispute}
+      />
     </div>
   );
 }
