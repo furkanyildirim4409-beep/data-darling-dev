@@ -1207,12 +1207,14 @@ export type Database = {
           longest_streak: number | null
           notification_preferences: Json | null
           notification_settings: Json | null
+          onboarding_completed: boolean | null
           readiness_score: number | null
           role: string | null
           specialty: string | null
           streak: number | null
           subscription_status: string | null
           subscription_tier: string | null
+          target_weight: number | null
           total_volume_kg: number | null
           updated_at: string | null
           xp: number | null
@@ -1243,12 +1245,14 @@ export type Database = {
           longest_streak?: number | null
           notification_preferences?: Json | null
           notification_settings?: Json | null
+          onboarding_completed?: boolean | null
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
           streak?: number | null
           subscription_status?: string | null
           subscription_tier?: string | null
+          target_weight?: number | null
           total_volume_kg?: number | null
           updated_at?: string | null
           xp?: number | null
@@ -1279,12 +1283,14 @@ export type Database = {
           longest_streak?: number | null
           notification_preferences?: Json | null
           notification_settings?: Json | null
+          onboarding_completed?: boolean | null
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
           streak?: number | null
           subscription_status?: string | null
           subscription_tier?: string | null
+          target_weight?: number | null
           total_volume_kg?: number | null
           updated_at?: string | null
           xp?: number | null
