@@ -2,7 +2,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Coins, Scale, ImageOff } from "lucide-react";
+import { Coins, Scale, ImageOff, Loader2 } from "lucide-react";
+import { useResolveDispute } from "@/hooks/useResolveDispute";
 
 interface DisputeResolutionModalProps {
   isOpen: boolean;
@@ -45,6 +46,8 @@ export default function DisputeResolutionModal({
   onClose,
   dispute,
 }: DisputeResolutionModalProps) {
+  const { resolveDispute, isResolving } = useResolveDispute(onClose);
+
   if (!dispute) return null;
 
   return (
@@ -110,24 +113,45 @@ export default function DisputeResolutionModal({
           <Button
             variant="outline"
             className="flex-1 border-primary text-primary hover:bg-primary/10"
-            onClick={() => console.log("Verdict: challenger wins", dispute.id)}
+            disabled={isResolving}
+            onClick={() =>
+              resolveDispute({
+                p_challenge_id: dispute.id,
+                p_winner_id: dispute.challenger_id,
+                p_is_draw: false,
+              })
+            }
           >
-            <Scale className="w-4 h-4 mr-1.5" />
+            {isResolving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Scale className="w-4 h-4 mr-1.5" />}
             Sol (Challenger) Kazandı
           </Button>
           <Button
             variant="outline"
             className="flex-1 text-muted-foreground"
-            onClick={() => console.log("Verdict: draw", dispute.id)}
+            disabled={isResolving}
+            onClick={() =>
+              resolveDispute({
+                p_challenge_id: dispute.id,
+                p_winner_id: null,
+                p_is_draw: true,
+              })
+            }
           >
             Berabere (İptal Et)
           </Button>
           <Button
             variant="outline"
             className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
-            onClick={() => console.log("Verdict: opponent wins", dispute.id)}
+            disabled={isResolving}
+            onClick={() =>
+              resolveDispute({
+                p_challenge_id: dispute.id,
+                p_winner_id: dispute.opponent_id,
+                p_is_draw: false,
+              })
+            }
           >
-            <Scale className="w-4 h-4 mr-1.5" />
+            {isResolving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Scale className="w-4 h-4 mr-1.5" />}
             Sağ (Rakip) Kazandı
           </Button>
         </div>

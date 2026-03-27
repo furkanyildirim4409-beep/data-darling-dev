@@ -1803,6 +1803,14 @@ export type Database = {
         Args: { _athlete_email: string; _coach_id: string }
         Returns: Json
       }
+      resolve_dispute: {
+        Args: {
+          p_challenge_id: string
+          p_is_draw?: boolean
+          p_winner_id?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "coach" | "athlete"
