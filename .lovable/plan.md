@@ -1,69 +1,74 @@
 
 
-## Academy Content Studio Final Polish (Epic 4 - Prompt 3/3)
+## Academy to Course/LMS Evolution (Epic 4.5)
 
 ### Overview
 
-Three changes to `Akademi.tsx`: image upload for thumbnails, video play overlay on cards, and improved empty state. Plus a storage bucket migration.
+Transform the single-URL academy system into a multi-module course builder. Add a `modules` JSONB column to the DB, create an `academy-videos` storage bucket, and replace the Dialog with a right-side Sheet for spacious course editing.
 
 ### Changes
 
 | Step | What |
 |------|------|
-| **Migration** | Create `academy-thumbnails` public storage bucket + RLS policies |
-| **Akademi.tsx** | Replace thumbnail URL input with drag-and-drop uploader, add video overlay, polish empty state and card hover |
+| **Migration 1** | Add `modules` JSONB column to `academy_content` |
+| **Migration 2** | Create `academy-videos` storage bucket + RLS |
+| **Akademi.tsx** | Replace Dialog with Sheet, add modules builder, video upload per module |
 
-### 1. Migration -- `academy-thumbnails` bucket
+### 1. Migration — `modules` column
 
 ```sql
-INSERT INTO storage.buckets (id, name, public) VALUES ('academy-thumbnails', 'academy-thumbnails', true);
-
-CREATE POLICY "Coaches upload academy thumbnails"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'academy-thumbnails');
-
-CREATE POLICY "Anyone can view academy thumbnails"
-  ON storage.objects FOR SELECT TO public
-  USING (bucket_id = 'academy-thumbnails');
-
-CREATE POLICY "Coaches delete own academy thumbnails"
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'academy-thumbnails' AND (storage.foldername(name))[1] = auth.uid()::text);
+ALTER TABLE public.academy_content
+  ADD COLUMN modules jsonb NOT NULL DEFAULT '[]'::jsonb;
 ```
 
-### 2. `Akademi.tsx` changes
+Modules structure stored as JSON array: `[{ id, title, videoUrl, fileName, duration, order }]`. No separate table needed — modules are tightly coupled to their parent course.
 
-**New state & refs:**
-- `thumbnailFile: File | null` state for preview
-- `thumbnailPreview: string` state (via `URL.createObjectURL`)
-- `isUploadingThumbnail: boolean` state
-- Hidden `<input type="file" ref={fileInputRef} accept="image/*" />`
+### 2. Migration — `academy-videos` bucket
 
-**New imports:**
-- `UploadCloud`, `PlayCircle`, `X`, `ImageIcon` from lucide-react
-- `useRef` from react
+```sql
+INSERT INTO storage.buckets (id, name, public) VALUES ('academy-videos', 'academy-videos', true);
 
-**Thumbnail upload zone (replaces lines 327-329):**
-- Dashed border container: `border-dashed border-2 border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors min-h-[120px]`
-- If `thumbnailPreview` or `form.thumbnail` exists: show image preview with an X button to clear
-- Otherwise: show `UploadCloud` icon + "Görsel yüklemek için tıklayın" text
-- On click: trigger hidden file input
-- On file select: set `thumbnailFile`, generate preview via `URL.createObjectURL`
-- On form submit: if `thumbnailFile` exists, upload to `academy-thumbnails/{coachId}/{timestamp}.{ext}`, get public URL, use as `thumbnail` value in the insert
+CREATE POLICY "Coaches upload academy videos"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'academy-videos');
 
-**Card thumbnail area (lines 226-234):**
-- When `item.thumbnail` exists, wrap img in `relative overflow-hidden` container
-- Add `group-hover:scale-105 transition-transform duration-500` to the `<img>`
-- If `item.type === 'Video'` AND `item.thumbnail` exists: overlay a `PlayCircle` icon centered absolutely (`absolute inset-0 flex items-center justify-center`) with `text-white/80 w-10 h-10 drop-shadow-lg`
+CREATE POLICY "Anyone can view academy videos"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'academy-videos');
 
-**Empty state (lines 281-286):**
-- Replace `Search` icon with `GraduationCap` at `w-16 h-16 opacity-20`
-- Add subtitle: "Filtreleri değiştirmeyi veya yeni içerik eklemeyi deneyin"
-- Distinguish between "no items at all" (show welcome message + add button) vs "no filter results"
+CREATE POLICY "Coaches delete own academy videos"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'academy-videos' AND (storage.foldername(name))[1] = auth.uid()::text);
+```
 
-**Card container hover:**
-- Already has `hover:border-primary/30`; update to `hover:border-primary/50`
+### 3. `Akademi.tsx` — Course Builder overhaul
 
-**Dialog reset:**
-- Clear `thumbnailFile` and `thumbnailPreview` when dialog closes or form submits
+**Replace Dialog with Sheet (side="right"):**
+- Use `Sheet` / `SheetContent` with `side="right"` and class `sm:max-w-2xl w-full`
+- Full-height scrollable content area for building multi-module courses
+
+**Module state:**
+- New interface: `CourseModule { id: string; title: string; videoFile: File | null; videoUrl: string; fileName: string; order: number }`
+- State: `modules: CourseModule[]` — managed locally in the form
+- Button "+ Yeni Bölüm Ekle" appends a new empty module
+
+**Module list UI:**
+- Each module row: ordered number badge, title Input, video upload zone (accepts `video/mp4,video/quicktime`, max 500MB), file name display, Trash2 delete button
+- Video upload zone per module: dashed border box showing `UploadCloud` + "Video yükleyin" or the selected file name + size
+- Hidden `<input type="file" accept="video/mp4,video/quicktime">` per module triggered on click
+
+**Submit flow:**
+1. Upload thumbnail (existing logic)
+2. Upload each module's video file to `academy-videos/{coachId}/{timestamp}_{moduleOrder}.{ext}`, collect public URLs
+3. Build modules JSON array with the uploaded URLs
+4. Insert into `academy_content` with the `modules` column populated
+5. Remove the old "Medya Linki" Input entirely — modules replace it
+
+**Card updates:**
+- Show module count badge on cards: e.g., "3 Bölüm" badge next to category/type badges
+- Keep existing card layout, just add the module count indicator
+
+**Data mapping:**
+- Fetch: parse `row.modules` (already JSON from Supabase) into the local modules array
+- AcademyItem interface gains `modules: { id: string; title: string; videoUrl: string; fileName: string; order: number }[]`
 
