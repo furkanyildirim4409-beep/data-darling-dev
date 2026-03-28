@@ -1,66 +1,69 @@
 
 
-## Academy DB Wiring (Epic 4 - Prompt 2/3)
+## Academy Content Studio Final Polish (Epic 4 - Prompt 3/3)
 
 ### Overview
 
-Create the `academy_content` Supabase table with RLS policies, then rewire `Akademi.tsx` to use real CRUD operations instead of mock data.
+Three changes to `Akademi.tsx`: image upload for thumbnails, video play overlay on cards, and improved empty state. Plus a storage bucket migration.
 
 ### Changes
 
 | Step | What |
 |------|------|
-| **Migration** | Create `academy_content` table with RLS policies |
-| **Akademi.tsx** | Replace mock data with Supabase fetch/insert/delete + loading skeletons |
+| **Migration** | Create `academy-thumbnails` public storage bucket + RLS policies |
+| **Akademi.tsx** | Replace thumbnail URL input with drag-and-drop uploader, add video overlay, polish empty state and card hover |
 
-### 1. Migration — `academy_content` table
+### 1. Migration -- `academy-thumbnails` bucket
 
 ```sql
-CREATE TABLE public.academy_content (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  coach_id UUID NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT DEFAULT '',
-  category TEXT NOT NULL DEFAULT 'Antrenman',
-  type TEXT NOT NULL DEFAULT 'Video',
-  url TEXT DEFAULT '',
-  thumbnail TEXT DEFAULT '',
-  tags TEXT[] DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+INSERT INTO storage.buckets (id, name, public) VALUES ('academy-thumbnails', 'academy-thumbnails', true);
 
-ALTER TABLE public.academy_content ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Coaches upload academy thumbnails"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'academy-thumbnails');
 
--- Coach owns their content
-CREATE POLICY "Coaches manage own academy content"
-  ON public.academy_content FOR ALL TO authenticated
-  USING (coach_id = auth.uid())
-  WITH CHECK (coach_id = auth.uid());
+CREATE POLICY "Anyone can view academy thumbnails"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'academy-thumbnails');
 
--- Team members can manage head coach's content
-CREATE POLICY "Team members manage academy content"
-  ON public.academy_content FOR ALL TO authenticated
-  USING (is_active_team_member_of(coach_id))
-  WITH CHECK (is_active_team_member_of(coach_id));
-
--- Athletes can read their coach's content
-CREATE POLICY "Athletes can view coach academy content"
-  ON public.academy_content FOR SELECT TO authenticated
-  USING (is_coach_of(auth.uid()) OR coach_id = (
-    SELECT coach_id FROM profiles WHERE id = auth.uid()
-  ));
+CREATE POLICY "Coaches delete own academy thumbnails"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'academy-thumbnails' AND (storage.foldername(name))[1] = auth.uid()::text);
 ```
 
-Uses existing RLS pattern: coach ownership + team member delegation + athlete read access via `coach_id` linkage.
+### 2. `Akademi.tsx` changes
 
-### 2. `Akademi.tsx` — Supabase wiring
+**New state & refs:**
+- `thumbnailFile: File | null` state for preview
+- `thumbnailPreview: string` state (via `URL.createObjectURL`)
+- `isUploadingThumbnail: boolean` state
+- Hidden `<input type="file" ref={fileInputRef} accept="image/*" />`
 
-- Import `supabase`, `useAuth` (for `activeCoachId`), `useEffect`, `Skeleton`
-- Remove `initialData` array
-- Add `isLoading` state, initialize `items` as empty array
-- **fetchContent**: `supabase.from('academy_content').select('*').eq('coach_id', activeCoachId).order('created_at', { ascending: false })` — map DB rows to `AcademyItem` (map `created_at` to `createdAt` as timestamp number)
-- **handleSubmit**: `supabase.from('academy_content').insert({ coach_id: activeCoachId, title, description, category, type, url, thumbnail, tags: tagsArray })` — on success re-fetch + toast + close dialog
-- **handleDelete**: `supabase.from('academy_content').delete().eq('id', id)` — on success re-fetch + toast
-- **Loading UI**: Show 3x `<Skeleton className="h-[140px] w-full rounded-xl" />` in the grid while `isLoading`
-- **Error handling**: `toast.error` on any Supabase error
+**New imports:**
+- `UploadCloud`, `PlayCircle`, `X`, `ImageIcon` from lucide-react
+- `useRef` from react
+
+**Thumbnail upload zone (replaces lines 327-329):**
+- Dashed border container: `border-dashed border-2 border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors min-h-[120px]`
+- If `thumbnailPreview` or `form.thumbnail` exists: show image preview with an X button to clear
+- Otherwise: show `UploadCloud` icon + "Görsel yüklemek için tıklayın" text
+- On click: trigger hidden file input
+- On file select: set `thumbnailFile`, generate preview via `URL.createObjectURL`
+- On form submit: if `thumbnailFile` exists, upload to `academy-thumbnails/{coachId}/{timestamp}.{ext}`, get public URL, use as `thumbnail` value in the insert
+
+**Card thumbnail area (lines 226-234):**
+- When `item.thumbnail` exists, wrap img in `relative overflow-hidden` container
+- Add `group-hover:scale-105 transition-transform duration-500` to the `<img>`
+- If `item.type === 'Video'` AND `item.thumbnail` exists: overlay a `PlayCircle` icon centered absolutely (`absolute inset-0 flex items-center justify-center`) with `text-white/80 w-10 h-10 drop-shadow-lg`
+
+**Empty state (lines 281-286):**
+- Replace `Search` icon with `GraduationCap` at `w-16 h-16 opacity-20`
+- Add subtitle: "Filtreleri değiştirmeyi veya yeni içerik eklemeyi deneyin"
+- Distinguish between "no items at all" (show welcome message + add button) vs "no filter results"
+
+**Card container hover:**
+- Already has `hover:border-primary/30`; update to `hover:border-primary/50`
+
+**Dialog reset:**
+- Clear `thumbnailFile` and `thumbnailPreview` when dialog closes or form submits
 
