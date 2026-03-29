@@ -160,9 +160,18 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
 
-      // Compute day_number (1-7 cycling)
-      const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
-      const dayNumber = (dayOffset % 7) + 1;
+      // Use assigned_diet_days lookup first, then fallback to diet_start_date, then bucketStart
+      let dayNumber: number;
+      const assignedDay = assignedDayMap.get(dateStr);
+      if (assignedDay !== undefined) {
+        dayNumber = assignedDay;
+      } else if (dietStartDateStr) {
+        const dayOffset = differenceInDays(startOfDay(d), startOfDay(new Date(dietStartDateStr)));
+        dayNumber = dayOffset >= 0 ? (dayOffset % 7) + 1 : 1;
+      } else {
+        const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
+        dayNumber = (dayOffset % 7) + 1;
+      }
 
       // Get planned foods for this day_number
       const plannedForDay = templateFoods.filter((tf) => tf.day_number === dayNumber);
