@@ -1687,6 +1687,45 @@ export type Database = {
           },
         ]
       }
+      tickets: {
+        Row: {
+          coach_id: string | null
+          coach_reply: string | null
+          created_at: string
+          id: string
+          message: string
+          priority: string
+          replied_at: string | null
+          status: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          coach_id?: string | null
+          coach_reply?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          priority?: string
+          replied_at?: string | null
+          status?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          coach_id?: string | null
+          coach_reply?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          priority?: string
+          replied_at?: string | null
+          status?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1751,6 +1790,7 @@ export type Database = {
         Row: {
           assigned_workout_id: string | null
           bio_coins_earned: number | null
+          calories_burned: number | null
           completed: boolean | null
           details: Json | null
           duration_minutes: number | null
@@ -1764,6 +1804,7 @@ export type Database = {
         Insert: {
           assigned_workout_id?: string | null
           bio_coins_earned?: number | null
+          calories_burned?: number | null
           completed?: boolean | null
           details?: Json | null
           duration_minutes?: number | null
@@ -1777,6 +1818,7 @@ export type Database = {
         Update: {
           assigned_workout_id?: string | null
           bio_coins_earned?: number | null
+          calories_burned?: number | null
           completed?: boolean | null
           details?: Json | null
           duration_minutes?: number | null
