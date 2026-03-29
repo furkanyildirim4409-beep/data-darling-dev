@@ -14,16 +14,7 @@ export async function generateAssignedDietDays(
   startDate: Date,
   durationWeeks: number
 ): Promise<{ error: string | null }> {
-  // 1. Determine how many unique day_numbers the template has
-  const { data: dayNumbers } = await supabase
-    .from("diet_template_foods")
-    .select("day_number")
-    .eq("template_id", templateId);
-
-  const uniqueDays = new Set((dayNumbers || []).map((d) => d.day_number || 1));
-  const templateDayCount = Math.max(uniqueDays.size, 1);
-
-  // 2. Build rows
+  // 1. Build rows – strict ISO weekday mapping (Mon=1 … Sun=7)
   const totalDays = durationWeeks * 7;
   const rows: {
     athlete_id: string;
@@ -34,12 +25,16 @@ export async function generateAssignedDietDays(
   }[] = [];
 
   for (let i = 0; i < totalDays; i++) {
+    const currentDate = addDays(startDate, i);
+    let dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon…6=Sat
+    if (dayOfWeek === 0) dayOfWeek = 7;   // Sun → 7
+
     rows.push({
       athlete_id: athleteId,
       coach_id: coachId,
       template_id: templateId,
-      target_date: format(addDays(startDate, i), "yyyy-MM-dd"),
-      day_number: (i % templateDayCount) + 1,
+      target_date: format(currentDate, "yyyy-MM-dd"),
+      day_number: dayOfWeek,
     });
   }
 

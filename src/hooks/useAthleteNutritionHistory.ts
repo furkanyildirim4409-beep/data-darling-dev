@@ -165,12 +165,8 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
       const assignedDay = assignedDayMap.get(dateStr);
       if (assignedDay !== undefined) {
         dayNumber = assignedDay;
-      } else if (dietStartDateStr) {
-        const dayOffset = differenceInDays(startOfDay(d), startOfDay(new Date(dietStartDateStr)));
-        dayNumber = dayOffset >= 0 ? (dayOffset % 7) + 1 : 1;
       } else {
-        const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
-        dayNumber = (dayOffset % 7) + 1;
+        dayNumber = d.getDay() || 7; // strict ISO weekday: Mon=1…Sun=7
       }
 
       // Get planned foods for this day_number
