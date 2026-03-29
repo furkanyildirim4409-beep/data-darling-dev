@@ -79,8 +79,8 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
     const endDate = endOfDay(rangeTo || new Date());
 
-    // Fetch consumed foods & nutrition targets (single source of truth)
-    const [foodsRes, targetsRes] = await Promise.all([
+    // Fetch consumed foods, nutrition targets, and assigned_diet_days
+    const [foodsRes, targetsRes, assignedDaysRes] = await Promise.all([
       supabase
         .from("consumed_foods")
         .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at, planned_food_id")
@@ -90,9 +90,15 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         .order("logged_at", { ascending: true }),
       supabase
         .from("nutrition_targets")
-        .select("daily_calories, active_diet_template_id")
+        .select("daily_calories, active_diet_template_id, diet_start_date")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
+      supabase
+        .from("assigned_diet_days")
+        .select("target_date, day_number")
+        .eq("athlete_id", athleteId)
+        .gte("target_date", format(startDate, "yyyy-MM-dd"))
+        .lte("target_date", format(endDate, "yyyy-MM-dd")),
     ]);
 
     if (targetsRes.data?.daily_calories) {
