@@ -2057,12 +2057,31 @@ export type Database = {
       }
     }
     Functions: {
+      award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
         Returns: Json
       }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
       get_my_head_coach_id: { Args: never; Returns: string }
+      get_team_peers: {
+        Args: { _head_coach_id: string }
+        Returns: {
+          athletes_count: number
+          avatar_url: string
+          created_at: string
+          custom_permissions: Json
+          full_name: string
+          head_coach_id: string
+          id: string
+          permissions: string
+          role: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
