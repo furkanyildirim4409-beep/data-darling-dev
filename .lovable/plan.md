@@ -1,74 +1,112 @@
 
 
-## Academy to Course/LMS Evolution (Epic 4.5)
+## Diet Plan Assignment Synchronization (Epic 8 - Part 1/6)
 
-### Overview
+### Problem
 
-Transform the single-URL academy system into a multi-module course builder. Add a `modules` JSONB column to the DB, create an `academy-videos` storage bucket, and replace the Dialog with a right-side Sheet for spacious course editing.
+The current system stores diet assignments as a pointer (`active_diet_template_id` + `diet_start_date` + `diet_duration_weeks`) on `nutrition_targets`. The athlete app must reverse-compute which `day_number` maps to today using modulo arithmetic. The `consumed_foods` table lacks columns to track what the coach prescribed vs. what the athlete actually ate (target vs. actual serving).
+
+### Current Architecture
+
+```text
+nutrition_targets (1 row per athlete)
+  └─ active_diet_template_id ──▶ diet_templates
+  └─ diet_start_date, diet_duration_weeks
+
+diet_template_foods (template rows, day_number 1-7)
+  └─ food_name, serving_size, calories, protein, carbs, fat
+
+consumed_foods (athlete logs)
+  └─ food_name, serving_size, calories, planned_food_id
+  └─ NO target_serving, NO consumed_serving, NO status
+```
+
+The `useAthleteNutritionHistory` hook already computes `dayNumber = (dayOffset % 7) + 1` to map calendar dates to template days -- but it uses `bucketStart` (the query range start) instead of `diet_start_date`, causing incorrect day mapping. The athlete app has no concrete per-date records to query.
+
+### Solution: New `assigned_diet_days` table + `consumed_foods` enhancements
+
+Rather than materializing thousands of rows at assignment time (fragile, hard to update), we create a lightweight **view-like lookup table** that the assignment generates, plus add target tracking columns to `consumed_foods`.
 
 ### Changes
 
 | Step | What |
 |------|------|
-| **Migration 1** | Add `modules` JSONB column to `academy_content` |
-| **Migration 2** | Create `academy-videos` storage bucket + RLS |
-| **Akademi.tsx** | Replace Dialog with Sheet, add modules builder, video upload per module |
+| **Migration** | Create `assigned_diet_days` table + add `target_serving`/`consumed_serving`/`status` columns to `consumed_foods` |
+| **AssignDietTemplateDialog.tsx** | After upserting `nutrition_targets`, generate concrete `assigned_diet_days` rows for each calendar date |
+| **AssignDietTemplateBulkDialog.tsx** | Same generation logic for bulk assignments |
+| **useAthleteNutritionHistory.ts** | Fix day_number calculation to use `diet_start_date` from nutrition_targets |
 
-### 1. Migration — `modules` column
+### 1. Migration
 
-```sql
-ALTER TABLE public.academy_content
-  ADD COLUMN modules jsonb NOT NULL DEFAULT '[]'::jsonb;
-```
-
-Modules structure stored as JSON array: `[{ id, title, videoUrl, fileName, duration, order }]`. No separate table needed — modules are tightly coupled to their parent course.
-
-### 2. Migration — `academy-videos` bucket
+**New table: `assigned_diet_days`**
 
 ```sql
-INSERT INTO storage.buckets (id, name, public) VALUES ('academy-videos', 'academy-videos', true);
-
-CREATE POLICY "Coaches upload academy videos"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'academy-videos');
-
-CREATE POLICY "Anyone can view academy videos"
-  ON storage.objects FOR SELECT TO public
-  USING (bucket_id = 'academy-videos');
-
-CREATE POLICY "Coaches delete own academy videos"
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'academy-videos' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE TABLE public.assigned_diet_days (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  athlete_id UUID NOT NULL,
+  coach_id UUID NOT NULL,
+  template_id UUID NOT NULL,
+  target_date DATE NOT NULL,
+  day_number INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (athlete_id, target_date)
+);
 ```
 
-### 3. `Akademi.tsx` — Course Builder overhaul
+This maps each calendar date to a specific template day_number for each athlete. The `UNIQUE(athlete_id, target_date)` constraint ensures one plan per date.
 
-**Replace Dialog with Sheet (side="right"):**
-- Use `Sheet` / `SheetContent` with `side="right"` and class `sm:max-w-2xl w-full`
-- Full-height scrollable content area for building multi-module courses
+RLS policies: coach ownership, team member delegation, athlete read.
 
-**Module state:**
-- New interface: `CourseModule { id: string; title: string; videoFile: File | null; videoUrl: string; fileName: string; order: number }`
-- State: `modules: CourseModule[]` — managed locally in the form
-- Button "+ Yeni Bölüm Ekle" appends a new empty module
+**New columns on `consumed_foods`:**
 
-**Module list UI:**
-- Each module row: ordered number badge, title Input, video upload zone (accepts `video/mp4,video/quicktime`, max 500MB), file name display, Trash2 delete button
-- Video upload zone per module: dashed border box showing `UploadCloud` + "Video yükleyin" or the selected file name + size
-- Hidden `<input type="file" accept="video/mp4,video/quicktime">` per module triggered on click
+```sql
+ALTER TABLE public.consumed_foods
+  ADD COLUMN target_serving TEXT DEFAULT NULL,
+  ADD COLUMN consumed_serving TEXT DEFAULT NULL,
+  ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
+```
 
-**Submit flow:**
-1. Upload thumbnail (existing logic)
-2. Upload each module's video file to `academy-videos/{coachId}/{timestamp}_{moduleOrder}.{ext}`, collect public URLs
-3. Build modules JSON array with the uploaded URLs
-4. Insert into `academy_content` with the `modules` column populated
-5. Remove the old "Medya Linki" Input entirely — modules replace it
+- `target_serving`: coach-prescribed amount (e.g., "100g")
+- `consumed_serving`: what the athlete actually ate (e.g., "120g") -- defaults to `serving_size` on creation
+- `status`: 'pending' | 'completed' | 'skipped'
 
-**Card updates:**
-- Show module count badge on cards: e.g., "3 Bölüm" badge next to category/type badges
-- Keep existing card layout, just add the module count indicator
+### 2. Assignment Logic (both dialogs)
 
-**Data mapping:**
-- Fetch: parse `row.modules` (already JSON from Supabase) into the local modules array
-- AcademyItem interface gains `modules: { id: string; title: string; videoUrl: string; fileName: string; order: number }[]`
+Extract a shared helper function `generateAssignedDietDays(athleteId, coachId, templateId, startDate, durationWeeks)`:
+
+1. Fetch `diet_template_foods` to determine max `day_number` (template day count, typically 7)
+2. Calculate total days = `durationWeeks * 7`
+3. For each day `i` from 0 to totalDays-1:
+   - `target_date` = startDate + i days
+   - `day_number` = (i % templateDayCount) + 1
+4. Delete existing `assigned_diet_days` for this athlete from startDate onward
+5. Bulk insert all new rows
+
+This function is called after the `nutrition_targets` upsert succeeds in both `AssignDietTemplateDialog` and `AssignDietTemplateBulkDialog`.
+
+### 3. Fix `useAthleteNutritionHistory.ts`
+
+Currently line 151 computes:
+```ts
+const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
+const dayNumber = (dayOffset % 7) + 1;
+```
+
+This uses `bucketStart` (the UI date range start) instead of the actual `diet_start_date`. Fix to:
+1. Fetch `diet_start_date` from `nutrition_targets` (already fetched)
+2. If `assigned_diet_days` rows exist for the date range, use those directly (preferred path)
+3. Fallback: compute `dayNumber` relative to `diet_start_date` instead of `bucketStart`
+
+### 4. Shared Helper Location
+
+Create `src/utils/dietAssignment.ts` with:
+- `generateAssignedDietDays()` function
+- Reused by both assignment dialogs
+
+### Technical Details
+
+- `assigned_diet_days` uses `ON CONFLICT (athlete_id, target_date) DO UPDATE` for idempotent re-assignment
+- When a diet is revoked (template set to null), delete all `assigned_diet_days` for that athlete
+- The `consumed_foods.status` defaults to `'pending'` -- the athlete app sets it to `'completed'` when logging, or `'skipped'` explicitly
+- No edge function needed; all logic runs client-side with Supabase SDK
 
