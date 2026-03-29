@@ -109,17 +109,14 @@ export default function Settings() {
     
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.fullName,
-          bio: formData.bio,
-          gym_name: formData.gymName,
-          specialty: formData.specialty,
-          notification_preferences: notificationPrefs,
-          notification_settings: notificationPrefs
-        })
-        .eq('id', user.id);
+      const { error } = await supabase.rpc('update_own_profile', {
+        _full_name: formData.fullName,
+        _bio: formData.bio,
+        _gym_name: formData.gymName,
+        _specialty: formData.specialty,
+        _notification_preferences: notificationPrefs,
+        _notification_settings: notificationPrefs
+      });
 
       if (error) throw error;
 
@@ -155,11 +152,10 @@ export default function Settings() {
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Update profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user.id);
+      // Update profile via secure RPC
+      const { error: updateError } = await supabase.rpc('update_own_profile', {
+        _avatar_url: publicUrl
+      });
 
       if (updateError) throw updateError;
 
