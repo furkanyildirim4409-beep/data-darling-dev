@@ -27,11 +27,13 @@ export function useMediaUpload({ userId, onUploadComplete }: UseMediaUploadOptio
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData, error: signedUrlError } = await supabase.storage
         .from('chat-media')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year expiry
 
-      onUploadComplete(urlData.publicUrl, type);
+      if (signedUrlError || !urlData?.signedUrl) throw signedUrlError || new Error('Signed URL oluşturulamadı');
+
+      onUploadComplete(urlData.signedUrl, type);
     } catch (err: any) {
       toast.error('Yükleme başarısız: ' + (err.message || 'Bilinmeyen hata'));
     } finally {
