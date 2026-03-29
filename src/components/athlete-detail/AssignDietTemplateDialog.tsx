@@ -178,12 +178,13 @@ export function AssignDietTemplateDialog({
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={(d) => d && setStartDate(d)}
+                onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
               />
             </PopoverContent>
           </Popover>
+          <p className="text-[10px] text-muted-foreground">Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır</p>
           <Select value={durationWeeks} onValueChange={setDurationWeeks}>
             <SelectTrigger className="w-[120px] h-8 text-xs">
               <SelectValue />
