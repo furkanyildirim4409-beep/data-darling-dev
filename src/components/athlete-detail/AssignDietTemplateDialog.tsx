@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
 interface TemplateWithMacros {
   id: string;
@@ -128,11 +129,26 @@ export function AssignDietTemplateDialog({
 
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
-      onAssigned();
-      onOpenChange(false);
+      setAssigning(null);
+      return;
     }
+
+    // Generate concrete assigned_diet_days rows
+    const { error: daysError } = await generateAssignedDietDays(
+      athleteId,
+      activeCoachId,
+      tpl.id,
+      startDate,
+      Number(durationWeeks)
+    );
+
+    if (daysError) {
+      console.error("assigned_diet_days error:", daysError);
+    }
+
+    toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
+    onAssigned();
+    onOpenChange(false);
     setAssigning(null);
   };
 

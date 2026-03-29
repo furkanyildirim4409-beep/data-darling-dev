@@ -79,8 +79,8 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     const startDate = startOfDay(rangeFrom || subDays(new Date(), 6));
     const endDate = endOfDay(rangeTo || new Date());
 
-    // Fetch consumed foods & nutrition targets (single source of truth)
-    const [foodsRes, targetsRes] = await Promise.all([
+    // Fetch consumed foods, nutrition targets, and assigned_diet_days
+    const [foodsRes, targetsRes, assignedDaysRes] = await Promise.all([
       supabase
         .from("consumed_foods")
         .select("id, meal_type, food_name, serving_size, calories, protein, carbs, fat, logged_at, planned_food_id")
@@ -90,9 +90,15 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         .order("logged_at", { ascending: true }),
       supabase
         .from("nutrition_targets")
-        .select("daily_calories, active_diet_template_id")
+        .select("daily_calories, active_diet_template_id, diet_start_date")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
+      supabase
+        .from("assigned_diet_days")
+        .select("target_date, day_number")
+        .eq("athlete_id", athleteId)
+        .gte("target_date", format(startDate, "yyyy-MM-dd"))
+        .lte("target_date", format(endDate, "yyyy-MM-dd")),
     ]);
 
     if (targetsRes.data?.daily_calories) {
@@ -100,6 +106,13 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     }
 
     const activeTemplateId = targetsRes.data?.active_diet_template_id || null;
+    const dietStartDateStr = targetsRes.data?.diet_start_date || null;
+
+    // Build a lookup map from assigned_diet_days: dateStr -> day_number
+    const assignedDayMap = new Map<string, number>();
+    for (const row of assignedDaysRes.data || []) {
+      assignedDayMap.set(row.target_date, row.day_number);
+    }
 
     // Fetch template foods from the single active template
     let templateFoods: PlannedFood[] = [];
@@ -147,9 +160,18 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
         (f) => f.logged_at && format(new Date(f.logged_at), "yyyy-MM-dd") === dateStr
       );
 
-      // Compute day_number (1-7 cycling)
-      const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
-      const dayNumber = (dayOffset % 7) + 1;
+      // Use assigned_diet_days lookup first, then fallback to diet_start_date, then bucketStart
+      let dayNumber: number;
+      const assignedDay = assignedDayMap.get(dateStr);
+      if (assignedDay !== undefined) {
+        dayNumber = assignedDay;
+      } else if (dietStartDateStr) {
+        const dayOffset = differenceInDays(startOfDay(d), startOfDay(new Date(dietStartDateStr)));
+        dayNumber = dayOffset >= 0 ? (dayOffset % 7) + 1 : 1;
+      } else {
+        const dayOffset = differenceInDays(startOfDay(d), startOfDay(bucketStart));
+        dayNumber = (dayOffset % 7) + 1;
+      }
 
       // Get planned foods for this day_number
       const plannedForDay = templateFoods.filter((tf) => tf.day_number === dayNumber);
