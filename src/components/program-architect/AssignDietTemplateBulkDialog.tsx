@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
 interface AssignDietTemplateBulkDialogProps {
   open: boolean;
@@ -104,13 +105,19 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
       .from("nutrition_targets")
       .upsert(rows as any, { onConflict: "athlete_id" });
 
-    setSubmitting(false);
-
     if (error) {
+      setSubmitting(false);
       toast.error("Atama başarısız oldu");
       return;
     }
 
+    // Generate assigned_diet_days for each athlete
+    const daysPromises = Array.from(selectedIds).map((id) =>
+      generateAssignedDietDays(id, activeCoachId, templateId, startDate, Number(durationWeeks))
+    );
+    await Promise.all(daysPromises);
+
+    setSubmitting(false);
     toast.success(`"${templateName}" ${selectedIds.size} sporcuya atandı!`);
     onOpenChange(false);
   };
