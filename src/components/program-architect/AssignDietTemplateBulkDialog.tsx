@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
@@ -148,12 +148,13 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={(d) => d && setStartDate(d)}
+                onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
               />
             </PopoverContent>
           </Popover>
+          <p className="text-[10px] text-muted-foreground">Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır</p>
           <Select value={durationWeeks} onValueChange={setDurationWeeks}>
             <SelectTrigger className="w-[120px] h-8 text-xs">
               <SelectValue />
