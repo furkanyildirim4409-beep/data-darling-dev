@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      assigned_diet_days: {
+        Row: {
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          day_number: number
+          id: string
+          target_date: string
+          template_id: string
+        }
+        Insert: {
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          day_number: number
+          id?: string
+          target_date: string
+          template_id: string
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          day_number?: number
+          id?: string
+          target_date?: string
+          template_id?: string
+        }
+        Relationships: []
+      }
       assigned_supplements: {
         Row: {
           athlete_id: string
@@ -654,6 +684,7 @@ export type Database = {
           athlete_id: string
           calories: number | null
           carbs: number | null
+          consumed_serving: string | null
           fat: number | null
           food_name: string
           id: string
@@ -663,12 +694,15 @@ export type Database = {
           planned_food_id: string | null
           protein: number | null
           serving_size: string | null
+          status: string
+          target_serving: string | null
         }
         Insert: {
           api_food_id?: string | null
           athlete_id: string
           calories?: number | null
           carbs?: number | null
+          consumed_serving?: string | null
           fat?: number | null
           food_name: string
           id?: string
@@ -678,12 +712,15 @@ export type Database = {
           planned_food_id?: string | null
           protein?: number | null
           serving_size?: string | null
+          status?: string
+          target_serving?: string | null
         }
         Update: {
           api_food_id?: string | null
           athlete_id?: string
           calories?: number | null
           carbs?: number | null
+          consumed_serving?: string | null
           fat?: number | null
           food_name?: string
           id?: string
@@ -693,6 +730,8 @@ export type Database = {
           planned_food_id?: string | null
           protein?: number | null
           serving_size?: string | null
+          status?: string
+          target_serving?: string | null
         }
         Relationships: [
           {
