@@ -2057,6 +2057,7 @@ export type Database = {
       }
     }
     Functions: {
+      award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
         Returns: Json
