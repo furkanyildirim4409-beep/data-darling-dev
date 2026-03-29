@@ -106,6 +106,13 @@ export function useAthleteNutritionHistory(athleteId: string, dateRange?: DateRa
     }
 
     const activeTemplateId = targetsRes.data?.active_diet_template_id || null;
+    const dietStartDateStr = targetsRes.data?.diet_start_date || null;
+
+    // Build a lookup map from assigned_diet_days: dateStr -> day_number
+    const assignedDayMap = new Map<string, number>();
+    for (const row of assignedDaysRes.data || []) {
+      assignedDayMap.set(row.target_date, row.day_number);
+    }
 
     // Fetch template foods from the single active template
     let templateFoods: PlannedFood[] = [];
