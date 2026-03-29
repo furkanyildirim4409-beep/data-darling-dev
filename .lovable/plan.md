@@ -1,52 +1,35 @@
 
 
-## Strict Weekday Mapping Hotfix (Epic 8 - Part 1 Hotfix)
+## Align Diet Assignment with Workout Architecture (Epic 8)
 
 ### Problem
-
-`generateAssignedDietDays` uses modulo-based sequential mapping (`(i % templateDayCount) + 1`), meaning day_number cycles through template days regardless of weekday. The correct behavior: day_number must equal the ISO weekday (1=Monday, 7=Sunday), matching the workout program architecture.
+The current `generateAssignedDietDays` blindly maps all 7 days using ISO weekday logic. It needs to match the workout builder pattern: snap start date to Monday, use `(i % 7) + 1` for day mapping, and only assign days that actually have food in the template.
 
 ### Changes
 
-| File | What |
-|------|------|
-| `src/utils/dietAssignment.ts` | Remove template day count query + modulo logic; use `getDay()` mapped to ISO weekday |
-| `src/hooks/useAthleteNutritionHistory.ts` | Fix both fallback branches to use ISO weekday instead of modulo offset |
+| File | Change |
+|------|--------|
+| `src/utils/dietAssignment.ts` | Rewrite: fetch populated days from template, use `(i % 7) + 1` loop, skip empty days |
+| `src/components/athlete-detail/AssignDietTemplateDialog.tsx` | Snap calendar `onSelect` to Monday via `startOfWeek`, add helper text |
+| `src/components/program-architect/AssignDietTemplateBulkDialog.tsx` | Same Monday-snap + helper text |
 
-### 1. `src/utils/dietAssignment.ts`
+### 1. `src/utils/dietAssignment.ts` — Full rewrite
 
-Remove lines 17-24 (the `diet_template_foods` query for `uniqueDays`/`templateDayCount`). Replace the `day_number` computation on line 42:
+- Query `diet_template_foods` for distinct `day_number` values → `populatedDays` Set
+- Loop `i = 0` to `totalDays - 1`, compute `templateDayNumber = (i % 7) + 1`
+- Only push row if `populatedDays.has(templateDayNumber)`
+- Delete + chunked insert unchanged
 
-```typescript
-const currentDate = addDays(startDate, i);
-let dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon...6=Sat
-if (dayOfWeek === 0) dayOfWeek = 7;   // Sun → 7
+Since `startDate` is guaranteed Monday, `i=0` → day 1 (Mon), `i=6` → day 7 (Sun), repeating.
 
-rows.push({
-  ...
-  day_number: dayOfWeek,
-});
-```
+### 2. Both Dialogs — Monday snap
 
-The Supabase query for template day numbers is no longer needed since day_number is purely calendar-driven.
-
-### 2. `src/hooks/useAthleteNutritionHistory.ts` (lines 168-174)
-
-Replace both fallback branches with strict weekday:
-
-```typescript
-if (assignedDay !== undefined) {
-  dayNumber = assignedDay;
-} else {
-  dayNumber = d.getDay() || 7; // 0(Sun)→7, 1(Mon)→1, etc.
-}
-```
-
-The `dietStartDateStr` offset fallback is removed — weekday identity is intrinsic to the date itself, no reference date needed.
+- Import `startOfWeek` from `date-fns`
+- Change `onSelect`: `onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}`
+- Add below calendar popover: `<p className="text-[10px] text-muted-foreground">Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır</p>`
 
 ### Technical Notes
-
-- ISO weekday mapping: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
-- This matches the diet template builder which uses day_number 1-7 for Mon-Sun
-- No migration needed — only TypeScript logic changes
+- `getNextMonday()` already returns a Monday — no change needed for default state
+- `startOfWeek` with `weekStartsOn: 1` returns the Monday of the selected date's week, ensuring any user pick snaps correctly
+- This is identical to the workout assignment pattern
 
