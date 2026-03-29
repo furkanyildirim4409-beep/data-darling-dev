@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { generateAssignedDietDays } from "@/utils/dietAssignment";
 

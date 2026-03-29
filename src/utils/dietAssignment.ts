@@ -2,10 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
 
 /**
- * Generate concrete assigned_diet_days rows mapping each calendar date
- * to a template day_number for the given athlete assignment.
- *
- * Uses chunked upsert (500 rows/batch) to avoid payload limits.
+ * Generate concrete assigned_diet_days rows for the given athlete assignment.
+ * Uses the same architecture as workout assignments:
+ * - startDate is guaranteed to be a Monday
+ * - day_number mapping: (i % 7) + 1 → 1=Mon … 7=Sun
+ * - Only days with actual food in the template get rows
+ * - Chunked upsert (500 rows/batch)
  */
 export async function generateAssignedDietDays(
   athleteId: string,
@@ -14,7 +16,19 @@ export async function generateAssignedDietDays(
   startDate: Date,
   durationWeeks: number
 ): Promise<{ error: string | null }> {
-  // 1. Build rows – strict ISO weekday mapping (Mon=1 … Sun=7)
+  // 1. Fetch which day_numbers actually have food in the template
+  const { data: foods, error: fetchError } = await supabase
+    .from("diet_template_foods")
+    .select("day_number")
+    .eq("template_id", templateId);
+
+  if (fetchError) {
+    return { error: fetchError.message };
+  }
+
+  const populatedDays = new Set((foods || []).map(f => f.day_number || 1));
+
+  // 2. Build rows — startDate is guaranteed Monday, so i=0 → Day 1 (Mon)
   const totalDays = durationWeeks * 7;
   const rows: {
     athlete_id: string;
@@ -25,17 +39,17 @@ export async function generateAssignedDietDays(
   }[] = [];
 
   for (let i = 0; i < totalDays; i++) {
-    const currentDate = addDays(startDate, i);
-    let dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon…6=Sat
-    if (dayOfWeek === 0) dayOfWeek = 7;   // Sun → 7
+    const templateDayNumber = (i % 7) + 1; // 1=Mon, 2=Tue, ..., 7=Sun
 
-    rows.push({
-      athlete_id: athleteId,
-      coach_id: coachId,
-      template_id: templateId,
-      target_date: format(currentDate, "yyyy-MM-dd"),
-      day_number: dayOfWeek,
-    });
+    if (populatedDays.has(templateDayNumber)) {
+      rows.push({
+        athlete_id: athleteId,
+        coach_id: coachId,
+        template_id: templateId,
+        target_date: format(addDays(startDate, i), "yyyy-MM-dd"),
+        day_number: templateDayNumber,
+      });
+    }
   }
 
   // 3. Delete existing rows from startDate onward for this athlete

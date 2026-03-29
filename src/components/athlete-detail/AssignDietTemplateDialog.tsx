@@ -16,7 +16,7 @@ import { Loader2, Apple, Flame, Beef, Wheat, Droplets, Check, CalendarIcon } fro
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
