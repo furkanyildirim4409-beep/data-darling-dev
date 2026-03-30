@@ -324,8 +324,10 @@ export function useCoachChat() {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      channelRef.current?.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [coachId, selectedAthleteId]);
 
