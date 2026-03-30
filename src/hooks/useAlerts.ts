@@ -206,26 +206,31 @@ export function useAlerts() {
 
   // Keep a stable ref to fetchAlerts so the realtime effect doesn't re-run
   const fetchAlertsRef = useRef(fetchAlerts);
-  useEffect(() => { fetchAlertsRef.current = fetchAlerts; }, [fetchAlerts]);
+  useEffect(() => {
+    fetchAlertsRef.current = fetchAlerts;
+  }, [fetchAlerts]);
 
-  // Realtime: re-scan when profiles or checkins change
+  // Realtime: build channel fully before subscribing
   useEffect(() => {
     if (!user || !activeCoachId) return;
 
-    const handler = () => fetchAlertsRef.current();
+    const handler = () => {
+      void fetchAlertsRef.current();
+    };
 
-    const channel = supabase
-      .channel(`alerts-realtime:${activeCoachId}:${Date.now()}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, handler)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "daily_checkins" }, handler)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "assigned_workouts" }, handler)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "assigned_workouts" }, handler)
-      .subscribe();
+    const channel = supabase.channel(`alerts-realtime:${activeCoachId}:${crypto.randomUUID()}`);
+
+    channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, handler);
+    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "daily_checkins" }, handler);
+    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "assigned_workouts" }, handler);
+    channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: "assigned_workouts" }, handler);
+
+    channel.subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [user, activeCoachId]);
+  }, [user?.id, activeCoachId]);
 
   // Derived counts
   const criticalCount = alerts.filter((a) => a.level === "critical").length;
