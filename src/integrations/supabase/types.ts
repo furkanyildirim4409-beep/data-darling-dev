@@ -2057,6 +2057,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_bio_coin_transaction: {
+        Args: { _amount: number; _description?: string; _type: string }
+        Returns: string
+      }
       award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
