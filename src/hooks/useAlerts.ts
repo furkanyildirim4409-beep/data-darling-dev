@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Notification } from "@/types/shared-models";
@@ -204,22 +204,28 @@ export function useAlerts() {
     fetchAlerts();
   }, [fetchAlerts]);
 
+  // Keep a stable ref to fetchAlerts so the realtime effect doesn't re-run
+  const fetchAlertsRef = useRef(fetchAlerts);
+  useEffect(() => { fetchAlertsRef.current = fetchAlerts; }, [fetchAlerts]);
+
   // Realtime: re-scan when profiles or checkins change
   useEffect(() => {
     if (!user || !activeCoachId) return;
 
+    const handler = () => fetchAlertsRef.current();
+
     const channel = supabase
       .channel(`alerts-realtime:${activeCoachId}:${Date.now()}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => fetchAlerts())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "daily_checkins" }, () => fetchAlerts())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "assigned_workouts" }, () => fetchAlerts())
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "assigned_workouts" }, () => fetchAlerts())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, handler)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "daily_checkins" }, handler)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "assigned_workouts" }, handler)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "assigned_workouts" }, handler)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, activeCoachId, fetchAlerts]);
+  }, [user, activeCoachId]);
 
   // Derived counts
   const criticalCount = alerts.filter((a) => a.level === "critical").length;
