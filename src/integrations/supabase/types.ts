@@ -1895,6 +1895,42 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist: {
+        Row: {
+          athlete_count: string | null
+          created_at: string
+          email: string
+          goal: string | null
+          id: string
+          instagram: string | null
+          name: string
+          role: string
+          specialty: string | null
+        }
+        Insert: {
+          athlete_count?: string | null
+          created_at?: string
+          email: string
+          goal?: string | null
+          id?: string
+          instagram?: string | null
+          name: string
+          role?: string
+          specialty?: string | null
+        }
+        Update: {
+          athlete_count?: string | null
+          created_at?: string
+          email?: string
+          goal?: string | null
+          id?: string
+          instagram?: string | null
+          name?: string
+          role?: string
+          specialty?: string | null
+        }
+        Relationships: []
+      }
       water_logs: {
         Row: {
           amount_ml: number
