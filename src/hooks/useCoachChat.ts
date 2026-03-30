@@ -260,8 +260,8 @@ export function useCoachChat() {
   useEffect(() => {
     if (!coachId) return;
 
-    channelRef.current = supabase
-      .channel('coach-inbox-realtime')
+    const channel = supabase
+      .channel(`coach-inbox-realtime:${coachId}:${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -324,8 +324,10 @@ export function useCoachChat() {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      channelRef.current?.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [coachId, selectedAthleteId]);
 

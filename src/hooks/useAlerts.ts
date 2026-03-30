@@ -209,7 +209,7 @@ export function useAlerts() {
     if (!user || !activeCoachId) return;
 
     const channel = supabase
-      .channel("alerts-realtime")
+      .channel(`alerts-realtime:${activeCoachId}:${Date.now()}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => fetchAlerts())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "daily_checkins" }, () => fetchAlerts())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "assigned_workouts" }, () => fetchAlerts())
