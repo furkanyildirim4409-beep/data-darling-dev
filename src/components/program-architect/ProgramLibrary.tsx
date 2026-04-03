@@ -665,6 +665,11 @@ export function ProgramLibrary({
                   <Dumbbell className="w-3 h-3 mr-1.5" />
                   Egzersizler ({TOTAL_EXERCISE_COUNT})
                 </>
+              ) : builderMode === "supplement" ? (
+                <>
+                  <Pill className="w-3 h-3 mr-1.5" />
+                  Takviyeler ({supplementItems.length})
+                </>
               ) : (
                 <>
                   <Apple className="w-3 h-3 mr-1.5" />
