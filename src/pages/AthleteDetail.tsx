@@ -252,7 +252,10 @@ export default function AthleteDetail() {
         </TabsContent>
 
         <TabsContent value="program" className="mt-6">
-          <ProgramTab athleteId={athlete.id} currentProgram="Program" />
+          <div className="space-y-6">
+            <ProgramTab athleteId={athlete.id} currentProgram="Program" />
+            <SupplementsPanel athleteId={athlete.id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="nutrition" className="mt-6">
