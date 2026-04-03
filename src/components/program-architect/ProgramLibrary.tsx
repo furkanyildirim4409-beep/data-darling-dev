@@ -243,6 +243,10 @@ export function ProgramLibrary({
   const [coachFoods, setCoachFoods] = useState<LibraryItem[]>([]);
   const [loadingCoachFoods, setLoadingCoachFoods] = useState(false);
 
+  // Supplement library state
+  const [supplementItems, setSupplementItems] = useState<LibraryItem[]>([]);
+  const [loadingSupplements, setLoadingSupplements] = useState(false);
+
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
