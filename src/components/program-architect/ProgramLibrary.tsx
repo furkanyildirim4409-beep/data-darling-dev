@@ -516,6 +516,36 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchCoachFoods]);
 
+  // Fetch supplement library
+  const fetchSupplementLibrary = useCallback(async () => {
+    setLoadingSupplements(true);
+    let query = supabase
+      .from("supplements_library")
+      .select("id, name, category, default_dosage, description, icon")
+      .order("name");
+
+    if (debouncedSearch.trim()) {
+      query = query.ilike("name", `%${debouncedSearch.trim()}%`);
+    }
+
+    const { data } = await query;
+    setSupplementItems((data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category || "Genel",
+      type: "supplement",
+      default_dosage: r.default_dosage,
+      icon: r.icon || "💊",
+    } as LibraryItem & { default_dosage?: string; icon?: string })));
+    setLoadingSupplements(false);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (builderMode === "supplement") {
+      fetchSupplementLibrary();
+    }
+  }, [builderMode, fetchSupplementLibrary]);
+
   // Auto-sync API food to food_items on add
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
     // Call original onAddItem immediately
