@@ -43,6 +43,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { AssignProgramDialog } from "./AssignProgramDialog";
 import { BulkAssignDialog } from "./BulkAssignDialog";
 import { AssignDietTemplateBulkDialog } from "./AssignDietTemplateBulkDialog";
+import { AssignSupplementTemplateDialog } from "./AssignSupplementTemplateDialog";
 import { useSupplementTemplates, SupplementTemplate } from "@/hooks/useSupplementTemplates";
 
 export type ProgramType = "exercise" | "nutrition" | "supplement";
