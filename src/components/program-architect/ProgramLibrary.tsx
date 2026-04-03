@@ -209,7 +209,7 @@ function ExerciseDetailModal({ item, open, onClose }: { item: LibraryItem | null
 interface ProgramLibraryProps {
   onAddItem: (item: LibraryItem) => void;
   addedItemIds: string[];
-  builderMode: "exercise" | "nutrition";
+  builderMode: "exercise" | "nutrition" | "supplement";
   onLoadTemplate: (template: SavedTemplate) => void;
 }
 

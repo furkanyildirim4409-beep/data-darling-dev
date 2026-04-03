@@ -1668,6 +1668,101 @@ export type Database = {
         }
         Relationships: []
       }
+      supplement_template_items: {
+        Row: {
+          dosage: string | null
+          icon: string
+          id: string
+          order_index: number
+          supplement_name: string
+          template_id: string
+          timing: string
+        }
+        Insert: {
+          dosage?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          supplement_name: string
+          template_id: string
+          timing?: string
+        }
+        Update: {
+          dosage?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          supplement_name?: string
+          template_id?: string
+          timing?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplement_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "supplement_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplement_templates: {
+        Row: {
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_template: boolean
+          name: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_template?: boolean
+          name: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_template?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      supplements_library: {
+        Row: {
+          category: string
+          created_at: string
+          default_dosage: string | null
+          description: string | null
+          icon: string
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          default_dosage?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          default_dosage?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       team_member_athletes: {
         Row: {
           athlete_id: string

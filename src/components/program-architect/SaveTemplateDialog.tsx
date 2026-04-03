@@ -18,13 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BookMarked, Dumbbell, Apple, Loader2 } from "lucide-react";
+import { BookMarked, Dumbbell, Apple, Pill, Loader2 } from "lucide-react";
 
 interface SaveTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
-  mode: "exercise" | "nutrition";
+  mode: "exercise" | "nutrition" | "supplement";
   itemCount: number;
   editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
 }
@@ -95,7 +95,7 @@ export function SaveTemplateDialog({
             {isEditing ? "Programı Güncelle" : "Programı Kaydet"}
           </DialogTitle>
           <DialogDescription>
-            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
+            Bu {mode === "exercise" ? "antrenman" : mode === "nutrition" ? "beslenme" : "takviye"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,36 +124,38 @@ export function SaveTemplateDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Zorluk</Label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Seçiniz" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="beginner">Başlangıç</SelectItem>
-                  <SelectItem value="intermediate">Orta</SelectItem>
-                  <SelectItem value="advanced">İleri</SelectItem>
-                </SelectContent>
-              </Select>
+          {mode === "exercise" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Zorluk</Label>
+                <Select value={difficulty} onValueChange={setDifficulty}>
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Başlangıç</SelectItem>
+                    <SelectItem value="intermediate">Orta</SelectItem>
+                    <SelectItem value="advanced">İleri</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Hedef</Label>
+                <Select value={targetGoal} onValueChange={setTargetGoal}>
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hypertrophy">Hipertrofi</SelectItem>
+                    <SelectItem value="strength">Güç</SelectItem>
+                    <SelectItem value="endurance">Dayanıklılık</SelectItem>
+                    <SelectItem value="fat_loss">Yağ Yakımı</SelectItem>
+                    <SelectItem value="general">Genel Fitness</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Hedef</Label>
-              <Select value={targetGoal} onValueChange={setTargetGoal}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Seçiniz" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hypertrophy">Hipertrofi</SelectItem>
-                  <SelectItem value="strength">Güç</SelectItem>
-                  <SelectItem value="endurance">Dayanıklılık</SelectItem>
-                  <SelectItem value="fat_loss">Yağ Yakımı</SelectItem>
-                  <SelectItem value="general">Genel Fitness</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           <div className="glass rounded-lg p-3 border border-border">
             <div className="flex items-center gap-3">
@@ -161,17 +163,21 @@ export function SaveTemplateDialog({
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
                   <Dumbbell className="w-5 h-5 text-primary" />
                 </div>
-              ) : (
+              ) : mode === "nutrition" ? (
                 <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
                   <Apple className="w-5 h-5 text-success" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <Pill className="w-5 h-5 text-purple-400" />
                 </div>
               )}
               <div>
                 <p className="text-sm font-medium">
-                  {mode === "exercise" ? "Antrenman Programı" : "Beslenme Programı"}
+                  {mode === "exercise" ? "Antrenman Programı" : mode === "nutrition" ? "Beslenme Programı" : "Takviye Programı"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {itemCount} {mode === "exercise" ? "egzersiz" : "besin"} kaydedilecek
+                  {itemCount} {mode === "exercise" ? "egzersiz" : mode === "nutrition" ? "besin" : "takviye"} kaydedilecek
                 </p>
               </div>
             </div>
