@@ -43,6 +43,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { AssignProgramDialog } from "./AssignProgramDialog";
 import { BulkAssignDialog } from "./BulkAssignDialog";
 import { AssignDietTemplateBulkDialog } from "./AssignDietTemplateBulkDialog";
+import { AssignSupplementTemplateDialog } from "./AssignSupplementTemplateDialog";
 import { useSupplementTemplates, SupplementTemplate } from "@/hooks/useSupplementTemplates";
 
 export type ProgramType = "exercise" | "nutrition" | "supplement";
@@ -89,6 +90,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   });
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [dietAssignDialog, setDietAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
+    open: false, templateId: "", templateName: "",
+  });
+  const [supAssignDialog, setSupAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
     open: false, templateId: "", templateName: "",
   });
 
@@ -851,6 +855,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Düzenle
                             </DropdownMenuItem>
                           )}
+                          {canAssignPrograms && (
+                            <DropdownMenuItem onClick={() => setSupAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                              <Users className="w-4 h-4 mr-2" />
+                              Sporculara Ata
+                            </DropdownMenuItem>
+                          )}
                           {canCreatePrograms && (
                             <DropdownMenuItem onClick={() => handleDuplicateSupplement(item)}>
                               <Copy className="w-4 h-4 mr-2" />
@@ -962,6 +972,14 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         onOpenChange={(open) => setDietAssignDialog((prev) => ({ ...prev, open }))}
         templateId={dietAssignDialog.templateId}
         templateName={dietAssignDialog.templateName}
+      />
+
+      {/* Supplement Template Assign Dialog */}
+      <AssignSupplementTemplateDialog
+        open={supAssignDialog.open}
+        onOpenChange={(open) => setSupAssignDialog((prev) => ({ ...prev, open }))}
+        templateId={supAssignDialog.templateId}
+        templateName={supAssignDialog.templateName}
       />
     </div>
   );
