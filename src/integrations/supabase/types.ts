@@ -130,28 +130,43 @@ export type Database = {
           athlete_id: string
           coach_id: string
           created_at: string
+          dosage: string | null
+          icon: string
           id: string
           is_active: boolean
           name_and_dosage: string
+          servings_left: number
           source_insight_id: string | null
+          timing: string
+          total_servings: number
         }
         Insert: {
           athlete_id: string
           coach_id: string
           created_at?: string
+          dosage?: string | null
+          icon?: string
           id?: string
           is_active?: boolean
           name_and_dosage: string
+          servings_left?: number
           source_insight_id?: string | null
+          timing?: string
+          total_servings?: number
         }
         Update: {
           athlete_id?: string
           coach_id?: string
           created_at?: string
+          dosage?: string | null
+          icon?: string
           id?: string
           is_active?: boolean
           name_and_dosage?: string
+          servings_left?: number
           source_insight_id?: string | null
+          timing?: string
+          total_servings?: number
         }
         Relationships: [
           {
