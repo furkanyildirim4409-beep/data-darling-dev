@@ -148,12 +148,34 @@ const MEAL_LABELS: Record<string, string> = {
   dinner: "Akşam Yemeği",
 };
 
+interface SupplementData {
+  id: string;
+  name_and_dosage: string;
+  timing: string;
+  icon: string;
+  is_active: boolean;
+  servings_left: number;
+  total_servings: number;
+}
+
+const TIMING_COLORS: Record<string, string> = {
+  "Sabah": "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  "Antrenman Öncesi": "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  "Antrenman Sonrası": "bg-green-500/10 text-green-400 border-green-500/30",
+  "Öğün Arası": "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  "Yatmadan Önce": "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
+};
+
 export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const { user } = useAuth();
   const { canAssignPrograms, canDeleteAthletes } = usePermissions();
+  const { deleteSupplement, toggleSupplement } = useSupplementMutations();
   const [isLoading, setIsLoading] = useState(true);
   const [trainings, setTrainings] = useState<TrainingData[]>([]);
   const [diets, setDiets] = useState<DietData[]>([]);
+  const [supplements, setSupplements] = useState<SupplementData[]>([]);
+  const [togglingSupId, setTogglingSupId] = useState<string | null>(null);
+  const [assignSupplementOpen, setAssignSupplementOpen] = useState(false);
 
   // Detail dialog state
   const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
