@@ -1,35 +1,48 @@
 
 
-## Align Diet Assignment with Workout Architecture (Epic 8)
+## Supplement Assignment Architecture
 
-### Problem
-The current `generateAssignedDietDays` blindly maps all 7 days using ISO weekday logic. It needs to match the workout builder pattern: snap start date to Monday, use `(i % 7) + 1` for day mapping, and only assign days that actually have food in the template.
+### Summary
+Add a full supplement assignment flow to the Coach Panel: a dialog to create/assign supplements, a mutation hook, and an enhanced SupplementsPanel with the "Assign" button and delete capability.
 
-### Changes
+### What Changes
 
-| File | Change |
-|------|--------|
-| `src/utils/dietAssignment.ts` | Rewrite: fetch populated days from template, use `(i % 7) + 1` loop, skip empty days |
-| `src/components/athlete-detail/AssignDietTemplateDialog.tsx` | Snap calendar `onSelect` to Monday via `startOfWeek`, add helper text |
-| `src/components/program-architect/AssignDietTemplateBulkDialog.tsx` | Same Monday-snap + helper text |
+**1. New file: `src/hooks/useSupplementMutations.ts`**
+- `assignSupplement(payload)` — inserts into `assigned_supplements` with fields: `athlete_id`, `coach_id`, `name_and_dosage`, `dosage`, `timing`, `icon`, `total_servings`, `servings_left` (= total_servings), `is_active: true`
+- `deleteSupplement(id)` — deletes row by id
+- `toggleSupplement(id, currentState)` — updates `is_active` (replaces inline logic in SupplementsPanel)
+- Uses `useAuth()` to get `activeCoachId`
 
-### 1. `src/utils/dietAssignment.ts` — Full rewrite
+**2. New file: `src/components/athlete-detail/AssignSupplementDialog.tsx`**
+- Dialog component matching existing design language (same pattern as `AssignDietTemplateDialog`)
+- Props: `open`, `onOpenChange`, `athleteId`, `onAssigned`
+- Form fields:
+  - **Supplement Name** — text input (e.g. "Whey Protein", "Creatine Monohydrate")
+  - **Dosage** — text input (e.g. "1 Ölçek", "5g", "2 Kapsül")
+  - **Timing** — Select dropdown: Sabah, Antrenman Öncesi, Antrenman Sonrası, Öğün Arası, Yatmadan Önce
+  - **Total Servings** — number input, default 30
+  - **Icon** — clickable emoji grid: 💊 🥤 🧴 🐟 🥩 🫐 🍵 💪
+- Constructs `name_and_dosage` as `"{name} - {dosage}"` for backward compatibility
+- Calls `useSupplementMutations().assignSupplement()` on submit
+- Shows toast on success/error
 
-- Query `diet_template_foods` for distinct `day_number` values → `populatedDays` Set
-- Loop `i = 0` to `totalDays - 1`, compute `templateDayNumber = (i % 7) + 1`
-- Only push row if `populatedDays.has(templateDayNumber)`
-- Delete + chunked insert unchanged
+**3. Update: `src/components/athlete-detail/SupplementsPanel.tsx`**
+- Add "Takviye Ata" button in the card header (opens AssignSupplementDialog)
+- Expand the `Supplement` interface to include `dosage`, `timing`, `icon`, `servings_left`, `total_servings`
+- Fetch all new columns from Supabase
+- Display icon, timing badge, and servings progress (e.g. "12/30 kalan") per item
+- Add delete button (trash icon) per supplement using the mutation hook
+- Refactor toggle logic to use the shared hook
+- Callback `onAssigned` triggers re-fetch
 
-Since `startDate` is guaranteed Monday, `i=0` → day 1 (Mon), `i=6` → day 7 (Sun), repeating.
+**4. No database migration needed**
+The `assigned_supplements` table already has all required columns (`dosage`, `timing`, `icon`, `total_servings`, `servings_left`, `coach_id`, `athlete_id`, `name_and_dosage`, `is_active`, `source_insight_id`). RLS policies for coach CRUD are already in place.
 
-### 2. Both Dialogs — Monday snap
+### Technical Details
 
-- Import `startOfWeek` from `date-fns`
-- Change `onSelect`: `onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}`
-- Add below calendar popover: `<p className="text-[10px] text-muted-foreground">Seçtiğiniz tarih haftanın Pazartesi gününe yuvarlanır</p>`
-
-### Technical Notes
-- `getNextMonday()` already returns a Monday — no change needed for default state
-- `startOfWeek` with `weekStartsOn: 1` returns the Monday of the selected date's week, ensuring any user pick snaps correctly
-- This is identical to the workout assignment pattern
+- `name_and_dosage` is composed as `"${name} - ${dosage}"` to maintain compatibility with existing athlete app display
+- `servings_left` is initialized to equal `total_servings` on assignment
+- The dialog follows the exact same Dialog/DialogContent/DialogHeader pattern used by `AssignDietTemplateDialog`
+- Auth context provides `activeCoachId` which maps to `coach_id` in the insert
+- The SupplementsPanel already lives in the DraggableCardLayout on the "general" tab — no routing changes needed
 
