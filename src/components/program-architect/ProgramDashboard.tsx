@@ -855,6 +855,12 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                               Düzenle
                             </DropdownMenuItem>
                           )}
+                          {canAssignPrograms && (
+                            <DropdownMenuItem onClick={() => setSupAssignDialog({ open: true, templateId: item.id, templateName: item.name })}>
+                              <Users className="w-4 h-4 mr-2" />
+                              Sporculara Ata
+                            </DropdownMenuItem>
+                          )}
                           {canCreatePrograms && (
                             <DropdownMenuItem onClick={() => handleDuplicateSupplement(item)}>
                               <Copy className="w-4 h-4 mr-2" />
