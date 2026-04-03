@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2, X, CheckCircle2 } from "lucide-react";
+import { Search, Dumbbell, Apple, Pill, Plus, BookMarked, Trash2, Loader2, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -242,6 +242,10 @@ export function ProgramLibrary({
   // Coach's food library from DB
   const [coachFoods, setCoachFoods] = useState<LibraryItem[]>([]);
   const [loadingCoachFoods, setLoadingCoachFoods] = useState(false);
+
+  // Supplement library state
+  const [supplementItems, setSupplementItems] = useState<LibraryItem[]>([]);
+  const [loadingSupplements, setLoadingSupplements] = useState(false);
 
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
@@ -512,6 +516,36 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchCoachFoods]);
 
+  // Fetch supplement library
+  const fetchSupplementLibrary = useCallback(async () => {
+    setLoadingSupplements(true);
+    let query = supabase
+      .from("supplements_library")
+      .select("id, name, category, default_dosage, description, icon")
+      .order("name");
+
+    if (debouncedSearch.trim()) {
+      query = query.ilike("name", `%${debouncedSearch.trim()}%`);
+    }
+
+    const { data } = await query;
+    setSupplementItems((data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category || "Genel",
+      type: "supplement",
+      default_dosage: r.default_dosage,
+      icon: r.icon || "💊",
+    } as LibraryItem & { default_dosage?: string; icon?: string })));
+    setLoadingSupplements(false);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (builderMode === "supplement") {
+      fetchSupplementLibrary();
+    }
+  }, [builderMode, fetchSupplementLibrary]);
+
   // Auto-sync API food to food_items on add
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
     // Call original onAddItem immediately
@@ -564,7 +598,7 @@ export function ProgramLibrary({
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const currentItems = builderMode === "exercise" ? exercises : filteredNutrition;
+  const currentItems = builderMode === "exercise" ? exercises : builderMode === "supplement" ? supplementItems : filteredNutrition;
 
   return (
     <div className="glass rounded-xl border border-border h-full flex flex-col">
@@ -631,6 +665,11 @@ export function ProgramLibrary({
                   <Dumbbell className="w-3 h-3 mr-1.5" />
                   Egzersizler ({TOTAL_EXERCISE_COUNT})
                 </>
+              ) : builderMode === "supplement" ? (
+                <>
+                  <Pill className="w-3 h-3 mr-1.5" />
+                  Takviyeler ({supplementItems.length})
+                </>
               ) : (
                 <>
                   <Apple className="w-3 h-3 mr-1.5" />
@@ -651,29 +690,65 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") ? (
+              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") || (loadingSupplements && builderMode === "supplement") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <>
-                  {currentItems.map((item) => (
-                    <LibraryItemCard
-                      key={item.id}
-                      item={item}
-                      onAdd={handleAddWithSync}
-                      isAdded={addedItemIds.includes(item.id)}
-                      onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
-                    />
-                  ))}
+                  {builderMode === "supplement" ? (
+                    currentItems.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="glass rounded-lg p-3 transition-all border border-border group glass-hover cursor-pointer hover:border-purple-500/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg shrink-0">{item.icon || "💊"}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-muted-foreground">{item.category}</p>
+                              {item.default_dosage && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 h-5 bg-purple-500/20 text-purple-400 border-purple-500/30 font-medium">
+                                  {item.default_dosage}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-all hover:bg-purple-500 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddWithSync(item);
+                            }}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    currentItems.map((item) => (
+                      <LibraryItemCard
+                        key={item.id}
+                        item={item}
+                        onAdd={handleAddWithSync}
+                        isAdded={addedItemIds.includes(item.id)}
+                        onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                      />
+                    ))
+                  )}
                   {loadingMore && (
                     <div className="flex justify-center py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && !loadingSupplements && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
+                       builderMode === "supplement" ? "Takviye bulunamadı" :
                        debouncedSearch.length >= 2 ? "Besin bulunamadı" : coachFoods.length === 0 ? "Besin aramak için en az 2 karakter yazın" : "Sonuç bulunamadı"}
                     </p>
                   )}
@@ -754,7 +829,9 @@ export function ProgramLibrary({
         <p className="text-xs text-muted-foreground text-center">
           {builderMode === "exercise" 
             ? `Toplam: ${TOTAL_EXERCISE_COUNT} egzersiz`
-            : coachFoods.length > 0 ? `Kütüphanem: ${coachFoods.length} besin` : `Toplam: ${nutrition.length} besin`
+            : builderMode === "supplement"
+              ? `Toplam: ${supplementItems.length} takviye`
+              : coachFoods.length > 0 ? `Kütüphanem: ${coachFoods.length} besin` : `Toplam: ${nutrition.length} besin`
           }
         </p>
       </div>
