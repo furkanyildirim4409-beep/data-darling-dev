@@ -955,6 +955,14 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
           fetchData();
         }}
       />
+
+      {/* Assign Supplement Dialog */}
+      <AssignSupplementDialog
+        open={assignSupplementOpen}
+        onOpenChange={setAssignSupplementOpen}
+        athleteId={athleteId}
+        onAssigned={fetchData}
+      />
     </>
   );
 }
