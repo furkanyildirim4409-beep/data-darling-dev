@@ -24,7 +24,7 @@ interface SaveTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
-  mode: "exercise" | "nutrition";
+  mode: "exercise" | "nutrition" | "supplement";
   itemCount: number;
   editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
 }
