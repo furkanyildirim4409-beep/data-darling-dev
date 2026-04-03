@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Dumbbell, Apple, Plus, BookMarked, Trash2, Loader2, X, CheckCircle2 } from "lucide-react";
+import { Search, Dumbbell, Apple, Pill, Plus, BookMarked, Trash2, Loader2, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
