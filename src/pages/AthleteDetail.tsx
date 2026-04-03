@@ -246,13 +246,16 @@ export default function AthleteDetail() {
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
               "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
               "bloodwork-panel": <BloodworkPanel athleteId={athlete.id} />,
-              "supplements-panel": <SupplementsPanel athleteId={athlete.id} />,
+              
             }}
           />
         </TabsContent>
 
         <TabsContent value="program" className="mt-6">
-          <ProgramTab athleteId={athlete.id} currentProgram="Program" />
+          <div className="space-y-6">
+            <ProgramTab athleteId={athlete.id} currentProgram="Program" />
+            <SupplementsPanel athleteId={athlete.id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="nutrition" className="mt-6">
