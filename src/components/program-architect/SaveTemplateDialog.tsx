@@ -163,17 +163,21 @@ export function SaveTemplateDialog({
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
                   <Dumbbell className="w-5 h-5 text-primary" />
                 </div>
-              ) : (
+              ) : mode === "nutrition" ? (
                 <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
                   <Apple className="w-5 h-5 text-success" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <Pill className="w-5 h-5 text-purple-400" />
                 </div>
               )}
               <div>
                 <p className="text-sm font-medium">
-                  {mode === "exercise" ? "Antrenman Programı" : "Beslenme Programı"}
+                  {mode === "exercise" ? "Antrenman Programı" : mode === "nutrition" ? "Beslenme Programı" : "Takviye Programı"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {itemCount} {mode === "exercise" ? "egzersiz" : "besin"} kaydedilecek
+                  {itemCount} {mode === "exercise" ? "egzersiz" : mode === "nutrition" ? "besin" : "takviye"} kaydedilecek
                 </p>
               </div>
             </div>

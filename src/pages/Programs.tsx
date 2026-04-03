@@ -1,18 +1,20 @@
 import { useState, useCallback } from "react";
-import { ProgramDashboard, ProgramData } from "@/components/program-architect/ProgramDashboard";
+import { ProgramDashboard, ProgramData, ProgramType } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
 import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
+import { SupplementBuilder, SupplementBuilderItem } from "@/components/program-architect/SupplementBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, BookMarked, ArrowLeft, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Dumbbell, Apple, Pill, BookMarked, ArrowLeft, Save } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useValidExercises } from "@/hooks/useValidExercises";
+import { useSupplementTemplates } from "@/hooks/useSupplementTemplates";
 import { AIGeneratorModal, AIGenerateParams } from "@/components/program-architect/AIGeneratorModal";
 
 type ViewMode = "dashboard" | "builder";
@@ -23,16 +25,18 @@ const createEmptyWeek = (): DayPlan[] =>
 export default function Programs() {
   const { user } = useAuth();
   const { validExerciseNames, exerciseLookup } = useValidExercises();
+  const { saveSupplementTemplate, fetchTemplateItems } = useSupplementTemplates();
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
-  const [builderMode, setBuilderMode] = useState<"exercise" | "nutrition">("exercise");
+  const [builderMode, setBuilderMode] = useState<ProgramType>("exercise");
   const [editingProgram, setEditingProgram] = useState<ProgramData | null>(null);
 
   // Builder state — 7-day structure
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>(createEmptyWeek());
   const [activeDay, setActiveDay] = useState(0);
   const [selectedNutrition, setSelectedNutrition] = useState<NutritionItem[]>([]);
+  const [selectedSupplements, setSelectedSupplements] = useState<SupplementBuilderItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeMealId, setActiveMealId] = useState("meal-1");
   const [activeNutritionDay, setActiveNutritionDay] = useState(0);
@@ -47,12 +51,13 @@ export default function Programs() {
   // Flatten all exercises for compatibility
   const allExercises = weekPlan.flatMap((d) => d.exercises);
 
-  const handleCreateProgram = useCallback((type: "exercise" | "nutrition") => {
+  const handleCreateProgram = useCallback((type: ProgramType) => {
     setBuilderMode(type);
     setEditingProgram(null);
     setWeekPlan(createEmptyWeek());
     setActiveDay(0);
     setSelectedNutrition([]);
+    setSelectedSupplements([]);
     setAutomationRules([]);
     setDayGroups({});
     setViewMode("builder");
@@ -63,8 +68,20 @@ export default function Programs() {
     setEditingProgram(program);
     setViewMode("builder");
 
+    if (program.type === "supplement") {
+      const items = await fetchTemplateItems(program.id);
+      setSelectedSupplements(items.map((item) => ({
+        id: item.id,
+        name: item.supplement_name,
+        dosage: item.dosage || "",
+        timing: item.timing,
+        icon: item.icon,
+      })));
+      toast.info(`"${program.name}" düzenleme modunda açıldı.`);
+      return;
+    }
+
     if (program.type === "nutrition") {
-      // Load diet_template_foods into selectedNutrition
       const { data: foods, error } = await supabase
         .from("diet_template_foods")
         .select("*")
@@ -84,7 +101,6 @@ export default function Programs() {
       };
 
       const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
-        // Parse serving_size to get amount and unit
         const servingMatch = (f.serving_size || "100g").match(/^(\d+\.?\d*)(.*)/);
         const amount = servingMatch ? parseFloat(servingMatch[1]) : 100;
         const unit = servingMatch && servingMatch[2]?.trim() ? servingMatch[2].trim() : "g";
@@ -125,7 +141,6 @@ export default function Programs() {
       return;
     }
 
-    // Load program metadata (rules + week_config)
     const { data: progData } = await supabase
       .from("programs")
       .select("automation_rules, week_config")
@@ -134,7 +149,6 @@ export default function Programs() {
 
     const newWeek = createEmptyWeek();
 
-    // First load exercises into newWeek so we have fresh UUIDs
     if (exercises && exercises.length > 0) {
       exercises.forEach((ex) => {
         const dayIndex = Math.floor((ex.order_index ?? 0) / 100);
@@ -157,7 +171,6 @@ export default function Programs() {
       });
     }
 
-    // Now restore week_config (labels, blockTypes, groups) AFTER exercises are loaded
     const weekConfig = (progData?.week_config as any[]) || [];
     const loadedGroups: Record<number, ExerciseGroup[]> = {};
     weekConfig.forEach((cfg: any, i: number) => {
@@ -167,7 +180,6 @@ export default function Programs() {
         newWeek[i].blockType = cfg.blockType || "none";
         
         if (cfg.groups?.length) {
-          // Reconstruct exerciseIds from exerciseIndices using fresh DB UUIDs
           loadedGroups[i] = cfg.groups.map((g: any) => {
             const reconstructedIds = g.exerciseIndices && newWeek[i].exercises.length
               ? g.exerciseIndices
@@ -186,7 +198,7 @@ export default function Programs() {
     setWeekPlan(newWeek);
     setActiveDay(0);
     toast.info(`"${program.name}" düzenleme modunda açıldı.`);
-  }, []);
+  }, [fetchTemplateItems]);
 
   const handleBackToDashboard = useCallback(() => {
     setViewMode("dashboard");
@@ -195,8 +207,21 @@ export default function Programs() {
 
   const handleAddItem = useCallback(
     (item: LibraryItem) => {
+      if (builderMode === "supplement") {
+        const newItem: SupplementBuilderItem = {
+          id: `${item.id}-${Date.now()}`,
+          name: item.name,
+          dosage: (item as any).default_dosage || "",
+          timing: "Sabah",
+          icon: (item as any).icon || "💊",
+          category: item.category,
+        };
+        setSelectedSupplements((prev) => [...prev, newItem]);
+        toast.success(`${item.name} listeye eklendi.`);
+        return;
+      }
+
       if (builderMode === "exercise") {
-        // Check if already in active day
         if (weekPlan[activeDay].exercises.find((ex) => ex.id === item.id)) return;
         const newExercise: BuilderExercise = { ...item, sets: 3, reps: 10, rpe: 7, rir: 2, failureSet: false, videoUrl: item.gifUrl || undefined };
         setWeekPlan((prev) =>
@@ -232,6 +257,10 @@ export default function Programs() {
     setSelectedNutrition((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
+  const handleRemoveSupplement = useCallback((id: string) => {
+    setSelectedSupplements((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   const handleUpdateExercise = useCallback(
     (dayIndex: number, id: string, field: keyof BuilderExercise, value: number | string | number[]) => {
       setWeekPlan((prev) =>
@@ -249,6 +278,15 @@ export default function Programs() {
     (id: string, field: keyof NutritionItem, value: number | string) => {
       setSelectedNutrition((prev) =>
         prev.map((n) => (n.id === id ? { ...n, [field]: value } : n))
+      );
+    },
+    []
+  );
+
+  const handleUpdateSupplement = useCallback(
+    (id: string, field: keyof SupplementBuilderItem, value: string) => {
+      setSelectedSupplements((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
       );
     },
     []
@@ -279,7 +317,6 @@ export default function Programs() {
   }, []);
 
   const handleDuplicateDay = useCallback((sourceDayIndex: number, targetDayIndex: number) => {
-    // Pre-compute ID mapping so exercises and groups stay in sync
     const sourceExercises = weekPlan[sourceDayIndex].exercises;
     const idMap = new Map<string, string>();
     sourceExercises.forEach((ex) => {
@@ -331,8 +368,10 @@ export default function Programs() {
   const handleClearAll = useCallback(() => {
     if (builderMode === "exercise") {
       setWeekPlan(createEmptyWeek());
-    } else {
+    } else if (builderMode === "nutrition") {
       setSelectedNutrition([]);
+    } else {
+      setSelectedSupplements([]);
     }
   }, [builderMode]);
 
@@ -463,6 +502,36 @@ export default function Programs() {
         return;
       }
 
+      // ─── Supplement mode ───
+      if (builderMode === "supplement") {
+        if (selectedSupplements.length === 0) {
+          toast.error("En az bir takviye ekleyin.");
+          return;
+        }
+
+        const items = selectedSupplements.map((s) => ({
+          supplement_name: s.name,
+          dosage: s.dosage,
+          timing: s.timing,
+          icon: s.icon,
+        }));
+
+        const ok = await saveSupplementTemplate(
+          meta.title,
+          meta.description,
+          items,
+          editingProgram?.id
+        );
+
+        if (ok) {
+          setSelectedSupplements([]);
+          setEditingProgram(null);
+          setDashboardKey((k) => k + 1);
+          setViewMode("dashboard");
+        }
+        return;
+      }
+
       // ─── Nutrition mode: save to diet_templates ───
       if (builderMode === "nutrition") {
         if (selectedNutrition.length === 0) {
@@ -490,7 +559,6 @@ export default function Programs() {
         let templateId: string;
 
         if (isEditing) {
-          // Update existing template
           const { error: tErr } = await supabase
             .from("diet_templates")
             .update({
@@ -505,11 +573,8 @@ export default function Programs() {
             return;
           }
           templateId = editingProgram.id;
-
-          // Delete old foods before re-inserting
           await supabase.from("diet_template_foods").delete().eq("template_id", templateId);
         } else {
-          // Insert new template
           const { data: template, error: tErr } = await supabase
             .from("diet_templates")
             .insert({
@@ -564,16 +629,14 @@ export default function Programs() {
       const isEditing = !!editingProgram;
       let programId: string;
 
-      // Build week_config JSON for day metadata + groups
       const weekConfig = weekPlan.map((day, i) => {
         const dayExercises = day.exercises;
         const rawGroups = dayGroups[i] || [];
         
-        // Map each group to save BOTH exerciseIds (for frontend) and exerciseIndices (for assignment)
         const mappedGroups = rawGroups.map(g => ({
           id: g.id,
           type: g.type,
-          exerciseIds: g.exerciseIds, // RESTORED FOR FRONTEND BUILDER
+          exerciseIds: g.exerciseIds,
           exerciseIndices: g.exerciseIds
             .map(id => dayExercises.findIndex(e => e.id === id))
             .filter(idx => idx !== -1)
@@ -628,7 +691,6 @@ export default function Programs() {
         programId = program.id;
       }
 
-      // Flatten all 7 days with encoded order_index + rir/failure_set
       const exerciseRows = weekPlan.flatMap((day, dayIdx) =>
         day.exercises.map((ex, exIdx) => ({
           program_id: programId,
@@ -659,13 +721,14 @@ export default function Programs() {
       toast.success(isEditing ? "Program başarıyla güncellendi!" : "Program başarıyla kaydedildi!");
       setWeekPlan(createEmptyWeek());
       setSelectedNutrition([]);
+      setSelectedSupplements([]);
       setAutomationRules([]);
       setDayGroups({});
       setEditingProgram(null);
       setDashboardKey((k) => k + 1);
       setViewMode("dashboard");
     },
-    [user, weekPlan, editingProgram, automationRules, dayGroups, builderMode, selectedNutrition]
+    [user, weekPlan, editingProgram, automationRules, dayGroups, builderMode, selectedNutrition, selectedSupplements, saveSupplementTemplate]
   );
 
   const handleLoadTemplate = useCallback((template: SavedTemplate) => {
@@ -712,7 +775,6 @@ export default function Programs() {
   const handleSaveProgramAsTemplate = useCallback(async (program: ProgramData) => {
     if (!user) return;
 
-    // Fetch program exercises and config
     const [{ data: exercises }, { data: progData }] = await Promise.all([
       supabase.from("exercises").select("*").eq("program_id", program.id).order("order_index", { ascending: true }),
       supabase.from("programs").select("week_config").eq("id", program.id).single(),
@@ -779,7 +841,7 @@ export default function Programs() {
     }
   }, [user]);
 
-  const currentItems = builderMode === "exercise" ? allExercises : selectedNutrition;
+  const currentItems = builderMode === "exercise" ? allExercises : builderMode === "nutrition" ? selectedNutrition : selectedSupplements;
 
   // Dashboard View
   if (viewMode === "dashboard") {
@@ -808,32 +870,52 @@ export default function Programs() {
             <p className="text-muted-foreground mt-1">
               {builderMode === "exercise"
                 ? "7 günlük antrenman programı tasarla ve sporcularına ata"
-                : "Beslenme planı oluştur ve sporcularına ata"}
+                : builderMode === "nutrition"
+                  ? "Beslenme planı oluştur ve sporcularına ata"
+                  : "Takviye programı oluştur ve sporcularına ata"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="glass rounded-lg px-4 py-2 border border-border flex items-center gap-3">
-            <div
-              className={`flex items-center gap-2 cursor-pointer ${builderMode === "exercise" ? "text-primary" : "text-muted-foreground"}`}
+          {/* 3-way segmented control */}
+          <div className="glass rounded-lg px-1 py-1 border border-border flex items-center gap-1">
+            <button
               onClick={() => setBuilderMode("exercise")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                builderMode === "exercise"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               <Dumbbell className="w-4 h-4" />
-              <Label className="text-sm font-medium cursor-pointer">Antrenman</Label>
-            </div>
-            <Switch
-              id="builder-mode"
-              checked={builderMode === "nutrition"}
-              onCheckedChange={(checked) => setBuilderMode(checked ? "nutrition" : "exercise")}
-            />
-            <div
-              className={`flex items-center gap-2 cursor-pointer ${builderMode === "nutrition" ? "text-success" : "text-muted-foreground"}`}
+              Antrenman
+            </button>
+            <button
               onClick={() => setBuilderMode("nutrition")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                builderMode === "nutrition"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               <Apple className="w-4 h-4" />
-              <Label className="text-sm font-medium cursor-pointer">Beslenme</Label>
-            </div>
+              Beslenme
+            </button>
+            <button
+              onClick={() => setBuilderMode("supplement")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                builderMode === "supplement"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Pill className="w-4 h-4" />
+              Takviye
+            </button>
           </div>
 
           {builderMode === "exercise" && (
@@ -859,8 +941,11 @@ export default function Programs() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)]">
-        <div className="lg:col-span-3 h-full">
+      <div className={cn(
+        "grid grid-cols-1 gap-4 h-[calc(100vh-220px)]",
+        builderMode === "supplement" ? "lg:grid-cols-2" : "lg:grid-cols-12"
+      )}>
+        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-3 h-full"}>
           <ProgramLibrary
             onAddItem={handleAddItem}
             addedItemIds={weekPlan[activeDay]?.exercises.map((ex) => ex.id) ?? []}
@@ -868,7 +953,7 @@ export default function Programs() {
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
-        <div className="lg:col-span-5 h-full">
+        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-5 h-full"}>
           {builderMode === "exercise" ? (
             <WorkoutBuilder
               weekPlan={weekPlan}
@@ -890,7 +975,7 @@ export default function Programs() {
               onAIGenerate={() => setIsAIModalOpen(true)}
               isAIGenerating={isAIGenerating}
             />
-          ) : (
+          ) : builderMode === "nutrition" ? (
             <NutritionBuilder
               selectedItems={selectedNutrition}
               onRemoveItem={handleRemoveNutrition}
@@ -901,14 +986,23 @@ export default function Programs() {
               activeNutritionDay={activeNutritionDay}
               setActiveNutritionDay={setActiveNutritionDay}
             />
+          ) : (
+            <SupplementBuilder
+              items={selectedSupplements}
+              onRemoveItem={handleRemoveSupplement}
+              onUpdateItem={handleUpdateSupplement}
+              onClearAll={handleClearAll}
+            />
           )}
         </div>
-        <div className="lg:col-span-4 h-full">
-          <WeeklySchedule
-            weekPlan={weekPlan}
-            onClearBuilder={handleClearAll}
-          />
-        </div>
+        {builderMode !== "supplement" && (
+          <div className="lg:col-span-4 h-full">
+            <WeeklySchedule
+              weekPlan={weekPlan}
+              onClearBuilder={handleClearAll}
+            />
+          </div>
+        )}
       </div>
 
       <SaveTemplateDialog
