@@ -690,29 +690,65 @@ export function ProgramLibrary({
               ref={scrollRef}
               className="h-full overflow-y-auto scrollbar-hide px-4 py-3 space-y-2"
             >
-              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") ? (
+              {(loadingExercises && builderMode === "exercise") || ((loadingNutrition || loadingCoachFoods) && builderMode === "nutrition") || (loadingSupplements && builderMode === "supplement") ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <>
-                  {currentItems.map((item) => (
-                    <LibraryItemCard
-                      key={item.id}
-                      item={item}
-                      onAdd={handleAddWithSync}
-                      isAdded={addedItemIds.includes(item.id)}
-                      onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
-                    />
-                  ))}
+                  {builderMode === "supplement" ? (
+                    currentItems.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="glass rounded-lg p-3 transition-all border border-border group glass-hover cursor-pointer hover:border-purple-500/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg shrink-0">{item.icon || "💊"}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-muted-foreground">{item.category}</p>
+                              {item.default_dosage && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 h-5 bg-purple-500/20 text-purple-400 border-purple-500/30 font-medium">
+                                  {item.default_dosage}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-all hover:bg-purple-500 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddWithSync(item);
+                            }}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    currentItems.map((item) => (
+                      <LibraryItemCard
+                        key={item.id}
+                        item={item}
+                        onAdd={handleAddWithSync}
+                        isAdded={addedItemIds.includes(item.id)}
+                        onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                      />
+                    ))
+                  )}
                   {loadingMore && (
                     <div className="flex justify-center py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && (
+                  {currentItems.length === 0 && !loadingExercises && !loadingNutrition && !loadingCoachFoods && !loadingSupplements && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       {builderMode === "exercise" ? "Egzersiz bulunamadı" : 
+                       builderMode === "supplement" ? "Takviye bulunamadı" :
                        debouncedSearch.length >= 2 ? "Besin bulunamadı" : coachFoods.length === 0 ? "Besin aramak için en az 2 karakter yazın" : "Sonuç bulunamadı"}
                     </p>
                   )}
