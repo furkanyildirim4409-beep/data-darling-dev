@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
@@ -21,6 +20,7 @@ import {
 import {
   Dumbbell,
   Apple,
+  Pill,
   Plus,
   MoreVertical,
   Edit,
@@ -43,11 +43,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { AssignProgramDialog } from "./AssignProgramDialog";
 import { BulkAssignDialog } from "./BulkAssignDialog";
 import { AssignDietTemplateBulkDialog } from "./AssignDietTemplateBulkDialog";
+import { useSupplementTemplates, SupplementTemplate } from "@/hooks/useSupplementTemplates";
+
+export type ProgramType = "exercise" | "nutrition" | "supplement";
 
 export interface ProgramData {
   id: string;
   name: string;
-  type: "exercise" | "nutrition";
+  type: ProgramType;
   description: string;
   duration: string;
   assignedCount: number;
@@ -57,10 +60,11 @@ export interface ProgramData {
   targetGoal?: string;
   targetCalories?: number;
   foodCount?: number;
+  itemCount?: number;
 }
 
 interface ProgramDashboardProps {
-  onCreateProgram: (type: "exercise" | "nutrition") => void;
+  onCreateProgram: (type: ProgramType) => void;
   onEditProgram: (program: ProgramData) => void;
   onSaveAsTemplate?: (program: ProgramData) => void;
 }
@@ -69,9 +73,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   const { user, activeCoachId } = useAuth();
   const { canCreatePrograms, canAssignPrograms, canEditAthletes, canDeleteAthletes } = usePermissions();
   const importRef = useRef<HTMLInputElement>(null);
-  const [viewMode, setViewMode] = useState<"exercise" | "nutrition">("exercise");
+  const [viewMode, setViewMode] = useState<ProgramType>("exercise");
   const [programs, setPrograms] = useState<ProgramData[]>([]);
   const [dietTemplates, setDietTemplates] = useState<ProgramData[]>([]);
+  const [supplementTemplates, setSupplementTemplates] = useState<ProgramData[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; program: ProgramData | null }>({
@@ -86,6 +91,8 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   const [dietAssignDialog, setDietAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
     open: false, templateId: "", templateName: "",
   });
+
+  const { fetchSupplementTemplates: fetchSupTpls, deleteSupplementTemplate, duplicateSupplementTemplate } = useSupplementTemplates();
 
   const fetchPrograms = useCallback(async () => {
     if (!user || !activeCoachId) return;
@@ -148,7 +155,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       return;
     }
 
-    // Get food counts per template
     const { data: foods } = await supabase
       .from("diet_template_foods")
       .select("template_id")
@@ -175,15 +181,34 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setLoading(false);
   }, [user, activeCoachId]);
 
+  const fetchSupplementTemplatesData = useCallback(async () => {
+    if (!user || !activeCoachId) return;
+    setLoading(true);
+    const tpls = await fetchSupTpls();
+    setSupplementTemplates(tpls.map((t: SupplementTemplate) => ({
+      id: t.id,
+      name: t.name,
+      type: "supplement" as const,
+      description: t.description ?? "",
+      duration: "",
+      assignedCount: 0,
+      createdAt: new Date(t.created_at ?? Date.now()),
+      itemCount: t.itemCount,
+    })));
+    setLoading(false);
+  }, [user, activeCoachId, fetchSupTpls]);
+
   useEffect(() => {
     if (viewMode === "exercise") {
       fetchPrograms();
-    } else {
+    } else if (viewMode === "nutrition") {
       fetchDietTemplates();
+    } else {
+      fetchSupplementTemplatesData();
     }
-  }, [viewMode, fetchPrograms, fetchDietTemplates]);
+  }, [viewMode, fetchPrograms, fetchDietTemplates, fetchSupplementTemplatesData]);
 
-  const currentItems = viewMode === "exercise" ? programs : dietTemplates;
+  const currentItems = viewMode === "exercise" ? programs : viewMode === "nutrition" ? dietTemplates : supplementTemplates;
 
   const handleDelete = (program: ProgramData) => {
     setDeleteDialog({ open: true, program });
@@ -193,8 +218,10 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     if (!deleteDialog.program) return;
     const item = deleteDialog.program;
 
-    if (item.type === "nutrition") {
-      // Delete foods first, then template
+    if (item.type === "supplement") {
+      const ok = await deleteSupplementTemplate(item.id);
+      if (ok) setSupplementTemplates((prev) => prev.filter((p) => p.id !== item.id));
+    } else if (item.type === "nutrition") {
       await supabase.from("diet_template_foods").delete().eq("template_id", item.id);
       const { error } = await supabase.from("diet_templates").delete().eq("id", item.id);
       if (error) {
@@ -204,7 +231,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         setDietTemplates((prev) => prev.filter((p) => p.id !== item.id));
       }
     } else {
-      // Delete exercises first, then program
       await supabase.from("exercises").delete().eq("program_id", item.id);
       const { error } = await supabase.from("programs").delete().eq("id", item.id);
       if (error) {
@@ -215,6 +241,11 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       }
     }
     setDeleteDialog({ open: false, program: null });
+  };
+
+  const handleDuplicateSupplement = async (item: ProgramData) => {
+    const ok = await duplicateSupplementTemplate(item.id);
+    if (ok) fetchSupplementTemplatesData();
   };
 
   const handleDuplicateDiet = async (item: ProgramData, openInEditor = false) => {
@@ -247,13 +278,11 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   const handleDuplicate = async (program: ProgramData, openInEditor = false) => {
     if (!user || !activeCoachId) return;
 
-    // Fetch full program data + exercises in parallel
     const [{ data: progData }, { data: exercises }] = await Promise.all([
       supabase.from("programs").select("week_config, automation_rules").eq("id", program.id).single(),
       supabase.from("exercises").select("*").eq("program_id", program.id),
     ]);
 
-    // Insert cloned program with all metadata
     const { data: newProg, error: progErr } = await supabase
       .from("programs")
       .insert({
@@ -273,7 +302,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       return;
     }
 
-    // Copy exercises with all fields (rir, failure_set included)
     if (exercises && exercises.length > 0) {
       const { error: exErr } = await supabase.from("exercises").insert(
         exercises.map((ex) => ({
@@ -332,7 +360,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           supabase.from("exercises").select("name, sets, reps, rir, failure_set, notes, order_index, video_url, rest_time, rir_per_set").eq("program_id", item.id),
         ]);
 
-        // Resolve exercise_library IDs by name
         const exerciseNames = (exercises ?? []).map(e => e.name);
         const { data: libMatches } = exerciseNames.length > 0
           ? await supabase.from("exercise_library").select("id, name").in("name", exerciseNames)
@@ -357,10 +384,24 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
           })),
         };
         triggerDownload(json, item.name);
+      } else if (item.type === "supplement") {
+        const { data: items } = await supabase
+          .from("supplement_template_items")
+          .select("supplement_name, dosage, timing, icon, order_index")
+          .eq("template_id", item.id)
+          .order("order_index");
+
+        const json = {
+          name: item.name,
+          type: "supplement",
+          format_version: 1,
+          description: item.description,
+          items: items ?? [],
+        };
+        triggerDownload(json, item.name);
       } else {
         const { data: foods } = await supabase.from("diet_template_foods").select("*").eq("template_id", item.id);
 
-        // Resolve food_items IDs by name + coach_id
         const foodNames = (foods ?? []).map(f => f.food_name);
         const { data: foodMatches } = foodNames.length > 0
           ? await supabase.from("food_items").select("id, name").in("name", foodNames)
@@ -414,7 +455,31 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         return;
       }
 
-      if (data.type === "exercise") {
+      if (data.type === "supplement") {
+        const { data: newTpl, error } = await supabase.from("supplement_templates").insert({
+          name: data.name,
+          description: data.description ?? "",
+          coach_id: activeCoachId,
+        }).select("id").single();
+
+        if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }
+
+        if (data.items?.length > 0) {
+          await supabase.from("supplement_template_items").insert(
+            (data.items as any[]).map((item: any, i: number) => ({
+              template_id: newTpl.id,
+              supplement_name: item.supplement_name,
+              dosage: item.dosage ?? null,
+              timing: item.timing ?? "Sabah",
+              icon: item.icon ?? "💊",
+              order_index: item.order_index ?? i,
+            }))
+          );
+        }
+        toast.success(`"${data.name}" başarıyla içe aktarıldı!`);
+        fetchSupplementTemplatesData();
+
+      } else if (data.type === "exercise") {
         const { data: newProg, error } = await supabase.from("programs").insert({
           title: data.name,
           description: data.description ?? "",
@@ -428,7 +493,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         if (error || !newProg) { toast.error("Program oluşturulamadı"); setImporting(false); return; }
 
         if (data.exercises?.length > 0) {
-          // Collect library_ids from JSON to fetch video_url from exercise_library
           const libIds = (data.exercises as any[]).map(ex => ex.library_id).filter(Boolean);
           let libMap = new Map<string, { name: string; video_url: string | null }>();
 
@@ -473,7 +537,6 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         if (error || !newTpl) { toast.error("Şablon oluşturulamadı"); setImporting(false); return; }
 
         if (data.foods?.length > 0) {
-          // Collect food_item_ids from JSON to fetch macro data from food_items
           const foodIds = (data.foods as any[]).map(f => f.food_item_id).filter(Boolean);
           let foodMap = new Map<string, any>();
 
@@ -513,6 +576,22 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     setImporting(false);
   };
 
+  const getViewModeLabel = () => {
+    switch (viewMode) {
+      case "exercise": return "Program Oluştur";
+      case "nutrition": return "Beslenme Şablonu Oluştur";
+      case "supplement": return "Takviye Programı Oluştur";
+    }
+  };
+
+  const getEmptyLabel = () => {
+    switch (viewMode) {
+      case "exercise": return "antrenman programı";
+      case "nutrition": return "beslenme şablonu";
+      case "supplement": return "takviye programı";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Hidden file input for import */}
@@ -528,30 +607,49 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Program Mimarı</h1>
           <p className="text-muted-foreground mt-1">
-            Antrenman ve beslenme programlarını görüntüle, düzenle ve yönet
+            Antrenman, beslenme ve takviye programlarını görüntüle, düzenle ve yönet
           </p>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="glass rounded-lg px-4 py-2 border border-border flex items-center gap-3">
-            <div
-              className={`flex items-center gap-2 cursor-pointer ${viewMode === "exercise" ? "text-primary" : "text-muted-foreground"}`}
+          {/* 3-way segmented control */}
+          <div className="glass rounded-lg px-1 py-1 border border-border flex items-center gap-1">
+            <button
               onClick={() => setViewMode("exercise")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                viewMode === "exercise"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               <Dumbbell className="w-4 h-4" />
-              <Label className="text-sm font-medium cursor-pointer">Antrenman</Label>
-            </div>
-            <Switch
-              checked={viewMode === "nutrition"}
-              onCheckedChange={(checked) => setViewMode(checked ? "nutrition" : "exercise")}
-            />
-            <div
-              className={`flex items-center gap-2 cursor-pointer ${viewMode === "nutrition" ? "text-success" : "text-muted-foreground"}`}
+              Antrenman
+            </button>
+            <button
               onClick={() => setViewMode("nutrition")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                viewMode === "nutrition"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               <Apple className="w-4 h-4" />
-              <Label className="text-sm font-medium cursor-pointer">Beslenme</Label>
-            </div>
+              Beslenme
+            </button>
+            <button
+              onClick={() => setViewMode("supplement")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                viewMode === "supplement"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Pill className="w-4 h-4" />
+              Takviye
+            </button>
           </div>
 
           {viewMode === "exercise" && canAssignPrograms && (
@@ -583,7 +681,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              {viewMode === "exercise" ? "Program Oluştur" : "Beslenme Şablonu Oluştur"}
+              {getViewModeLabel()}
             </Button>
           )}
         </div>
@@ -610,13 +708,15 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                     <div
                       className={cn(
                         "p-2 rounded-lg",
-                        item.type === "exercise" ? "bg-primary/20" : "bg-success/20"
+                        item.type === "exercise" ? "bg-primary/20" : item.type === "nutrition" ? "bg-success/20" : "bg-purple-500/20"
                       )}
                     >
                       {item.type === "exercise" ? (
                         <Dumbbell className="w-5 h-5 text-primary" />
-                      ) : (
+                      ) : item.type === "nutrition" ? (
                         <Apple className="w-5 h-5 text-success" />
+                      ) : (
+                        <Pill className="w-5 h-5 text-purple-400" />
                       )}
                     </div>
                     <div>
@@ -647,6 +747,11 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                             </Badge>
                           )}
                         </div>
+                      )}
+                      {item.type === "supplement" && item.itemCount !== undefined && (
+                        <Badge variant="outline" className="text-[10px] mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30">
+                          {item.itemCount} takviye
+                        </Badge>
                       )}
                     </div>
                   </div>
@@ -738,6 +843,26 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
                           </DropdownMenuItem>
                         </>
                       )}
+                      {item.type === "supplement" && (
+                        <>
+                          {canEditAthletes && (
+                            <DropdownMenuItem onClick={() => onEditProgram(item)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </DropdownMenuItem>
+                          )}
+                          {canCreatePrograms && (
+                            <DropdownMenuItem onClick={() => handleDuplicateSupplement(item)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Kopyala
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleExportProgram(item)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Dışa Aktar
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       {canDeleteAthletes && (
                         <DropdownMenuItem
                           onClick={() => handleDelete(item)}
@@ -753,7 +878,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {item.description || (item.type === "nutrition" ? "Beslenme şablonu" : "")}
+                  {item.description || (item.type === "nutrition" ? "Beslenme şablonu" : item.type === "supplement" ? "Takviye programı" : "")}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -775,19 +900,21 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
               <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                 {viewMode === "exercise" ? (
                   <Dumbbell className="w-8 h-8 text-muted-foreground" />
-                ) : (
+                ) : viewMode === "nutrition" ? (
                   <Apple className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <Pill className="w-8 h-8 text-muted-foreground" />
                 )}
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                Henüz {viewMode === "exercise" ? "antrenman programı" : "beslenme şablonu"} yok
+                Henüz {getEmptyLabel()} yok
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
                 İlk {viewMode === "exercise" ? "programınızı" : "şablonunuzu"} oluşturmak için aşağıdaki butona tıklayın
               </p>
               <Button onClick={() => onCreateProgram(viewMode)}>
                 <Plus className="w-4 h-4 mr-1.5" />
-                {viewMode === "exercise" ? "Program Oluştur" : "Şablon Oluştur"}
+                {getViewModeLabel()}
               </Button>
             </div>
           )}
@@ -798,9 +925,11 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, program: null })}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>{deleteDialog.program?.type === "nutrition" ? "Şablonu Sil" : "Programı Sil"}</DialogTitle>
+            <DialogTitle>
+              {deleteDialog.program?.type === "nutrition" ? "Şablonu Sil" : deleteDialog.program?.type === "supplement" ? "Takviye Programını Sil" : "Programı Sil"}
+            </DialogTitle>
             <DialogDescription>
-              "{deleteDialog.program?.name}" {deleteDialog.program?.type === "nutrition" ? "şablonunu" : "programını"} silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+              "{deleteDialog.program?.name}" silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
