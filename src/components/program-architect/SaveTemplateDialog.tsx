@@ -124,36 +124,38 @@ export function SaveTemplateDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Zorluk</Label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Seçiniz" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="beginner">Başlangıç</SelectItem>
-                  <SelectItem value="intermediate">Orta</SelectItem>
-                  <SelectItem value="advanced">İleri</SelectItem>
-                </SelectContent>
-              </Select>
+          {mode === "exercise" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Zorluk</Label>
+                <Select value={difficulty} onValueChange={setDifficulty}>
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Başlangıç</SelectItem>
+                    <SelectItem value="intermediate">Orta</SelectItem>
+                    <SelectItem value="advanced">İleri</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Hedef</Label>
+                <Select value={targetGoal} onValueChange={setTargetGoal}>
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder="Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hypertrophy">Hipertrofi</SelectItem>
+                    <SelectItem value="strength">Güç</SelectItem>
+                    <SelectItem value="endurance">Dayanıklılık</SelectItem>
+                    <SelectItem value="fat_loss">Yağ Yakımı</SelectItem>
+                    <SelectItem value="general">Genel Fitness</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Hedef</Label>
-              <Select value={targetGoal} onValueChange={setTargetGoal}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Seçiniz" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hypertrophy">Hipertrofi</SelectItem>
-                  <SelectItem value="strength">Güç</SelectItem>
-                  <SelectItem value="endurance">Dayanıklılık</SelectItem>
-                  <SelectItem value="fat_loss">Yağ Yakımı</SelectItem>
-                  <SelectItem value="general">Genel Fitness</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           <div className="glass rounded-lg p-3 border border-border">
             <div className="flex items-center gap-3">
