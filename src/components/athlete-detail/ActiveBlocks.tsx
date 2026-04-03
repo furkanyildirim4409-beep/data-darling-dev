@@ -620,6 +620,94 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
               )}
             </div>
           )}
+
+          <Separator className="my-1" />
+
+          {/* ─── Supplement Programs ─── */}
+          {supplements.filter(s => s.is_active).length > 0 || supplements.length > 0 ? (
+            <div>
+              <div className="flex items-center justify-between p-3 pb-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-purple-500/15 flex items-center justify-center shrink-0">
+                    <Pill className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">Takviye Programı</h4>
+                    <p className="text-[11px] text-muted-foreground">{supplements.filter(s => s.is_active).length} aktif takviye</p>
+                  </div>
+                </div>
+                {canAssignPrograms && (
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={() => setAssignSupplementOpen(true)}>
+                    <Plus className="w-3.5 h-3.5" />Takviye Ata
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-1 px-3 pb-2">
+                {supplements.map((sup) => {
+                  const servingsPercent = sup.total_servings > 0 ? Math.round((sup.servings_left / sup.total_servings) * 100) : 0;
+                  const timingClass = TIMING_COLORS[sup.timing] || "bg-muted text-muted-foreground border-border";
+                  return (
+                    <div
+                      key={sup.id}
+                      className={`rounded-lg border p-2.5 transition-all ${sup.is_active ? "border-purple-500/20 bg-purple-500/5" : "border-border bg-muted/30 opacity-60"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <span className="text-base shrink-0">{sup.icon}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-medium truncate ${sup.is_active ? "text-foreground" : "text-muted-foreground line-through"}`}>
+                              {sup.name_and_dosage}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className={`text-[9px] px-1 py-0 ${timingClass}`}>{sup.timing}</Badge>
+                              <span className="text-[10px] text-muted-foreground">{sup.servings_left}/{sup.total_servings}</span>
+                            </div>
+                            {sup.is_active && (
+                              <Progress value={servingsPercent} className="h-1 mt-1.5 bg-muted/50" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <Button
+                            variant="ghost" size="icon" className="h-6 w-6"
+                            disabled={togglingSupId === sup.id}
+                            onClick={async () => {
+                              setTogglingSupId(sup.id);
+                              const ok = await toggleSupplement(sup.id, sup.is_active);
+                              if (ok) setSupplements(prev => prev.map(s => s.id === sup.id ? { ...s, is_active: !s.is_active } : s));
+                              setTogglingSupId(null);
+                            }}
+                          >
+                            {sup.is_active ? <PowerOff className="w-3 h-3 text-muted-foreground" /> : <Power className="w-3 h-3 text-purple-400" />}
+                          </Button>
+                          {canDeleteAthletes && (
+                            <Button
+                              variant="ghost" size="icon" className="h-6 w-6 text-destructive/60 hover:text-destructive"
+                              onClick={async () => {
+                                const ok = await deleteSupplement(sup.id);
+                                if (ok) setSupplements(prev => prev.filter(s => s.id !== sup.id));
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 text-center">
+              <p className="text-[11px] text-muted-foreground italic mb-2">Henüz takviye atanmadı.</p>
+              {canAssignPrograms && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={() => setAssignSupplementOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" />Takviye Ata
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
