@@ -598,7 +598,7 @@ export function ProgramLibrary({
     (t) => t.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const currentItems = builderMode === "exercise" ? exercises : filteredNutrition;
+  const currentItems = builderMode === "exercise" ? exercises : builderMode === "supplement" ? supplementItems : filteredNutrition;
 
   return (
     <div className="glass rounded-xl border border-border h-full flex flex-col">
