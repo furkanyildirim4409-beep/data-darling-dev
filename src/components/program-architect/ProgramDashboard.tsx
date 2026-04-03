@@ -92,6 +92,9 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
   const [dietAssignDialog, setDietAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
     open: false, templateId: "", templateName: "",
   });
+  const [supAssignDialog, setSupAssignDialog] = useState<{ open: boolean; templateId: string; templateName: string }>({
+    open: false, templateId: "", templateName: "",
+  });
 
   const { fetchSupplementTemplates: fetchSupTpls, deleteSupplementTemplate, duplicateSupplementTemplate } = useSupplementTemplates();
 
