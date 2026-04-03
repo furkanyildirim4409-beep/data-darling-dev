@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BookMarked, Dumbbell, Apple, Loader2 } from "lucide-react";
+import { BookMarked, Dumbbell, Apple, Pill, Loader2 } from "lucide-react";
 
 interface SaveTemplateDialogProps {
   open: boolean;
