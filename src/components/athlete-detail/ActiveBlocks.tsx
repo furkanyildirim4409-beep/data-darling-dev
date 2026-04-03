@@ -13,14 +13,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History, GitFork } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Dumbbell, Apple, Calendar, Clock, Target, MoreVertical, Trash2, LayoutGrid, Plus, RefreshCw, History, GitFork, Pill, Power, PowerOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSupplementMutations } from "@/hooks/useSupplementMutations";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AssignDietTemplateDialog } from "@/components/athlete-detail/AssignDietTemplateDialog";
 import { AssignTrainingDialog } from "@/components/athlete-detail/AssignTrainingDialog";
+import { AssignSupplementDialog } from "@/components/athlete-detail/AssignSupplementDialog";
 
 /** Small popover badge for AI-optimized programs/diets */
 function AiOptBadge({ parentId, module, athleteId }: { parentId: string; module: "program" | "nutrition"; athleteId: string }) {
