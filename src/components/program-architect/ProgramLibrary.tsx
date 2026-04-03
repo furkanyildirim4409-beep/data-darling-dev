@@ -829,7 +829,9 @@ export function ProgramLibrary({
         <p className="text-xs text-muted-foreground text-center">
           {builderMode === "exercise" 
             ? `Toplam: ${TOTAL_EXERCISE_COUNT} egzersiz`
-            : coachFoods.length > 0 ? `Kütüphanem: ${coachFoods.length} besin` : `Toplam: ${nutrition.length} besin`
+            : builderMode === "supplement"
+              ? `Toplam: ${supplementItems.length} takviye`
+              : coachFoods.length > 0 ? `Kütüphanem: ${coachFoods.length} besin` : `Toplam: ${nutrition.length} besin`
           }
         </p>
       </div>
