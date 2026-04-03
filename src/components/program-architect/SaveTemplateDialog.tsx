@@ -95,7 +95,7 @@ export function SaveTemplateDialog({
             {isEditing ? "Programı Güncelle" : "Programı Kaydet"}
           </DialogTitle>
           <DialogDescription>
-            Bu {mode === "exercise" ? "antrenman" : "beslenme"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
+            Bu {mode === "exercise" ? "antrenman" : mode === "nutrition" ? "beslenme" : "takviye"} programını {isEditing ? "güncelleyin" : "veritabanına kaydedin"}.
           </DialogDescription>
         </DialogHeader>
 
