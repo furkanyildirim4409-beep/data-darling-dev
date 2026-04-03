@@ -24,7 +24,7 @@ import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
-import { SupplementsPanel } from "@/components/athlete-detail/SupplementsPanel";
+
 
 interface AthleteProfile {
   id: string;
@@ -252,10 +252,7 @@ export default function AthleteDetail() {
         </TabsContent>
 
         <TabsContent value="program" className="mt-6">
-          <div className="space-y-6">
-            <ProgramTab athleteId={athlete.id} currentProgram="Program" />
-            <SupplementsPanel athleteId={athlete.id} />
-          </div>
+          <ProgramTab athleteId={athlete.id} currentProgram="Program" />
         </TabsContent>
 
         <TabsContent value="nutrition" className="mt-6">
