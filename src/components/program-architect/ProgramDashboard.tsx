@@ -973,6 +973,14 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
         templateId={dietAssignDialog.templateId}
         templateName={dietAssignDialog.templateName}
       />
+
+      {/* Supplement Template Assign Dialog */}
+      <AssignSupplementTemplateDialog
+        open={supAssignDialog.open}
+        onOpenChange={(open) => setSupAssignDialog((prev) => ({ ...prev, open }))}
+        templateId={supAssignDialog.templateId}
+        templateName={supAssignDialog.templateName}
+      />
     </div>
   );
 }
