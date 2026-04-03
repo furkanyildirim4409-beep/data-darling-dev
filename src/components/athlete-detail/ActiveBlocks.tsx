@@ -308,6 +308,15 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       });
     }
     setDiets(dietList);
+
+    // Fetch supplements
+    const { data: supData } = await supabase
+      .from("assigned_supplements")
+      .select("id, name_and_dosage, timing, icon, is_active, servings_left, total_servings")
+      .eq("athlete_id", athleteId)
+      .order("created_at", { ascending: false });
+    setSupplements((supData as SupplementData[]) || []);
+
     setIsLoading(false);
     setWorkoutDays([]);
     setDietDays([]);
