@@ -32,6 +32,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isTemplateBuilderOpen, setIsTemplateBuilderOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const handleStoryUpload = (file: File, categoryId: string) => {
     // Update highlight count for the selected category
