@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Plus, Edit2, Star, MessageCircle, Trophy, Camera, Heart, Wand2, Upload } from "lucide-react";
+import { Plus, Edit2, Star, MessageCircle, Trophy, Camera, Heart, Wand2, Upload, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StoryTemplateBuilder } from "./StoryTemplateBuilder";
 import { StoryUploadModal } from "./StoryUploadModal";
+import { StoryArchiveDialog } from "./StoryArchiveDialog";
 
 interface Highlight {
   id: string;
@@ -31,6 +32,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isTemplateBuilderOpen, setIsTemplateBuilderOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const handleStoryUpload = (file: File, categoryId: string) => {
     // Update highlight count for the selected category
@@ -49,6 +51,15 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
           <h3 className="text-lg font-semibold text-foreground">Öne Çıkanlar</h3>
           {canManage && (
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsArchiveOpen(true)}
+                className="border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+              >
+                <Archive className="w-3 h-3 mr-1.5" />
+                Arşiv
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -187,6 +198,12 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         open={isUploadModalOpen}
         onOpenChange={setIsUploadModalOpen}
         onUpload={handleStoryUpload}
+      />
+
+      {/* Story Archive Dialog */}
+      <StoryArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
       />
     </>
   );
