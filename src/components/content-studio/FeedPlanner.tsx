@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -32,9 +32,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save } from "lucide-react";
+import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { useCreatePost } from "@/hooks/useSocialMutations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Post {
   id: string;
@@ -82,18 +85,13 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
         isDragging && "opacity-50 scale-105 ring-2 ring-primary z-50"
       )}
     >
-      {/* Drag Handle Area */}
       <div 
         className={cn("absolute inset-0", canManage ? "cursor-grab active:cursor-grabbing" : "cursor-default")}
         {...attributes}
         {...listeners}
       >
-        {/* Image */}
         <img src={post.image} alt={post.caption} className="w-full h-full object-cover" />
-
-        {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Stats */}
           <div className="absolute bottom-2 left-2 right-10 flex items-center gap-3 text-white text-xs">
             <div className="flex items-center gap-1">
               <Heart className="w-3 h-3" />
@@ -108,7 +106,6 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
         </div>
       </div>
 
-      {/* Status Badge */}
       <Badge
         variant="outline"
         className={cn(
@@ -121,7 +118,6 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
         {post.status === "published" ? "Yayında" : post.status === "scheduled" ? "Planlandı" : "Taslak"}
       </Badge>
 
-      {/* More Button - Dropdown Menu */}
       {canManage && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -133,18 +129,12 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-card border-border">
-            <DropdownMenuItem 
-              className="cursor-pointer"
-              onClick={() => onEdit(post)}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => onEdit(post)}>
               <Edit2 className="w-4 h-4 mr-2" />
               Düzenle
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="cursor-pointer text-destructive focus:text-destructive"
-              onClick={() => onDelete(post.id)}
-            >
+            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => onDelete(post.id)}>
               <Trash2 className="w-4 h-4 mr-2" />
               Sil
             </DropdownMenuItem>
@@ -168,6 +158,29 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [newCaption, setNewCaption] = useState("");
   const [editCaption, setEditCaption] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { user } = useAuth();
+  const { mutateAsync: createPost, isPending: isCreatingPost } = useCreatePost();
+
+  const isBusy = isUploading || isCreatingPost;
+
+  const handleFileChange = (file: File | null) => {
+    if (file && file.type.startsWith("image/")) {
+      setSelectedFile(file);
+      setFilePreview(URL.createObjectURL(file));
+    } else if (file) {
+      toast.error("Lütfen geçerli bir görsel dosyası seçin.");
+    }
+  };
+
+  const clearFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -176,7 +189,6 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
-
     if (over && active.id !== over.id) {
       setPosts((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
@@ -186,22 +198,52 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     }
   };
 
-  const handleCreatePost = () => {
-    const newPost: Post = {
-      id: `p${Date.now()}`,
-      image: "https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=300&h=300&fit=crop",
-      caption: newCaption || "Yeni gönderi",
-      likes: 0,
-      comments: 0,
-      status: "draft",
-    };
-    setPosts((prev) => [newPost, ...prev]);
-    setNewCaption("");
-    setIsCreateDialogOpen(false);
-    toast({
-      title: "Gönderi Oluşturuldu",
-      description: "Yeni gönderi taslak olarak eklendi.",
-    });
+  const handleCreatePost = async () => {
+    if (!user) return;
+
+    try {
+      setIsUploading(true);
+      let imageUrl = "https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=300&h=300&fit=crop";
+
+      if (selectedFile) {
+        const ext = selectedFile.name.split(".").pop() || "jpg";
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("social-media")
+          .upload(path, selectedFile);
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("social-media")
+          .getPublicUrl(path);
+        imageUrl = urlData.publicUrl;
+      }
+
+      await createPost({
+        type: "text",
+        content: newCaption || "Yeni gönderi",
+        before_image_url: imageUrl,
+      });
+
+      // Prepend to local state for immediate grid update
+      const newPost: Post = {
+        id: `p${Date.now()}`,
+        image: imageUrl,
+        caption: newCaption || "Yeni gönderi",
+        likes: 0,
+        comments: 0,
+        status: "draft",
+      };
+      setPosts((prev) => [newPost, ...prev]);
+
+      setNewCaption("");
+      clearFile();
+      setIsCreateDialogOpen(false);
+    } catch (err: any) {
+      toast.error(`Gönderi oluşturulamadı: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleEditPost = (post: Post) => {
@@ -212,30 +254,20 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
 
   const handleSaveEdit = () => {
     if (!editingPost) return;
-    
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id === editingPost.id ? { ...p, caption: editCaption } : p
-      )
+      prev.map((p) => (p.id === editingPost.id ? { ...p, caption: editCaption } : p))
     );
     setIsEditDialogOpen(false);
     setEditingPost(null);
     setEditCaption("");
-    toast({
-      title: "Gönderi Güncellendi",
-      description: "Açıklama başarıyla değiştirildi.",
-    });
+    toast.success("Açıklama başarıyla değiştirildi.");
   };
 
   const handleDeletePost = () => {
     if (!deletePostId) return;
-    
     setPosts((prev) => prev.filter((p) => p.id !== deletePostId));
     setDeletePostId(null);
-    toast({
-      title: "Gönderi Silindi",
-      description: "Gönderi başarıyla kaldırıldı.",
-    });
+    toast.success("Gönderi başarıyla kaldırıldı.");
   };
 
   const activePost = posts.find((p) => p.id === activeId);
@@ -246,12 +278,10 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Akış Planlayıcı</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Gönderileri sürükleyerek yeniden sıralayın
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Gönderileri sürükleyerek yeniden sıralayın</p>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(o) => { setIsCreateDialogOpen(o); if (!o) clearFile(); }}>
           {canManage && (
             <DialogTrigger asChild>
               <Button size="sm" className="bg-primary text-primary-foreground">
@@ -268,20 +298,37 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
               {/* Photo Upload */}
               <div>
                 <Label className="text-xs text-muted-foreground">Fotoğraf</Label>
-                <div className="mt-2 border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                    <Image className="w-6 h-6 text-primary" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                />
+                {!filePreview ? (
+                  <div
+                    className="mt-2 border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                      <Image className="w-6 h-6 text-primary" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Fotoğraf yüklemek için tıklayın</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG max 10MB</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Fotoğraf yüklemek için tıklayın</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG max 10MB</p>
-                </div>
+                ) : (
+                  <div className="mt-2 relative rounded-xl overflow-hidden border border-border">
+                    <img src={filePreview} alt="Preview" className="w-full h-40 object-cover" />
+                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={clearFile} disabled={isBusy}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Caption */}
               <div>
-                <Label htmlFor="caption" className="text-xs text-muted-foreground">
-                  Açıklama
-                </Label>
+                <Label htmlFor="caption" className="text-xs text-muted-foreground">Açıklama</Label>
                 <Textarea
                   id="caption"
                   value={newCaption}
@@ -303,12 +350,21 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" className="flex-1" onClick={() => { setIsCreateDialogOpen(false); clearFile(); }} disabled={isBusy}>
                   İptal
                 </Button>
-                <Button className="flex-1 bg-primary text-primary-foreground" onClick={handleCreatePost}>
-                  <Calendar className="w-4 h-4 mr-1.5" />
-                  Oluştur
+                <Button className="flex-1 bg-primary text-primary-foreground" onClick={handleCreatePost} disabled={isBusy}>
+                  {isBusy ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      Oluşturuluyor...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4 mr-1.5" />
+                      Oluştur
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -321,17 +377,10 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         <SortableContext items={posts.map((p) => p.id)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-3 gap-2">
             {posts.map((post) => (
-              <SortablePost 
-                key={post.id} 
-                post={post} 
-                onEdit={handleEditPost}
-                onDelete={(id) => setDeletePostId(id)}
-                canManage={canManage}
-              />
+              <SortablePost key={post.id} post={post} onEdit={handleEditPost} onDelete={(id) => setDeletePostId(id)} canManage={canManage} />
             ))}
           </div>
         </SortableContext>
-
         <DragOverlay>
           {activePost && (
             <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
@@ -369,17 +418,11 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
           <div className="space-y-4 pt-4">
             {editingPost && (
               <div className="rounded-lg overflow-hidden border border-border">
-                <img 
-                  src={editingPost.image} 
-                  alt="Post preview" 
-                  className="w-full h-40 object-cover"
-                />
+                <img src={editingPost.image} alt="Post preview" className="w-full h-40 object-cover" />
               </div>
             )}
             <div>
-              <Label htmlFor="edit-caption" className="text-xs text-muted-foreground">
-                Açıklama
-              </Label>
+              <Label htmlFor="edit-caption" className="text-xs text-muted-foreground">Açıklama</Label>
               <Textarea
                 id="edit-caption"
                 value={editCaption}
@@ -391,9 +434,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              İptal
-            </Button>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>İptal</Button>
             <Button className="bg-primary text-primary-foreground" onClick={handleSaveEdit}>
               <Save className="w-4 h-4 mr-1.5" />
               Kaydet
@@ -407,18 +448,11 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bu gönderi kalıcı olarak silinecek. Bu işlem geri alınamaz.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Bu gönderi kalıcı olarak silinecek. Bu işlem geri alınamaz.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeletePost}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Sil
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeletePost} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sil</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
