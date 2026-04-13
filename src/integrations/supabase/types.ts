@@ -822,6 +822,7 @@ export type Database = {
       }
       coach_stories: {
         Row: {
+          category: string | null
           coach_id: string | null
           created_at: string
           expires_at: string
@@ -829,6 +830,7 @@ export type Database = {
           media_url: string
         }
         Insert: {
+          category?: string | null
           coach_id?: string | null
           created_at?: string
           expires_at: string
@@ -836,6 +838,7 @@ export type Database = {
           media_url: string
         }
         Update: {
+          category?: string | null
           coach_id?: string | null
           created_at?: string
           expires_at?: string
