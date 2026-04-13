@@ -199,6 +199,12 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         onOpenChange={setIsUploadModalOpen}
         onUpload={handleStoryUpload}
       />
+
+      {/* Story Archive Dialog */}
+      <StoryArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+      />
     </>
   );
 }
