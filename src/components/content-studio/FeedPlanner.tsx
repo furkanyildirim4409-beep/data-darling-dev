@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -32,10 +32,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCreatePost } from "@/hooks/useSocialMutations";
+import { useCreatePost, useCoachPosts } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -48,15 +49,6 @@ interface Post {
   comments: number;
   status: "draft" | "scheduled" | "published";
 }
-
-const mockPosts: Post[] = [
-  { id: "p1", image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=300&fit=crop", caption: "Bugünkü antrenman 💪", likes: 234, comments: 18, status: "published" },
-  { id: "p2", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=300&fit=crop", caption: "Yeni program başlıyor!", likes: 0, comments: 0, status: "scheduled" },
-  { id: "p3", image: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=300&fit=crop", caption: "Beslenme ipuçları", likes: 189, comments: 24, status: "published" },
-  { id: "p4", image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=300&h=300&fit=crop", caption: "Motivasyon Pazartesi", likes: 0, comments: 0, status: "draft" },
-  { id: "p5", image: "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=300&h=300&fit=crop", caption: "Değişim hikayesi #1", likes: 456, comments: 67, status: "published" },
-  { id: "p6", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c149a?w=300&h=300&fit=crop", caption: "Haftalık özet", likes: 0, comments: 0, status: "scheduled" },
-];
 
 interface SortablePostProps {
   post: Post;
@@ -150,7 +142,7 @@ interface FeedPlannerProps {
 }
 
 export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -164,9 +156,25 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
+  const { data: livePosts, isLoading: isLoadingPosts } = useCoachPosts();
   const { mutateAsync: createPost, isPending: isCreatingPost } = useCreatePost();
 
   const isBusy = isUploading || isCreatingPost;
+
+  // Sync live posts into local state for DnD reordering
+  useEffect(() => {
+    if (livePosts) {
+      const mapped: Post[] = livePosts.map((p) => ({
+        id: p.id,
+        image: p.before_image_url || p.video_thumbnail_url || "/placeholder.svg",
+        caption: p.content || "",
+        likes: 0,
+        comments: 0,
+        status: "published" as const,
+      }));
+      setPosts(mapped);
+    }
+  }, [livePosts]);
 
   const handleFileChange = (file: File | null) => {
     if (file && file.type.startsWith("image/")) {
@@ -225,16 +233,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         before_image_url: imageUrl,
       });
 
-      // Prepend to local state for immediate grid update
-      const newPost: Post = {
-        id: `p${Date.now()}`,
-        image: imageUrl,
-        caption: newCaption || "Yeni gönderi",
-        likes: 0,
-        comments: 0,
-        status: "draft",
-      };
-      setPosts((prev) => [newPost, ...prev]);
+      // Query invalidation in useCreatePost will refresh the grid
 
       setNewCaption("");
       clearFile();
@@ -373,22 +372,36 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       </div>
 
       {/* Grid */}
-      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <SortableContext items={posts.map((p) => p.id)} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-3 gap-2">
-            {posts.map((post) => (
-              <SortablePost key={post.id} post={post} onEdit={handleEditPost} onDelete={(id) => setDeletePostId(id)} canManage={canManage} />
-            ))}
-          </div>
-        </SortableContext>
-        <DragOverlay>
-          {activePost && (
-            <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
-              <img src={activePost.image} alt="" className="w-full h-full object-cover" />
+      {isLoadingPosts ? (
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-lg" />
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <ImageOff className="w-12 h-12 mb-3 opacity-40" />
+          <p className="text-sm font-medium">Henüz gönderi yok</p>
+          <p className="text-xs mt-1">Yeni bir gönderi oluşturarak başlayın</p>
+        </div>
+      ) : (
+        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <SortableContext items={posts.map((p) => p.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-3 gap-2">
+              {posts.map((post) => (
+                <SortablePost key={post.id} post={post} onEdit={handleEditPost} onDelete={(id) => setDeletePostId(id)} canManage={canManage} />
+              ))}
             </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+          </SortableContext>
+          <DragOverlay>
+            {activePost && (
+              <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
+                <img src={activePost.image} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Stats */}
       <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4">
