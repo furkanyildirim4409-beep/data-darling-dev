@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileData {
   name: string;
@@ -17,22 +18,36 @@ interface ProfileContextType {
   updateProfile: (updates: Partial<ProfileData>) => void;
 }
 
-const defaultProfile: ProfileData = {
-  name: "Koç Davis",
-  username: "@koc_davis",
-  title: "Profesyonel Fitness Koçu",
-  bio: "10+ yıl deneyim | 500+ başarı hikayesi | Online & Yüz yüze koçluk",
-  avatarUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=200&fit=crop",
-  followers: 12500,
-  following: 342,
-  posts: 287,
-  engagement: "4.8%",
-};
-
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<ProfileData>(defaultProfile);
+  const { profile: authProfile } = useAuth();
+
+  const [profile, setProfile] = useState<ProfileData>({
+    name: authProfile?.full_name || "",
+    username: authProfile?.email ? `@${authProfile.email.split("@")[0]}` : "",
+    title: authProfile?.specialty || "",
+    bio: authProfile?.bio || "",
+    avatarUrl: authProfile?.avatar_url || "",
+    followers: 0,
+    following: 0,
+    posts: 0,
+    engagement: "0%",
+  });
+
+  // Sync when authProfile changes (login, refreshProfile)
+  useEffect(() => {
+    if (authProfile) {
+      setProfile((prev) => ({
+        ...prev,
+        name: authProfile.full_name || "",
+        username: authProfile.email ? `@${authProfile.email.split("@")[0]}` : "",
+        title: authProfile.specialty || prev.title,
+        bio: authProfile.bio || prev.bio,
+        avatarUrl: authProfile.avatar_url || "",
+      }));
+    }
+  }, [authProfile]);
 
   const updateProfile = (updates: Partial<ProfileData>) => {
     setProfile((prev) => ({ ...prev, ...updates }));
