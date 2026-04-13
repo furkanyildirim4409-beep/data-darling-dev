@@ -372,22 +372,36 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       </div>
 
       {/* Grid */}
-      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <SortableContext items={posts.map((p) => p.id)} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-3 gap-2">
-            {posts.map((post) => (
-              <SortablePost key={post.id} post={post} onEdit={handleEditPost} onDelete={(id) => setDeletePostId(id)} canManage={canManage} />
-            ))}
-          </div>
-        </SortableContext>
-        <DragOverlay>
-          {activePost && (
-            <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
-              <img src={activePost.image} alt="" className="w-full h-full object-cover" />
+      {isLoadingPosts ? (
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-lg" />
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <ImageOff className="w-12 h-12 mb-3 opacity-40" />
+          <p className="text-sm font-medium">Henüz gönderi yok</p>
+          <p className="text-xs mt-1">Yeni bir gönderi oluşturarak başlayın</p>
+        </div>
+      ) : (
+        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <SortableContext items={posts.map((p) => p.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-3 gap-2">
+              {posts.map((post) => (
+                <SortablePost key={post.id} post={post} onEdit={handleEditPost} onDelete={(id) => setDeletePostId(id)} canManage={canManage} />
+              ))}
             </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+          </SortableContext>
+          <DragOverlay>
+            {activePost && (
+              <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
+                <img src={activePost.image} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Stats */}
       <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4">
