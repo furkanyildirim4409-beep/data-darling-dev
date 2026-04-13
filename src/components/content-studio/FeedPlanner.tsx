@@ -142,7 +142,7 @@ interface FeedPlannerProps {
 }
 
 export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -156,9 +156,25 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
+  const { data: livePosts, isLoading: isLoadingPosts } = useCoachPosts();
   const { mutateAsync: createPost, isPending: isCreatingPost } = useCreatePost();
 
   const isBusy = isUploading || isCreatingPost;
+
+  // Sync live posts into local state for DnD reordering
+  useEffect(() => {
+    if (livePosts) {
+      const mapped: Post[] = livePosts.map((p) => ({
+        id: p.id,
+        image: p.before_image_url || p.video_thumbnail_url || "/placeholder.svg",
+        caption: p.content || "",
+        likes: 0,
+        comments: 0,
+        status: "published" as const,
+      }));
+      setPosts(mapped);
+    }
+  }, [livePosts]);
 
   const handleFileChange = (file: File | null) => {
     if (file && file.type.startsWith("image/")) {
@@ -217,16 +233,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         before_image_url: imageUrl,
       });
 
-      // Prepend to local state for immediate grid update
-      const newPost: Post = {
-        id: `p${Date.now()}`,
-        image: imageUrl,
-        caption: newCaption || "Yeni gönderi",
-        likes: 0,
-        comments: 0,
-        status: "draft",
-      };
-      setPosts((prev) => [newPost, ...prev]);
+      // Query invalidation in useCreatePost will refresh the grid
 
       setNewCaption("");
       clearFile();
