@@ -69,10 +69,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const defaultProfile: ProfileData = {
+  name: "", username: "", title: "", bio: "", avatarUrl: "",
+  followers: 0, following: 0, posts: 0, engagement: "0%",
+};
+
 export function useProfile() {
   const context = useContext(ProfileContext);
   if (!context) {
-    throw new Error("useProfile must be used within a ProfileProvider");
+    return { profile: defaultProfile, updateProfile: () => {} } as ProfileContextType;
   }
   return context;
 }
