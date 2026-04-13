@@ -116,14 +116,20 @@ export function useUpdateTeamMember() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: UpdateTeamMemberInput) => {
-      const payload: Record<string, unknown> = {
+      const payload: {
+        full_name?: string;
+        email?: string;
+        role?: string;
+        permissions?: string;
+        custom_permissions?: Json | null;
+        phone?: string;
+        athletes_count?: number;
+        updated_at: string;
+      } = {
         ...updates,
+        custom_permissions: updates.custom_permissions as unknown as Json ?? undefined,
         updated_at: new Date().toISOString(),
       };
-      // Cast custom_permissions to Json for Supabase
-      if ('custom_permissions' in updates) {
-        payload.custom_permissions = updates.custom_permissions as unknown as Json;
-      }
       const { data, error } = await supabase
         .from("team_members")
         .update(payload)

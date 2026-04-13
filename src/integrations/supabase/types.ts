@@ -381,6 +381,36 @@ export type Database = {
           },
         ]
       }
+      auto_login_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           category: string | null
@@ -741,6 +771,93 @@ export type Database = {
           used_by?: string | null
         }
         Relationships: []
+      }
+      coach_products: {
+        Row: {
+          coach_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          price: number
+          title: string
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          price: number
+          title: string
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          price?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_products_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_products_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_stories: {
+        Row: {
+          coach_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          media_url: string
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          media_url: string
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          media_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_stories_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_stories_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       consumed_foods: {
         Row: {
@@ -1339,6 +1456,49 @@ export type Database = {
           },
         ]
       }
+      post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active_program_id: string | null
@@ -1367,6 +1527,7 @@ export type Database = {
           notification_preferences: Json | null
           notification_settings: Json | null
           onboarding_completed: boolean | null
+          phone_number: string | null
           readiness_score: number | null
           role: string | null
           specialty: string | null
@@ -1405,6 +1566,7 @@ export type Database = {
           notification_preferences?: Json | null
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
+          phone_number?: string | null
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
@@ -1443,6 +1605,7 @@ export type Database = {
           notification_preferences?: Json | null
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
+          phone_number?: string | null
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
@@ -1667,6 +1830,57 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      social_posts: {
+        Row: {
+          after_image_url: string | null
+          before_image_url: string | null
+          coach_id: string | null
+          content: string | null
+          created_at: string
+          id: string
+          type: string
+          video_thumbnail_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          after_image_url?: string | null
+          before_image_url?: string | null
+          coach_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          type: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          after_image_url?: string | null
+          before_image_url?: string | null
+          coach_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          type?: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplement_template_items: {
         Row: {
@@ -2212,6 +2426,7 @@ export type Database = {
         Args: { _athlete_id: string; _token: string }
         Returns: Json
       }
+      cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
       get_my_head_coach_id: { Args: never; Returns: string }
       get_team_peers: {
