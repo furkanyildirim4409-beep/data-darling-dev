@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMyFollowerCount } from "@/hooks/useSocialMutations";
 
 interface ProfileData {
   name: string;
@@ -22,6 +23,7 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { profile: authProfile } = useAuth();
+  const { data: followerCount } = useMyFollowerCount();
 
   const [profile, setProfile] = useState<ProfileData>({
     name: authProfile?.full_name || "",
@@ -48,6 +50,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }));
     }
   }, [authProfile]);
+
+  // Sync live follower count
+  useEffect(() => {
+    if (followerCount !== undefined) {
+      setProfile((prev) => ({ ...prev, followers: followerCount }));
+    }
+  }, [followerCount]);
 
   const updateProfile = (updates: Partial<ProfileData>) => {
     setProfile((prev) => ({ ...prev, ...updates }));

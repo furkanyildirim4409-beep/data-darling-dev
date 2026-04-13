@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Image, X, Star, MessageCircle, Trophy, Camera, Heart, Video, Play, Loader2 } from "lucide-react";
+import { Upload, Image, X, Star, MessageCircle, Trophy, Camera, Heart, Video, Play, Loader2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCreateStory } from "@/hooks/useSocialMutations";
@@ -32,6 +32,7 @@ interface StoryUploadModalProps {
 type MediaType = "image" | "video" | null;
 
 const categories = [
+  { id: "none", name: "Kategorisiz (24 Saat)", icon: Clock, color: "text-muted-foreground" },
   { id: "1", name: "Değişimler", icon: Star, color: "text-primary" },
   { id: "2", name: "Soru-Cevap", icon: MessageCircle, color: "text-info" },
   { id: "3", name: "Başarılar", icon: Trophy, color: "text-warning" },
@@ -43,7 +44,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<MediaType>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("none");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +81,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const handleDragLeave = () => setIsDragging(false);
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedCategory || !user) return;
+    if (!selectedFile || !user) return;
 
     try {
       setIsUploading(true);
@@ -97,7 +98,9 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
         .from("social-media")
         .getPublicUrl(path);
 
-      const categoryName = categories.find(c => c.id === selectedCategory)?.name;
+      const categoryName = selectedCategory && selectedCategory !== "none"
+        ? categories.find(c => c.id === selectedCategory)?.name
+        : undefined;
       await createStory({ media_url: urlData.publicUrl, duration_hours: 24, category: categoryName });
 
       // Notify parent for local highlight count update
@@ -114,7 +117,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     setSelectedFile(null);
     setPreviewUrl(null);
     setMediaType(null);
-    setSelectedCategory("");
+    setSelectedCategory("none");
     onOpenChange(false);
   };
 
@@ -244,6 +247,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                     <>
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center",
+                        selectedCategory === "none" ? "bg-muted" :
                         selectedCategory === "1" ? "bg-primary/20" :
                         selectedCategory === "2" ? "bg-info/20" :
                         selectedCategory === "3" ? "bg-warning/20" :
@@ -254,7 +258,11 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                       </div>
                       <div>
                         <p className="text-sm font-medium">{cat.name}</p>
-                        <p className="text-xs text-muted-foreground">Bu kategoriye hikaye eklenecek</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedCategory === "none"
+                            ? "Normal 24 saatlik hikaye olarak paylaşılacak"
+                            : "Bu kategoriye hikaye eklenecek"}
+                        </p>
                       </div>
                     </>
                   );
@@ -270,7 +278,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           </Button>
           <Button
             onClick={handleUpload}
-            disabled={!selectedFile || !selectedCategory || isBusy}
+            disabled={!selectedFile || isBusy}
             className="bg-primary text-primary-foreground"
           >
             {isBusy ? (

@@ -244,3 +244,23 @@ export function useUpdateStory() {
     },
   });
 }
+
+// ── Follower count ──
+
+export function useMyFollowerCount() {
+  const { user } = useAuth();
+
+  return useQuery<number>({
+    queryKey: ["my-follower-count", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count, error } = await supabase
+        .from("user_follows")
+        .select("id", { count: "exact", head: true })
+        .eq("followed_id", user.id);
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+}
