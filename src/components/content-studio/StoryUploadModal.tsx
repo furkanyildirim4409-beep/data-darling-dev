@@ -97,7 +97,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
         .from("social-media")
         .getPublicUrl(path);
 
-      await createStory({ media_url: urlData.publicUrl, duration_hours: 24 });
+      const categoryName = categories.find(c => c.id === selectedCategory)?.name;
+      await createStory({ media_url: urlData.publicUrl, duration_hours: 24, category: categoryName });
 
       // Notify parent for local highlight count update
       onUpload(selectedFile, selectedCategory);

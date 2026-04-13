@@ -1,0 +1,1 @@
+ALTER TABLE coach_stories ADD COLUMN category text;

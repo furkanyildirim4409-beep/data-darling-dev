@@ -34,6 +34,7 @@ interface CreatePostPayload {
 interface CreateStoryPayload {
   media_url: string;
   duration_hours: number;
+  category?: string;
 }
 
 export function useCreatePost() {
@@ -86,6 +87,7 @@ export function useCreateStory() {
           coach_id: user.id,
           media_url: payload.media_url,
           expires_at,
+          category: payload.category ?? null,
         })
         .select()
         .single();
