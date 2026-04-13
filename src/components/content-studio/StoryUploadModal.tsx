@@ -16,12 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Image, X, Star, MessageCircle, Trophy, Camera, Heart, Video, Play, Loader2, Clock } from "lucide-react";
+import { Upload, Image, X, Video, Play, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCreateStory } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { storyCategories } from "@/data/storyCategories";
 
 interface StoryUploadModalProps {
   open: boolean;
@@ -31,14 +32,7 @@ interface StoryUploadModalProps {
 
 type MediaType = "image" | "video" | null;
 
-const categories = [
-  { id: "none", name: "Kategorisiz (24 Saat)", icon: Clock, color: "text-muted-foreground" },
-  { id: "1", name: "Değişimler", icon: Star, color: "text-primary" },
-  { id: "2", name: "Soru-Cevap", icon: MessageCircle, color: "text-info" },
-  { id: "3", name: "Başarılar", icon: Trophy, color: "text-warning" },
-  { id: "4", name: "Antrenman", icon: Camera, color: "text-success" },
-  { id: "5", name: "Motivasyon", icon: Heart, color: "text-destructive" },
-];
+const categories = storyCategories;
 
 export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

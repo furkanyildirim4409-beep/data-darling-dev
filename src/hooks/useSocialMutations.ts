@@ -198,6 +198,33 @@ interface UpdateStoryPayload {
   category?: string;
 }
 
+export function useUpdateStoryCategory() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storyId, category }: { storyId: string; category: string | null }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data, error } = await supabase
+        .from("coach_stories")
+        .update({ category })
+        .eq("id", storyId)
+        .eq("coach_id", user.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Kategori güncellenemedi: ${err.message}`);
+    },
+  });
+}
+
 export function useCoachStoryArchive() {
   const { user } = useAuth();
 
