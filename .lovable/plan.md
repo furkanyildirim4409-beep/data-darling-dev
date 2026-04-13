@@ -1,30 +1,40 @@
 
 
-## Fix Panel Stats and Enable Category-less Stories
+## Enable Highlight Management from Story Archive
 
-### Step A: Enable Category-less 24h Stories (`StoryUploadModal.tsx`)
+### Overview
+Add the ability for coaches to assign or remove highlight categories on archived stories, directly from the full-screen viewer in `StoryArchiveDialog`.
 
-1. Add a "Kategorisiz" option (id `"none"`, icon `Clock`) as the first item in the categories array
-2. Update `handleUpload` (line 83): remove `!selectedCategory` guard — only require `selectedFile` and `user`. When `selectedCategory` is empty or `"none"`, pass `category: undefined` to `createStory`
-3. Update the category preview section (line 236): when `selectedCategory` is `"none"` or empty, show "Normal 24 saatlik hikaye olarak paylaşılacak"
-4. Update the disabled check on the submit button (line 273): remove `!selectedCategory`
-5. Default `selectedCategory` to `"none"` instead of `""`
+### Plan
 
-### Step B: Live Follower Count (`useSocialMutations.ts` + `ProfileContext.tsx`)
+#### 1. Add `useUpdateStoryCategory` mutation (`src/hooks/useSocialMutations.ts`)
+- New mutation accepting `{ storyId: string, category: string | null }`
+- Updates `coach_stories.category` where `id = storyId` and `coach_id = user.id`
+- On success: invalidate `["coach-stories-archive"]` and `["coach-stories"]`, show toast
 
-1. Add `useMyFollowerCount()` hook in `useSocialMutations.ts`:
-   - Queries `user_follows` table with `select("id", { count: "exact", head: true })` filtered by `followed_id = user.id`
-   - Query key: `["my-follower-count", user?.id]`
+#### 2. Upgrade viewer state in `StoryArchiveDialog.tsx`
+- Replace `viewingUrl: string | null` with `viewingStory: StoryObject | null` (the full story row)
+- Update grid `onClick` to pass the entire story object
+- Update viewer dialog's `open` check and media rendering to use `viewingStory.media_url`
 
-2. Update `ProfileContext.tsx`:
-   - Import and call `useMyFollowerCount()`
-   - Sync the returned count into `profile.followers` so `MobileProfilePreview` and `ProfileSettings` automatically reflect live data
+#### 3. Add category assignment UI in the viewer overlay
+- Import the highlight `categories` array from `StoryUploadModal.tsx` (extract to shared constant or import directly)
+- Below the media in the viewer dialog, render a bottom overlay bar with:
+  - A `Select` dropdown listing the 5 highlight categories + a "Kategoriden Cikar" option (maps to `null`)
+  - Pre-select current `viewingStory.category`
+  - On change, fire `useUpdateStoryCategory` mutation
+  - Show toast: "Hikaye one cikanlara eklendi!" or "Kategori kaldirildi"
+- Update local `viewingStory` state for instant feedback
+
+#### 4. Extract shared categories constant
+- Move the `categories` array from `StoryUploadModal.tsx` into a shared file (e.g., `src/data/storyCategories.ts`) so both `StoryUploadModal` and `StoryArchiveDialog` import from the same source
 
 ### Files
 
 | File | Action |
 |------|--------|
-| `src/components/content-studio/StoryUploadModal.tsx` | MODIFY — add "Kategorisiz" option, relax validation |
-| `src/hooks/useSocialMutations.ts` | MODIFY — add `useMyFollowerCount` hook |
-| `src/contexts/ProfileContext.tsx` | MODIFY — wire live follower count |
+| `src/data/storyCategories.ts` | NEW — shared categories array |
+| `src/hooks/useSocialMutations.ts` | MODIFY — add `useUpdateStoryCategory` |
+| `src/components/content-studio/StoryArchiveDialog.tsx` | MODIFY — upgrade state, add category UI |
+| `src/components/content-studio/StoryUploadModal.tsx` | MODIFY — import categories from shared file |
 
