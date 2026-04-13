@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -32,10 +32,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCreatePost } from "@/hooks/useSocialMutations";
+import { useCreatePost, useCoachPosts } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -48,15 +49,6 @@ interface Post {
   comments: number;
   status: "draft" | "scheduled" | "published";
 }
-
-const mockPosts: Post[] = [
-  { id: "p1", image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=300&fit=crop", caption: "Bugünkü antrenman 💪", likes: 234, comments: 18, status: "published" },
-  { id: "p2", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=300&fit=crop", caption: "Yeni program başlıyor!", likes: 0, comments: 0, status: "scheduled" },
-  { id: "p3", image: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=300&fit=crop", caption: "Beslenme ipuçları", likes: 189, comments: 24, status: "published" },
-  { id: "p4", image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=300&h=300&fit=crop", caption: "Motivasyon Pazartesi", likes: 0, comments: 0, status: "draft" },
-  { id: "p5", image: "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=300&h=300&fit=crop", caption: "Değişim hikayesi #1", likes: 456, comments: 67, status: "published" },
-  { id: "p6", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c149a?w=300&h=300&fit=crop", caption: "Haftalık özet", likes: 0, comments: 0, status: "scheduled" },
-];
 
 interface SortablePostProps {
   post: Post;

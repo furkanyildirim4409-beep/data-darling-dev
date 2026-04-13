@@ -14,91 +14,6 @@ import { useCreateProduct, useCoachProducts, useUpdateProductStatus } from "@/ho
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-// Mock products data (demo/fallback)
-const mockProducts: StoreProduct[] = [
-  {
-    id: "prod-1",
-    type: "service",
-    name: "Premium Koçluk Paketi",
-    description: "Birebir koçluk, haftalık kontroller ve özel program",
-    price: 3500,
-    currency: "₺",
-    stock: "unlimited",
-    features: [
-      { id: "f1", text: "Haftalık Video Görüşme", included: true },
-      { id: "f2", text: "Detaylı Form Analizi", included: true },
-      { id: "f3", text: "Kişisel Antrenman Programı", included: true },
-      { id: "f4", text: "Beslenme Planı", included: true },
-      { id: "f5", text: "7/24 WhatsApp Destek", included: true },
-    ],
-    buttonText: "Hemen Başla",
-    badge: "En Popüler",
-    sales: 47,
-    revenue: 164500,
-  },
-  {
-    id: "prod-2",
-    type: "service",
-    name: "Başlangıç Koçluk Paketi",
-    description: "Temel koçluk desteği ve program takibi",
-    price: 1500,
-    currency: "₺",
-    stock: "unlimited",
-    features: [
-      { id: "f1", text: "Aylık Video Görüşme", included: true },
-      { id: "f2", text: "Antrenman Programı", included: true },
-      { id: "f3", text: "Haftalık Check-in", included: true },
-      { id: "f4", text: "Beslenme Önerileri", included: false },
-    ],
-    buttonText: "Başla",
-    badge: "Yeni Başlayanlar",
-    sales: 89,
-    revenue: 133500,
-  },
-  {
-    id: "prod-3",
-    type: "digital",
-    name: "Vücut Geliştirme Rehberi",
-    description: "A'dan Z'ye vücut geliştirme e-kitabı - 250+ sayfa",
-    price: 199,
-    currency: "₺",
-    stock: "unlimited",
-    features: [],
-    buttonText: "Satın Al",
-    badge: "PDF + Video",
-    sales: 234,
-    revenue: 46566,
-  },
-  {
-    id: "prod-4",
-    type: "digital",
-    name: "Beslenme Temelleri E-Kitap",
-    description: "Makro hesaplama, öğün planları ve 50+ tarif",
-    price: 149,
-    currency: "₺",
-    stock: "unlimited",
-    features: [],
-    buttonText: "İndir",
-    badge: "Bestseller",
-    sales: 312,
-    revenue: 46488,
-  },
-  {
-    id: "prod-5",
-    type: "physical",
-    name: "Pro Direnç Bandı Seti",
-    description: "5 farklı direnç seviyesi, taşıma çantası dahil",
-    price: 449,
-    currency: "₺",
-    stock: 28,
-    features: [],
-    buttonText: "Sepete Ekle",
-    badge: "Ücretsiz Kargo",
-    sales: 156,
-    revenue: 70044,
-  },
-];
-
 const defaultProduct: ProductData = {
   name: "",
   description: "",
@@ -114,20 +29,20 @@ export default function StoreManager() {
   const { canManageStore } = usePermissions();
   const { user } = useAuth();
   const [productType, setProductType] = useState<"digital" | "physical" | "service">("service");
-  const [products, setProducts] = useState<StoreProduct[]>(mockProducts);
+  const [products, setProducts] = useState<StoreProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [editingProduct, setEditingProduct] = useState<ProductData>(defaultProduct);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<StoreProduct | null>(null);
 
-  const { data: liveProducts } = useCoachProducts();
+  const { data: liveProducts, isLoading: isLoadingProducts } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
 
-  // Merge live products into the product list
+  // Sync live products into local state
   useEffect(() => {
-    if (liveProducts && liveProducts.length > 0) {
+    if (liveProducts) {
       const mapped: StoreProduct[] = liveProducts.map((p) => ({
         id: p.id,
         type: "digital" as const,
@@ -142,10 +57,7 @@ export default function StoreManager() {
         sales: 0,
         revenue: 0,
       }));
-      // Combine: mock products + live products (deduplicate by id)
-      const mockIds = new Set(mockProducts.map((m) => m.id));
-      const combined = [...mockProducts, ...mapped.filter((m) => !mockIds.has(m.id))];
-      setProducts(combined);
+      setProducts(mapped);
     }
   }, [liveProducts]);
 
