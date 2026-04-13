@@ -16,9 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Image, X, Star, MessageCircle, Trophy, Camera, Heart, Video, Play } from "lucide-react";
+import { Upload, Image, X, Star, MessageCircle, Trophy, Camera, Heart, Video, Play, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { useCreateStory } from "@/hooks/useSocialMutations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StoryUploadModalProps {
   open: boolean;
@@ -42,25 +45,23 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [mediaType, setMediaType] = useState<MediaType>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { user } = useAuth();
+  const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
   const handleFileSelect = (file: File) => {
     if (file.type.startsWith("image/")) {
       setSelectedFile(file);
       setMediaType("image");
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl(URL.createObjectURL(file));
     } else if (file.type.startsWith("video/")) {
       setSelectedFile(file);
       setMediaType("video");
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl(URL.createObjectURL(file));
     } else {
-      toast({
-        title: "Hata",
-        description: "Lütfen geçerli bir görsel veya video dosyası seçin.",
-        variant: "destructive",
-      });
+      toast.error("Lütfen geçerli bir görsel veya video dosyası seçin.");
     }
   };
 
@@ -76,18 +77,35 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleDragLeave = () => setIsDragging(false);
 
-  const handleUpload = () => {
-    if (selectedFile && selectedCategory) {
+  const handleUpload = async () => {
+    if (!selectedFile || !selectedCategory || !user) return;
+
+    try {
+      setIsUploading(true);
+      const ext = selectedFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("social-media")
+        .upload(path, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("social-media")
+        .getPublicUrl(path);
+
+      await createStory({ media_url: urlData.publicUrl, duration_hours: 24 });
+
+      // Notify parent for local highlight count update
       onUpload(selectedFile, selectedCategory);
       handleClose();
-      toast({
-        title: "Hikaye Yüklendi",
-        description: `Hikaye "${categories.find(c => c.id === selectedCategory)?.name}" kategorisine eklendi.`,
-      });
+    } catch (err: any) {
+      toast.error(`Yükleme başarısız: ${err.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -105,6 +123,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     setMediaType(null);
   };
 
+  const isBusy = isUploading || isCreatingStory;
   const isVideo = mediaType === "video";
 
   return (
@@ -151,7 +170,6 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                     if (file) handleFileSelect(file);
                   }}
                 />
-                
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <div className="flex gap-1">
@@ -159,12 +177,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                       <Video className="w-6 h-6 text-primary" />
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    Görsel veya video sürükleyip bırakın
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    veya dosya seçmek için tıklayın
-                  </p>
+                  <p className="text-sm font-medium text-foreground mb-1">Görsel veya video sürükleyip bırakın</p>
+                  <p className="text-xs text-muted-foreground mb-3">veya dosya seçmek için tıklayın</p>
                   <Button variant="outline" size="sm" className="border-primary/30 text-primary">
                     <Upload className="w-3 h-3 mr-1.5" />
                     Dosya Seç
@@ -175,32 +189,16 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
               <div className="relative rounded-xl overflow-hidden border border-border">
                 {isVideo ? (
                   <div className="relative">
-                    <video
-                      src={previewUrl}
-                      className="w-full h-48 object-cover"
-                      muted
-                      loop
-                      autoPlay
-                      playsInline
-                    />
+                    <video src={previewUrl} className="w-full h-48 object-cover" muted loop autoPlay playsInline />
                     <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
                       <Play className="w-3 h-3" />
                       Video
                     </div>
                   </div>
                 ) : (
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-full h-48 object-cover"
-                  />
+                  <img src={previewUrl} alt="Preview" className="w-full h-48 object-cover" />
                 )}
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 h-8 w-8"
-                  onClick={clearFile}
-                >
+                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
                   <X className="w-4 h-4" />
                 </Button>
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
@@ -266,16 +264,25 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={isBusy}>
             İptal
           </Button>
-          <Button 
-            onClick={handleUpload} 
-            disabled={!selectedFile || !selectedCategory}
+          <Button
+            onClick={handleUpload}
+            disabled={!selectedFile || !selectedCategory || isBusy}
             className="bg-primary text-primary-foreground"
           >
-            <Upload className="w-4 h-4 mr-1.5" />
-            Hikaye Yükle
+            {isBusy ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                Paylaşılıyor...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-1.5" />
+                Hikaye Yükle
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
