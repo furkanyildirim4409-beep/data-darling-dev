@@ -1,50 +1,30 @@
 
 
-## Build Story Archive in Coach Panel
+## Fix Panel Stats and Enable Category-less Stories
 
-### Problem
-Coaches cannot view expired stories. The current `coach_stories` SELECT RLS policy only allows viewing stories where `now() < expires_at`, blocking archive access.
+### Step A: Enable Category-less 24h Stories (`StoryUploadModal.tsx`)
 
-### Plan
+1. Add a "Kategorisiz" option (id `"none"`, icon `Clock`) as the first item in the categories array
+2. Update `handleUpload` (line 83): remove `!selectedCategory` guard — only require `selectedFile` and `user`. When `selectedCategory` is empty or `"none"`, pass `category: undefined` to `createStory`
+3. Update the category preview section (line 236): when `selectedCategory` is `"none"` or empty, show "Normal 24 saatlik hikaye olarak paylaşılacak"
+4. Update the disabled check on the submit button (line 273): remove `!selectedCategory`
+5. Default `selectedCategory` to `"none"` instead of `""`
 
-#### 1. Database Migration — New RLS Policy
-Add a SELECT policy so coaches can see ALL their own stories (active + expired):
+### Step B: Live Follower Count (`useSocialMutations.ts` + `ProfileContext.tsx`)
 
-```sql
-CREATE POLICY "Coaches can view own stories"
-ON public.coach_stories
-FOR SELECT
-TO authenticated
-USING (coach_id = auth.uid());
-```
+1. Add `useMyFollowerCount()` hook in `useSocialMutations.ts`:
+   - Queries `user_follows` table with `select("id", { count: "exact", head: true })` filtered by `followed_id = user.id`
+   - Query key: `["my-follower-count", user?.id]`
 
-This works alongside the existing public policy (which only shows active stories to athletes).
-
-#### 2. Add `useCoachStoryArchive` Hook (`src/hooks/useSocialMutations.ts`)
-- New `useQuery` hook fetching ALL `coach_stories` where `coach_id = user.id`, ordered by `created_at desc`
-- Query key: `["coach-stories-archive", user?.id]`
-- No `expires_at` filter
-
-#### 3. Create `StoryArchiveDialog` Component (`src/components/content-studio/StoryArchiveDialog.tsx`)
-- A Dialog triggered by an "Arşiv" button in the HighlightsSection header
-- Displays a responsive grid of story thumbnails (3-4 columns)
-- Each thumbnail shows:
-  - The media (image via `media_url`)
-  - Formatted date (`created_at`)
-  - Badge: green "Aktif" if `expires_at > now`, gray "Arşiv" if expired
-  - Category label if present
-- Loading skeleton and empty state ("Henuz hikaye yok")
-- Clicking a thumbnail opens a nested viewer dialog showing the full image/video
-
-#### 4. Wire Into HighlightsSection (`src/components/content-studio/HighlightsSection.tsx`)
-- Add an "Arşiv" button next to existing header buttons
-- Import and render `StoryArchiveDialog` with open/close state
+2. Update `ProfileContext.tsx`:
+   - Import and call `useMyFollowerCount()`
+   - Sync the returned count into `profile.followers` so `MobileProfilePreview` and `ProfileSettings` automatically reflect live data
 
 ### Files
+
 | File | Action |
 |------|--------|
-| Migration SQL | NEW — add coach self-select policy |
-| `src/hooks/useSocialMutations.ts` | MODIFY — add `useCoachStoryArchive` |
-| `src/components/content-studio/StoryArchiveDialog.tsx` | NEW — archive grid + viewer |
-| `src/components/content-studio/HighlightsSection.tsx` | MODIFY — add archive button |
+| `src/components/content-studio/StoryUploadModal.tsx` | MODIFY — add "Kategorisiz" option, relax validation |
+| `src/hooks/useSocialMutations.ts` | MODIFY — add `useMyFollowerCount` hook |
+| `src/contexts/ProfileContext.tsx` | MODIFY — wire live follower count |
 
