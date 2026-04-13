@@ -198,6 +198,25 @@ interface UpdateStoryPayload {
   category?: string;
 }
 
+export function useCoachStoryArchive() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["coach-stories-archive", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("coach_stories")
+        .select("*")
+        .eq("coach_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+}
+
 export function useUpdateStory() {
   const { user } = useAuth();
   const qc = useQueryClient();
