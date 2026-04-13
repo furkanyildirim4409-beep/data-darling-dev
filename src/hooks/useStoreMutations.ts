@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -14,6 +14,25 @@ interface CreateProductPayload {
 interface UpdateProductStatusPayload {
   product_id: string;
   is_active: boolean;
+}
+
+export function useCoachProducts() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["coach-products", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("coach_products")
+        .select("*")
+        .eq("coach_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 }
 
 export function useCreateProduct() {

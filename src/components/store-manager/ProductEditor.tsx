@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Feature {
@@ -28,7 +28,8 @@ interface ProductEditorProps {
   productType: "digital" | "physical" | "service";
   onProductChange: (product: ProductData) => void;
   initialData?: ProductData;
-  onSave?: (product: ProductData) => void;
+  onSave?: (product: ProductData, imageFile?: File) => void;
+  isSubmitting?: boolean;
 }
 
 const defaultFeatures: Feature[] = [
@@ -38,7 +39,7 @@ const defaultFeatures: Feature[] = [
   { id: "f4", text: "7/24 Destek", included: true },
 ];
 
-export function ProductEditor({ productType, onProductChange, initialData, onSave }: ProductEditorProps) {
+export function ProductEditor({ productType, onProductChange, initialData, onSave, isSubmitting }: ProductEditorProps) {
   const [formData, setFormData] = useState<ProductData>(
     initialData || {
       name: "",
@@ -51,11 +52,12 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
       badge: "",
     },
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Track if initial data has been set
   const [initialized, setInitialized] = useState(false);
 
-  // Only update form when initialData changes (not on every render)
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
@@ -63,7 +65,6 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
     }
   }, [initialData?.name, initialData?.price, initialData?.description]);
 
-  // Stable update function - only call onProductChange on blur, not every keystroke
   const handleBlur = useCallback(() => {
     onProductChange(formData);
   }, [formData, onProductChange]);
@@ -85,7 +86,6 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
       features: formData.features.map((f) => (f.id === id ? { ...f, included } : f)),
     };
     setFormData(newFormData);
-    // Immediately update preview for toggle changes
     onProductChange(newFormData);
   };
 
@@ -105,6 +105,15 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
     };
     setFormData(newFormData);
     onProductChange(newFormData);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
   };
 
   return (
@@ -156,6 +165,31 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
               className="mt-1 bg-background/50"
               placeholder="Örn: Popüler"
             />
+          </div>
+
+          {/* Image Upload */}
+          <div className="col-span-2">
+            <Label className="text-xs text-muted-foreground">Ürün Görseli</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-1 border-2 border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 transition-colors"
+            >
+              {previewUrl ? (
+                <img src={previewUrl} alt="Preview" className="w-full h-24 object-cover rounded-md" />
+              ) : (
+                <>
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Görsel yüklemek için tıklayın</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -209,8 +243,20 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
         </div>
       )}
 
-      <Button onClick={() => onSave && onSave(formData)} className="w-full bg-primary text-primary-foreground">
-        <Save className="w-4 h-4 mr-2" /> Değişiklikleri Kaydet
+      <Button
+        onClick={() => onSave && onSave(formData, selectedFile || undefined)}
+        disabled={isSubmitting}
+        className="w-full bg-primary text-primary-foreground"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Ürün Ekleniyor...
+          </>
+        ) : (
+          <>
+            <Save className="w-4 h-4 mr-2" /> Değişiklikleri Kaydet
+          </>
+        )}
       </Button>
     </div>
   );

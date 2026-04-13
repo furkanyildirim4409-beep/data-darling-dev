@@ -8,10 +8,13 @@ import { ProductDetailDialog } from "@/components/store-manager/ProductDetailDia
 import { MobilePreview } from "@/components/store-manager/MobilePreview";
 import { SalesChart } from "@/components/store-manager/SalesChart";
 import { BookOpen, Package, UserCheck, Plus, ShieldAlert } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCreateProduct, useCoachProducts, useUpdateProductStatus } from "@/hooks/useStoreMutations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock products data
+// Mock products data (demo/fallback)
 const mockProducts: StoreProduct[] = [
   {
     id: "prod-1",
@@ -109,6 +112,7 @@ const defaultProduct: ProductData = {
 
 export default function StoreManager() {
   const { canManageStore } = usePermissions();
+  const { user } = useAuth();
   const [productType, setProductType] = useState<"digital" | "physical" | "service">("service");
   const [products, setProducts] = useState<StoreProduct[]>(mockProducts);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
@@ -116,6 +120,34 @@ export default function StoreManager() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<StoreProduct | null>(null);
+
+  const { data: liveProducts } = useCoachProducts();
+  const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
+  const { mutate: updateStatus } = useUpdateProductStatus();
+
+  // Merge live products into the product list
+  useEffect(() => {
+    if (liveProducts && liveProducts.length > 0) {
+      const mapped: StoreProduct[] = liveProducts.map((p) => ({
+        id: p.id,
+        type: "digital" as const,
+        name: p.title,
+        description: p.description || "",
+        price: Number(p.price),
+        currency: "₺",
+        stock: "unlimited" as const,
+        features: [],
+        buttonText: "Satın Al",
+        badge: p.is_active ? "" : "Pasif",
+        sales: 0,
+        revenue: 0,
+      }));
+      // Combine: mock products + live products (deduplicate by id)
+      const mockIds = new Set(mockProducts.map((m) => m.id));
+      const combined = [...mockProducts, ...mapped.filter((m) => !mockIds.has(m.id))];
+      setProducts(combined);
+    }
+  }, [liveProducts]);
 
   // Update editingProduct when selectedProduct changes
   useEffect(() => {
@@ -134,39 +166,48 @@ export default function StoreManager() {
     }
   }, [selectedProduct]);
 
-  // Stable callback for product changes - prevents render loop
   const handleProductChange = useCallback((newProduct: ProductData) => {
     setEditingProduct(newProduct);
   }, []);
 
-  const handleSaveProduct = (productData: ProductData) => {
+  const handleSaveProduct = async (productData: ProductData, imageFile?: File) => {
     if (selectedProduct && !isCreatingNew) {
-      // Update existing product
+      // Update existing (local mock update)
       setProducts((prev) =>
         prev.map((p) =>
-          p.id === selectedProduct.id
-            ? { ...p, ...productData }
-            : p
+          p.id === selectedProduct.id ? { ...p, ...productData } : p
         )
       );
-      toast({
-        title: "Ürün Güncellendi",
-        description: `"${productData.name}" başarıyla güncellendi.`,
-      });
+      toast.success(`"${productData.name}" başarıyla güncellendi.`);
     } else {
-      // Create new product
-      const newProduct: StoreProduct = {
-        id: `prod-${Date.now()}`,
-        type: productType,
-        ...productData,
-        sales: 0,
-        revenue: 0,
-      };
-      setProducts((prev) => [...prev, newProduct]);
-      toast({
-        title: "Ürün Eklendi",
-        description: `"${productData.name}" mağazaya eklendi.`,
-      });
+      // Create new product — persist to Supabase
+      try {
+        let imageUrl = "/placeholder.svg";
+
+        if (imageFile && user) {
+          const ext = imageFile.name.split(".").pop() || "jpg";
+          const path = `${user.id}/${Date.now()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("social-media")
+            .upload(path, imageFile);
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from("social-media")
+            .getPublicUrl(path);
+          imageUrl = urlData.publicUrl;
+        }
+
+        await createProduct({
+          title: productData.name,
+          description: productData.description,
+          price: productData.price,
+          image_url: imageUrl,
+          is_active: true,
+        });
+      } catch (err: any) {
+        toast.error(`Ürün eklenemedi: ${err.message}`);
+      }
     }
     setSelectedProduct(null);
     setIsCreatingNew(false);
@@ -194,11 +235,7 @@ export default function StoreManager() {
     if (selectedProduct?.id === id) {
       setSelectedProduct(null);
     }
-    toast({
-      title: "Ürün Silindi",
-      description: `"${product?.name}" mağazadan kaldırıldı.`,
-      variant: "destructive",
-    });
+    toast.success(`"${product?.name}" mağazadan kaldırıldı.`);
   };
 
   const handleNewProduct = () => {
@@ -303,6 +340,7 @@ export default function StoreManager() {
                     onProductChange={handleProductChange}
                     initialData={editingProduct}
                     onSave={handleSaveProduct}
+                    isSubmitting={isCreating}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
