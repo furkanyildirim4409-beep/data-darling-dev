@@ -54,6 +54,15 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setIsArchiveOpen(true)}
+                className="border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+              >
+                <Archive className="w-3 h-3 mr-1.5" />
+                Arşiv
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setIsTemplateBuilderOpen(true)}
                 className="border-primary/30 text-primary hover:bg-primary/10"
               >
