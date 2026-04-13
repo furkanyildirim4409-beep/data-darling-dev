@@ -5,7 +5,11 @@ import { Archive, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCoachStoryArchive } from "@/hooks/useSocialMutations";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCoachStoryArchive, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
+import { highlightCategories } from "@/data/storyCategories";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface StoryArchiveDialogProps {
   open: boolean;
@@ -14,9 +18,26 @@ interface StoryArchiveDialogProps {
 
 export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogProps) {
   const { data: stories, isLoading } = useCoachStoryArchive();
-  const [viewingUrl, setViewingUrl] = useState<string | null>(null);
+  const [viewingStory, setViewingStory] = useState<any | null>(null);
+  const { mutateAsync: updateCategory, isPending } = useUpdateStoryCategory();
 
   const isActive = (expiresAt: string) => new Date(expiresAt) > new Date();
+
+  const currentCategoryId = (() => {
+    if (!viewingStory?.category) return "remove";
+    const found = highlightCategories.find(c => c.name === viewingStory.category);
+    return found?.id ?? "remove";
+  })();
+
+  const handleCategoryChange = async (value: string) => {
+    if (!viewingStory) return;
+    const category = value === "remove" ? null : highlightCategories.find(c => c.id === value)?.name ?? null;
+    try {
+      await updateCategory({ storyId: viewingStory.id, category });
+      setViewingStory({ ...viewingStory, category });
+      toast.success(category ? "Hikaye öne çıkanlara eklendi!" : "Kategori kaldırıldı");
+    } catch {}
+  };
 
   return (
     <>
@@ -44,7 +65,7 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
               {stories.map((story) => (
                 <button
                   key={story.id}
-                  onClick={() => setViewingUrl(story.media_url)}
+                  onClick={() => setViewingStory(story)}
                   className="relative group rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-all aspect-[9/16]"
                 >
                   <img
@@ -79,20 +100,47 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
       </Dialog>
 
       {/* Full-screen viewer */}
-      <Dialog open={!!viewingUrl} onOpenChange={() => setViewingUrl(null)}>
+      <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
         <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-none">
           <button
-            onClick={() => setViewingUrl(null)}
+            onClick={() => setViewingStory(null)}
             className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
-          {viewingUrl && (
-            viewingUrl.match(/\.(mp4|webm|mov)$/i) ? (
-              <video src={viewingUrl} controls autoPlay className="w-full max-h-[80vh] object-contain" />
-            ) : (
-              <img src={viewingUrl} alt="Story" className="w-full max-h-[80vh] object-contain" />
-            )
+          {viewingStory && (
+            <>
+              {viewingStory.media_url.match(/\.(mp4|webm|mov)$/i) ? (
+                <video src={viewingStory.media_url} controls autoPlay className="w-full max-h-[70vh] object-contain" />
+              ) : (
+                <img src={viewingStory.media_url} alt="Story" className="w-full max-h-[70vh] object-contain" />
+              )}
+              {/* Category assignment bar */}
+              <div className="p-3 bg-black/80 border-t border-white/10">
+                <label className="text-xs text-white/60 mb-1.5 block">Öne Çıkan Kategorisi</label>
+                <Select value={currentCategoryId} onValueChange={handleCategoryChange} disabled={isPending}>
+                  <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm">
+                    <SelectValue placeholder="Kategori seç" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="remove">
+                      <span className="text-muted-foreground">Kategoriden Çıkar</span>
+                    </SelectItem>
+                    {highlightCategories.map((cat) => {
+                      const Icon = cat.icon;
+                      return (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <Icon className={cn("w-4 h-4", cat.color)} />
+                            <span>{cat.name}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
