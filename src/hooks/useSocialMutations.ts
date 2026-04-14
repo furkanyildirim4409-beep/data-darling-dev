@@ -327,6 +327,26 @@ export function useCheckViewerStatus() {
   });
 }
 
+// ── Send coaching invite ──
+
+export function useSendCoachingInvite() {
+  return useMutation({
+    mutationFn: async (payload: { coachName: string; leadName: string; leadEmail: string }) => {
+      const { data, error } = await supabase.functions.invoke('send-coaching-invite', {
+        body: payload,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Koçluk daveti e-posta ile gönderildi!");
+    },
+    onError: (err: Error) => {
+      toast.error(`Davet gönderilemedi: ${err.message}`);
+    },
+  });
+}
+
 // ── Follower count ──
 
 export function useMyFollowerCount() {
