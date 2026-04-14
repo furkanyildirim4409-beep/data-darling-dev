@@ -51,3 +51,20 @@ export function useEmails(direction: "inbound" | "outbound") {
 
   return { emails, isLoading, markAsRead };
 }
+
+export function useSendEmail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: { toEmail: string; subject: string; bodyText: string }) => {
+      const { data, error } = await supabase.functions.invoke("send-custom-email", {
+        body: payload,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emails"] });
+    },
+  });
+}

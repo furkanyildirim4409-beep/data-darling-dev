@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useUnreadEmails } from "@/hooks/useUnreadEmails";
 import { useEmails, type Email } from "@/hooks/useEmails";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ComposeMailDialog from "@/components/mailbox/ComposeMailDialog";
 
 type Folder = "inbound" | "outbound";
 
@@ -25,6 +26,7 @@ function formatDate(dateStr: string) {
 export default function Mailbox() {
   const [activeTab, setActiveTab] = useState<Folder>("inbound");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
   const { unreadCount } = useUnreadEmails();
   const { emails, isLoading, markAsRead } = useEmails(activeTab);
   const isMobile = useIsMobile();
@@ -50,7 +52,7 @@ export default function Mailbox() {
       {/* Folder sidebar */}
       <div className="w-60 border-r border-border bg-card flex flex-col shrink-0 max-md:hidden">
         <div className="p-3">
-          <Button className="w-full gap-2" size="sm">
+          <Button className="w-full gap-2" size="sm" onClick={() => setComposeOpen(true)}>
             <PenSquare className="w-4 h-4" />
             Yeni Mail
           </Button>
@@ -185,6 +187,7 @@ export default function Mailbox() {
           )}
         </div>
       )}
+      <ComposeMailDialog open={composeOpen} onOpenChange={setComposeOpen} />
     </div>
   );
 }
