@@ -1,4 +1,4 @@
-import { Users, Dumbbell, Apple, DollarSign, Shield, ShoppingBag, Palette } from 'lucide-react';
+import { Users, Dumbbell, Apple, DollarSign, Shield, ShoppingBag, Palette, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -84,6 +84,15 @@ const MODULES: ModuleConfig[] = [
     key: 'content',
     label: 'İçerik Stüdyosu',
     icon: Palette,
+    fields: [
+      { key: 'view', label: 'Görüntüleme' },
+      { key: 'manage', label: 'Yönetim' },
+    ],
+  },
+  {
+    key: 'mail',
+    label: 'Mail Kutusu',
+    icon: Mail,
     fields: [
       { key: 'view', label: 'Görüntüleme' },
       { key: 'manage', label: 'Yönetim' },

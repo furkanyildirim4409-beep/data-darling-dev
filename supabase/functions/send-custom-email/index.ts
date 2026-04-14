@@ -37,12 +37,31 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing required fields: toEmail, subject, bodyText" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Fetch coach profile
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // ── Delegation check: is user a sub-coach with mail.manage? ──
+    let sendAsUserId = userId;
+
+    const { data: teamRow } = await adminClient
+      .from("team_members")
+      .select("head_coach_id, custom_permissions")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (teamRow) {
+      const mailManage = (teamRow.custom_permissions as any)?.mail?.manage === true;
+      if (mailManage && teamRow.head_coach_id) {
+        // Delegated: send on behalf of the head coach
+        sendAsUserId = teamRow.head_coach_id;
+      }
+    }
+
+    // Fetch sender profile (could be head coach or self)
     const { data: profile, error: profileErr } = await adminClient
       .from("profiles")
       .select("full_name, username")
-      .eq("id", userId)
+      .eq("id", sendAsUserId)
       .single();
 
     if (profileErr || !profile) {
@@ -72,9 +91,9 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to send email" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Log outbound email
+    // Log outbound email — owner is the identity we sent as
     await adminClient.from("emails").insert({
-      owner_id: userId,
+      owner_id: sendAsUserId,
       direction: "outbound",
       from_email: fromEmail,
       to_email: toEmail,
