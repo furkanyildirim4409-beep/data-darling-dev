@@ -10,6 +10,7 @@ import { SessionsDialog } from "@/components/dashboard/SessionsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Activity, Utensils, AlertTriangle } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { UsernameFallbackAlert } from "@/components/dashboard/UsernameFallbackAlert";
 
 export default function CommandCenter() {
   const navigate = useNavigate();
