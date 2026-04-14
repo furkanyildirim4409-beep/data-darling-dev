@@ -1,59 +1,35 @@
 
 
-## Epic 7 - Part 2: Agency Username System
+## Epic 7 - Part 3: Missing Username Fallback Alert
 
 ### Summary
-Add username selection for main coaches during registration and enforce `maincoach.subcoach` dot-notation usernames for sub-coaches created via the Team panel.
+Create a persistent alert component that forces legacy coaches (who have no `username`) to claim one before using the email system. Mount it at the top of the Command Center dashboard.
 
-### Step A — Register Page: Username Input for Coaches
-**File: `src/pages/Register.tsx`**
-- Add `username` state field
-- Show username input only when `role === 'coach'` and no `inviteToken`
-- Validation: `/^[a-z0-9]+$/`, min 3 chars, max 20 chars
-- Show helper text: "Bu kullanıcı adı e-posta adresiniz olacak: `username@dynabolic.co`"
-- Real-time uniqueness check via `supabase.from('profiles').select('id').eq('username', value)` (debounced)
-- Pass `username` in metadata during signUp
+### Step A — Create `UsernameFallbackAlert.tsx`
+**File: `src/components/dashboard/UsernameFallbackAlert.tsx`**
 
-**File: `src/contexts/AuthContext.tsx`**
-- Update `signUp` function signature to accept optional `username` parameter
-- Include `username` in `options.data` metadata
+- Uses `useAuth()` to get `profile`, `isSubCoach`, `user`, `refreshProfile`
+- Returns `null` if: no profile, role !== 'coach', or username is already set
+- **Sub-coach without username**: Read-only info card explaining they need their head coach to assign one
+- **Main coach without username**: Warning card with:
+  - Title: "Kurumsal E-Posta Adresinizi Belirleyin"
+  - Username input with `/^[a-z0-9]+$/` validation, min 3, max 20 chars
+  - Debounced uniqueness check against `profiles` table
+  - Live preview: `username@dynabolic.co`
+  - "Kaydet ve Aktifleştir" button
 
-### Step B — Database Trigger Update
-**Migration SQL** — Update `handle_new_user()` to extract `username` from metadata:
-```sql
-username = new.raw_user_meta_data->>'username'
-```
-With `ON CONFLICT` preserving existing username if already set.
+### Step B — Update Mutation
+- On save: `supabase.from('profiles').update({ username }).eq('id', user.id)`
+- Handle unique constraint errors gracefully
+- On success: call `refreshProfile()` to update context (alert auto-hides), show success toast
 
-### Step C — Sub-Coach Creation: Agency Username
-**File: `src/components/team/AddMemberDialog.tsx`**
-- Add `subUsername` state field
-- Fetch main coach's username from `useAuth().profile.username`
-- Show visual prefix lock: `[coachUsername].` followed by editable input, then `@dynabolic.co`
-- Validate sub-part: `/^[a-z0-9]+$/`, min 2 chars
-- Concatenate: `finalUsername = coachUsername.subUsername`
-- Pass `username` to `createSubCoach.mutateAsync()`
+### Step C — Mount in Dashboard
+**File: `src/pages/CommandCenter.tsx`**
+- Import and render `<UsernameFallbackAlert />` at the very top of the content area (before the heading)
 
-**File: `src/hooks/useCreateSubCoach.ts`**
-- Add `username` to `CreateSubCoachInput` interface
-- Pass `username` in the Edge Function body
-
-**File: `supabase/functions/create-sub-coach/index.ts`**
-- Accept `username` from request body
-- Include `username` in `user_metadata` so `handle_new_user` trigger stores it
-- Also directly update `profiles.username` via admin client as a fallback
-
-**File: `src/contexts/AuthContext.tsx`**
-- Add `username` to the `Profile` interface
-- Include it in `fetchProfile` mapping
-
-### Files Modified
-| File | Change |
+### Files
+| File | Action |
 |------|--------|
-| `src/pages/Register.tsx` | Add username input with validation + uniqueness check |
-| `src/contexts/AuthContext.tsx` | Add `username` to Profile interface and signUp params |
-| `src/components/team/AddMemberDialog.tsx` | Add sub-coach username with agency prefix UI |
-| `src/hooks/useCreateSubCoach.ts` | Add `username` to mutation input |
-| `supabase/functions/create-sub-coach/index.ts` | Pass username in metadata + profile update |
-| Migration SQL | Update `handle_new_user()` trigger |
+| `src/components/dashboard/UsernameFallbackAlert.tsx` | CREATE |
+| `src/pages/CommandCenter.tsx` | EDIT — add import + mount |
 
