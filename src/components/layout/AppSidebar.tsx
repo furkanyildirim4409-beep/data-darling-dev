@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useTeamChat } from "@/hooks/useTeamChat";
 import { useAlerts } from "@/hooks/useAlerts";
+import { useUnreadEmails } from "@/hooks/useUnreadEmails";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import {
   MessageCircle,
   Scale,
   GraduationCap,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,6 +38,7 @@ const navItems = [
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },
   { path: "/akademi", label: "Akademi", icon: GraduationCap },
   { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
+  { path: "/mailbox", label: "Mail Kutusu", icon: Mail, showMailBadge: true },
   { path: "/team", label: "Takım", icon: UserCog, permissionKey: "canViewTeam" as keyof Permissions },
   { path: "/settings", label: "Ayarlar", icon: Settings, permissionKey: "canViewTeam" as keyof Permissions },
 ];
@@ -52,6 +55,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const totalUnread = athleteUnread + teamUnread;
   const permissions = usePermissions();
   const { criticalCount, warningCount } = useAlerts();
+  const { unreadCount: unreadEmails } = useUnreadEmails();
 
   const filteredNavItems = useMemo(
     () => navItems.filter(item => !item.permissionKey || permissions[item.permissionKey]),
@@ -96,8 +100,9 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           const Icon = item.icon;
           const showBadge = item.showBadge && alertCounts.total > 0;
           const showMsgBadge = (item as any).showMessageBadge && totalUnread > 0;
-          const badgeActive = showBadge || showMsgBadge;
-          const badgeCount = showBadge ? alertCounts.total : totalUnread;
+          const showMailBadge = (item as any).showMailBadge && unreadEmails > 0;
+          const badgeActive = showBadge || showMsgBadge || showMailBadge;
+          const badgeCount = showBadge ? alertCounts.total : showMailBadge ? unreadEmails : totalUnread;
           const badgeIsCritical = showBadge && alertCounts.critical > 0;
 
           const linkContent = (
