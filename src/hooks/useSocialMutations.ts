@@ -330,10 +330,16 @@ export function useCheckViewerStatus() {
 // ── Send coaching invite ──
 
 export function useSendCoachingInvite() {
+  const { profile } = useAuth();
+
   return useMutation({
     mutationFn: async (payload: { coachName: string; leadName: string; leadEmail: string }) => {
+      if (!profile?.username) {
+        toast.error("Lütfen davet göndermeden önce Ayarlar sayfasından kullanıcı adınızı (Kurumsal E-posta) belirleyin.");
+        throw new Error("Username not set");
+      }
       const { data, error } = await supabase.functions.invoke('send-coaching-invite', {
-        body: payload,
+        body: { ...payload, coachUsername: profile.username },
       });
       if (error) throw error;
       return data;
@@ -342,7 +348,9 @@ export function useSendCoachingInvite() {
       toast.success("Koçluk daveti e-posta ile gönderildi!");
     },
     onError: (err: Error) => {
-      toast.error(`Davet gönderilemedi: ${err.message}`);
+      if (err.message !== "Username not set") {
+        toast.error(`Davet gönderilemedi: ${err.message}`);
+      }
     },
   });
 }
