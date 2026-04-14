@@ -78,7 +78,7 @@ function ViewersPanel({ storyId, onViewerClick }: ViewersPanelProps) {
 }
 
 export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogProps) {
-  const { user } = useAuth();
+  const { user, isSubCoach } = useAuth();
   const navigate = useNavigate();
   const { data: allStories, isLoading } = useCoachStoryArchive();
   const [viewingStory, setViewingStory] = useState<any | null>(null);
@@ -100,6 +100,8 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
         navigate(`/athletes/${viewer.viewerId}`);
       } else if (profile.coach_id) {
         toast.error("Bu kişi başka bir koça bağlı.");
+      } else if (isSubCoach) {
+        toast.info("Bu işlemi yalnızca ana koç yapabilir.");
       } else {
         setSelectedLead({ id: viewer.viewerId, fullName: viewer.fullName, avatarUrl: viewer.avatarUrl });
       }
