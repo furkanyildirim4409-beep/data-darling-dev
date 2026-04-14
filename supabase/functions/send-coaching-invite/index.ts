@@ -17,8 +17,8 @@ Deno.serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
 
-    console.log('LOVABLE_API_KEY length:', LOVABLE_API_KEY.length);
-    console.log('RESEND_API_KEY length:', RESEND_API_KEY.length);
+
+
 
     const { coachName, leadName, leadEmail } = await req.json();
 
