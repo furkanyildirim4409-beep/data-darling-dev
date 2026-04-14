@@ -1,39 +1,55 @@
 
 
-## Epic 8 - Part 1: Inbound Webhook Payload Fix
+## Epic 8 - Part 4: Fetch Inbound Body via Resend SDK
 
 ### Summary
-Fix the `inbound-email` Edge Function to unwrap Resend's `payload.data` wrapper and add detailed debug logging.
+Replace the failing REST API fetch (`GET /emails/{id}` — outbound-only, returns 404) with the Resend SDK's `resend.emails.receiving.get(email_id)` endpoint for inbound emails.
+
+### Current State
+- Svix verification: ✅ Already using official `svix@1.21.0` — no changes needed
+- Body fetch: ❌ Uses `https://api.resend.com/emails/${email_id}` REST endpoint (outbound-only, 404s)
+- DB insert: ✅ Already uses `htmlBody`/`textBody` variables
 
 ### Change — `supabase/functions/inbound-email/index.ts` (EDIT)
 
-**Line 58-59** — After parsing JSON, unwrap the `data` property and add logging:
-
+**Line 1** — Add Resend SDK import:
 ```typescript
-const payload = JSON.parse(rawBody);
-console.log('inbound-email: raw webhook payload:', JSON.stringify(payload));
-
-// Resend wraps email data inside payload.data
-const emailData = payload.data || payload;
-const { from, to, subject, text, html } = emailData;
-
-console.log('inbound-email: extracted fields:', JSON.stringify({ from, to, subject }));
+import { Resend } from 'npm:resend';
 ```
 
-**Lines 62-73** — Keep existing `to`/`from` parsing logic intact (already handles arrays and angle brackets).
-
-**After line 84** — Add username log:
+**Lines 55-77** — Replace the REST `fetch` block with SDK call:
 ```typescript
-console.log('inbound-email: cleanTo:', cleanTo, 'cleanFrom:', cleanFrom, 'username:', username);
+// Fetch full inbound email content using the Resend SDK
+if (email_id) {
+  const resendKey = Deno.env.get('RESEND_DIRECT_API_KEY');
+  if (resendKey) {
+    try {
+      const resend = new Resend(resendKey);
+      const { data: fetchedEmail, error: fetchErr } = await resend.emails.receiving.get(email_id);
+
+      if (fetchedEmail) {
+        htmlBody = fetchedEmail.html || htmlBody;
+        textBody = fetchedEmail.text || textBody;
+        console.log(`inbound-email: fetched full body via SDK for email_id=${email_id}`);
+      } else {
+        console.error('inbound-email: Resend SDK fetch failed:', fetchErr);
+      }
+    } catch (err) {
+      console.error('inbound-email: error using Resend SDK:', err);
+    }
+  } else {
+    console.warn('inbound-email: RESEND_DIRECT_API_KEY not set, skipping body fetch');
+  }
+}
 ```
 
-Then redeploy the function.
+Everything else (Svix verification, to/from parsing, profile lookup, DB insert) remains untouched.
+
+### Deploy
+Redeploy `inbound-email` after edit.
 
 ### Files
 | File | Action |
 |------|--------|
-| `supabase/functions/inbound-email/index.ts` | EDIT — unwrap `payload.data`, add logging |
-
-### Deploy
-Deploy `inbound-email` after edit.
+| `supabase/functions/inbound-email/index.ts` | EDIT — add `npm:resend` import, replace REST fetch with SDK `receiving.get()` |
 
