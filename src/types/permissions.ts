@@ -8,6 +8,7 @@ export interface GranularPermissions {
   team: { view: boolean; invite: boolean; editPermissions: boolean };
   store: { view: boolean; manage: boolean };
   content: { view: boolean; manage: boolean };
+  mail: { view: boolean; manage: boolean };
 }
 
 /** Flat boolean flags consumed by UI components */
@@ -41,6 +42,9 @@ export interface FlatPermissions {
   // Content
   canViewContent: boolean;
   canManageContent: boolean;
+  // Mail
+  canViewMail: boolean;
+  canManageMail: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,7 @@ const ALL_TRUE: GranularPermissions = {
   team: { view: true, invite: true, editPermissions: true },
   store: { view: true, manage: true },
   content: { view: true, manage: true },
+  mail: { view: true, manage: true },
 };
 
 const ALL_FALSE: GranularPermissions = {
@@ -65,6 +70,7 @@ const ALL_FALSE: GranularPermissions = {
   team: { view: true, invite: false, editPermissions: false },
   store: { view: false, manage: false },
   content: { view: false, manage: false },
+  mail: { view: false, manage: false },
 };
 
 const LIMITED: GranularPermissions = {
@@ -75,6 +81,7 @@ const LIMITED: GranularPermissions = {
   team: { view: true, invite: false, editPermissions: false },
   store: { view: true, manage: false },
   content: { view: true, manage: false },
+  mail: { view: false, manage: false },
 };
 
 /**
@@ -127,6 +134,9 @@ export function flattenPermissions(g: GranularPermissions): FlatPermissions {
 
     canViewContent: g.content?.view ?? false,
     canManageContent: g.content?.manage ?? false,
+
+    canViewMail: g.mail?.view ?? false,
+    canManageMail: g.mail?.manage ?? false,
   };
 }
 
