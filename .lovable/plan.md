@@ -1,34 +1,53 @@
 
 
-## Epic 7 - Part 6: Inbound Email Webhook
+## Epic 7 - Part 9: Compose Outbound Mail
 
 ### Summary
-Create an Edge Function that receives Resend inbound webhook POSTs, maps the recipient to a coach via username lookup, and inserts the email into the `emails` table.
+Build a compose dialog, a new Edge Function that sends email via Resend and logs it to the `emails` table, and wire them together with a mutation hook.
 
-### Step A — Create Edge Function
-**File: `supabase/functions/inbound-email/index.ts`**
-- Standard CORS headers + OPTIONS handler
-- Initialize Supabase client with `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS)
-- Parse JSON payload: extract `from`, `to`, `subject`, `text`, `html`
-- Extract clean email from `to` (handle formats like `"Name <user@dynabolic.co>"` and arrays)
-- Extract username prefix from the `@dynabolic.co` address
-- Query `profiles` table: `.select('id').eq('username', extractedUsername).maybeSingle()`
-- If no profile found: log warning, return `200 OK` (prevent Resend retries)
-- If found: insert into `emails` table with `direction: 'inbound'`, `is_read: false`
-- Return `200 OK` with `{ success: true }`
+### Step A — Create ComposeMailDialog Component
+**File: `src/components/mailbox/ComposeMailDialog.tsx`** (CREATE)
+- Dialog with props `open`, `onOpenChange`
+- Form fields: "Kime" (to email, validated), "Konu" (subject), "Mesaj" (textarea body)
+- On submit: call the compose mutation from `useEmails` hook
+- Show loading state on send button, close dialog + toast on success
 
-### Step B — Update config.toml
-**File: `supabase/config.toml`**
-- Add `[functions.inbound-email]` with `verify_jwt = false`
+### Step B — Create send-custom-email Edge Function
+**File: `supabase/functions/send-custom-email/index.ts`** (CREATE)
+- CORS headers + OPTIONS handler
+- Extract user ID from JWT via `supabase.auth.getUser()` (using the Authorization header)
+- Validate payload: `toEmail`, `subject`, `bodyText`
+- Fetch coach profile (full_name, username) from `profiles` table using service role client
+- Send email via Resend direct API (`RESEND_DIRECT_API_KEY`):
+  - `from: "${coachName} <${coachUsername}@dynabolic.co>"`
+  - Convert `bodyText` newlines to `<br>` for HTML
+- Insert outbound record into `emails` table using service role client:
+  - `owner_id`, `direction: 'outbound'`, `from_email`, `to_email`, `subject`, `body_text`, `body_html`, `is_read: true`
+- Return success/error response
+
+### Step C — Add Compose Mutation to useEmails
+**File: `src/hooks/useEmails.ts`** (EDIT)
+- Add `useSendEmail` export (or add mutation inside existing hook)
+- Invokes `send-custom-email` Edge Function
+- On success: invalidate `["emails"]` queries, return for toast/close handling
+
+### Step D — Wire Compose Button in Mailbox
+**File: `src/pages/Mailbox.tsx`** (EDIT)
+- Import `ComposeMailDialog`
+- Add `composeOpen` state
+- Connect "Yeni Mail" button `onClick` to open dialog
+- Render `<ComposeMailDialog open={composeOpen} onOpenChange={setComposeOpen} />`
 
 ### Files
 | File | Action |
 |------|--------|
-| `supabase/functions/inbound-email/index.ts` | CREATE |
-| `supabase/config.toml` | EDIT — add inbound-email function config |
+| `src/components/mailbox/ComposeMailDialog.tsx` | CREATE |
+| `supabase/functions/send-custom-email/index.ts` | CREATE |
+| `src/hooks/useEmails.ts` | EDIT — add compose mutation |
+| `src/pages/Mailbox.tsx` | EDIT — wire compose dialog |
 
 ### Notes
-- No migration needed — the `emails` table already exists with the correct schema
-- Service role key (`SUPABASE_SERVICE_ROLE_KEY`) is already configured as a secret
-- After deployment, the user will need to configure the webhook URL (`https://fsbhbfltathfcpvcjfzt.supabase.co/functions/v1/inbound-email`) in their Resend dashboard under Webhooks → Inbound
+- Coach profile (name, username) is fetched server-side from JWT user ID — no need to pass from client
+- `RESEND_DIRECT_API_KEY` already exists as a secret
+- Deploy the Edge Function after creation
 

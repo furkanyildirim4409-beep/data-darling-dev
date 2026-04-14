@@ -1,171 +1,192 @@
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { Mail, Send, Inbox, Plus, ArrowLeft } from "lucide-react";
+import { Inbox, Send, PenSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useEmails } from "@/hooks/useEmails";
+import { cn } from "@/lib/utils";
+import { useUnreadEmails } from "@/hooks/useUnreadEmails";
+import { useEmails, type Email } from "@/hooks/useEmails";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ComposeMailDialog } from "@/components/mailbox/ComposeMailDialog";
-import { formatDistanceToNow } from "date-fns";
-import { tr } from "date-fns/locale";
+import ComposeMailDialog from "@/components/mailbox/ComposeMailDialog";
 
-type TabType = "inbound" | "outbound";
+type Folder = "inbound" | "outbound";
+
+const folders = [
+  { key: "inbound" as Folder, label: "Gelen Kutusu", icon: Inbox },
+  { key: "outbound" as Folder, label: "Gönderilenler", icon: Send },
+];
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+}
 
 export default function Mailbox() {
-  const [activeTab, setActiveTab] = useState<TabType>("inbound");
+  const [activeTab, setActiveTab] = useState<Folder>("inbound");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const isMobile = useIsMobile();
-
+  const { unreadCount } = useUnreadEmails();
   const { emails, isLoading, markAsRead } = useEmails(activeTab);
-
-  const selectedEmail = emails?.find((e) => e.id === selectedEmailId) ?? null;
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setSelectedEmailId(null);
   }, [activeTab]);
 
-  const handleSelectEmail = (email: any) => {
+  const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
+
+  const handleSelect = (email: Email) => {
     setSelectedEmailId(email.id);
     if (activeTab === "inbound" && !email.is_read) {
       markAsRead.mutate(email.id);
     }
   };
 
-  const folders = [
-    { key: "inbound" as TabType, label: "Gelen Kutusu", icon: Inbox },
-    { key: "outbound" as TabType, label: "Gönderilenler", icon: Send },
-  ];
+  const showList = !isMobile || !selectedEmail;
+  const showDetail = !isMobile || !!selectedEmail;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Left Sidebar - Folders */}
-      <div className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="p-4 border-b border-border">
-          <Button onClick={() => setComposeOpen(true)} className="w-full gap-2">
-            <Plus className="w-4 h-4" />
+      {/* Folder sidebar */}
+      <div className="w-60 border-r border-border bg-card flex flex-col shrink-0 max-md:hidden">
+        <div className="p-3">
+          <Button className="w-full gap-2" size="sm" onClick={() => setComposeOpen(true)}>
+            <PenSquare className="w-4 h-4" />
             Yeni Mail
           </Button>
         </div>
-        <nav className="flex-1 p-2 space-y-1">
-          {folders.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setActiveTab(f.key)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                activeTab === f.key
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <f.icon className="w-4 h-4" />
-              {f.label}
-            </button>
-          ))}
+        <nav className="flex-1 px-2 space-y-1">
+          {folders.map((folder) => {
+            const isActive = activeTab === folder.key;
+            const Icon = folder.icon;
+            return (
+              <button
+                key={folder.key}
+                onClick={() => setActiveTab(folder.key)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="flex-1 text-left">{folder.label}</span>
+                {folder.key === "inbound" && unreadCount > 0 && (
+                  <span className="min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center bg-primary text-primary-foreground">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {/* Right Content Area - Master/Detail */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Email List */}
-        {(!isMobile || !selectedEmail) && (
-          <div className={cn("border-r border-border flex flex-col", isMobile ? "flex-1" : "w-[350px] shrink-0")}>
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="font-semibold text-sm text-foreground">
-                {activeTab === "inbound" ? "Gelen Kutusu" : "Gönderilenler"}
-              </h2>
-            </div>
-            <ScrollArea className="flex-1">
-              {isLoading ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">Yükleniyor...</div>
-              ) : !emails?.length ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">
-                  <Mail className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  Henüz e-posta yok.
-                </div>
-              ) : (
-                emails.map((email) => (
+      {/* Email list */}
+      {showList && (
+        <div className="w-full md:w-[350px] border-r border-border flex flex-col shrink-0">
+          {/* Mobile folder tabs */}
+          <div className="md:hidden flex border-b border-border">
+            {folders.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setActiveTab(f.key)}
+                className={cn(
+                  "flex-1 py-2.5 text-sm font-medium transition-colors",
+                  activeTab === f.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <ScrollArea className="flex-1">
+            {isLoading ? (
+              <div className="p-4 text-center text-muted-foreground text-sm">Yükleniyor...</div>
+            ) : emails.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground text-sm">Bu klasörde e-posta yok.</div>
+            ) : (
+              emails.map((email) => {
+                const isUnread = activeTab === "inbound" && !email.is_read;
+                const isSelected = selectedEmailId === email.id;
+                return (
                   <button
                     key={email.id}
-                    onClick={() => handleSelectEmail(email)}
+                    onClick={() => handleSelect(email)}
                     className={cn(
-                      "w-full text-left px-4 py-3 border-b border-border transition-colors",
-                      selectedEmailId === email.id
-                        ? "bg-primary/5"
-                        : "hover:bg-muted/50",
-                      !email.is_read && activeTab === "inbound" && "bg-primary/[0.03]"
+                      "w-full text-left px-4 py-3 border-b border-border transition-colors flex gap-3 items-start",
+                      isSelected ? "bg-primary/5" : "hover:bg-muted/50",
+                      isUnread && "font-semibold"
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      {!email.is_read && activeTab === "inbound" && (
-                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                      )}
-                      <span className={cn("text-sm truncate flex-1", !email.is_read && activeTab === "inbound" ? "font-semibold text-foreground" : "text-foreground")}>
-                        {activeTab === "inbound" ? email.from_email : email.to_email}
-                      </span>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {formatDistanceToNow(new Date(email.created_at), { addSuffix: true, locale: tr })}
-                      </span>
+                    {isUnread && (
+                      <span className="mt-1.5 w-2 h-2 rounded-full bg-primary shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline gap-2">
+                        <span className="text-sm truncate">
+                          {activeTab === "inbound" ? email.from_email : email.to_email}
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatDate(email.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-sm truncate text-muted-foreground mt-0.5">
+                        {email.subject || "(Konu yok)"}
+                      </p>
                     </div>
-                    <p className={cn("text-sm truncate mt-0.5", !email.is_read && activeTab === "inbound" ? "font-medium text-foreground" : "text-muted-foreground")}>
-                      {email.subject || "(Konu yok)"}
-                    </p>
                   </button>
-                ))
-              )}
-            </ScrollArea>
-          </div>
-        )}
+                );
+              })
+            )}
+          </ScrollArea>
+        </div>
+      )}
 
-        {/* Detail Panel */}
-        {(!isMobile || selectedEmail) && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {selectedEmail ? (
-              <>
+      {/* Detail panel */}
+      {showDetail && (
+        <div className="flex-1 flex flex-col bg-background min-w-0">
+          {selectedEmail ? (
+            <>
+              <div className="p-4 border-b border-border space-y-1">
                 {isMobile && (
-                  <div className="px-4 py-2 border-b border-border">
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedEmailId(null)} className="gap-1">
-                      <ArrowLeft className="w-4 h-4" /> Geri Dön
-                    </Button>
-                  </div>
+                  <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => setSelectedEmailId(null)}>
+                    <ArrowLeft className="w-4 h-4 mr-1" /> Geri
+                  </Button>
                 )}
-                <div className="px-6 py-4 border-b border-border space-y-1">
-                  <h1 className="text-lg font-semibold text-foreground">{selectedEmail.subject || "(Konu yok)"}</h1>
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{selectedEmail.from_email}</span>
-                    {" → "}
-                    <span>{selectedEmail.to_email}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(selectedEmail.created_at).toLocaleString("tr-TR")}
-                  </div>
-                </div>
-                <ScrollArea className="flex-1 p-6">
-                  {selectedEmail.body_html ? (
-                    <div
-                      className="prose prose-sm dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
-                    />
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-sm text-foreground font-sans">
-                      {selectedEmail.body_text || ""}
-                    </pre>
-                  )}
-                </ScrollArea>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-                <div className="text-center">
-                  <Mail className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  Bir e-posta seçin.
+                <h2 className="text-lg font-semibold">{selectedEmail.subject || "(Konu yok)"}</h2>
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  <p>Kimden: {selectedEmail.from_email}</p>
+                  <p>Kime: {selectedEmail.to_email}</p>
+                  <p>{new Date(selectedEmail.created_at).toLocaleString("tr-TR")}</p>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
-
+              <ScrollArea className="flex-1 p-4">
+                {selectedEmail.body_html ? (
+                  <div
+                    className="max-w-none text-sm leading-relaxed [&_a]:text-primary [&_a]:underline [&_img]:max-w-full"
+                    dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
+                  />
+                ) : (
+                  <pre className="whitespace-pre-wrap text-sm font-sans text-foreground">
+                    {selectedEmail.body_text || ""}
+                  </pre>
+                )}
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground text-sm">
+                Bir e-posta seçin.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       <ComposeMailDialog open={composeOpen} onOpenChange={setComposeOpen} />
     </div>
   );
