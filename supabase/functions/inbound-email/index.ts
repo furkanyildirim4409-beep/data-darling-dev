@@ -56,7 +56,13 @@ Deno.serve(async (req) => {
     );
 
     const payload = JSON.parse(rawBody);
-    const { from, to, subject, text, html } = payload;
+    console.log('inbound-email: raw webhook payload:', JSON.stringify(payload));
+
+    // Resend wraps email data inside payload.data
+    const emailData = payload.data || payload;
+    const { from, to, subject, text, html } = emailData;
+
+    console.log('inbound-email: extracted fields:', JSON.stringify({ from, to, subject }));
 
     // Extract clean email from `to`
     const rawTo = Array.isArray(to) ? to[0] : to;
@@ -82,6 +88,8 @@ Deno.serve(async (req) => {
       });
     }
     const username = cleanTo.substring(0, atIndex);
+
+    console.log('inbound-email: cleanTo:', cleanTo, 'cleanFrom:', cleanFrom, 'username:', username);
 
     // Lookup coach by username
     const { data: profile, error: profileErr } = await supabaseAdmin
