@@ -311,6 +311,22 @@ export function useStoryAnalytics(storyId: string | undefined) {
   });
 }
 
+// ── Viewer status check ──
+
+export function useCheckViewerStatus() {
+  return useMutation({
+    mutationFn: async (viewerId: string) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, coach_id, full_name, avatar_url")
+        .eq("id", viewerId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 // ── Follower count ──
 
 export function useMyFollowerCount() {

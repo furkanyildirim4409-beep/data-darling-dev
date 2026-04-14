@@ -1,13 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Radio, X, Eye, ChevronDown } from "lucide-react";
+import { Radio, X, Eye, ChevronDown, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useCoachStoryArchive, useStoryAnalytics } from "@/hooks/useSocialMutations";
+import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus } from "@/hooks/useSocialMutations";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface ActiveStoriesDialogProps {
@@ -19,7 +22,12 @@ function timeRemaining(expiresAt: string) {
   return formatDistanceToNow(new Date(expiresAt), { locale: tr, addSuffix: false });
 }
 
-function ViewersPanel({ storyId }: { storyId: string }) {
+interface ViewersPanelProps {
+  storyId: string;
+  onViewerClick: (viewer: { viewerId: string; fullName: string; avatarUrl: string | null }) => void;
+}
+
+function ViewersPanel({ storyId, onViewerClick }: ViewersPanelProps) {
   const { data: viewers, isLoading } = useStoryAnalytics(storyId);
 
   if (isLoading) {
@@ -44,9 +52,13 @@ function ViewersPanel({ storyId }: { storyId: string }) {
   }
 
   return (
-    <div className="max-h-48 overflow-y-auto space-y-2 p-3">
+    <div className="max-h-48 overflow-y-auto space-y-1 p-3">
       {viewers.map((v) => (
-        <div key={v.id} className="flex items-center gap-3">
+        <button
+          key={v.id}
+          onClick={() => onViewerClick({ viewerId: v.viewerId, fullName: v.fullName, avatarUrl: v.avatarUrl })}
+          className="flex items-center gap-3 w-full px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/10 transition-colors text-left"
+        >
           <Avatar className="w-8 h-8">
             <AvatarImage src={v.avatarUrl ?? undefined} />
             <AvatarFallback className="text-xs bg-white/10 text-white">
@@ -59,21 +71,49 @@ function ViewersPanel({ storyId }: { storyId: string }) {
           <span className="text-[11px] text-white/40 shrink-0">
             {formatDistanceToNow(new Date(v.viewedAt), { locale: tr, addSuffix: true })}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   );
 }
 
 export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: allStories, isLoading } = useCoachStoryArchive();
   const [viewingStory, setViewingStory] = useState<any | null>(null);
   const [showViewers, setShowViewers] = useState(false);
   const { data: viewers } = useStoryAnalytics(viewingStory?.id);
+  const checkStatus = useCheckViewerStatus();
+  const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null } | null>(null);
 
   const activeStories = (allStories ?? []).filter(
     (s) => new Date(s.expires_at) > new Date()
   );
+
+  const handleViewerClick = async (viewer: { viewerId: string; fullName: string; avatarUrl: string | null }) => {
+    try {
+      const profile = await checkStatus.mutateAsync(viewer.viewerId);
+      if (profile.coach_id === user?.id) {
+        setViewingStory(null);
+        onOpenChange(false);
+        navigate(`/athletes/${viewer.viewerId}`);
+      } else if (profile.coach_id) {
+        toast.error("Bu kişi başka bir koça bağlı.");
+      } else {
+        setSelectedLead({ id: viewer.viewerId, fullName: viewer.fullName, avatarUrl: viewer.avatarUrl });
+      }
+    } catch {
+      toast.error("Kullanıcı bilgisi alınamadı.");
+    }
+  };
+
+  const handleSendInvite = () => {
+    if (selectedLead) {
+      toast.success(`${selectedLead.fullName} adlı kullanıcıya davet gönderildi!`);
+      setSelectedLead(null);
+    }
+  };
 
   return (
     <>
@@ -168,11 +208,41 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
 
                 {showViewers && (
                   <div className="border-t border-white/10 animate-fade-in">
-                    <ViewersPanel storyId={viewingStory.id} />
+                    <ViewersPanel storyId={viewingStory.id} onViewerClick={handleViewerClick} />
                   </div>
                 )}
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invitation Dialog */}
+      <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Koçluk Daveti
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <Avatar className="w-16 h-16">
+                <AvatarImage src={selectedLead.avatarUrl ?? undefined} />
+                <AvatarFallback className="text-lg bg-muted text-muted-foreground">
+                  {selectedLead.fullName?.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <p className="text-base font-medium text-foreground">{selectedLead.fullName}</p>
+              <p className="text-sm text-muted-foreground text-center">
+                Bu kullanıcı henüz bir koça bağlı değil. Koçluk daveti göndermek ister misiniz?
+              </p>
+              <Button onClick={handleSendInvite} className="w-full" disabled={checkStatus.isPending}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Koçluk Daveti Gönder
+              </Button>
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -1842,6 +1842,7 @@ export type Database = {
           content: string | null
           created_at: string
           id: string
+          image_url: string | null
           type: string
           video_thumbnail_url: string | null
           video_url: string | null
@@ -1853,6 +1854,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           type: string
           video_thumbnail_url?: string | null
           video_url?: string | null
@@ -1864,6 +1866,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           type?: string
           video_thumbnail_url?: string | null
           video_url?: string | null
