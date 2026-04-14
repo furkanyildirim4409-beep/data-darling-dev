@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { StoryTemplateBuilder } from "./StoryTemplateBuilder";
 import { StoryUploadModal } from "./StoryUploadModal";
 import { StoryArchiveDialog } from "./StoryArchiveDialog";
+import { ActiveStoriesDialog } from "./ActiveStoriesDialog";
 
 interface Highlight {
   id: string;
@@ -33,6 +34,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [isTemplateBuilderOpen, setIsTemplateBuilderOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isActiveStoriesOpen, setIsActiveStoriesOpen] = useState(false);
 
   const handleStoryUpload = (file: File, categoryId: string) => {
     // Update highlight count for the selected category
@@ -51,6 +53,15 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
           <h3 className="text-lg font-semibold text-foreground">Öne Çıkanlar</h3>
           {canManage && (
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsActiveStoriesOpen(true)}
+                className="border-success/30 text-success hover:bg-success/10"
+              >
+                <Radio className="w-3 h-3 mr-1.5" />
+                Aktif Hikayeler
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -204,6 +215,12 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
       <StoryArchiveDialog
         open={isArchiveOpen}
         onOpenChange={setIsArchiveOpen}
+      />
+
+      {/* Active Stories Dialog */}
+      <ActiveStoriesDialog
+        open={isActiveStoriesOpen}
+        onOpenChange={setIsActiveStoriesOpen}
       />
     </>
   );
