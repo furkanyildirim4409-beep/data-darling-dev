@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from "https://esm.sh/svix@1.21.0";
+import { Resend } from 'npm:resend';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,24 +53,23 @@ Deno.serve(async (req) => {
     let htmlBody = html || null;
     let textBody = text || null;
 
-    // Fetch full email content from Resend if email_id exists
+    // Fetch full inbound email content using the Resend SDK
     if (email_id) {
       const resendKey = Deno.env.get('RESEND_DIRECT_API_KEY');
       if (resendKey) {
         try {
-          const res = await fetch(`https://api.resend.com/emails/${email_id}`, {
-            headers: { 'Authorization': `Bearer ${resendKey}` },
-          });
-          if (res.ok) {
-            const fullEmail = await res.json();
-            htmlBody = fullEmail.html || htmlBody;
-            textBody = fullEmail.text || textBody;
-            console.log(`inbound-email: fetched full body for email_id=${email_id}`);
+          const resend = new Resend(resendKey);
+          const { data: fetchedEmail, error: fetchErr } = await resend.emails.receiving.get(email_id);
+
+          if (fetchedEmail) {
+            htmlBody = fetchedEmail.html || htmlBody;
+            textBody = fetchedEmail.text || textBody;
+            console.log(`inbound-email: fetched full body via SDK for email_id=${email_id}`);
           } else {
-            console.error('inbound-email: Resend fetch failed:', res.status, await res.text());
+            console.error('inbound-email: Resend SDK fetch failed:', fetchErr);
           }
         } catch (err) {
-          console.error('inbound-email: error fetching email body:', err);
+          console.error('inbound-email: error using Resend SDK:', err);
         }
       } else {
         console.warn('inbound-email: RESEND_DIRECT_API_KEY not set, skipping body fetch');
