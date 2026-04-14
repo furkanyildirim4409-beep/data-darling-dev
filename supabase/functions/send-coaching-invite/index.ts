@@ -12,11 +12,11 @@ Deno.serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_DIRECT_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_DIRECT_API_KEY is not configured');
 
-    const { coachName, leadName, leadEmail } = await req.json();
+    const { coachName, coachUsername, leadName, leadEmail } = await req.json();
 
-    if (!coachName || !leadName || !leadEmail) {
+    if (!coachName || !coachUsername || !leadName || !leadEmail) {
       return new Response(
-        JSON.stringify({ error: 'coachName, leadName ve leadEmail zorunludur.' }),
+        JSON.stringify({ error: 'coachName, coachUsername, leadName ve leadEmail zorunludur.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
