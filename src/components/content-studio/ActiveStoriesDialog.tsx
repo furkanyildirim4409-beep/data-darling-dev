@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus } from "@/hooks/useSocialMutations";
+import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus, useSendCoachingInvite } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,8 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
   const [showViewers, setShowViewers] = useState(false);
   const { data: viewers } = useStoryAnalytics(viewingStory?.id);
   const checkStatus = useCheckViewerStatus();
-  const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null } | null>(null);
+  const sendInvite = useSendCoachingInvite();
+  const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null; email: string | null } | null>(null);
 
   const activeStories = (allStories ?? []).filter(
     (s) => new Date(s.expires_at) > new Date()
@@ -103,7 +104,7 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
       } else if (isSubCoach) {
         toast.info("Bu işlemi yalnızca ana koç yapabilir.");
       } else {
-        setSelectedLead({ id: viewer.viewerId, fullName: viewer.fullName, avatarUrl: viewer.avatarUrl });
+        setSelectedLead({ id: viewer.viewerId, fullName: viewer.fullName, avatarUrl: viewer.avatarUrl, email: profile.email ?? null });
       }
     } catch {
       toast.error("Kullanıcı bilgisi alınamadı.");
@@ -111,10 +112,16 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
   };
 
   const handleSendInvite = () => {
-    if (selectedLead) {
-      toast.success(`${selectedLead.fullName} adlı kullanıcıya davet gönderildi!`);
-      setSelectedLead(null);
+    if (!selectedLead) return;
+    if (!selectedLead.email) {
+      toast.error("Bu kullanıcının e-posta adresi bulunamadı.");
+      return;
     }
+    const coachName = user?.user_metadata?.full_name || "Koçunuz";
+    sendInvite.mutate(
+      { coachName, leadName: selectedLead.fullName, leadEmail: selectedLead.email },
+      { onSuccess: () => setSelectedLead(null) },
+    );
   };
 
   return (
@@ -240,9 +247,9 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
               <p className="text-sm text-muted-foreground text-center">
                 Bu kullanıcı henüz bir koça bağlı değil. Koçluk daveti göndermek ister misiniz?
               </p>
-              <Button onClick={handleSendInvite} className="w-full" disabled={checkStatus.isPending}>
+              <Button onClick={handleSendInvite} className="w-full" disabled={sendInvite.isPending}>
                 <UserPlus className="w-4 h-4 mr-2" />
-                Koçluk Daveti Gönder
+                {sendInvite.isPending ? "Gönderiliyor..." : "Koçluk Daveti Gönder"}
               </Button>
             </div>
           )}

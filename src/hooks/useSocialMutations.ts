@@ -318,11 +318,31 @@ export function useCheckViewerStatus() {
     mutationFn: async (viewerId: string) => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, coach_id, full_name, avatar_url")
+        .select("id, coach_id, full_name, avatar_url, email")
         .eq("id", viewerId)
         .single();
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+// ── Send coaching invite ──
+
+export function useSendCoachingInvite() {
+  return useMutation({
+    mutationFn: async (payload: { coachName: string; leadName: string; leadEmail: string }) => {
+      const { data, error } = await supabase.functions.invoke('send-coaching-invite', {
+        body: payload,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Koçluk daveti e-posta ile gönderildi!");
+    },
+    onError: (err: Error) => {
+      toast.error(`Davet gönderilemedi: ${err.message}`);
     },
   });
 }
