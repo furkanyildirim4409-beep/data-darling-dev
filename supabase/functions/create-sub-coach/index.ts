@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const headCoachId = claimsData.claims.sub as string;
 
-    const { email, password, fullName, role, permissions, custom_permissions } = await req.json();
+    const { email, password, fullName, role, permissions, custom_permissions, username } = await req.json();
 
     if (!email || !password || !fullName || !role) {
       return new Response(
@@ -59,11 +59,40 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate username format if provided
+    if (username) {
+      if (!/^[a-z0-9]+(\.[a-z0-9]+)?$/.test(username)) {
+        return new Response(
+          JSON.stringify({ error: "Username must contain only lowercase letters, numbers, and at most one dot" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Check uniqueness
+      const { data: existing } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("username", username)
+        .maybeSingle();
+      if (existing) {
+        return new Response(
+          JSON.stringify({ error: "Bu kullanıcı adı zaten alınmış" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const userMetadata: Record<string, string | boolean> = {
+      full_name: fullName,
+      role: "coach",
+      needs_password_reset: true,
+    };
+    if (username) userMetadata.username = username;
+
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName, role: "coach", needs_password_reset: true },
+      user_metadata: userMetadata,
     });
 
     if (createError) {
@@ -71,6 +100,14 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: createError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Fallback: directly set username on profile in case trigger didn't catch it
+    if (username) {
+      await adminClient
+        .from("profiles")
+        .update({ username })
+        .eq("id", newUser.user.id);
     }
 
     const { error: teamError } = await adminClient.from("team_members").insert({

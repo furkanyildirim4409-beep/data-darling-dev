@@ -9,6 +9,7 @@ interface CreateSubCoachInput {
   role: string;
   permissions: "full" | "limited" | "read-only";
   custom_permissions?: GranularPermissions;
+  username?: string;
 }
 
 export function useCreateSubCoach() {
@@ -24,6 +25,7 @@ export function useCreateSubCoach() {
           role: input.role,
           permissions: input.permissions,
           custom_permissions: input.custom_permissions || null,
+          username: input.username || null,
         },
       });
 
