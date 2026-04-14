@@ -127,77 +127,81 @@ export default function Athletes() {
             </Button>
           )}
 
-          {/* Invite Link Dialog */}
-          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="border-border text-xs md:text-sm">
-                <Copy className="w-4 h-4 mr-1 md:mr-2" />
-                <span className="hidden sm:inline">Davet Linki</span>
-                <span className="sm:hidden">Davet</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-black/50 backdrop-blur-xl border-white/10">
-              <DialogHeader>
-                <DialogTitle className="text-foreground flex items-center gap-2">
-                  <Link className="w-5 h-5 text-primary" />Davet Linki Oluştur
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Bu linki sporcunuza gönderin. Kayıt olduğunda otomatik olarak kadronuza eklenir.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-2">
-                {!inviteLink ? (
-                  <Button onClick={handleGenerateInvite} disabled={isGeneratingInvite} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                    {isGeneratingInvite ? "Oluşturuluyor..." : "Link Oluştur"}
+          {!isSubCoach && (
+            <>
+              {/* Invite Link Dialog */}
+              <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="border-border text-xs md:text-sm">
+                    <Copy className="w-4 h-4 mr-1 md:mr-2" />
+                    <span className="hidden sm:inline">Davet Linki</span>
+                    <span className="sm:hidden">Davet</span>
                   </Button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Input value={inviteLink} readOnly className="bg-black/50 border-white/10 text-xs" />
-                      <Button size="icon" variant="outline" onClick={handleCopyLink} className="border-white/10 shrink-0">
-                        {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                </DialogTrigger>
+                <DialogContent className="bg-black/50 backdrop-blur-xl border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-foreground flex items-center gap-2">
+                      <Link className="w-5 h-5 text-primary" />Davet Linki Oluştur
+                    </DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
+                      Bu linki sporcunuza gönderin. Kayıt olduğunda otomatik olarak kadronuza eklenir.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    {!inviteLink ? (
+                      <Button onClick={handleGenerateInvite} disabled={isGeneratingInvite} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                        {isGeneratingInvite ? "Oluşturuluyor..." : "Link Oluştur"}
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Input value={inviteLink} readOnly className="bg-black/50 border-white/10 text-xs" />
+                          <Button size="icon" variant="outline" onClick={handleCopyLink} className="border-white/10 shrink-0">
+                            {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Bu link 7 gün geçerlidir ve yalnızca bir kez kullanılabilir.</p>
+                        <Button variant="outline" onClick={() => { setInviteLink(""); handleGenerateInvite(); }} className="w-full border-white/10">
+                          Yeni Link Oluştur
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Link Athlete Dialog */}
+              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs md:text-sm">
+                    <Link className="w-4 h-4 mr-1 md:mr-2" />
+                    <span className="hidden sm:inline">Sporcu Bağla</span>
+                    <span className="sm:hidden">Bağla</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-black/50 backdrop-blur-xl border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-foreground flex items-center gap-2">
+                      <Link className="w-5 h-5 text-primary" />Sporcu Bağla
+                    </DialogTitle>
+                    <DialogDescription className="text-muted-foreground">Kayıtlı sporcunun e-posta adresini girin</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input type="email" placeholder="sporcu@email.com" value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLinkAthlete()} className="pl-10 bg-black/50 border-white/10 focus:border-primary" />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="flex-1 border-white/10">İptal</Button>
+                      <Button onClick={handleLinkAthlete} disabled={isLinking || !linkEmail.trim()} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Link className="w-4 h-4 mr-2" />{isLinking ? "Bağlanıyor..." : "Bağlantı Kur"}
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">Bu link 7 gün geçerlidir ve yalnızca bir kez kullanılabilir.</p>
-                    <Button variant="outline" onClick={() => { setInviteLink(""); handleGenerateInvite(); }} className="w-full border-white/10">
-                      Yeni Link Oluştur
-                    </Button>
                   </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Link Athlete Dialog */}
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs md:text-sm">
-                <Link className="w-4 h-4 mr-1 md:mr-2" />
-                <span className="hidden sm:inline">Sporcu Bağla</span>
-                <span className="sm:hidden">Bağla</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-black/50 backdrop-blur-xl border-white/10">
-              <DialogHeader>
-                <DialogTitle className="text-foreground flex items-center gap-2">
-                  <Link className="w-5 h-5 text-primary" />Sporcu Bağla
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground">Kayıtlı sporcunun e-posta adresini girin</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-2">
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input type="email" placeholder="sporcu@email.com" value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLinkAthlete()} className="pl-10 bg-black/50 border-white/10 focus:border-primary" />
-                </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="flex-1 border-white/10">İptal</Button>
-                  <Button onClick={handleLinkAthlete} disabled={isLinking || !linkEmail.trim()} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-                    <Link className="w-4 h-4 mr-2" />{isLinking ? "Bağlanıyor..." : "Bağlantı Kur"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </div>
       </div>
 
