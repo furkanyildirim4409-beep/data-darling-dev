@@ -1,35 +1,35 @@
 
-
-## Epic 7 - Part 3: Missing Username Fallback Alert
+## Epic 7 - Part 4: Settings Profile Management for Username
 
 ### Summary
-Create a persistent alert component that forces legacy coaches (who have no `username`) to claim one before using the email system. Mount it at the top of the Command Center dashboard.
+Add a username field to the Settings profile section with validation, uniqueness checking, and sub-coach read-only protection. Update the save logic to persist username changes.
 
-### Step A — Create `UsernameFallbackAlert.tsx`
-**File: `src/components/dashboard/UsernameFallbackAlert.tsx`**
+### Step A — Add username state and sync
+**File: `src/pages/Settings.tsx`**
+- Add `username` to `formData` state, initialized from `profile?.username || ""`
+- Add `isSubCoach` from `useAuth()`
+- Add debounced uniqueness check state (`isCheckingUsername`, `isUsernameAvailable`)
+- Sync username from profile in the existing `useEffect`
 
-- Uses `useAuth()` to get `profile`, `isSubCoach`, `user`, `refreshProfile`
-- Returns `null` if: no profile, role !== 'coach', or username is already set
-- **Sub-coach without username**: Read-only info card explaining they need their head coach to assign one
-- **Main coach without username**: Warning card with:
-  - Title: "Kurumsal E-Posta Adresinizi Belirleyin"
-  - Username input with `/^[a-z0-9]+$/` validation, min 3, max 20 chars
-  - Debounced uniqueness check against `profiles` table
-  - Live preview: `username@dynabolic.co`
-  - "Kaydet ve Aktifleştir" button
+### Step B — Add username UI in profile section
+**File: `src/pages/Settings.tsx`** (after the email field, ~line 341)
+- Add a "Kullanıcı Adı" input with `@dynabolic.co` suffix display
+- If `isSubCoach`: field is `disabled` with helper text "Alt koç kullanıcı adları yalnızca Baş Antrenör tarafından değiştirilebilir."
+- If main coach: editable with live validation feedback (available/taken) and preview "E-posta adresiniz: username@dynabolic.co"
+- Validation: `/^[a-z0-9]+$/`, min 3, max 20 chars
+- Debounced uniqueness check (400ms) via `supabase.from('profiles').select('id').eq('username', value).neq('id', user.id).maybeSingle()`
 
-### Step B — Update Mutation
-- On save: `supabase.from('profiles').update({ username }).eq('id', user.id)`
-- Handle unique constraint errors gracefully
-- On success: call `refreshProfile()` to update context (alert auto-hides), show success toast
-
-### Step C — Mount in Dashboard
-**File: `src/pages/CommandCenter.tsx`**
-- Import and render `<UsernameFallbackAlert />` at the very top of the content area (before the heading)
+### Step C — Update save logic
+**File: `src/pages/Settings.tsx`**
+- In `handleSaveProfile`, after the RPC call, if username changed: run `supabase.from('profiles').update({ username }).eq('id', user.id)`
+- Handle `23505` unique constraint error with a toast
+- Note: We use a direct update for username (not the RPC) since `update_own_profile` doesn't have a `_username` param and adding it would be a security concern (username changes need uniqueness validation)
 
 ### Files
 | File | Action |
 |------|--------|
-| `src/components/dashboard/UsernameFallbackAlert.tsx` | CREATE |
-| `src/pages/CommandCenter.tsx` | EDIT — add import + mount |
+| `src/pages/Settings.tsx` | EDIT — add username field, validation, save logic |
 
+### Notes
+- No migration needed — `update_own_profile` RPC is not modified; username is saved via direct `.update()` which is allowed since profiles RLS permits own-row updates
+- The uniqueness check excludes the current user's own ID to avoid false "taken" results
