@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Zap } from 'lucide-react';
+import { User, Mail, Lock, Zap, AtSign, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [role, setRole] = useState<'coach' | 'athlete'>('coach');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -17,27 +20,64 @@ export default function Register() {
 
   const inviteToken = searchParams.get('invite');
 
-  // If invite token present, force athlete role
   useEffect(() => {
     if (inviteToken) {
       setRole('athlete');
     }
   }, [inviteToken]);
 
+  // Debounced username uniqueness check
+  const checkUsername = useCallback((value: string) => {
+    if (!value || value.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+    setUsernameStatus('checking');
+    const timeout = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', value)
+        .maybeSingle();
+      setUsernameStatus(data ? 'taken' : 'available');
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (role !== 'coach' || inviteToken) return;
+    const cleanup = checkUsername(username);
+    return cleanup;
+  }, [username, role, inviteToken, checkUsername]);
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (val.length <= 20) setUsername(val);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) { toast.error('Şifre en az 6 karakter olmalıdır.'); return; }
+
+    const isCoachSignup = !inviteToken && role === 'coach';
+    if (isCoachSignup) {
+      if (username.length < 3) { toast.error('Kullanıcı adı en az 3 karakter olmalıdır.'); return; }
+      if (usernameStatus !== 'available') { toast.error('Lütfen geçerli ve benzersiz bir kullanıcı adı seçin.'); return; }
+    }
+
     setLoading(true);
 
     const finalRole = inviteToken ? 'athlete' : role;
 
-    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined);
+    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined, isCoachSignup ? username : undefined);
     if (!error) {
       toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.');
       navigate('/login');
     }
     setLoading(false);
   };
+
+  const showUsernameField = role === 'coach' && !inviteToken;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
@@ -89,6 +129,53 @@ export default function Register() {
               </div>
             </div>
           )}
+
+          {/* Username field for coaches */}
+          {showUsernameField && (
+            <div className="space-y-1.5">
+              <label htmlFor="username" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Kullanıcı Adı</label>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="fitahmet"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  required
+                  minLength={3}
+                  maxLength={20}
+                  className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors"
+                />
+                {usernameStatus === 'checking' && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                )}
+                {usernameStatus === 'available' && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                )}
+                {usernameStatus === 'taken' && (
+                  <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />
+                )}
+              </div>
+              {username.length > 0 && username.length < 3 && (
+                <p className="text-xs text-muted-foreground">En az 3 karakter gerekli</p>
+              )}
+              {usernameStatus === 'taken' && (
+                <p className="text-xs text-destructive">Bu kullanıcı adı zaten alınmış</p>
+              )}
+              {usernameStatus === 'available' && (
+                <p className="text-xs text-green-500">
+                  E-posta adresiniz: <span className="font-medium">{username}@dynabolic.co</span>
+                </p>
+              )}
+              {usernameStatus === 'idle' && username.length >= 3 && (
+                <p className="text-xs text-muted-foreground">
+                  Bu kullanıcı adı e-posta adresiniz olacak: {username}@dynabolic.co
+                </p>
+              )}
+            </div>
+          )}
+
           <Button type="submit" disabled={loading} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
             {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
           </Button>

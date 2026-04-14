@@ -14,6 +14,7 @@ export interface Profile {
   bio: string | null;
   gym_name: string | null;
   specialty: string | null;
+  username: string | null;
   subscription_tier: string | null;
   notification_preferences: {
     email: boolean;
@@ -38,7 +39,7 @@ interface AuthContextType {
   activeCoachId: string | null;
   teamMemberPermissions: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         gym_name: p.gym_name ?? null,
         specialty: p.specialty ?? null,
         subscription_tier: p.subscription_tier ?? null,
+        username: p.username ?? null,
         notification_preferences: p.notification_preferences ?? null,
         notification_settings: p.notification_settings ?? null,
       };
@@ -129,9 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string, inviteToken?: string) => {
+  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string) => {
     const metadata: Record<string, string> = { full_name: fullName, role: selectedRole };
     if (inviteToken) metadata.invite_token = inviteToken;
+    if (username) metadata.username = username;
 
     const { error } = await supabase.auth.signUp({
       email,
