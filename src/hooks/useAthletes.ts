@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Athlete } from "@/types/shared-models";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,12 +40,22 @@ export function useAthletes(): UseAthletesReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Stable primitive extractions
+  const teamMemberId = teamMember?.id ?? null;
+
+  // Ref to track the latest activeCoachId for stale-closure protection
+  const activeCoachIdRef = useRef(activeCoachId);
+  useEffect(() => {
+    activeCoachIdRef.current = activeCoachId;
+  }, [activeCoachId]);
+
   const fetchAthletes = useCallback(async () => {
+    // Guard: skip fetch if coachId hasn't stabilized yet
     if (!user || !activeCoachId) {
-      setAthletes([]);
-      setIsLoading(false);
       return;
     }
+
+    const coachIdAtRequest = activeCoachId;
 
     try {
       setError(null);
@@ -53,11 +63,14 @@ export function useAthletes(): UseAthletesReturn {
 
       // Data scoping for sub-coaches without full permissions
       let assignedIds: string[] | null = null;
-      if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
+      if (isSubCoach && teamMemberPermissions !== 'full' && teamMemberId) {
         const { data: assignmentData, error: assignmentError } = await supabase
           .from("team_member_athletes")
           .select("athlete_id")
-          .eq("team_member_id", teamMember.id);
+          .eq("team_member_id", teamMemberId);
+
+        // Stale check after async
+        if (activeCoachIdRef.current !== coachIdAtRequest) return;
 
         if (assignmentError || !assignmentData || assignmentData.length === 0) {
           setAthletes([]);
@@ -71,7 +84,7 @@ export function useAthletes(): UseAthletesReturn {
         .from("profiles")
         .select("*")
         .eq("role", "athlete")
-        .eq("coach_id", activeCoachId);
+        .eq("coach_id", coachIdAtRequest);
 
       if (assignedIds && assignedIds.length > 0) {
         query = query.in('id', assignedIds);
@@ -79,27 +92,35 @@ export function useAthletes(): UseAthletesReturn {
 
       const { data, error: fetchError } = await query;
 
+      // Stale check after async — discard if coachId changed mid-flight
+      if (activeCoachIdRef.current !== coachIdAtRequest) return;
+
       if (fetchError) throw fetchError;
 
       setAthletes((data || []).map(mapProfileToAthlete));
     } catch (err: any) {
-      console.error("Failed to fetch athletes:", err);
-      setError(err.message || "Sporcular yüklenemedi");
+      // Only set error if still relevant
+      if (activeCoachIdRef.current === coachIdAtRequest) {
+        console.error("Failed to fetch athletes:", err);
+        setError(err.message || "Sporcular yüklenemedi");
+      }
     } finally {
-      setIsLoading(false);
+      if (activeCoachIdRef.current === coachIdAtRequest) {
+        setIsLoading(false);
+      }
     }
-  }, [user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions]);
+  }, [user, activeCoachId, isSubCoach, teamMemberId, teamMemberPermissions]);
 
   useEffect(() => {
     fetchAthletes();
   }, [fetchAthletes]);
 
-  // Realtime subscription
+  // Realtime subscription with unique channel name
   useEffect(() => {
     if (!user || !activeCoachId) return;
 
     const channel = supabase
-      .channel("athletes-realtime")
+      .channel(`athletes-realtime-${activeCoachId}`)
       .on(
         "postgres_changes",
         {
