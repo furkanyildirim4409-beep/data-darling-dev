@@ -272,6 +272,45 @@ export function useUpdateStory() {
   });
 }
 
+// ── Story analytics ──
+
+export function useStoryAnalytics(storyId: string | undefined) {
+  return useQuery({
+    queryKey: ["story-analytics", storyId],
+    enabled: !!storyId,
+    queryFn: async () => {
+      if (!storyId) return [];
+      // 1) fetch views
+      const { data: views, error } = await (supabase as any)
+        .from("story_views")
+        .select("id, viewed_at, viewer_id")
+        .eq("story_id", storyId)
+        .order("viewed_at", { ascending: false });
+      if (error) throw error;
+      if (!views || views.length === 0) return [];
+
+      // 2) batch-fetch viewer profiles
+      const viewerIds = [...new Set(views.map((v: any) => v.viewer_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", viewerIds as string[]);
+
+      const profileMap = new Map(
+        (profiles ?? []).map((p) => [p.id, p])
+      );
+
+      return views.map((v: any) => ({
+        id: v.id,
+        viewedAt: v.viewed_at,
+        viewerId: v.viewer_id,
+        fullName: profileMap.get(v.viewer_id)?.full_name ?? "Bilinmeyen",
+        avatarUrl: profileMap.get(v.viewer_id)?.avatar_url ?? null,
+      }));
+    },
+  });
+}
+
 // ── Follower count ──
 
 export function useMyFollowerCount() {
