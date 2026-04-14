@@ -1,40 +1,41 @@
 
 
-## Epic 7 - Part 7: Mailbox Shell & Navigation
+## Epic 7 - Part 8: Inbox Reading View
 
 ### Summary
-Create the Mailbox page with a split-pane email client layout, add it to the sidebar navigation with an unread badge, and register the route.
+Create the email fetching hook with mark-as-read mutation, build a master-detail layout within the Mailbox right panel to list and read emails.
 
-### Step A — Add to Sidebar Navigation
-**File: `src/components/layout/AppSidebar.tsx`**
-- Import `Mail` from lucide-react
-- Add nav item after "Mesajlar": `{ path: "/mailbox", label: "Mail Kutusu", icon: Mail, showMailBadge: true }`
-- Add unread email badge logic: query `emails` table for unread inbound count, display badge similar to existing message/alert badges
+### Step A — Create useEmails Hook
+**File: `src/hooks/useEmails.ts`** (CREATE)
+- Accept `direction: 'inbound' | 'outbound'`
+- Query `emails` table filtered by `owner_id`, `direction`, ordered by `created_at desc`
+- Include `markAsRead` mutation: updates `is_read = true`, invalidates both `["emails", ...]` and `["unread-emails"]` query keys
+- Use React Query with `useQuery` + `useMutation`
 
-### Step B — Create Unread Email Hook
-**File: `src/hooks/useUnreadEmails.ts`**
-- Create a simple hook that queries `supabase.from('emails').select('id', { count: 'exact', head: true }).eq('is_read', false).eq('direction', 'inbound')` filtered by current user's `owner_id`
-- Returns `unreadCount` number
-- Uses react-query for caching/refetching
-
-### Step C — Create Mailbox Page
-**File: `src/pages/Mailbox.tsx`**
-- State: `activeTab: 'inbound' | 'outbound'` defaulting to `'inbound'`
-- Two-column layout using a left sidebar panel (~250px) and right content area:
-  - **Left panel**: "Yeni Mail" compose button (prominent, primary color), folder list with "Gelen Kutusu" and "Gönderilenler" items, active state highlighting
-  - **Right panel**: Placeholder text "Bir klasör seçin veya e-posta görüntüleyin." (to be populated in Part 8)
-- Dark theme consistent with existing app design
-
-### Step D — Register Route
-**File: `src/App.tsx`**
-- Import `Mailbox` page
-- Add `<Route path="/mailbox" element={<Mailbox />} />` inside the coach-protected layout routes
+### Step B — Update Mailbox Page with Master-Detail Layout
+**File: `src/pages/Mailbox.tsx`** (EDIT)
+- Add state: `selectedEmailId: string | null`
+- Split the right content area into two columns on desktop (list + detail), stacked on mobile
+- **Email List Panel** (~350px, scrollable):
+  - Map over emails from `useEmails(activeTab)`
+  - Each row shows: sender/recipient, subject (truncated), relative date
+  - Unread inbound emails: bold text + primary dot indicator
+  - On click: set `selectedEmailId`, call `markAsRead` if unread
+  - Active/selected row gets subtle highlight
+- **Detail Panel** (flex-1):
+  - If no email selected: placeholder text
+  - If selected: header (subject, from, to, date) + body rendered via `dangerouslySetInnerHTML` with `body_html`, falling back to `body_text` wrapped in `<pre>` for plain text
+  - Contained in a scrollable area with basic prose-like styling
+- Reset `selectedEmailId` to `null` when `activeTab` changes
 
 ### Files
 | File | Action |
 |------|--------|
-| `src/hooks/useUnreadEmails.ts` | CREATE |
-| `src/pages/Mailbox.tsx` | CREATE |
-| `src/components/layout/AppSidebar.tsx` | EDIT — add Mail Kutusu nav item + badge |
-| `src/App.tsx` | EDIT — add /mailbox route |
+| `src/hooks/useEmails.ts` | CREATE |
+| `src/pages/Mailbox.tsx` | EDIT — add master-detail layout with email list and reading view |
+
+### Technical Notes
+- `dangerouslySetInnerHTML` is acceptable here since emails are stored server-side from Resend; no user-generated script injection path
+- Invalidating `["unread-emails"]` on markAsRead ensures the sidebar badge updates instantly
+- Date formatting: use `toLocaleDateString('tr-TR')` for dates, `toLocaleTimeString` for today's emails
 
