@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'Dynabolic <onboarding@resend.dev>',
+        from: 'Dynabolic <noreply@dynabolic.com>',
         to: [leadEmail],
         subject: `Dynabolic: ${coachName} Sizi Koçluk Kadrosuna Davet Ediyor! 🚀`,
         html,
