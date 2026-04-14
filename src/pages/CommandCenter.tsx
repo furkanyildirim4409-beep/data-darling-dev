@@ -10,6 +10,7 @@ import { SessionsDialog } from "@/components/dashboard/SessionsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Activity, Utensils, AlertTriangle } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { UsernameFallbackAlert } from "@/components/dashboard/UsernameFallbackAlert";
 
 export default function CommandCenter() {
   const navigate = useNavigate();
@@ -61,6 +62,7 @@ export default function CommandCenter() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <UsernameFallbackAlert />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Kokpit</h1>
