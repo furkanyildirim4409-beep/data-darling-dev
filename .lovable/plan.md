@@ -1,34 +1,40 @@
 
 
-## Epic 7 - Part 6: Inbound Email Webhook
+## Epic 7 - Part 7: Mailbox Shell & Navigation
 
 ### Summary
-Create an Edge Function that receives Resend inbound webhook POSTs, maps the recipient to a coach via username lookup, and inserts the email into the `emails` table.
+Create the Mailbox page with a split-pane email client layout, add it to the sidebar navigation with an unread badge, and register the route.
 
-### Step A — Create Edge Function
-**File: `supabase/functions/inbound-email/index.ts`**
-- Standard CORS headers + OPTIONS handler
-- Initialize Supabase client with `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS)
-- Parse JSON payload: extract `from`, `to`, `subject`, `text`, `html`
-- Extract clean email from `to` (handle formats like `"Name <user@dynabolic.co>"` and arrays)
-- Extract username prefix from the `@dynabolic.co` address
-- Query `profiles` table: `.select('id').eq('username', extractedUsername).maybeSingle()`
-- If no profile found: log warning, return `200 OK` (prevent Resend retries)
-- If found: insert into `emails` table with `direction: 'inbound'`, `is_read: false`
-- Return `200 OK` with `{ success: true }`
+### Step A — Add to Sidebar Navigation
+**File: `src/components/layout/AppSidebar.tsx`**
+- Import `Mail` from lucide-react
+- Add nav item after "Mesajlar": `{ path: "/mailbox", label: "Mail Kutusu", icon: Mail, showMailBadge: true }`
+- Add unread email badge logic: query `emails` table for unread inbound count, display badge similar to existing message/alert badges
 
-### Step B — Update config.toml
-**File: `supabase/config.toml`**
-- Add `[functions.inbound-email]` with `verify_jwt = false`
+### Step B — Create Unread Email Hook
+**File: `src/hooks/useUnreadEmails.ts`**
+- Create a simple hook that queries `supabase.from('emails').select('id', { count: 'exact', head: true }).eq('is_read', false).eq('direction', 'inbound')` filtered by current user's `owner_id`
+- Returns `unreadCount` number
+- Uses react-query for caching/refetching
+
+### Step C — Create Mailbox Page
+**File: `src/pages/Mailbox.tsx`**
+- State: `activeTab: 'inbound' | 'outbound'` defaulting to `'inbound'`
+- Two-column layout using a left sidebar panel (~250px) and right content area:
+  - **Left panel**: "Yeni Mail" compose button (prominent, primary color), folder list with "Gelen Kutusu" and "Gönderilenler" items, active state highlighting
+  - **Right panel**: Placeholder text "Bir klasör seçin veya e-posta görüntüleyin." (to be populated in Part 8)
+- Dark theme consistent with existing app design
+
+### Step D — Register Route
+**File: `src/App.tsx`**
+- Import `Mailbox` page
+- Add `<Route path="/mailbox" element={<Mailbox />} />` inside the coach-protected layout routes
 
 ### Files
 | File | Action |
 |------|--------|
-| `supabase/functions/inbound-email/index.ts` | CREATE |
-| `supabase/config.toml` | EDIT — add inbound-email function config |
-
-### Notes
-- No migration needed — the `emails` table already exists with the correct schema
-- Service role key (`SUPABASE_SERVICE_ROLE_KEY`) is already configured as a secret
-- After deployment, the user will need to configure the webhook URL (`https://fsbhbfltathfcpvcjfzt.supabase.co/functions/v1/inbound-email`) in their Resend dashboard under Webhooks → Inbound
+| `src/hooks/useUnreadEmails.ts` | CREATE |
+| `src/pages/Mailbox.tsx` | CREATE |
+| `src/components/layout/AppSidebar.tsx` | EDIT — add Mail Kutusu nav item + badge |
+| `src/App.tsx` | EDIT — add /mailbox route |
 
