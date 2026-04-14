@@ -22,6 +22,7 @@ import Performance from "./pages/Performance";
 import Messages from "./pages/Messages";
 import Disputes from "./pages/Disputes";
 import Akademi from "./pages/Akademi";
+import Mailbox from "./pages/Mailbox";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForcePasswordReset from "./pages/ForcePasswordReset";
@@ -72,6 +73,7 @@ const App = () => (
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/disputes" element={<Disputes />} />
                 <Route path="/akademi" element={<Akademi />} />
+                <Route path="/mailbox" element={<Mailbox />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
