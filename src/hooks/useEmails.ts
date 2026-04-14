@@ -2,19 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type Email = {
-  id: string;
-  owner_id: string;
-  direction: string;
-  from_email: string;
-  to_email: string;
-  subject: string | null;
-  body_html: string | null;
-  body_text: string | null;
-  is_read: boolean | null;
-  created_at: string;
-};
-
 export function useEmails(direction: "inbound" | "outbound") {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -22,7 +9,7 @@ export function useEmails(direction: "inbound" | "outbound") {
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ["emails", user?.id, direction],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user) return [];
       const { data, error } = await supabase
         .from("emails")
         .select("*")
@@ -30,16 +17,16 @@ export function useEmails(direction: "inbound" | "outbound") {
         .eq("direction", direction)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Email[];
+      return data ?? [];
     },
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
   const markAsRead = useMutation({
     mutationFn: async (emailId: string) => {
       const { error } = await supabase
         .from("emails")
-        .update({ is_read: true })
+        .update({ is_read: true } as any)
         .eq("id", emailId);
       if (error) throw error;
     },

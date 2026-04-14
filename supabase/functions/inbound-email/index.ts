@@ -1,33 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createHmac } from 'node:crypto';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
-  if (!signature) return false;
-  try {
-    const parts = signature.split(',');
-    const timestampPart = parts.find(p => p.startsWith('t='));
-    const signaturePart = parts.find(p => p.startsWith('v1='));
-    if (!timestampPart || !signaturePart) return false;
-
-    const timestamp = timestampPart.substring(2);
-    const expectedSig = signaturePart.substring(3);
-
-    const signedPayload = `${timestamp}.${payload}`;
-    const computedSig = createHmac('sha256', secret)
-      .update(signedPayload)
-      .digest('hex');
-
-    return computedSig === expectedSig;
-  } catch (e) {
-    console.error('Signature verification error:', e);
-    return false;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,30 +11,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const webhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET');
-    const rawBody = await req.text();
-
-    // Verify signature if secret is configured
-    if (webhookSecret) {
-      const signature = req.headers.get('svix-signature');
-      if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-        console.warn('inbound-email: invalid webhook signature');
-        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const payload = JSON.parse(rawBody);
+    const payload = await req.json();
     const { from, to, subject, text, html } = payload;
 
-    // Extract clean email from `to`
+    // Extract clean email from `to` (handles arrays and "Name <email>" format)
     const rawTo = Array.isArray(to) ? to[0] : to;
     const toMatch = typeof rawTo === 'string'
       ? rawTo.match(/<([^>]+)>/) || [null, rawTo.trim()]

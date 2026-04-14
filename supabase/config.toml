@@ -27,6 +27,3 @@ verify_jwt = false
 
 [functions.inbound-email]
 verify_jwt = false
-
-[functions.send-custom-email]
-verify_jwt = false

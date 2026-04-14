@@ -8,20 +8,20 @@ import { useSendEmail } from "@/hooks/useEmails";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 
-interface Props {
+interface ComposeMailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function ComposeMailDialog({ open, onOpenChange }: Props) {
+export function ComposeMailDialog({ open, onOpenChange }: ComposeMailDialogProps) {
   const [toEmail, setToEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
   const sendEmail = useSendEmail();
 
   const handleSend = () => {
-    if (!toEmail || !subject || !bodyText) {
-      toast.error("Tüm alanları doldurun.");
+    if (!toEmail || !subject) {
+      toast.error("Lütfen alıcı ve konu alanlarını doldurun.");
       return;
     }
     sendEmail.mutate(
@@ -48,19 +48,36 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
           <DialogTitle>Yeni Mail</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="to">Kime</Label>
-            <Input id="to" type="email" placeholder="ornek@email.com" value={toEmail} onChange={(e) => setToEmail(e.target.value)} />
+            <Input
+              id="to"
+              type="email"
+              placeholder="ornek@mail.com"
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+            />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="subject">Konu</Label>
-            <Input id="subject" placeholder="Konu" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <Input
+              id="subject"
+              placeholder="E-posta konusu"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="body">Mesaj</Label>
-            <Textarea id="body" placeholder="Mesajınızı yazın..." rows={8} value={bodyText} onChange={(e) => setBodyText(e.target.value)} />
+            <Textarea
+              id="body"
+              placeholder="Mesajınızı yazın..."
+              rows={8}
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
+            />
           </div>
-          <Button className="w-full gap-2" onClick={handleSend} disabled={sendEmail.isPending}>
+          <Button onClick={handleSend} disabled={sendEmail.isPending} className="w-full gap-2">
             <Send className="w-4 h-4" />
             {sendEmail.isPending ? "Gönderiliyor..." : "Gönder"}
           </Button>
