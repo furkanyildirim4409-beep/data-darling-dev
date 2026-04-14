@@ -1,33 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createHmac } from 'node:crypto';
+import { Webhook } from "https://esm.sh/svix@1.21.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
-  if (!signature) return false;
-  try {
-    const parts = signature.split(',');
-    const timestampPart = parts.find(p => p.startsWith('t='));
-    const signaturePart = parts.find(p => p.startsWith('v1='));
-    if (!timestampPart || !signaturePart) return false;
-
-    const timestamp = timestampPart.substring(2);
-    const expectedSig = signaturePart.substring(3);
-
-    const signedPayload = `${timestamp}.${payload}`;
-    const computedSig = createHmac('sha256', secret)
-      .update(signedPayload)
-      .digest('hex');
-
-    return computedSig === expectedSig;
-  } catch (e) {
-    console.error('Signature verification error:', e);
-    return false;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -38,11 +15,19 @@ Deno.serve(async (req) => {
     const webhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET');
     const rawBody = await req.text();
 
-    // Verify signature if secret is configured
+    // Verify Svix signature if secret is configured
     if (webhookSecret) {
-      const signature = req.headers.get('svix-signature');
-      if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-        console.warn('inbound-email: invalid webhook signature');
+      const svixHeaders = {
+        "svix-id": req.headers.get("svix-id") || "",
+        "svix-timestamp": req.headers.get("svix-timestamp") || "",
+        "svix-signature": req.headers.get("svix-signature") || "",
+      };
+
+      try {
+        const wh = new Webhook(webhookSecret);
+        wh.verify(rawBody, svixHeaders);
+      } catch (err) {
+        console.warn('inbound-email: Svix verification failed:', err);
         return new Response(JSON.stringify({ error: 'Invalid signature' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
