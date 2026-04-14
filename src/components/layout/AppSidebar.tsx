@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Scale,
   GraduationCap,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,6 +37,7 @@ const navItems = [
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },
   { path: "/akademi", label: "Akademi", icon: GraduationCap },
   { path: "/messages", label: "Mesajlar", icon: MessageCircle, showMessageBadge: true },
+  { path: "/mailbox", label: "Mail Kutusu", icon: Mail, showMailBadge: true },
   { path: "/team", label: "Takım", icon: UserCog, permissionKey: "canViewTeam" as keyof Permissions },
   { path: "/settings", label: "Ayarlar", icon: Settings, permissionKey: "canViewTeam" as keyof Permissions },
 ];
