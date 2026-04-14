@@ -240,7 +240,7 @@ export function useTeamChat() {
     if (!userId) return;
 
     channelRef.current = supabase
-      .channel('team-chat-realtime')
+      .channel(`team-chat-realtime-${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         {
