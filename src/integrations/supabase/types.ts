@@ -1071,6 +1071,60 @@ export type Database = {
           },
         ]
       }
+      emails: {
+        Row: {
+          body_html: string | null
+          body_text: string | null
+          created_at: string
+          direction: string
+          from_email: string
+          id: string
+          is_read: boolean | null
+          owner_id: string
+          subject: string | null
+          to_email: string
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          direction?: string
+          from_email: string
+          id?: string
+          is_read?: boolean | null
+          owner_id: string
+          subject?: string | null
+          to_email: string
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          direction?: string
+          from_email?: string
+          id?: string
+          is_read?: boolean | null
+          owner_id?: string
+          subject?: string | null
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_library: {
         Row: {
           category: string | null
@@ -1540,6 +1594,7 @@ export type Database = {
           target_weight: number | null
           total_volume_kg: number | null
           updated_at: string | null
+          username: string | null
           xp: number | null
         }
         Insert: {
@@ -1579,6 +1634,7 @@ export type Database = {
           target_weight?: number | null
           total_volume_kg?: number | null
           updated_at?: string | null
+          username?: string | null
           xp?: number | null
         }
         Update: {
@@ -1618,6 +1674,7 @@ export type Database = {
           target_weight?: number | null
           total_volume_kg?: number | null
           updated_at?: string | null
+          username?: string | null
           xp?: number | null
         }
         Relationships: [
