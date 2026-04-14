@@ -45,9 +45,36 @@ Deno.serve(async (req) => {
 
     // Resend wraps email data inside payload.data
     const emailData = payload.data || payload;
-    const { from, to, subject, text, html } = emailData;
+    const { from, to, subject, text, html, email_id } = emailData;
 
-    console.log('inbound-email: extracted fields:', JSON.stringify({ from, to, subject }));
+    console.log('inbound-email: extracted fields:', JSON.stringify({ from, to, subject, email_id }));
+
+    let htmlBody = html || null;
+    let textBody = text || null;
+
+    // Fetch full email content from Resend if email_id exists
+    if (email_id) {
+      const resendKey = Deno.env.get('RESEND_DIRECT_API_KEY');
+      if (resendKey) {
+        try {
+          const res = await fetch(`https://api.resend.com/emails/${email_id}`, {
+            headers: { 'Authorization': `Bearer ${resendKey}` },
+          });
+          if (res.ok) {
+            const fullEmail = await res.json();
+            htmlBody = fullEmail.html || htmlBody;
+            textBody = fullEmail.text || textBody;
+            console.log(`inbound-email: fetched full body for email_id=${email_id}`);
+          } else {
+            console.error('inbound-email: Resend fetch failed:', res.status, await res.text());
+          }
+        } catch (err) {
+          console.error('inbound-email: error fetching email body:', err);
+        }
+      } else {
+        console.warn('inbound-email: RESEND_DIRECT_API_KEY not set, skipping body fetch');
+      }
+    }
 
     // Extract clean email from `to`
     const rawTo = Array.isArray(to) ? to[0] : to;
@@ -102,8 +129,8 @@ Deno.serve(async (req) => {
       from_email: cleanFrom,
       to_email: cleanTo,
       subject: subject || 'No Subject',
-      body_html: html || null,
-      body_text: text || null,
+      body_html: htmlBody,
+      body_text: textBody,
       is_read: false,
     });
 
