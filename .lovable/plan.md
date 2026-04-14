@@ -1,36 +1,59 @@
 
 
-## Epic 7 - Part 1: DB Architecture for Custom Mailbox
+## Epic 7 - Part 2: Agency Username System
 
 ### Summary
-Add a `username` column to `profiles` for custom email prefixes (`username@dynabolic.co`) and create an `emails` table as the internal mailbox for coaches/sub-coaches.
+Add username selection for main coaches during registration and enforce `maincoach.subcoach` dot-notation usernames for sub-coaches created via the Team panel.
 
-### Migration SQL
+### Step A — Register Page: Username Input for Coaches
+**File: `src/pages/Register.tsx`**
+- Add `username` state field
+- Show username input only when `role === 'coach'` and no `inviteToken`
+- Validation: `/^[a-z0-9]+$/`, min 3 chars, max 20 chars
+- Show helper text: "Bu kullanıcı adı e-posta adresiniz olacak: `username@dynabolic.co`"
+- Real-time uniqueness check via `supabase.from('profiles').select('id').eq('username', value)` (debounced)
+- Pass `username` in metadata during signUp
 
-**Step 1 — Add `username` to `profiles`**
-- `ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS username text`
-- Add a `UNIQUE` constraint to prevent duplicates
+**File: `src/contexts/AuthContext.tsx`**
+- Update `signUp` function signature to accept optional `username` parameter
+- Include `username` in `options.data` metadata
 
-**Step 2 — Create `emails` table**
-- Columns: `id`, `owner_id` (FK to profiles), `direction` (inbound/outbound), `from_email`, `to_email`, `subject`, `body_html`, `body_text`, `is_read`, `created_at`
-- Use a validation trigger instead of a CHECK constraint for `direction` (per Supabase guidelines — CHECK constraints can cause restoration issues)
+### Step B — Database Trigger Update
+**Migration SQL** — Update `handle_new_user()` to extract `username` from metadata:
+```sql
+username = new.raw_user_meta_data->>'username'
+```
+With `ON CONFLICT` preserving existing username if already set.
 
-**Step 3 — RLS on `emails`**
-- Enable RLS
-- Single permissive ALL policy: `auth.uid() = owner_id`
-- Head coaches should also see emails of their sub-coaches, so add a second SELECT policy using `is_active_team_member_of` for agency visibility
+### Step C — Sub-Coach Creation: Agency Username
+**File: `src/components/team/AddMemberDialog.tsx`**
+- Add `subUsername` state field
+- Fetch main coach's username from `useAuth().profile.username`
+- Show visual prefix lock: `[coachUsername].` followed by editable input, then `@dynabolic.co`
+- Validate sub-part: `/^[a-z0-9]+$/`, min 2 chars
+- Concatenate: `finalUsername = coachUsername.subUsername`
+- Pass `username` to `createSubCoach.mutateAsync()`
 
-**Step 4 — Index**
-- Index on `emails(owner_id, created_at DESC)` for fast mailbox queries
+**File: `src/hooks/useCreateSubCoach.ts`**
+- Add `username` to `CreateSubCoachInput` interface
+- Pass `username` in the Edge Function body
 
-### Files affected
-| Resource | Action |
-|----------|--------|
-| Database migration | CREATE — adds `username` column + `emails` table + RLS + trigger + index |
-| `src/integrations/supabase/types.ts` | Auto-regenerated after migration |
+**File: `supabase/functions/create-sub-coach/index.ts`**
+- Accept `username` from request body
+- Include `username` in `user_metadata` so `handle_new_user` trigger stores it
+- Also directly update `profiles.username` via admin client as a fallback
 
-### Notes
-- No UI changes in this part — database foundation only
-- The `direction` validation uses a trigger rather than a CHECK constraint per Supabase best practices
-- Service role (webhooks) bypasses RLS automatically for inbound email insertion
+**File: `src/contexts/AuthContext.tsx`**
+- Add `username` to the `Profile` interface
+- Include it in `fetchProfile` mapping
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/pages/Register.tsx` | Add username input with validation + uniqueness check |
+| `src/contexts/AuthContext.tsx` | Add `username` to Profile interface and signUp params |
+| `src/components/team/AddMemberDialog.tsx` | Add sub-coach username with agency prefix UI |
+| `src/hooks/useCreateSubCoach.ts` | Add `username` to mutation input |
+| `supabase/functions/create-sub-coach/index.ts` | Pass username in metadata + profile update |
+| Migration SQL | Update `handle_new_user()` trigger |
 
