@@ -67,11 +67,12 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(`${GATEWAY_URL}/emails`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'X-Connection-Api-Key': RESEND_API_KEY,
       },
       body: JSON.stringify({
         from: 'Dynabolic <onboarding@resend.dev>',
