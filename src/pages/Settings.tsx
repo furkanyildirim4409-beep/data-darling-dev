@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,7 +50,7 @@ const subscriptionPlans = [
 ];
 
 export default function Settings() {
-  const { profile, user, activeCoachId, refreshProfile } = useAuth();
+  const { profile, user, activeCoachId, refreshProfile, isSubCoach } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
@@ -59,6 +59,37 @@ export default function Settings() {
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Username states
+  const [username, setUsername] = useState(profile?.username || "");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isUsernameAvailable, setIsUsernameAvailable] = useState<boolean | null>(null);
+  const isUsernameValid = /^[a-z0-9]+$/.test(username) && username.length >= 3 && username.length <= 20;
+
+  const checkUsernameAvailability = useCallback(async (value: string) => {
+    if (!/^[a-z0-9]+$/.test(value) || value.length < 3 || !user) {
+      setIsUsernameAvailable(null);
+      return;
+    }
+    setIsCheckingUsername(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", value)
+      .neq("id", user.id)
+      .maybeSingle();
+    setIsUsernameAvailable(!data);
+    setIsCheckingUsername(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (!isUsernameValid || username === (profile?.username || "")) {
+      setIsUsernameAvailable(null);
+      return;
+    }
+    const t = setTimeout(() => checkUsernameAvailability(username), 400);
+    return () => clearTimeout(t);
+  }, [username, isUsernameValid, checkUsernameAvailability, profile?.username]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -89,6 +120,7 @@ export default function Settings() {
         specialty: profile.specialty || "",
         email: profile.email || "",
       }));
+      setUsername(profile.username || "");
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
@@ -119,6 +151,24 @@ export default function Settings() {
       });
 
       if (error) throw error;
+
+      // Update username separately if changed
+      const usernameChanged = username !== (profile.username || "");
+      if (usernameChanged && !isSubCoach && isUsernameValid) {
+        const { error: usernameError } = await supabase
+          .from("profiles")
+          .update({ username } as any)
+          .eq("id", user.id);
+        if (usernameError) {
+          if (usernameError.code === "23505") {
+            toast.error("Bu kullanıcı adı zaten alınmış. Lütfen başka bir tane deneyin.");
+          } else {
+            toast.error("Kullanıcı adı güncellenirken hata: " + usernameError.message);
+          }
+          setIsSaving(false);
+          return;
+        }
+      }
 
       await refreshProfile();
       
@@ -338,6 +388,35 @@ export default function Settings() {
                       className="bg-muted border-border text-muted-foreground"
                     />
                   </div>
+                </div>
+
+                {/* Username / Kurumsal E-posta */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Kullanıcı Adı</label>
+                  <div className="flex items-center gap-1.5 rounded-md border border-input bg-card px-3 py-2">
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ""))}
+                      placeholder="kullaniciadi"
+                      className="border-0 p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                      maxLength={20}
+                      disabled={isSubCoach}
+                    />
+                    <span className="text-muted-foreground text-sm whitespace-nowrap">@dynabolic.co</span>
+                  </div>
+                  {isSubCoach ? (
+                    <p className="text-xs text-muted-foreground">Alt koç kullanıcı adları yalnızca Baş Antrenör tarafından değiştirilebilir.</p>
+                  ) : (
+                    <div className="h-5 text-xs">
+                      {isCheckingUsername && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Kontrol ediliyor...</span>}
+                      {!isCheckingUsername && isUsernameAvailable === true && <span className="text-success flex items-center gap-1"><Check className="h-3 w-3" /> Kullanılabilir</span>}
+                      {!isCheckingUsername && isUsernameAvailable === false && <span className="text-destructive">Bu kullanıcı adı zaten alınmış</span>}
+                      {!isCheckingUsername && isUsernameAvailable === null && username.length > 0 && username.length < 3 && <span className="text-muted-foreground">En az 3 karakter gerekli</span>}
+                      {username && isUsernameValid && (isUsernameAvailable === true || username === (profile?.username || "")) && (
+                        <span className="text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> E-posta adresiniz: {username}@dynabolic.co</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
