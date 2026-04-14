@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.create-sub-coach]
 verify_jwt = false
+
+[functions.send-coaching-invite]
+verify_jwt = false

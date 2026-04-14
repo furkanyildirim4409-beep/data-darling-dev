@@ -318,7 +318,7 @@ export function useCheckViewerStatus() {
     mutationFn: async (viewerId: string) => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, coach_id, full_name, avatar_url")
+        .select("id, coach_id, full_name, avatar_url, email")
         .eq("id", viewerId)
         .single();
       if (error) throw error;
