@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useSendEmail } from "@/hooks/useEmails";
+import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -18,6 +19,17 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
   const sendEmail = useSendEmail();
+  const { templates } = useEmailTemplates();
+
+  const handleTemplateSelect = (templateId: string) => {
+    const tpl = templates.find((t) => t.id === templateId);
+    if (tpl) {
+      setSubject(tpl.subject);
+      // Strip HTML tags for textarea display
+      const text = tpl.body_html.replace(/<[^>]*>/g, "\n").replace(/\n{2,}/g, "\n").trim();
+      setBodyText(text);
+    }
+  };
 
   const handleSend = () => {
     if (!toEmail || !subject || !bodyText) {
@@ -48,6 +60,23 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
           <DialogTitle>Yeni Mail</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {templates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Şablon Seç (İsteğe Bağlı)</Label>
+              <Select onValueChange={handleTemplateSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Şablon seçin..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.name}{tpl.is_system ? " (Sistem)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="to">Kime</Label>
             <Input id="to" type="email" placeholder="ornek@email.com" value={toEmail} onChange={(e) => setToEmail(e.target.value)} />
