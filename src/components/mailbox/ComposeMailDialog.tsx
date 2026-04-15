@@ -60,6 +60,23 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
           <DialogTitle>Yeni Mail</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {templates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Şablon Seç (İsteğe Bağlı)</Label>
+              <Select onValueChange={handleTemplateSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Şablon seçin..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.name}{tpl.is_system ? " (Sistem)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="to">Kime</Label>
             <Input id="to" type="email" placeholder="ornek@email.com" value={toEmail} onChange={(e) => setToEmail(e.target.value)} />
