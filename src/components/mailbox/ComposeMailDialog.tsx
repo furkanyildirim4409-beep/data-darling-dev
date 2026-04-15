@@ -19,6 +19,17 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
   const sendEmail = useSendEmail();
+  const { templates } = useEmailTemplates();
+
+  const handleTemplateSelect = (templateId: string) => {
+    const tpl = templates.find((t) => t.id === templateId);
+    if (tpl) {
+      setSubject(tpl.subject);
+      // Strip HTML tags for textarea display
+      const text = tpl.body_html.replace(/<[^>]*>/g, "\n").replace(/\n{2,}/g, "\n").trim();
+      setBodyText(text);
+    }
+  };
 
   const handleSend = () => {
     if (!toEmail || !subject || !bodyText) {
