@@ -1074,30 +1074,39 @@ export type Database = {
       email_templates: {
         Row: {
           body_html: string
+          category: string | null
           created_at: string
           id: string
           is_system: boolean
           name: string
           owner_id: string | null
+          required_variables: Json | null
           subject: string
+          thumbnail_url: string | null
         }
         Insert: {
           body_html?: string
+          category?: string | null
           created_at?: string
           id?: string
           is_system?: boolean
           name: string
           owner_id?: string | null
+          required_variables?: Json | null
           subject?: string
+          thumbnail_url?: string | null
         }
         Update: {
           body_html?: string
+          category?: string | null
           created_at?: string
           id?: string
           is_system?: boolean
           name?: string
           owner_id?: string | null
+          required_variables?: Json | null
           subject?: string
+          thumbnail_url?: string | null
         }
         Relationships: []
       }
