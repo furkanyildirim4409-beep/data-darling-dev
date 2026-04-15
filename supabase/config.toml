@@ -37,5 +37,8 @@ verify_jwt = false
 [functions.global-system-automation]
 verify_jwt = false
 
+[functions.handle-universal-orders]
+verify_jwt = false
+
 [functions.trigger-welcome-email]
 verify_jwt = false
