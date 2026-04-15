@@ -1,47 +1,38 @@
 
 
-## Epic 9 - Part 2: Template Management UI
+## Epic 9 - Part 3: Automation Engine (Welcome Email)
 
 ### Summary
-Create a template management page at `/mailbox/templates` with CRUD capabilities, a create/edit dialog, and sidebar navigation. No existing files deleted.
+Create `handle-automation` Edge Function triggered by a Database Webhook on `team_members` INSERT. It sends the "Hoş Geldin (Kurumsal)" system template to the new member via Resend and logs the outbound email. No SQL migration needed — webhook configured manually via Dashboard.
 
-### Step A — Create `src/pages/EmailTemplates.tsx` (NEW)
+### Step A — Create `supabase/functions/handle-automation/index.ts` (NEW)
 
-Full-page template manager:
-- Header: "Mail Şablonları" title + "Yeni Şablon" button
-- Grid of Cards from `useEmailTemplates` hook
-- Each card: name, subject preview, "Sistem Şablonu" badge if `is_system`
-- Edit/Delete buttons only on non-system templates
-- Delete uses AlertDialog confirmation
-- Mutations: direct Supabase `insert`, `update`, `delete` on `email_templates`
-- Sets `owner_id = user.id` on create
-- Invalidates `["email-templates"]` query key on success
+- CORS preflight handler
+- No JWT auth (webhook-triggered, `verify_jwt = false`)
+- Parse webhook payload → extract `record.user_id` and `record.head_coach_id`
+- Admin client via `SUPABASE_SERVICE_ROLE_KEY`
+- Fetch new member's `full_name` + `email` from `profiles`
+- Fetch head coach's `full_name` + `username` from `profiles`
+- Fetch system template: `name = 'Hoş Geldin (Kurumsal)' AND is_system = true`
+- Replace `{{isim}}` in `subject` and `body_html`
+- Send via Resend (`RESEND_DIRECT_API_KEY`), from `CoachName <username@dynabolic.co>`
+- Insert into `emails` table (owner_id = head_coach_id, direction = outbound, is_read = true)
+- Always return 200 to prevent webhook retries on data issues
 
-### Step B — Inline `TemplateDialog` component (inside EmailTemplates.tsx)
+### Step B — Update `supabase/config.toml` (EDIT)
 
-Dialog with form fields:
-- Şablon Adı (name) — required Input
-- Mail Konusu (subject) — required Input
-- Mail İçeriği (body_html) — Textarea with helper text: `{{isim}} değişkenini kullanabilirsiniz`
-- Mode: create vs edit (pre-fill fields when editing)
-- On save: insert or update, then invalidate query cache
-
-### Step C — Route + Sidebar
-
-**`src/App.tsx`**: Add `<Route path="/mailbox/templates" element={<EmailTemplates />} />` inside the protected layout block, next to the `/mailbox` route.
-
-**`src/components/layout/AppSidebar.tsx`**: Add a new nav item after the Mail Kutusu entry:
-```
-{ path: "/mailbox/templates", label: "Şablonlar", icon: FileText }
+Append:
+```toml
+[functions.handle-automation]
+verify_jwt = false
 ```
 
 ### Files
 
 | File | Action |
 |------|--------|
-| `src/pages/EmailTemplates.tsx` | CREATE — page + dialog |
-| `src/App.tsx` | EDIT — add route |
-| `src/components/layout/AppSidebar.tsx` | EDIT — add nav item |
+| `supabase/functions/handle-automation/index.ts` | CREATE |
+| `supabase/config.toml` | EDIT — add function config |
 
-No existing files deleted.
+No SQL migration. Webhook will be configured manually via Dashboard.
 
