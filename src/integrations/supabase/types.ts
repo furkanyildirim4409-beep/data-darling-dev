@@ -1071,6 +1071,36 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          body_html: string
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          owner_id: string | null
+          subject: string
+        }
+        Insert: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          owner_id?: string | null
+          subject?: string
+        }
+        Update: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          owner_id?: string | null
+          subject?: string
+        }
+        Relationships: []
+      }
       emails: {
         Row: {
           body_html: string | null
