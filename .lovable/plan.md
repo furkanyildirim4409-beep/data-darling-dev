@@ -1,59 +1,45 @@
 
 
-## Epic 10 - Part 2: Visual Template Studio (WYSIWYG)
+## Epic 10 - Part 3: Core Lifecycle Automation (Welcome Email)
 
 ### Summary
-Upgrade the EmailTemplates page with a rich text editor, category badges, and variable metadata display. No routing or unrelated Mailbox features will be modified.
+Create `trigger-welcome-email` Edge Function that uses the "Premium Hoş Geldin" visual template (seeded in Part 1) with full variable replacement including `{{baslangic_linki}}`. This is structurally similar to the existing `handle-automation` function but targets the new premium template and handles additional variables.
 
-### Step A — Install `react-quill-new`
+### Analysis
 
-Using `react-quill-new` instead of `react-quill` — it's the actively maintained fork with full React 18 + Vite ESM compatibility. The original `react-quill` has known SSR/ESM issues and is unmaintained.
+The existing `handle-automation` function already handles team_members INSERT webhooks using the older "Hoş Geldin (Kurumsal)" template with only `{{isim}}` replacement. The new function targets the "Premium Hoş Geldin" template which requires two variables: `{{isim}}` and `{{baslangic_linki}}`.
 
-### Step B — Create `src/components/mailbox/RichTextEditor.tsx` (NEW)
+### Step A — Create `supabase/functions/trigger-welcome-email/index.ts` (NEW)
 
-Controlled component wrapping ReactQuill:
-- Props: `value: string`, `onChange: (html: string) => void`
-- Toolbar: Headers, Bold, Italic, Underline, Lists, Link, Color, Clean
-- Import Quill Snow CSS theme
-- Custom styling to match the dark theme (override `.ql-toolbar` and `.ql-editor` borders/bg)
+Based on the proven `handle-automation` pattern:
+- CORS preflight handler
+- No JWT (webhook-triggered)
+- Parse webhook payload → `record.user_id` and `record.head_coach_id`
+- Admin client via `SUPABASE_SERVICE_ROLE_KEY`
+- Fetch member's `full_name` + `email` from `profiles`
+- Fetch coach's `full_name` + `username` from `profiles`
+- Fetch template: `name = 'Premium Hoş Geldin' AND is_system = true`
+- Replace both variables:
+  - `{{isim}}` → member's `full_name`
+  - `{{baslangic_linki}}` → `https://app.dynabolic.co/login`
+- Send via Resend (`RESEND_DIRECT_API_KEY`), from `CoachName <username@dynabolic.co>`
+- Log to `emails` table (owner_id = head_coach_id, direction = outbound, is_read = true)
+- Always return 200 to prevent webhook retries
 
-### Step C — Revamp `src/pages/EmailTemplates.tsx` (EDIT)
+### Step B — Update `supabase/config.toml` (EDIT)
 
-**TemplateForm interface** — extend with `category` and `required_variables`:
-```typescript
-interface TemplateForm {
-  id?: string;
-  name: string;
-  subject: string;
-  body_html: string;
-  category?: string;
-  required_variables?: string[];
-}
+Append:
+```toml
+[functions.trigger-welcome-email]
+verify_jwt = false
 ```
-
-**Card Grid enhancements:**
-- Category badge with color mapping: onboarding → emerald, transactional → blue, retention → amber, general → gray
-- Display `required_variables` as small `{{var}}` code badges below subject
-- Render a sanitized HTML preview snippet (via `dangerouslySetInnerHTML` in a constrained div with `max-h-24 overflow-hidden`)
-
-**Edit Dialog upgrades:**
-- Replace `<Textarea>` with `<RichTextEditor>` for `body_html`
-- Widen dialog to `sm:max-w-2xl` for editor comfort
-- Add "Kullanılabilir Değişkenler" section showing `required_variables` as copyable badges (click to insert `{{var}}` text)
-- Add a `category` select dropdown (onboarding / transactional / retention / general)
-
-**Data flow:**
-- `openEdit` populates `category` and `required_variables` from template data
-- `handleSave` persists `category` and `required_variables` alongside existing fields
-- System templates remain view-only (no edit/delete buttons)
 
 ### Files
 
 | File | Action |
 |------|--------|
-| `package.json` | EDIT — add `react-quill-new` |
-| `src/components/mailbox/RichTextEditor.tsx` | CREATE |
-| `src/pages/EmailTemplates.tsx` | EDIT — WYSIWYG + metadata UI |
+| `supabase/functions/trigger-welcome-email/index.ts` | CREATE |
+| `supabase/config.toml` | EDIT — add function config |
 
-No routing changes. No files deleted. No existing Mailbox features affected.
+No SQL migration. Webhook configured manually via Dashboard.
 
