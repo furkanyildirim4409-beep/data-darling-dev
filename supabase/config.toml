@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.handle-automation]
 verify_jwt = false
+
+[functions.trigger-welcome-email]
+verify_jwt = false
