@@ -13,7 +13,8 @@ export function useEmailTemplates() {
         .from("email_templates")
         .select("*")
         .order("is_system", { ascending: false })
-        .order("name");
+        .order("category")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
