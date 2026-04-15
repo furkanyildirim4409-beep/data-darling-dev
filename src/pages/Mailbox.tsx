@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import DOMPurify from "dompurify";
 import { Inbox, Send, PenSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -169,7 +170,13 @@ export default function Mailbox() {
                 {selectedEmail.body_html ? (
                   <div
                     className="max-w-none text-sm leading-relaxed [&_a]:text-primary [&_a]:underline [&_img]:max-w-full"
-                    dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(selectedEmail.body_html, {
+                        USE_PROFILES: { html: true },
+                        FORBID_TAGS: ['style', 'form'],
+                        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+                      })
+                    }}
                   />
                 ) : (
                   <pre className="whitespace-pre-wrap text-sm font-sans text-foreground">
