@@ -1,55 +1,76 @@
 
 
-## Epic 8 - Part 4: Fetch Inbound Body via Resend SDK
+## Epic 9 - Part 1: Email Templates Infrastructure
 
 ### Summary
-Replace the failing REST API fetch (`GET /emails/{id}` — outbound-only, returns 404) with the Resend SDK's `resend.emails.receiving.get(email_id)` endpoint for inbound emails.
+Create an email templates system with database table, seed data, custom hook, and template selector in the compose dialog. No existing files will be deleted.
 
-### Current State
-- Svix verification: ✅ Already using official `svix@1.21.0` — no changes needed
-- Body fetch: ❌ Uses `https://api.resend.com/emails/${email_id}` REST endpoint (outbound-only, 404s)
-- DB insert: ✅ Already uses `htmlBody`/`textBody` variables
+### Step A — Database Migration
 
-### Change — `supabase/functions/inbound-email/index.ts` (EDIT)
+Create `email_templates` table + seed 2 system templates in a single migration:
 
-**Line 1** — Add Resend SDK import:
-```typescript
-import { Resend } from 'npm:resend';
+```sql
+CREATE TABLE public.email_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  subject text NOT NULL DEFAULT '',
+  body_html text NOT NULL DEFAULT '',
+  is_system boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.email_templates ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: system templates + own templates
+CREATE POLICY "Users can read system or own templates"
+ON public.email_templates FOR SELECT TO authenticated
+USING (is_system = true OR owner_id = auth.uid());
+
+-- INSERT: only own
+CREATE POLICY "Users can insert own templates"
+ON public.email_templates FOR INSERT TO authenticated
+WITH CHECK (owner_id = auth.uid());
+
+-- UPDATE: only own
+CREATE POLICY "Users can update own templates"
+ON public.email_templates FOR UPDATE TO authenticated
+USING (owner_id = auth.uid());
+
+-- DELETE: only own
+CREATE POLICY "Users can delete own templates"
+ON public.email_templates FOR DELETE TO authenticated
+USING (owner_id = auth.uid());
+
+-- Seed system templates
+INSERT INTO public.email_templates (owner_id, name, subject, body_html, is_system) VALUES
+(NULL, 'Hoş Geldin (Kurumsal)', 'Hoş Geldiniz, {{isim}}!',
+ '<p>Merhaba {{isim}},</p><p>Ailemize hoş geldiniz! Size en iyi hizmeti sunmak için buradayız. Herhangi bir sorunuz olursa lütfen çekinmeden bize ulaşın.</p><p>Saygılarımızla,<br/>Koçunuz</p>',
+ true),
+(NULL, 'Antrenman Programı Hatırlatması', 'Yeni Antrenman Programınız Hazır, {{isim}}!',
+ '<p>Merhaba {{isim}},</p><p>Yeni antrenman programınız sisteme yüklenmiştir. Lütfen uygulamadan programınızı inceleyiniz ve sorularınız için bizimle iletişime geçiniz.</p><p>Başarılar dileriz!</p>',
+ true);
 ```
 
-**Lines 55-77** — Replace the REST `fetch` block with SDK call:
-```typescript
-// Fetch full inbound email content using the Resend SDK
-if (email_id) {
-  const resendKey = Deno.env.get('RESEND_DIRECT_API_KEY');
-  if (resendKey) {
-    try {
-      const resend = new Resend(resendKey);
-      const { data: fetchedEmail, error: fetchErr } = await resend.emails.receiving.get(email_id);
+### Step B — Create Hook (`src/hooks/useEmailTemplates.ts`) — NEW FILE
 
-      if (fetchedEmail) {
-        htmlBody = fetchedEmail.html || htmlBody;
-        textBody = fetchedEmail.text || textBody;
-        console.log(`inbound-email: fetched full body via SDK for email_id=${email_id}`);
-      } else {
-        console.error('inbound-email: Resend SDK fetch failed:', fetchErr);
-      }
-    } catch (err) {
-      console.error('inbound-email: error using Resend SDK:', err);
-    }
-  } else {
-    console.warn('inbound-email: RESEND_DIRECT_API_KEY not set, skipping body fetch');
-  }
-}
+```typescript
+// Fetches templates where is_system=true OR owner_id=user.id
+// Returns { templates, isLoading }
 ```
 
-Everything else (Svix verification, to/from parsing, profile lookup, DB insert) remains untouched.
+### Step C — Update `ComposeMailDialog.tsx` — EDIT (surgical)
 
-### Deploy
-Redeploy `inbound-email` after edit.
+- Add imports: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` + `useEmailTemplates` + `useAuth`
+- Add template selector dropdown above "Kime" field labeled "Şablon Seç (İsteğe Bağlı)"
+- On template selection: populate `subject` and `bodyText` (strip HTML tags for textarea display)
+- No files deleted, no restructuring
 
 ### Files
+
 | File | Action |
 |------|--------|
-| `supabase/functions/inbound-email/index.ts` | EDIT — add `npm:resend` import, replace REST fetch with SDK `receiving.get()` |
+| Migration SQL | CREATE table + RLS + seed |
+| `src/hooks/useEmailTemplates.ts` | CREATE |
+| `src/components/mailbox/ComposeMailDialog.tsx` | EDIT — add template selector |
 
