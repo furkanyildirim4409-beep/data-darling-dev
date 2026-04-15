@@ -1,76 +1,47 @@
 
 
-## Epic 9 - Part 1: Email Templates Infrastructure
+## Epic 9 - Part 2: Template Management UI
 
 ### Summary
-Create an email templates system with database table, seed data, custom hook, and template selector in the compose dialog. No existing files will be deleted.
+Create a template management page at `/mailbox/templates` with CRUD capabilities, a create/edit dialog, and sidebar navigation. No existing files deleted.
 
-### Step A — Database Migration
+### Step A — Create `src/pages/EmailTemplates.tsx` (NEW)
 
-Create `email_templates` table + seed 2 system templates in a single migration:
+Full-page template manager:
+- Header: "Mail Şablonları" title + "Yeni Şablon" button
+- Grid of Cards from `useEmailTemplates` hook
+- Each card: name, subject preview, "Sistem Şablonu" badge if `is_system`
+- Edit/Delete buttons only on non-system templates
+- Delete uses AlertDialog confirmation
+- Mutations: direct Supabase `insert`, `update`, `delete` on `email_templates`
+- Sets `owner_id = user.id` on create
+- Invalidates `["email-templates"]` query key on success
 
-```sql
-CREATE TABLE public.email_templates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  subject text NOT NULL DEFAULT '',
-  body_html text NOT NULL DEFAULT '',
-  is_system boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+### Step B — Inline `TemplateDialog` component (inside EmailTemplates.tsx)
 
-ALTER TABLE public.email_templates ENABLE ROW LEVEL SECURITY;
+Dialog with form fields:
+- Şablon Adı (name) — required Input
+- Mail Konusu (subject) — required Input
+- Mail İçeriği (body_html) — Textarea with helper text: `{{isim}} değişkenini kullanabilirsiniz`
+- Mode: create vs edit (pre-fill fields when editing)
+- On save: insert or update, then invalidate query cache
 
--- SELECT: system templates + own templates
-CREATE POLICY "Users can read system or own templates"
-ON public.email_templates FOR SELECT TO authenticated
-USING (is_system = true OR owner_id = auth.uid());
+### Step C — Route + Sidebar
 
--- INSERT: only own
-CREATE POLICY "Users can insert own templates"
-ON public.email_templates FOR INSERT TO authenticated
-WITH CHECK (owner_id = auth.uid());
+**`src/App.tsx`**: Add `<Route path="/mailbox/templates" element={<EmailTemplates />} />` inside the protected layout block, next to the `/mailbox` route.
 
--- UPDATE: only own
-CREATE POLICY "Users can update own templates"
-ON public.email_templates FOR UPDATE TO authenticated
-USING (owner_id = auth.uid());
-
--- DELETE: only own
-CREATE POLICY "Users can delete own templates"
-ON public.email_templates FOR DELETE TO authenticated
-USING (owner_id = auth.uid());
-
--- Seed system templates
-INSERT INTO public.email_templates (owner_id, name, subject, body_html, is_system) VALUES
-(NULL, 'Hoş Geldin (Kurumsal)', 'Hoş Geldiniz, {{isim}}!',
- '<p>Merhaba {{isim}},</p><p>Ailemize hoş geldiniz! Size en iyi hizmeti sunmak için buradayız. Herhangi bir sorunuz olursa lütfen çekinmeden bize ulaşın.</p><p>Saygılarımızla,<br/>Koçunuz</p>',
- true),
-(NULL, 'Antrenman Programı Hatırlatması', 'Yeni Antrenman Programınız Hazır, {{isim}}!',
- '<p>Merhaba {{isim}},</p><p>Yeni antrenman programınız sisteme yüklenmiştir. Lütfen uygulamadan programınızı inceleyiniz ve sorularınız için bizimle iletişime geçiniz.</p><p>Başarılar dileriz!</p>',
- true);
+**`src/components/layout/AppSidebar.tsx`**: Add a new nav item after the Mail Kutusu entry:
 ```
-
-### Step B — Create Hook (`src/hooks/useEmailTemplates.ts`) — NEW FILE
-
-```typescript
-// Fetches templates where is_system=true OR owner_id=user.id
-// Returns { templates, isLoading }
+{ path: "/mailbox/templates", label: "Şablonlar", icon: FileText }
 ```
-
-### Step C — Update `ComposeMailDialog.tsx` — EDIT (surgical)
-
-- Add imports: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` + `useEmailTemplates` + `useAuth`
-- Add template selector dropdown above "Kime" field labeled "Şablon Seç (İsteğe Bağlı)"
-- On template selection: populate `subject` and `bodyText` (strip HTML tags for textarea display)
-- No files deleted, no restructuring
 
 ### Files
 
 | File | Action |
 |------|--------|
-| Migration SQL | CREATE table + RLS + seed |
-| `src/hooks/useEmailTemplates.ts` | CREATE |
-| `src/components/mailbox/ComposeMailDialog.tsx` | EDIT — add template selector |
+| `src/pages/EmailTemplates.tsx` | CREATE — page + dialog |
+| `src/App.tsx` | EDIT — add route |
+| `src/components/layout/AppSidebar.tsx` | EDIT — add nav item |
+
+No existing files deleted.
 
