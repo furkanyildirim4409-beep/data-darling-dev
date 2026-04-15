@@ -42,3 +42,6 @@ verify_jwt = false
 
 [functions.trigger-welcome-email]
 verify_jwt = false
+
+[functions.cron-retention-reminders]
+verify_jwt = false
