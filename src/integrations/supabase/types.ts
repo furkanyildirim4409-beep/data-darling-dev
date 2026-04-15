@@ -1451,6 +1451,7 @@ export type Database = {
         Row: {
           carrier_name: string | null
           created_at: string | null
+          expires_at: string | null
           external_reference_id: string | null
           id: string
           items: Json
@@ -1467,6 +1468,7 @@ export type Database = {
         Insert: {
           carrier_name?: string | null
           created_at?: string | null
+          expires_at?: string | null
           external_reference_id?: string | null
           id?: string
           items: Json
@@ -1483,6 +1485,7 @@ export type Database = {
         Update: {
           carrier_name?: string | null
           created_at?: string | null
+          expires_at?: string | null
           external_reference_id?: string | null
           id?: string
           items?: Json
