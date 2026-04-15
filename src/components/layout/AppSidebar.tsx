@@ -22,6 +22,7 @@ import {
   Scale,
   GraduationCap,
   Mail,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
