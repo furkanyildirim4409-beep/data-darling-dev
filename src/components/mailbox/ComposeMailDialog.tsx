@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useSendEmail } from "@/hooks/useEmails";
+import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
