@@ -207,6 +207,17 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
                 <img src={viewingStory.media_url} alt="Story" className="w-full max-h-[60vh] object-contain" />
               )}
 
+              {/* Highlight category bar */}
+              <div className="px-4 py-3 border-t border-white/10 bg-black/40">
+                <label className="text-xs text-white/60 mb-1.5 block">Öne Çıkan Kategorisi</label>
+                <CategoryCombobox
+                  value={viewingStory.category ?? null}
+                  onChange={handleCategoryChange}
+                  disabled={catPending}
+                  variant="dark"
+                />
+              </div>
+
               {/* Analytics bar */}
               <div className="border-t border-white/10">
                 <Button
