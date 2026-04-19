@@ -827,6 +827,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          is_highlighted: boolean
           media_url: string
         }
         Insert: {
@@ -835,6 +836,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          is_highlighted?: boolean
           media_url: string
         }
         Update: {
@@ -843,6 +845,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          is_highlighted?: boolean
           media_url?: string
         }
         Relationships: [
