@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus, useSendCoachingInvite } from "@/hooks/useSocialMutations";
+import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus, useSendCoachingInvite, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
+import { CategoryCombobox } from "./CategoryCombobox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,17 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
   const { data: viewers } = useStoryAnalytics(viewingStory?.id);
   const checkStatus = useCheckViewerStatus();
   const sendInvite = useSendCoachingInvite();
+  const { mutateAsync: updateCategory, isPending: catPending } = useUpdateStoryCategory();
   const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null; email: string | null } | null>(null);
+
+  const handleCategoryChange = async (category: string | null) => {
+    if (!viewingStory) return;
+    try {
+      await updateCategory({ storyId: viewingStory.id, category });
+      setViewingStory({ ...viewingStory, category, is_highlighted: !!category });
+      toast.success(category ? "Hikaye öne çıkanlara eklendi!" : "Kategori kaldırıldı");
+    } catch {}
+  };
 
   const activeStories = (allStories ?? []).filter(
     (s) => new Date(s.expires_at) > new Date()
