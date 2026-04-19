@@ -1,54 +1,44 @@
 
 
-## Epic 10 - Part 5: Retention CRON Engine (Expiration Reminders)
+User wants to decouple highlight state from `expires_at`. Highlights live purely on `is_highlighted` + `category`. The active 24h ring is governed exclusively by the original `expires_at = created_at + 24h`.
 
-### Summary
-Add an `expires_at` column to `orders`, create a CRON-triggered Edge Function that scans for expiring subscriptions (3 days out) and sends the "Üyelik Yenileme Hatırlatması" visual template via Resend.
+Confirmed from code:
+- `useUpdateStoryCategory` in `src/hooks/useSocialMutations.ts` currently sets `expires_at` to `'2099-01-01T00:00:00Z'` on highlight and recomputes `created_at + 24h` on un-highlight. Both branches must stop touching `expires_at`.
+- `useCoachHighlights` already filters by `is_highlighted = true` only — no `expires_at` dependency. Good, no change needed.
+- `HighlightsSection.tsx` "remove highlight" path calls the same hook with `category: null` — will naturally inherit the new behavior.
+- `StoryArchiveDialog.tsx` "Aktif/Arşiv" badge is computed via `isActive(expires_at)` — once data is cleaned, archived highlighted stories will correctly show as "Arşiv" again.
 
-### Step A — Migration: Add `expires_at` to `orders`
+## Plan
+
+### Step A — Rewrite `useUpdateStoryCategory`
+File: `src/hooks/useSocialMutations.ts`
+
+- Drop the `existing` fetch (no longer needed).
+- Highlight: `update({ is_highlighted: true, category })`.
+- Un-highlight: `update({ is_highlighted: false, category: null })`.
+- Never touch `expires_at` in either branch.
+- Keep existing query invalidations (`coach-stories`, `coach-stories-archive`, `coach-highlights`).
+
+### Step B — Emergency data cleanup
+Run via insert tool (UPDATE on existing table, no schema change):
 
 ```sql
-ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+UPDATE public.coach_stories
+SET expires_at = created_at + interval '24 hours'
+WHERE expires_at > created_at + interval '30 days';
 ```
 
-No RLS changes needed — existing policies already cover SELECT/INSERT on orders.
-
-### Step B — Create `supabase/functions/cron-retention-reminders/index.ts` (NEW)
-
-CRON-triggered function (no webhook payload):
-
-1. Initialize Admin client (`SUPABASE_SERVICE_ROLE_KEY`)
-2. Query orders where `expires_at` is between `now()` and `now() + interval '3 days'` AND `expires_at > now()` AND status IN ('active', 'paid') — catches the 3-day window
-3. For each matched order:
-   - Fetch user profile (`full_name`, `email`) from `profiles`
-   - Calculate `kalan_gun` = `ceil(extract(epoch from expires_at - now()) / 86400)`
-   - Fetch "Üyelik Yenileme Hatırlatması" template (`is_system = true`)
-   - Replace `{{isim}}`, `{{kalan_gun}}`, `{{yenileme_linki}}` (`https://app.dynabolic.co/pricing`)
-   - Send via Resend from `Dynabolic Destek <support@dynabolic.co>`
-   - Log to `emails` table (owner_id = user_id, direction = 'outbound')
-4. Return summary: `{ sent: N, errors: M }`
-5. Always return 200
-
-### Step C — Update `supabase/config.toml` (EDIT)
-
-```toml
-[functions.cron-retention-reminders]
-verify_jwt = false
-```
-
-### Technical Notes
-
-- The template fetched once per invocation (not per user) for efficiency
-- Deduplication: query filters `expires_at` to a 24-hour window (`BETWEEN now() + interval '2 days' AND now() + interval '3 days'`) so daily CRON doesn't re-send
-- `pg_cron` schedule configured manually by CTO (recommended: daily at 09:00 Istanbul time)
+This snaps every story whose `expires_at` was pushed to `'2099-01-01'` (or any unrealistic far-future value) back to its true 24h window. Highlighted stories remain highlighted because `is_highlighted` is unaffected — they just stop polluting the active ring.
 
 ### Files
 
 | File | Action |
 |------|--------|
-| Migration SQL | CREATE — add `expires_at` column |
-| `supabase/functions/cron-retention-reminders/index.ts` | CREATE |
-| `supabase/config.toml` | EDIT — add function config |
+| `src/hooks/useSocialMutations.ts` | EDIT — strip `expires_at` writes from `useUpdateStoryCategory` |
+| Database (no migration) | RUN UPDATE — reset corrupted `expires_at` rows |
 
-No UI changes. No DB trigger. CRON schedule configured manually.
+### Confirmation
+- Athlete app's 24h ring (filters `expires_at > now()`) will no longer surface archived/highlighted stories.
+- Coach highlights tab continues working — driven solely by `is_highlighted`.
+- No new INSERTs; no schema change; no impact on un-highlighted active stories created within the last 24h.
 
