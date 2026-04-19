@@ -206,35 +206,11 @@ export function useUpdateStoryCategory() {
     mutationFn: async ({ storyId, category }: { storyId: string; category: string | null }) => {
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch the story so we can compute the correct expires_at when un-highlighting
-      const { data: existing, error: fetchErr } = await supabase
-        .from("coach_stories")
-        .select("id, created_at")
-        .eq("id", storyId)
-        .eq("coach_id", user.id)
-        .single();
-      if (fetchErr) throw fetchErr;
-
-      const updates: {
-        category: string | null;
-        is_highlighted: boolean;
-        expires_at: string;
-      } = category
-        ? {
-            category,
-            is_highlighted: true,
-            // Permanent highlight — far-future expiry
-            expires_at: "2099-01-01T00:00:00Z",
-          }
-        : {
-            category: null,
-            is_highlighted: false,
-            // Reset to original 24h window from creation so the un-highlighted
-            // story doesn't linger in the active feed forever.
-            expires_at: new Date(
-              new Date(existing.created_at).getTime() + 24 * 3600 * 1000
-            ).toISOString(),
-          };
+      // Highlight state is fully decoupled from expires_at.
+      // The 24h active ring is governed exclusively by the original expires_at.
+      const updates = category
+        ? { category, is_highlighted: true }
+        : { category: null, is_highlighted: false };
 
       const { data, error } = await supabase
         .from("coach_stories")
