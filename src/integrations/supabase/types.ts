@@ -742,6 +742,33 @@ export type Database = {
           },
         ]
       }
+      coach_highlight_metadata: {
+        Row: {
+          category_name: string
+          coach_id: string
+          created_at: string
+          custom_cover_url: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          category_name: string
+          coach_id: string
+          created_at?: string
+          custom_cover_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          category_name?: string
+          coach_id?: string
+          created_at?: string
+          custom_cover_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coach_invites: {
         Row: {
           coach_id: string

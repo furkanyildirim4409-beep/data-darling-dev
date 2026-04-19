@@ -233,24 +233,42 @@ export function useUpdateStoryCategory() {
   });
 }
 
+export interface HighlightGroup {
+  category: string;
+  stories: any[];
+  count: number;
+  customCoverUrl: string | null;
+}
+
 export function useCoachHighlights() {
   const { user } = useAuth();
 
-  return useQuery({
+  return useQuery<HighlightGroup[]>({
     queryKey: ["coach-highlights", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      if (!user) return [] as { category: string; stories: any[]; count: number }[];
-      const { data, error } = await supabase
-        .from("coach_stories")
-        .select("*")
-        .eq("coach_id", user.id)
-        .eq("is_highlighted", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (!user) return [];
+      const [storiesRes, metaRes] = await Promise.all([
+        supabase
+          .from("coach_stories")
+          .select("*")
+          .eq("coach_id", user.id)
+          .eq("is_highlighted", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("coach_highlight_metadata")
+          .select("category_name, custom_cover_url")
+          .eq("coach_id", user.id),
+      ]);
+      if (storiesRes.error) throw storiesRes.error;
+      if (metaRes.error) throw metaRes.error;
+
+      const coverMap = new Map<string, string | null>(
+        (metaRes.data ?? []).map((m: any) => [m.category_name, m.custom_cover_url]),
+      );
 
       const groups = new Map<string, any[]>();
-      for (const s of data ?? []) {
+      for (const s of storiesRes.data ?? []) {
         const key = (s.category && s.category.trim()) || "Öne Çıkanlar";
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(s);
@@ -259,7 +277,36 @@ export function useCoachHighlights() {
         category,
         stories,
         count: stories.length,
+        customCoverUrl: coverMap.get(category) ?? null,
       }));
+    },
+  });
+}
+
+export function useUpsertHighlightMetadata() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryName, customCoverUrl }: { categoryName: string; customCoverUrl: string | null }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data, error } = await supabase
+        .from("coach_highlight_metadata")
+        .upsert(
+          { coach_id: user.id, category_name: categoryName, custom_cover_url: customCoverUrl },
+          { onConflict: "coach_id,category_name" },
+        )
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      toast.success("Kapak fotoğrafı güncellendi.");
+    },
+    onError: (err: Error) => {
+      toast.error(`Kapak güncellenemedi: ${err.message}`);
     },
   });
 }

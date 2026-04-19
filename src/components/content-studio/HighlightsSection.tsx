@@ -1,31 +1,22 @@
 import { useState } from "react";
-import { Plus, Edit2, Star, MessageCircle, Trophy, Camera, Heart, Wand2, Upload, Archive, Radio, Loader2 } from "lucide-react";
+import { Plus, Edit2, Star, Wand2, Upload, Archive, Radio, Loader2, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StoryTemplateBuilder } from "./StoryTemplateBuilder";
 import { StoryUploadModal } from "./StoryUploadModal";
 import { StoryArchiveDialog } from "./StoryArchiveDialog";
 import { ActiveStoriesDialog } from "./ActiveStoriesDialog";
-import { useCoachHighlights, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
+import { HighlightCoverCropper } from "./HighlightCoverCropper";
+import { useCoachHighlights, useUpdateStoryCategory, useUpsertHighlightMetadata } from "@/hooks/useSocialMutations";
 
 interface HighlightsSectionProps {
   canManage?: boolean;
 }
 
-const CATEGORY_STYLES: Record<string, { icon: React.ReactNode; color: string }> = {
-  "Öne Çıkanlar": { icon: <Star className="w-5 h-5" />, color: "from-primary to-primary/50" },
-  "Değişimler": { icon: <Star className="w-5 h-5" />, color: "from-primary to-primary/50" },
-  "Soru-Cevap": { icon: <MessageCircle className="w-5 h-5" />, color: "from-info to-info/50" },
-  "Başarılar": { icon: <Trophy className="w-5 h-5" />, color: "from-warning to-warning/50" },
-  "Antrenman": { icon: <Camera className="w-5 h-5" />, color: "from-success to-success/50" },
-  "Motivasyon": { icon: <Heart className="w-5 h-5" />, color: "from-destructive to-destructive/50" },
-};
-
-const fallbackStyle = { icon: <Star className="w-5 h-5" />, color: "from-primary to-primary/50" };
-
 export function HighlightsSection({ canManage = true }: HighlightsSectionProps) {
   const { data: highlights = [], isLoading } = useCoachHighlights();
   const updateCategory = useUpdateStoryCategory();
+  const upsertMeta = useUpsertHighlightMetadata();
 
   const [editMode, setEditMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -33,6 +24,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isActiveStoriesOpen, setIsActiveStoriesOpen] = useState(false);
+  const [cropperCategory, setCropperCategory] = useState<string | null>(null);
 
   const handleStoryUpload = (_file: File, _categoryId: string) => {
     // Upload handled by StoryUploadModal — query invalidation refreshes highlights.
@@ -132,8 +124,10 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
 
           {/* Real Highlights */}
           {highlights.map((group) => {
-            const style = CATEGORY_STYLES[group.category] ?? fallbackStyle;
             const isSelected = selectedCategory === group.category;
+            const coverSrc = group.customCoverUrl ?? group.stories[0]?.media_url ?? null;
+            const isVideoCover = coverSrc && /\.(mp4|webm|mov)$/i.test(coverSrc);
+
             return (
               <button
                 key={group.category}
@@ -146,15 +140,20 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
               >
                 <div
                   className={cn(
-                    "relative w-16 h-16 rounded-full flex items-center justify-center transition-all",
-                    "bg-gradient-to-br",
-                    style.color,
+                    "relative w-16 h-16 rounded-full overflow-hidden flex items-center justify-center transition-all",
                     "ring-2 ring-offset-2 ring-offset-background",
                     isSelected ? "ring-primary glow-lime" : "ring-transparent",
-                    "group-hover:ring-primary/50 group-hover:scale-105"
+                    "group-hover:ring-primary/50 group-hover:scale-105",
+                    !coverSrc && "bg-gradient-to-br from-primary to-primary/50"
                   )}
                 >
-                  <div className="text-white">{style.icon}</div>
+                  {coverSrc && !isVideoCover ? (
+                    <img src={coverSrc} alt={group.category} className="w-full h-full object-cover" />
+                  ) : coverSrc && isVideoCover ? (
+                    <video src={coverSrc} className="w-full h-full object-cover" muted playsInline />
+                  ) : (
+                    <Star className="w-5 h-5 text-white" />
+                  )}
 
                   {/* Count Badge */}
                   <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
@@ -178,13 +177,22 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         {/* Selected Highlight Details */}
         {selectedGroup && (
           <div className="mt-4 pt-4 border-t border-border animate-fade-in">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <p className="text-sm font-medium text-foreground">{selectedGroup.category}</p>
                 <p className="text-xs text-muted-foreground">{selectedGroup.count} hikaye</p>
               </div>
               {canManage && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCropperCategory(selectedGroup.category)}
+                    className="border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    <ImagePlus className="w-3 h-3 mr-1" />
+                    Kapak Fotoğrafı Değiştir
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -199,7 +207,6 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
                     className="text-destructive"
                     disabled={updateCategory.isPending}
                     onClick={async () => {
-                      // Un-highlight every story in this group (resets each to its 24h window)
                       for (const story of selectedGroup.stories) {
                         await updateCategory.mutateAsync({ storyId: story.id, category: null });
                       }
@@ -235,6 +242,18 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         open={isActiveStoriesOpen}
         onOpenChange={setIsActiveStoriesOpen}
       />
+
+      {cropperCategory && (
+        <HighlightCoverCropper
+          open={!!cropperCategory}
+          onOpenChange={(o) => !o && setCropperCategory(null)}
+          categoryName={cropperCategory}
+          onSaved={(url) => {
+            upsertMeta.mutate({ categoryName: cropperCategory, customCoverUrl: url });
+            setCropperCategory(null);
+          }}
+        />
+      )}
     </>
   );
 }
