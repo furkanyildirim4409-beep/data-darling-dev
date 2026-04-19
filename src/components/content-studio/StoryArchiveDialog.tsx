@@ -5,10 +5,8 @@ import { Archive, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCoachStoryArchive, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
-import { highlightCategories } from "@/data/storyCategories";
-import { cn } from "@/lib/utils";
+import { CategoryCombobox } from "./CategoryCombobox";
 import { toast } from "sonner";
 
 interface StoryArchiveDialogProps {
@@ -23,15 +21,8 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
 
   const isActive = (expiresAt: string) => new Date(expiresAt) > new Date();
 
-  const currentCategoryId = (() => {
-    if (!viewingStory?.category) return "remove";
-    const found = highlightCategories.find(c => c.name === viewingStory.category);
-    return found?.id ?? "remove";
-  })();
-
-  const handleCategoryChange = async (value: string) => {
+  const handleCategoryChange = async (category: string | null) => {
     if (!viewingStory) return;
-    const category = value === "remove" ? null : highlightCategories.find(c => c.id === value)?.name ?? null;
     try {
       await updateCategory({ storyId: viewingStory.id, category });
       setViewingStory({ ...viewingStory, category });
@@ -118,27 +109,13 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
               {/* Category assignment bar */}
               <div className="p-3 bg-black/80 border-t border-white/10">
                 <label className="text-xs text-white/60 mb-1.5 block">Öne Çıkan Kategorisi</label>
-                <Select value={currentCategoryId} onValueChange={handleCategoryChange} disabled={isPending}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm">
-                    <SelectValue placeholder="Kategori seç" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="remove">
-                      <span className="text-muted-foreground">Kategoriden Çıkar</span>
-                    </SelectItem>
-                    {highlightCategories.map((cat) => {
-                      const Icon = cat.icon;
-                      return (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <Icon className={cn("w-4 h-4", cat.color)} />
-                            <span>{cat.name}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <CategoryCombobox
+                  value={viewingStory.category ?? null}
+                  onChange={handleCategoryChange}
+                  disabled={isPending}
+                  variant="dark"
+                  placeholder="Kategori seç veya yeni oluştur…"
+                />
               </div>
             </>
           )}
