@@ -827,6 +827,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          is_highlighted: boolean
           media_url: string
         }
         Insert: {
@@ -835,6 +836,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          is_highlighted?: boolean
           media_url: string
         }
         Update: {
@@ -843,6 +845,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          is_highlighted?: boolean
           media_url?: string
         }
         Relationships: [
@@ -1572,6 +1575,38 @@ export type Database = {
             columns: ["head_coach_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]

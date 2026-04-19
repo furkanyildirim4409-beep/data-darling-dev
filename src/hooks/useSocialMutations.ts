@@ -205,9 +205,40 @@ export function useUpdateStoryCategory() {
   return useMutation({
     mutationFn: async ({ storyId, category }: { storyId: string; category: string | null }) => {
       if (!user) throw new Error("Not authenticated");
+
+      // Fetch the story so we can compute the correct expires_at when un-highlighting
+      const { data: existing, error: fetchErr } = await supabase
+        .from("coach_stories")
+        .select("id, created_at")
+        .eq("id", storyId)
+        .eq("coach_id", user.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const updates: {
+        category: string | null;
+        is_highlighted: boolean;
+        expires_at: string;
+      } = category
+        ? {
+            category,
+            is_highlighted: true,
+            // Permanent highlight — far-future expiry
+            expires_at: "2099-01-01T00:00:00Z",
+          }
+        : {
+            category: null,
+            is_highlighted: false,
+            // Reset to original 24h window from creation so the un-highlighted
+            // story doesn't linger in the active feed forever.
+            expires_at: new Date(
+              new Date(existing.created_at).getTime() + 24 * 3600 * 1000
+            ).toISOString(),
+          };
+
       const { data, error } = await supabase
         .from("coach_stories")
-        .update({ category })
+        .update(updates)
         .eq("id", storyId)
         .eq("coach_id", user.id)
         .select()
@@ -218,9 +249,41 @@ export function useUpdateStoryCategory() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
       qc.invalidateQueries({ queryKey: ["coach-stories"] });
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
     },
     onError: (err: Error) => {
       toast.error(`Kategori güncellenemedi: ${err.message}`);
+    },
+  });
+}
+
+export function useCoachHighlights() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["coach-highlights", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return [] as { category: string; stories: any[]; count: number }[];
+      const { data, error } = await supabase
+        .from("coach_stories")
+        .select("*")
+        .eq("coach_id", user.id)
+        .eq("is_highlighted", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const groups = new Map<string, any[]>();
+      for (const s of data ?? []) {
+        const key = (s.category && s.category.trim()) || "Öne Çıkanlar";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(s);
+      }
+      return Array.from(groups.entries()).map(([category, stories]) => ({
+        category,
+        stories,
+        count: stories.length,
+      }));
     },
   });
 }
