@@ -807,6 +807,7 @@ export type Database = {
       }
       coach_products: {
         Row: {
+          category: string | null
           coach_id: string | null
           created_at: string
           description: string | null
@@ -819,6 +820,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          category?: string | null
           coach_id?: string | null
           created_at?: string
           description?: string | null
@@ -831,6 +833,7 @@ export type Database = {
           title: string
         }
         Update: {
+          category?: string | null
           coach_id?: string | null
           created_at?: string
           description?: string | null
