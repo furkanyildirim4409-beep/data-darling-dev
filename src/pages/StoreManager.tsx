@@ -1,293 +1,348 @@
-import { useState, useEffect, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ProductEditor, ProductData } from "@/components/store-manager/ProductEditor";
-import { ProductList, StoreProduct } from "@/components/store-manager/ProductList";
-import { ProductDetailDialog } from "@/components/store-manager/ProductDetailDialog";
-import { MobilePreview } from "@/components/store-manager/MobilePreview";
-import { SalesChart } from "@/components/store-manager/SalesChart";
-import { BookOpen, Package, UserCheck, Plus, ShieldAlert } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ImagePlus,
+  Loader2,
+  Package,
+  ShieldAlert,
+  Store,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useCreateProduct, useCoachProducts, useUpdateProductStatus } from "@/hooks/useStoreMutations";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  useCoachProducts,
+  useCreateProduct,
+  useUpdateProductStatus,
+} from "@/hooks/useStoreMutations";
 
-const defaultProduct: ProductData = {
-  name: "",
-  description: "",
-  price: 0,
-  currency: "₺",
-  stock: "unlimited",
-  features: [],
-  buttonText: "Satın Al",
-  badge: "",
-};
+const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export default function StoreManager() {
   const { canManageStore } = usePermissions();
-  const { user } = useAuth();
-  const [productType, setProductType] = useState<"digital" | "physical" | "service">("service");
-  const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
-  const [editingProduct, setEditingProduct] = useState<ProductData>(defaultProduct);
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [detailProduct, setDetailProduct] = useState<StoreProduct | null>(null);
-
-  const { data: liveProducts, isLoading: isLoadingProducts } = useCoachProducts();
+  const { data: products, isLoading } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
 
-  // Sync live products into local state
-  useEffect(() => {
-    if (liveProducts) {
-      const mapped: StoreProduct[] = liveProducts.map((p) => ({
-        id: p.id,
-        type: "digital" as const,
-        name: p.title,
-        description: p.description || "",
-        price: Number(p.price),
-        currency: "₺",
-        stock: "unlimited" as const,
-        features: [],
-        buttonText: "Satın Al",
-        badge: p.is_active ? "" : "Pasif",
-        sales: 0,
-        revenue: 0,
-      }));
-      setProducts(mapped);
-    }
-  }, [liveProducts]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Update editingProduct when selectedProduct changes
-  useEffect(() => {
-    if (selectedProduct) {
-      setEditingProduct({
-        name: selectedProduct.name,
-        description: selectedProduct.description,
-        price: selectedProduct.price,
-        currency: selectedProduct.currency,
-        stock: selectedProduct.stock,
-        features: selectedProduct.features,
-        buttonText: selectedProduct.buttonText,
-        badge: selectedProduct.badge,
-      });
-      setIsCreatingNew(false);
-    }
-  }, [selectedProduct]);
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setPrice("");
+    setCategory("");
+    setImageFile(null);
+    setImagePreview(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
 
-  const handleProductChange = useCallback((newProduct: ProductData) => {
-    setEditingProduct(newProduct);
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Sadece görsel dosyalar yüklenebilir.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Görsel 5 MB'dan büyük olamaz.");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   }, []);
 
-  const handleSaveProduct = async (productData: ProductData, imageFile?: File) => {
-    if (selectedProduct && !isCreatingNew) {
-      // Update existing (local mock update)
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === selectedProduct.id ? { ...p, ...productData } : p
-        )
-      );
-      toast.success(`"${productData.name}" başarıyla güncellendi.`);
-    } else {
-      // Create new product — persist to Supabase
-      try {
-        let imageUrl = "/placeholder.svg";
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
 
-        if (imageFile && user) {
-          const ext = imageFile.name.split(".").pop() || "jpg";
-          const path = `${user.id}/${Date.now()}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from("social-media")
-            .upload(path, imageFile);
-          if (uploadError) throw uploadError;
+  const canSubmit =
+    !!title.trim() && !!price && Number(price) > 0 && !!category && !!imageFile && !isCreating;
 
-          const { data: urlData } = supabase.storage
-            .from("social-media")
-            .getPublicUrl(path);
-          imageUrl = urlData.publicUrl;
-        }
-
-        await createProduct({
-          title: productData.name,
-          description: productData.description,
-          price: productData.price,
-          image_url: imageUrl,
-          is_active: true,
-        });
-      } catch (err: any) {
-        toast.error(`Ürün eklenemedi: ${err.message}`);
-      }
+  const handleSubmit = async () => {
+    if (!canSubmit || !imageFile) return;
+    try {
+      await createProduct({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        price: Number(price),
+        category,
+        imageFile,
+      });
+      resetForm();
+    } catch {
+      // toast handled in hook
     }
-    setSelectedProduct(null);
-    setIsCreatingNew(false);
-  };
-
-  const handleSelectProduct = (product: StoreProduct) => {
-    setSelectedProduct(product);
-    setProductType(product.type);
-  };
-
-  const handleOpenDetail = (product: StoreProduct) => {
-    setDetailProduct(product);
-    setDetailDialogOpen(true);
-  };
-
-  const handleSaveDetail = (updatedProduct: StoreProduct) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
-    );
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    const product = products.find((p) => p.id === id);
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    if (selectedProduct?.id === id) {
-      setSelectedProduct(null);
-    }
-    toast.success(`"${product?.name}" mağazadan kaldırıldı.`);
-  };
-
-  const handleNewProduct = () => {
-    setSelectedProduct(null);
-    setIsCreatingNew(true);
-    setEditingProduct({
-      ...defaultProduct,
-      name: productType === "service" ? "Yeni Koçluk Paketi" :
-            productType === "digital" ? "Yeni E-Kitap" : "Yeni Ürün",
-      features: productType === "service" ? [
-        { id: "f1", text: "Özellik 1", included: true },
-        { id: "f2", text: "Özellik 2", included: true },
-      ] : [],
-    });
-  };
-
-  const handleTabChange = (value: string) => {
-    const type = value as "digital" | "physical" | "service";
-    setProductType(type);
-    setSelectedProduct(null);
-    setIsCreatingNew(false);
   };
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">
-          Mağaza ve Hizmet Yönetimi
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Ürün ve hizmetlerinizi düzenleyin, satışları takip edin
-        </p>
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Store className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+            Mağaza Yönetimi
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Ürünlerinizi Shopify ile senkronize ederek yayınlayın
+          </p>
+        </div>
       </div>
 
-      {/* Product Type Tabs */}
-      <Tabs value={productType} onValueChange={handleTabChange}>
-        <div className="flex items-center justify-between">
-          <TabsList className="bg-muted/50 p-1">
-            <TabsTrigger value="digital" className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              Dijital (E-Kitap)
-            </TabsTrigger>
-            <TabsTrigger value="physical" className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Fiziksel (Ekipman)
-            </TabsTrigger>
-            <TabsTrigger value="service" className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              Hizmet (Koçluk)
-            </TabsTrigger>
-          </TabsList>
+      {/* Upload Form */}
+      {canManageStore ? (
+        <div className="glass rounded-xl border border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-5">
+            Yeni Ürün Yükle
+          </h2>
 
-          {canManageStore && (
-            <Button onClick={handleNewProduct} className="bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Yeni Ürün Ekle
-            </Button>
-          )}
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
-          {/* Left - Product List */}
-          <div className="lg:col-span-3">
-            <div className="glass rounded-xl border border-border p-5">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Ürün Listesi</h2>
-              <ScrollArea className="h-[calc(100vh-340px)]">
-                <ProductList
-                  products={products}
-                  selectedProductId={selectedProduct?.id || null}
-                  onSelectProduct={handleSelectProduct}
-                  onDeleteProduct={handleDeleteProduct}
-                  onOpenDetail={handleOpenDetail}
-                  filterType={productType}
-                  readOnly={!canManageStore}
-                />
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Center - Editor */}
-          <div className="lg:col-span-4">
-            <div className="glass rounded-xl border border-border p-5">
-              <h2 className="text-lg font-semibold text-foreground mb-4">
-                {isCreatingNew ? "Yeni Ürün Oluştur" : selectedProduct ? "Ürünü Düzenle" : "Ürün Editörü"}
-              </h2>
-              <ScrollArea className="h-[calc(100vh-340px)]">
-                {!canManageStore ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <ShieldAlert className="w-12 h-12 mb-4 opacity-50 text-warning" />
-                    <p className="text-sm text-center font-medium">
-                      Bu modülü düzenleme yetkiniz yok
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Yönetici ile iletişime geçin
-                    </p>
-                  </div>
-                ) : (selectedProduct || isCreatingNew) ? (
-                  <ProductEditor 
-                    productType={productType} 
-                    onProductChange={handleProductChange}
-                    initialData={editingProduct}
-                    onSave={handleSaveProduct}
-                    isSubmitting={isCreating}
-                  />
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
+            {/* Image dropzone */}
+            <div>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+                Görsel
+              </Label>
+              <div
+                onClick={() => inputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={onDrop}
+                className={`relative aspect-square rounded-xl border-2 border-dashed cursor-pointer transition-colors overflow-hidden flex items-center justify-center ${
+                  dragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-muted/30 hover:border-primary/50"
+                }`}
+              >
+                {imagePreview ? (
+                  <>
+                    <img
+                      src={imagePreview}
+                      alt="Önizleme"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageFile(null);
+                        setImagePreview(null);
+                        if (inputRef.current) inputRef.current.value = "";
+                      }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Package className="w-12 h-12 mb-4 opacity-50" />
-                    <p className="text-sm text-center">
-                      Düzenlemek için listeden bir ürün seçin
-                      <br />
-                      veya yeni ürün oluşturun
-                    </p>
+                  <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
+                    <ImagePlus className="w-8 h-8 mb-2" />
+                    <p className="text-xs font-medium">Görsel sürükleyin</p>
+                    <p className="text-[10px] mt-1 opacity-70">veya tıklayın · max 5MB</p>
                   </div>
                 )}
-              </ScrollArea>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Right - Mobile Preview + Sales */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="glass rounded-xl border border-border p-5 flex flex-col items-center justify-center min-h-[400px]">
-              <MobilePreview product={editingProduct} productType={productType} />
-            </div>
-            <div className="glass rounded-xl border border-border p-5">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Satış Verileri</h2>
-              <SalesChart />
+            {/* Fields */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Başlık
+                </Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Örn: Whey Protein 2kg"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Açıklama
+                </Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Ürün hakkında kısa bir açıklama..."
+                  className="mt-1.5 min-h-[88px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="price" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Fiyat (₺)
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Kategori
+                  </Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Seçiniz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="w-full sm:w-auto"
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Yayınlanıyor...
+                  </>
+                ) : (
+                  "Yayınla ve Shopify'a Gönder"
+                )}
+              </Button>
             </div>
           </div>
         </div>
-      </Tabs>
+      ) : (
+        <div className="glass rounded-xl border border-border p-10 flex flex-col items-center justify-center text-muted-foreground">
+          <ShieldAlert className="w-12 h-12 mb-4 opacity-50 text-warning" />
+          <p className="text-sm font-medium">Bu modülü düzenleme yetkiniz yok</p>
+          <p className="text-xs mt-1">Yönetici ile iletişime geçin</p>
+        </div>
+      )}
 
-      {/* Product Detail Dialog */}
-      <ProductDetailDialog
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-        product={detailProduct}
-        onSave={handleSaveDetail}
-      />
+      {/* My Products Grid */}
+      <div className="glass rounded-xl border border-border p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground">
+            Ürünlerim {products && products.length > 0 ? `(${products.length})` : ""}
+          </h2>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="aspect-square w-full rounded-xl" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : !products || products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+            <Package className="w-12 h-12 mb-4 opacity-40" />
+            <p className="text-sm font-medium">Henüz ürün eklemediniz</p>
+            <p className="text-xs mt-1">
+              Yukarıdan ilk ürününüzü oluşturun ve Shopify'a yayınlayın.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {products.map((p: any) => (
+              <div
+                key={p.id}
+                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors"
+              >
+                <div className="aspect-square bg-muted overflow-hidden">
+                  <img
+                    src={p.image_url}
+                    alt={p.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">
+                      {p.title}
+                    </h3>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-base font-bold text-primary">
+                      ₺{Number(p.price).toLocaleString("tr-TR")}
+                    </span>
+                    {p.category && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {p.category}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      {p.is_active ? "Aktif" : "Pasif"}
+                    </span>
+                    <Switch
+                      checked={!!p.is_active}
+                      disabled={!canManageStore}
+                      onCheckedChange={(checked) =>
+                        updateStatus({ product_id: p.id, is_active: checked })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
