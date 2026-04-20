@@ -1,78 +1,80 @@
 
+## Bulgular
 
-## Fix `create-shopify-product` for Shopify Admin API 2025-07
+- `create-shopify-product` edge function şu anda Shopify Admin API `2025-07` kullanıyor ve `X-Shopify-Access-Token` header’ı doğru şekilde gönderiliyor.
+- Kod tarafındaki 3 adımlı akış da doğru görünüyor: `productCreate` → `productVariantsBulkUpdate` → `productCreateMedia`.
+- Hata doğrudan Shopify’dan geliyor: `ACCESS_DENIED` ve açıkça `write_products` scope + ürün oluşturma yetkisi eksik olduğunu söylüyor.
+- Mevcut fonksiyon hâlâ manuel secret’lara bağlı: `SHOPIFY_DOMAIN` ve `SHOPIFY_ADMIN_TOKEN`.
+- Shopify yetki durumu bu kullanıcı için `AUTHORIZED - Per-User Access`; yani Lovable tarafında bağlantı var, fakat ürün oluşturma izni mağaza tarafındaki rol/credential kaynağında eksik olabilir.
 
-### Problem
-`productCreate` mutation rejects `variants` field. In Admin API 2025-07, variant pricing and media attachment must be done via separate mutations after product creation.
+## Kök Neden
 
-### Solution: Three sequential GraphQL mutations
+Sorun mutation yapısından çok yetki kaynağında:
 
-Rewrite `supabase/functions/create-shopify-product/index.ts` to execute:
+1. Edge function, Lovable Shopify bağlantısından bağımsız/stale kalmış bir `SHOPIFY_ADMIN_TOKEN` kullanıyor olabilir.
+2. Token’da `write_products` scope olmayabilir.
+3. Token doğru olsa bile, bağlı Shopify kullanıcısının mağaza içinde “product create/edit” yetkisi olmayabilir.
+4. Bu yüzden `productCreate` ilk adımda düşüyor ve tüm akış 500’e dönüyor.
 
-**1. `productCreate`** — create product shell only
-```graphql
-mutation productCreate($input: ProductInput!) {
-  productCreate(input: $input) {
-    product {
-      id
-      variants(first: 1) { edges { node { id } } }
-    }
-    userErrors { field message }
-  }
-}
-```
-Input: `{ title, descriptionHtml, vendor, productType, status: "ACTIVE" }` — no `variants`, no `media`.
+## Uygulama Planı
 
-Extract `productId` + default `variantId`. Hard fail with 500 if this step errors.
+### 1) Shopify credential kaynağını netleştir
+- Projedeki aktif Shopify bağlantısını ve secret kaynağını kontrol edeceğim.
+- `SHOPIFY_DOMAIN` / `SHOPIFY_ADMIN_TOKEN` gerçekten güncel mi, yoksa Lovable Shopify bağlantısından kopuk eski bir token mı, bunu doğrulayacağım.
+- Gerekirse bu projedeki edge function’ı Lovable bağlantısıyla uyumlu secret kaynağına taşıyacağım veya güncel token/domain ile yeniden bağlayacağım.
 
-**2. `productVariantsBulkUpdate`** — set the price on the auto-generated default variant
-```graphql
-mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-  productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-    productVariants { id price }
-    userErrors { field message }
-  }
-}
-```
-Variables: `{ productId, variants: [{ id: variantId, price: String(price) }] }`.
+### 2) Yetki problemini düzelt
+- Shopify bağlantısında `write_products` scope’un gerçekten bulunduğunu doğrulayacağım.
+- Eğer scope eksikse bağlantıyı doğru scope’larla yeniden yetkilendireceğim.
+- Eğer scope var ama kullanıcı rolü yetersizse, mağaza tarafında ürün oluşturma yetkisi olan hesapla yeniden authorize edilmesi gerekecek; bunu tespit edip net hata mesajı üreteceğim.
 
-Best-effort: log errors via `console.error` but continue.
+### 3) Edge function’ı sertleştir
+`supabase/functions/create-shopify-product/index.ts` içinde:
 
-**3. `productCreateMedia`** — attach image
-```graphql
-mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-  productCreateMedia(productId: $productId, media: $media) {
-    media { ... on MediaImage { id } }
-    mediaUserErrors { field message }
-  }
-}
-```
-Variables: `{ productId, media: [{ originalSource: imageUrl, mediaContentType: "IMAGE", alt: title }] }`.
+- mevcut 3 adımlı 2025-07 akış korunacak
+- `ACCESS_DENIED` hataları artık generic 500 yerine anlamlı biçimde ayrıştırılacak
+- response daha net olacak:
+  - `403`: scope/Shopify role yetkisi sorunu
+  - `500`: gerçek sunucu veya beklenmeyen Shopify hatası
+- log’larda token’ın kendisi asla yazılmayacak; sadece:
+  - hangi domain’e gidildiği
+  - hangi mutation’ın fail ettiği
+  - Shopify `code` / `requiredAccess` alanları
+- böylece bir sonraki hata doğrudan “scope eksik” mi, “staff permission eksik” mi, “yanlış token” mı anlaşılacak
 
-Best-effort: log errors but continue.
+### 4) Frontend hata mesajını iyileştir
+`src/hooks/useStoreMutations.ts` içinde:
 
-### Response Contract
-Always return `{ productId, variantId }` (200) when step 1 succeeds — even if step 2 or 3 logs warnings — so `useStoreMutations.ts` can persist the mapping row in `coach_products`. The frontend stays unchanged.
+- edge function’dan gelen `403 ACCESS_DENIED` durumunu özel yakalayacağım
+- kullanıcıya genel “500” yerine açık mesaj göstereceğim:
+  - `Shopify ürün oluşturma yetkisi eksik`
+  - `write_products scope veya mağaza kullanıcı izni gerekiyor`
+- rollback davranışı korunacak; Shopify başarısızsa storage yüklemesi temizlenecek
 
-### Error Handling Matrix
+### 5) Uçtan uca doğrulama
+Düzeltmeden sonra gerçek test akışı:
 
-| Step | Failure mode | Behavior |
-|------|--------------|----------|
-| Auth / payload validation | invalid request | 400/401, no Shopify call |
-| `productCreate` userErrors or HTTP error | hard failure | 500 with error detail |
-| `productVariantsBulkUpdate` userErrors | soft failure | log + include `priceWarning` in response |
-| `productCreateMedia` mediaUserErrors | soft failure | log + include `mediaWarning` in response |
+1. `/store` üzerinden ürün oluştur
+2. Shopify Admin’de ürün oluştuğunu doğrula
+3. fiyatın default variant’a işlendiğini doğrula
+4. görselin bağlandığını doğrula
+5. `coach_products` tablosuna `shopify_product_id` ve `shopify_variant_id` yazıldığını doğrula
 
-### Deployment
-After the rewrite, redeploy `create-shopify-product` and verify by invoking from the Store page (Yeni Ürün). Confirm:
-- Product appears in Shopify admin with correct title + price
-- Image attached
-- Row inserted in `coach_products` with both Shopify IDs
+## Teknik Notlar
 
-### Files
-| File | Change |
-|------|--------|
-| `supabase/functions/create-shopify-product/index.ts` | Full rewrite — three-step mutation pipeline |
+- Veritabanı migration gerekmiyor.
+- Ana kod bug’ı şu anda GraphQL şeması değil, authorization zinciri.
+- `productCreate` ilk mutation’da fail ettiği için fiyat ve medya adımlarına zaten geçilemiyor.
+- En kritik düzeltme: edge function’ın doğru, güncel ve ürün oluşturma yetkili Shopify credential ile çalıştığından emin olmak.
 
-No frontend, schema, or `useStoreMutations.ts` changes required.
+## Uygulanacak Dosyalar
+
+- `supabase/functions/create-shopify-product/index.ts`
+- `src/hooks/useStoreMutations.ts`
+
+## Beklenen Sonuç
+
+Bu çalışma sonunda ürün oluşturma akışı ya:
+- başarılı şekilde Shopify’a ürün açacak,
+- ya da başarısız olursa artık net olarak “scope eksik”, “Shopify staff yetkisi eksik” veya “yanlış/stale token” diye ayrıştırılmış hata verecek.
 
