@@ -35,6 +35,20 @@ async function shopifyGraphql(
   return { ok: res.ok, status: res.status, json };
 }
 
+function extractAccessDenied(errors: any[]): { denied: boolean; requiredAccess?: string; message?: string } {
+  if (!Array.isArray(errors)) return { denied: false };
+  for (const e of errors) {
+    if (e?.extensions?.code === "ACCESS_DENIED") {
+      return {
+        denied: true,
+        requiredAccess: e.extensions.requiredAccess,
+        message: e.message,
+      };
+    }
+  }
+  return { denied: false };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -74,8 +88,17 @@ Deno.serve(async (req) => {
     }
 
     const SHOPIFY_DOMAIN = Deno.env.get("SHOPIFY_DOMAIN");
-    const SHOPIFY_ADMIN_TOKEN = Deno.env.get("SHOPIFY_ADMIN_TOKEN");
-    if (!SHOPIFY_DOMAIN || !SHOPIFY_ADMIN_TOKEN) {
+    // Prefer Lovable-managed token; fall back to manual admin token if present.
+    const SHOPIFY_TOKEN =
+      Deno.env.get("SHOPIFY_ACCESS_TOKEN") ??
+      Deno.env.get("SHOPIFY_ADMIN_TOKEN");
+    const tokenSource = Deno.env.get("SHOPIFY_ACCESS_TOKEN")
+      ? "SHOPIFY_ACCESS_TOKEN (Lovable-managed)"
+      : Deno.env.get("SHOPIFY_ADMIN_TOKEN")
+      ? "SHOPIFY_ADMIN_TOKEN (manual)"
+      : "none";
+
+    if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
       return new Response(
         JSON.stringify({ error: "Shopify credentials not configured" }),
         {
@@ -87,6 +110,12 @@ Deno.serve(async (req) => {
 
     const adminUrl =
       `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
+
+    console.log("create-shopify-product: calling", {
+      domain: SHOPIFY_DOMAIN,
+      tokenSource,
+      apiVersion: SHOPIFY_API_VERSION,
+    });
 
     // ─── STEP 1: productCreate ──────────────────────────────────────────────
     const productCreateMutation = `
@@ -111,15 +140,45 @@ Deno.serve(async (req) => {
 
     const createRes = await shopifyGraphql(
       adminUrl,
-      SHOPIFY_ADMIN_TOKEN,
+      SHOPIFY_TOKEN,
       productCreateMutation,
       { input },
     );
 
+    // Check for ACCESS_DENIED specifically — return 403 with actionable detail.
+    const accessDenied = extractAccessDenied(createRes.json?.errors ?? []);
+    if (accessDenied.denied) {
+      console.error("productCreate ACCESS_DENIED", {
+        domain: SHOPIFY_DOMAIN,
+        tokenSource,
+        requiredAccess: accessDenied.requiredAccess,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "ACCESS_DENIED",
+          code: "ACCESS_DENIED",
+          message:
+            "Shopify ürün oluşturma yetkisi eksik. write_products scope veya mağaza staff izni gerekiyor.",
+          requiredAccess: accessDenied.requiredAccess,
+          tokenSource,
+          shopifyMessage: accessDenied.message,
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     if (!createRes.ok || createRes.json.errors) {
       const msg = createRes.json.errors?.[0]?.message ??
         `Shopify ${createRes.status}`;
-      console.error("productCreate HTTP/GraphQL error", createRes.json);
+      console.error("productCreate HTTP/GraphQL error", {
+        domain: SHOPIFY_DOMAIN,
+        tokenSource,
+        status: createRes.status,
+        errors: createRes.json?.errors,
+      });
       return new Response(
         JSON.stringify({ error: msg, raw: createRes.json }),
         {
@@ -173,7 +232,7 @@ Deno.serve(async (req) => {
       `;
       const priceRes = await shopifyGraphql(
         adminUrl,
-        SHOPIFY_ADMIN_TOKEN,
+        SHOPIFY_TOKEN,
         variantsBulkUpdateMutation,
         {
           productId,
@@ -185,7 +244,10 @@ Deno.serve(async (req) => {
       if (!priceRes.ok || priceRes.json.errors) {
         priceWarning = priceRes.json.errors?.[0]?.message ??
           `priceUpdate HTTP ${priceRes.status}`;
-        console.error("productVariantsBulkUpdate transport error", priceRes.json);
+        console.error("productVariantsBulkUpdate transport error", {
+          status: priceRes.status,
+          errors: priceRes.json?.errors,
+        });
       } else if (priceErrors.length > 0) {
         priceWarning = priceErrors[0].message;
         console.error("productVariantsBulkUpdate userErrors", priceErrors);
@@ -207,7 +269,7 @@ Deno.serve(async (req) => {
     `;
     const mediaRes = await shopifyGraphql(
       adminUrl,
-      SHOPIFY_ADMIN_TOKEN,
+      SHOPIFY_TOKEN,
       productCreateMediaMutation,
       {
         productId,
@@ -223,14 +285,17 @@ Deno.serve(async (req) => {
     if (!mediaRes.ok || mediaRes.json.errors) {
       mediaWarning = mediaRes.json.errors?.[0]?.message ??
         `mediaCreate HTTP ${mediaRes.status}`;
-      console.error("productCreateMedia transport error", mediaRes.json);
+      console.error("productCreateMedia transport error", {
+        status: mediaRes.status,
+        errors: mediaRes.json?.errors,
+      });
     } else if (mediaErrors.length > 0) {
       mediaWarning = mediaErrors[0].message;
       console.error("productCreateMedia mediaUserErrors", mediaErrors);
     }
 
     return new Response(
-      JSON.stringify({ productId, variantId, priceWarning, mediaWarning }),
+      JSON.stringify({ productId, variantId, priceWarning, mediaWarning, tokenSource }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
