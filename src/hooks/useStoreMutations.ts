@@ -85,7 +85,28 @@ export function useCreateProduct() {
             },
           },
         );
-        if (shopifyError) throw shopifyError;
+        if (shopifyError) {
+          // Try to extract a structured ACCESS_DENIED message from the function response
+          const ctx: any = (shopifyError as any).context;
+          let detail = shopifyError.message;
+          try {
+            const respText = await ctx?.response?.text?.();
+            if (respText) {
+              const parsed = JSON.parse(respText);
+              if (parsed?.code === "ACCESS_DENIED" || parsed?.error === "ACCESS_DENIED") {
+                detail =
+                  "Shopify ürün oluşturma yetkisi eksik (write_products scope veya mağaza staff izni gerekiyor). Shopify bağlantınızı yeniden yetkilendirin.";
+              } else if (parsed?.message) {
+                detail = parsed.message;
+              } else if (parsed?.error) {
+                detail = parsed.error;
+              }
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+          throw new Error(detail);
+        }
         shopifyProductId = shopifyData?.productId ?? shopifyData?.product_id ?? null;
         shopifyVariantId = shopifyData?.variantId ?? shopifyData?.variant_id ?? null;
       } catch (err: any) {
