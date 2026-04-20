@@ -1,44 +1,108 @@
 
 
-User wants to decouple highlight state from `expires_at`. Highlights live purely on `is_highlighted` + `category`. The active 24h ring is governed exclusively by the original `expires_at = created_at + 24h`.
+## Coach Vendor Portal — Shopify Product Upload
 
-Confirmed from code:
-- `useUpdateStoryCategory` in `src/hooks/useSocialMutations.ts` currently sets `expires_at` to `'2099-01-01T00:00:00Z'` on highlight and recomputes `created_at + 24h` on un-highlight. Both branches must stop touching `expires_at`.
-- `useCoachHighlights` already filters by `is_highlighted = true` only — no `expires_at` dependency. Good, no change needed.
-- `HighlightsSection.tsx` "remove highlight" path calls the same hook with `category: null` — will naturally inherit the new behavior.
-- `StoryArchiveDialog.tsx` "Aktif/Arşiv" badge is computed via `isActive(expires_at)` — once data is cleaned, archived highlighted stories will correctly show as "Arşiv" again.
+Replace `StoreManager.tsx` with a clean two-section page: **Upload Form** on top, **My Products Grid** below. Push to shared Shopify via the existing edge function, persist mapping in `coach_products`.
 
-## Plan
+### 1. Database migration
 
-### Step A — Rewrite `useUpdateStoryCategory`
-File: `src/hooks/useSocialMutations.ts`
-
-- Drop the `existing` fetch (no longer needed).
-- Highlight: `update({ is_highlighted: true, category })`.
-- Un-highlight: `update({ is_highlighted: false, category: null })`.
-- Never touch `expires_at` in either branch.
-- Keep existing query invalidations (`coach-stories`, `coach-stories-archive`, `coach-highlights`).
-
-### Step B — Emergency data cleanup
-Run via insert tool (UPDATE on existing table, no schema change):
+`coach_products` is missing the columns the spec needs. Add:
 
 ```sql
-UPDATE public.coach_stories
-SET expires_at = created_at + interval '24 hours'
-WHERE expires_at > created_at + interval '30 days';
+ALTER TABLE public.coach_products
+  ADD COLUMN IF NOT EXISTS shopify_product_id text,
+  ADD COLUMN IF NOT EXISTS shopify_variant_id text,
+  ADD COLUMN IF NOT EXISTS category text;
+
+CREATE INDEX IF NOT EXISTS idx_coach_products_coach_active
+  ON public.coach_products(coach_id, is_active);
 ```
 
-This snaps every story whose `expires_at` was pushed to `'2099-01-01'` (or any unrealistic far-future value) back to its true 24h window. Highlighted stories remain highlighted because `is_highlighted` is unaffected — they just stop polluting the active ring.
+(All nullable so existing rows survive. RLS already in place — no policy change.)
+
+### 2. Storage
+
+Use existing public `products` bucket. Path convention: `${user.id}/${timestamp}-${filename}`. Add an RLS policy if not present so coaches can write only into their own folder:
+
+```sql
+CREATE POLICY "Coaches upload to own folder"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'products' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Public read products"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'products');
+```
+
+(Skipped if already present — migration uses `IF NOT EXISTS` pattern via `DO` block.)
+
+### 3. Hook updates — `src/hooks/useStoreMutations.ts`
+
+Extend `useCreateProduct` to:
+1. Upload image file → `products/${user.id}/...` → public URL.
+2. `supabase.functions.invoke("create-shopify-product", { body: { title, descriptionHtml: description, price, imageUrl, category, vendorName: profile.full_name } })`.
+3. Read `productId` + `variantId` from response.
+4. Insert into `coach_products` with `{ coach_id, title, description, price, image_url, category, shopify_product_id: productId, shopify_variant_id: variantId, is_active: true }`.
+5. Toast success + invalidate `coach-products` query.
+6. On any failure, rollback the storage upload (best-effort delete) and surface a toast.
+
+`useUpdateProductStatus` stays as-is (already toggles `is_active`).
+
+### 4. New page — `src/pages/StoreManager.tsx` (full rewrite)
+
+**Layout:**
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ Mağaza Yönetimi                                      │
+│ Ürünlerinizi Shopify ile senkronize ederek yayınlayın│
+├─────────────────────────────────────────────────────┤
+│ [ Glass card: Yeni Ürün Yükle ]                      │
+│  ┌─Görsel─┐  Başlık ____________________________     │
+│  │drop    │  Açıklama __________________________     │
+│  │zone    │  Fiyat (₺) ___   Kategori [Select ▾]     │
+│  └────────┘  [ Yayınla ve Shopify'a Gönder ]         │
+├─────────────────────────────────────────────────────┤
+│ Ürünlerim (12)                          [grid view]  │
+│  ┌─img─┐  ┌─img─┐  ┌─img─┐  ┌─img─┐                 │
+│  │     │  │     │  │     │  │     │                 │
+│  │₺199 │  │₺349 │  │₺79  │  │₺1499│                 │
+│  │[on] │  │[on] │  │[off]│  │[on] │                 │
+│  └─────┘  └─────┘  └─────┘  └─────┘                 │
+└─────────────────────────────────────────────────────┘
+```
+
+**Form fields:**
+- Image dropzone (click + drag-drop, preview thumb, file size guard 5 MB).
+- Title (required).
+- Description textarea.
+- Price (number, ₺).
+- Category Select with options: `Takviye`, `Ekipman`, `Dijital İçerik`, `Giyim`.
+- Submit button: shows `Loader2` spinner while `isCreating`, disabled if required fields empty.
+
+**Grid (`MyProductsGrid` inline component):**
+- Renders `useCoachProducts()` data.
+- Glass card per product: image (aspect-square, rounded), title, price in primary, category badge, `Switch` bound to `is_active` calling `useUpdateProductStatus`.
+- Empty state: glass panel with `Package` icon + "Henüz ürün eklemediniz" copy.
+- Loading: 4 skeleton cards.
+
+**Permission gate:** keep `canManageStore` check. If false, show the existing `ShieldAlert` empty state instead of the upload form. Grid still visible (read-only — switches disabled).
+
+### 5. Cleanup
+- Remove now-unused components from import: `ProductEditor`, `ProductList`, `ProductDetailDialog`, `MobilePreview`, `SalesChart`, `Tabs` for product type. (Files stay on disk — nothing else imports them — but leave them; no risk.)
+- Sidebar entry `/store` already exists. No nav change.
 
 ### Files
 
 | File | Action |
 |------|--------|
-| `src/hooks/useSocialMutations.ts` | EDIT — strip `expires_at` writes from `useUpdateStoryCategory` |
-| Database (no migration) | RUN UPDATE — reset corrupted `expires_at` rows |
+| Migration SQL | CREATE — add 3 columns + index + storage policies |
+| `src/hooks/useStoreMutations.ts` | EDIT — upload + invoke edge fn + insert mapping |
+| `src/pages/StoreManager.tsx` | REWRITE — Upload Form + My Products Grid |
 
 ### Confirmation
-- Athlete app's 24h ring (filters `expires_at > now()`) will no longer surface archived/highlighted stories.
-- Coach highlights tab continues working — driven solely by `is_highlighted`.
-- No new INSERTs; no schema change; no impact on un-highlighted active stories created within the last 24h.
+- Image scoped to `products/${auth.uid()}/...` per spec.
+- `create-shopify-product` invoked exactly with `{ title, descriptionHtml, price, imageUrl, category, vendorName }`.
+- `coach_products` row stores both Shopify IDs + category for downstream marketplace sync.
+- Glassmorphic dark theme via existing `glass`/`bg-card` tokens — matches Coach OS aesthetic.
 
