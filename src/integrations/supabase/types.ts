@@ -136,6 +136,8 @@ export type Database = {
           is_active: boolean
           name_and_dosage: string
           servings_left: number
+          shopify_product_id: string | null
+          shopify_variant_id: string | null
           source_insight_id: string | null
           timing: string
           total_servings: number
@@ -150,6 +152,8 @@ export type Database = {
           is_active?: boolean
           name_and_dosage: string
           servings_left?: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           source_insight_id?: string | null
           timing?: string
           total_servings?: number
@@ -164,6 +168,8 @@ export type Database = {
           is_active?: boolean
           name_and_dosage?: string
           servings_left?: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           source_insight_id?: string | null
           timing?: string
           total_servings?: number
@@ -808,6 +814,8 @@ export type Database = {
           image_url: string
           is_active: boolean | null
           price: number
+          shopify_product_id: string | null
+          shopify_variant_id: string | null
           title: string
         }
         Insert: {
@@ -818,6 +826,8 @@ export type Database = {
           image_url: string
           is_active?: boolean | null
           price: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           title: string
         }
         Update: {
@@ -828,6 +838,8 @@ export type Database = {
           image_url?: string
           is_active?: boolean | null
           price?: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
           title?: string
         }
         Relationships: [
@@ -1680,6 +1692,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          product_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          product_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          product_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -2666,6 +2705,19 @@ export type Database = {
       }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
+      get_coach_leaderboard_v2: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          calculated_score: number
+          coach_id: string
+          full_name: string
+          level: number
+          specialty: string
+          student_count: number
+          total_likes: number
+        }[]
+      }
       get_my_head_coach_id: { Args: never; Returns: string }
       get_team_peers: {
         Args: { _head_coach_id: string }
