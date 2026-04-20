@@ -88,17 +88,10 @@ Deno.serve(async (req) => {
     }
 
     const SHOPIFY_DOMAIN = Deno.env.get("SHOPIFY_DOMAIN");
-    // Prefer Lovable-managed token; fall back to manual admin token if present.
-    const SHOPIFY_TOKEN =
-      Deno.env.get("SHOPIFY_ACCESS_TOKEN") ??
-      Deno.env.get("SHOPIFY_ADMIN_TOKEN");
-    const tokenSource = Deno.env.get("SHOPIFY_ACCESS_TOKEN")
-      ? "SHOPIFY_ACCESS_TOKEN (Lovable-managed)"
-      : Deno.env.get("SHOPIFY_ADMIN_TOKEN")
-      ? "SHOPIFY_ADMIN_TOKEN (manual)"
-      : "none";
+    const lovableToken = Deno.env.get("SHOPIFY_ACCESS_TOKEN");
+    const adminToken = Deno.env.get("SHOPIFY_ADMIN_TOKEN");
 
-    if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
+    if (!SHOPIFY_DOMAIN || (!lovableToken && !adminToken)) {
       return new Response(
         JSON.stringify({ error: "Shopify credentials not configured" }),
         {
@@ -111,13 +104,7 @@ Deno.serve(async (req) => {
     const adminUrl =
       `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
 
-    console.log("create-shopify-product: calling", {
-      domain: SHOPIFY_DOMAIN,
-      tokenSource,
-      apiVersion: SHOPIFY_API_VERSION,
-    });
-
-    // ─── STEP 1: productCreate ──────────────────────────────────────────────
+    // ─── STEP 1: productCreate (with token fallback on 401) ─────────────────
     const productCreateMutation = `
       mutation productCreate($input: ProductInput!) {
         productCreate(input: $input) {
@@ -138,12 +125,50 @@ Deno.serve(async (req) => {
       status: "ACTIVE",
     };
 
-    const createRes = await shopifyGraphql(
-      adminUrl,
-      SHOPIFY_TOKEN,
-      productCreateMutation,
-      { input },
-    );
+    // Try tokens in order: Lovable-managed first, then manual admin.
+    const tokenAttempts: Array<{ token: string; source: string }> = [];
+    if (lovableToken) tokenAttempts.push({ token: lovableToken, source: "SHOPIFY_ACCESS_TOKEN (Lovable-managed)" });
+    if (adminToken && adminToken !== lovableToken) tokenAttempts.push({ token: adminToken, source: "SHOPIFY_ADMIN_TOKEN (manual)" });
+
+    let createRes: Awaited<ReturnType<typeof shopifyGraphql>> | null = null;
+    let SHOPIFY_TOKEN = "";
+    let tokenSource = "none";
+    const attemptErrors: Array<{ source: string; status: number; error: string }> = [];
+
+    for (const attempt of tokenAttempts) {
+      console.log("create-shopify-product: trying", {
+        domain: SHOPIFY_DOMAIN,
+        tokenSource: attempt.source,
+        apiVersion: SHOPIFY_API_VERSION,
+      });
+      const res = await shopifyGraphql(adminUrl, attempt.token, productCreateMutation, { input });
+      if (res.status === 401) {
+        const errMsg = JSON.stringify(res.json?.errors ?? res.json);
+        console.error("productCreate 401 with", attempt.source, errMsg);
+        attemptErrors.push({ source: attempt.source, status: 401, error: errMsg });
+        continue;
+      }
+      createRes = res;
+      SHOPIFY_TOKEN = attempt.token;
+      tokenSource = attempt.source;
+      break;
+    }
+
+    if (!createRes) {
+      return new Response(
+        JSON.stringify({
+          error: "Shopify 401 — all configured tokens rejected",
+          message:
+            "Hiçbir Shopify token kabul edilmedi. Lovable Shopify bağlantısını yeniden kurun veya SHOPIFY_ADMIN_TOKEN'ı geçerli bir token ile güncelleyin.",
+          domain: SHOPIFY_DOMAIN,
+          attempts: attemptErrors,
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Check for ACCESS_DENIED specifically — return 403 with actionable detail.
     const accessDenied = extractAccessDenied(createRes.json?.errors ?? []);
