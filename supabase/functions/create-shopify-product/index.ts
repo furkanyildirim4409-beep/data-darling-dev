@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
       vendor: body.vendorName ?? "Dynabolic Coach",
       productType: body.category ?? "",
       status: "ACTIVE",
+      variants: [{ price: String(body.price) }],
     };
     const media = body.imageUrl
       ? [{
@@ -135,31 +136,6 @@ Deno.serve(async (req) => {
     const product = shopifyJson.data?.productCreate?.product;
     const productId = product?.id ?? null;
     const variantId = product?.variants?.edges?.[0]?.node?.id ?? null;
-
-    // Update default variant price (2025-07 API requires separate mutation)
-    if (variantId && productId) {
-      const variantUpdateMutation = `
-        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-            userErrors { field message }
-          }
-        }
-      `;
-      await fetch(adminUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": SHOPIFY_ADMIN_TOKEN,
-        },
-        body: JSON.stringify({
-          query: variantUpdateMutation,
-          variables: {
-            productId,
-            variants: [{ id: variantId, price: String(body.price) }],
-          },
-        }),
-      });
-    }
 
     return new Response(
       JSON.stringify({ productId, variantId }),
