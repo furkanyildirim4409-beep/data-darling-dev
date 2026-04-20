@@ -81,7 +81,7 @@ export function useCreateProduct() {
               price: payload.price,
               imageUrl,
               category: payload.category,
-              vendorName: profile?.full_name ?? "Dynabolic Coach",
+              vendorName: profile?.name ?? "Dynabolic Coach",
             },
           },
         );
