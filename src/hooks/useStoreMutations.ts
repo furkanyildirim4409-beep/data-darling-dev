@@ -86,7 +86,7 @@ export function useCreateProduct() {
           },
         );
         if (shopifyError) {
-          // Try to extract a structured ACCESS_DENIED message from the function response
+          // Try to extract a structured error from the function response
           const ctx: any = (shopifyError as any).context;
           let detail = shopifyError.message;
           try {
@@ -95,7 +95,10 @@ export function useCreateProduct() {
               const parsed = JSON.parse(respText);
               if (parsed?.code === "ACCESS_DENIED" || parsed?.error === "ACCESS_DENIED") {
                 detail =
-                  "Shopify ürün oluşturma yetkisi eksik (write_products scope veya mağaza staff izni gerekiyor). Shopify bağlantınızı yeniden yetkilendirin.";
+                  "Shopify ürün oluşturma yetkisi eksik. Shopify Dev Dashboard → App → Configuration üzerinden write_products scope'unu aktif edin.";
+              } else if (parsed?.code === "UNAUTHORIZED" || parsed?.error === "UNAUTHORIZED") {
+                detail =
+                  "Shopify Admin token geçersiz. SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET kontrol edilmeli.";
               } else if (parsed?.message) {
                 detail = parsed.message;
               } else if (parsed?.error) {
