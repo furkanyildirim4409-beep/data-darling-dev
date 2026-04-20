@@ -17,13 +17,30 @@ interface Payload {
   vendorName?: string;
 }
 
+async function shopifyGraphql(
+  adminUrl: string,
+  token: string,
+  query: string,
+  variables: Record<string, unknown>,
+) {
+  const res = await fetch(adminUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  const json = await res.json();
+  return { ok: res.ok, status: res.status, json };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
@@ -71,9 +88,10 @@ Deno.serve(async (req) => {
     const adminUrl =
       `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
 
+    // ─── STEP 1: productCreate ──────────────────────────────────────────────
     const productCreateMutation = `
-      mutation productCreate($input: ProductInput!, $media: [CreateMediaInput!]) {
-        productCreate(input: $input, media: $media) {
+      mutation productCreate($input: ProductInput!) {
+        productCreate(input: $input) {
           product {
             id
             variants(first: 1) { edges { node { id } } }
@@ -89,43 +107,21 @@ Deno.serve(async (req) => {
       vendor: body.vendorName ?? "Dynabolic Coach",
       productType: body.category ?? "",
       status: "ACTIVE",
-      variants: [{ price: String(body.price) }],
     };
-    const media = body.imageUrl
-      ? [{
-        originalSource: body.imageUrl,
-        mediaContentType: "IMAGE",
-        alt: body.title,
-      }]
-      : [];
 
-    const shopifyRes = await fetch(adminUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": SHOPIFY_ADMIN_TOKEN,
-      },
-      body: JSON.stringify({
-        query: productCreateMutation,
-        variables: { input, media },
-      }),
-    });
+    const createRes = await shopifyGraphql(
+      adminUrl,
+      SHOPIFY_ADMIN_TOKEN,
+      productCreateMutation,
+      { input },
+    );
 
-    const shopifyJson = await shopifyRes.json();
-
-    if (!shopifyRes.ok || shopifyJson.errors) {
-      const msg = shopifyJson.errors?.[0]?.message ??
-        `Shopify ${shopifyRes.status}`;
-      return new Response(JSON.stringify({ error: msg, raw: shopifyJson }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userErrors = shopifyJson.data?.productCreate?.userErrors ?? [];
-    if (userErrors.length > 0) {
+    if (!createRes.ok || createRes.json.errors) {
+      const msg = createRes.json.errors?.[0]?.message ??
+        `Shopify ${createRes.status}`;
+      console.error("productCreate HTTP/GraphQL error", createRes.json);
       return new Response(
-        JSON.stringify({ error: userErrors[0].message, userErrors }),
+        JSON.stringify({ error: msg, raw: createRes.json }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -133,12 +129,108 @@ Deno.serve(async (req) => {
       );
     }
 
-    const product = shopifyJson.data?.productCreate?.product;
-    const productId = product?.id ?? null;
-    const variantId = product?.variants?.edges?.[0]?.node?.id ?? null;
+    const createUserErrors =
+      createRes.json.data?.productCreate?.userErrors ?? [];
+    if (createUserErrors.length > 0) {
+      console.error("productCreate userErrors", createUserErrors);
+      return new Response(
+        JSON.stringify({
+          error: createUserErrors[0].message,
+          userErrors: createUserErrors,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const product = createRes.json.data?.productCreate?.product;
+    const productId: string | null = product?.id ?? null;
+    const variantId: string | null =
+      product?.variants?.edges?.[0]?.node?.id ?? null;
+
+    if (!productId) {
+      return new Response(
+        JSON.stringify({ error: "Shopify productId missing in response" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // ─── STEP 2: productVariantsBulkUpdate (price) ──────────────────────────
+    let priceWarning: string | null = null;
+    if (variantId) {
+      const variantsBulkUpdateMutation = `
+        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            productVariants { id price }
+            userErrors { field message }
+          }
+        }
+      `;
+      const priceRes = await shopifyGraphql(
+        adminUrl,
+        SHOPIFY_ADMIN_TOKEN,
+        variantsBulkUpdateMutation,
+        {
+          productId,
+          variants: [{ id: variantId, price: String(body.price) }],
+        },
+      );
+      const priceErrors =
+        priceRes.json.data?.productVariantsBulkUpdate?.userErrors ?? [];
+      if (!priceRes.ok || priceRes.json.errors) {
+        priceWarning = priceRes.json.errors?.[0]?.message ??
+          `priceUpdate HTTP ${priceRes.status}`;
+        console.error("productVariantsBulkUpdate transport error", priceRes.json);
+      } else if (priceErrors.length > 0) {
+        priceWarning = priceErrors[0].message;
+        console.error("productVariantsBulkUpdate userErrors", priceErrors);
+      }
+    } else {
+      priceWarning = "Default variantId missing — price not set";
+      console.error(priceWarning);
+    }
+
+    // ─── STEP 3: productCreateMedia ─────────────────────────────────────────
+    let mediaWarning: string | null = null;
+    const productCreateMediaMutation = `
+      mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+        productCreateMedia(productId: $productId, media: $media) {
+          media { ... on MediaImage { id } }
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+    const mediaRes = await shopifyGraphql(
+      adminUrl,
+      SHOPIFY_ADMIN_TOKEN,
+      productCreateMediaMutation,
+      {
+        productId,
+        media: [{
+          originalSource: body.imageUrl,
+          mediaContentType: "IMAGE",
+          alt: body.title,
+        }],
+      },
+    );
+    const mediaErrors =
+      mediaRes.json.data?.productCreateMedia?.mediaUserErrors ?? [];
+    if (!mediaRes.ok || mediaRes.json.errors) {
+      mediaWarning = mediaRes.json.errors?.[0]?.message ??
+        `mediaCreate HTTP ${mediaRes.status}`;
+      console.error("productCreateMedia transport error", mediaRes.json);
+    } else if (mediaErrors.length > 0) {
+      mediaWarning = mediaErrors[0].message;
+      console.error("productCreateMedia mediaUserErrors", mediaErrors);
+    }
 
     return new Response(
-      JSON.stringify({ productId, variantId }),
+      JSON.stringify({ productId, variantId, priceWarning, mediaWarning }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -146,6 +238,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("create-shopify-product fatal", err);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
