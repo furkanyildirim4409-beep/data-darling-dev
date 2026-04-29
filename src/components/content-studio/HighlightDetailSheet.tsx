@@ -245,7 +245,10 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
           open={showCropper}
           onOpenChange={(o) => setShowCropper(o)}
           categoryName={group.category}
-          onSaved={() => setShowCropper(false)}
+          onSaved={(url) => {
+            upsertMeta.mutate({ categoryName: group.category, customCoverUrl: url });
+            setShowCropper(false);
+          }}
         />
       )}
     </>
