@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Plus, Edit2, Star, Wand2, Upload, Archive, Radio, Loader2, ImagePlus } from "lucide-react";
+import { Plus, Edit2, Star, Wand2, Upload, Archive, Radio, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StoryTemplateBuilder } from "./StoryTemplateBuilder";
 import { StoryUploadModal } from "./StoryUploadModal";
 import { StoryArchiveDialog } from "./StoryArchiveDialog";
 import { ActiveStoriesDialog } from "./ActiveStoriesDialog";
-import { HighlightCoverCropper } from "./HighlightCoverCropper";
-import { useCoachHighlights, useUpdateStoryCategory, useUpsertHighlightMetadata } from "@/hooks/useSocialMutations";
+import { CreateHighlightGroupDialog } from "./CreateHighlightGroupDialog";
+import { HighlightDetailSheet } from "./HighlightDetailSheet";
+import { useCoachHighlights } from "@/hooks/useSocialMutations";
 
 interface HighlightsSectionProps {
   canManage?: boolean;
@@ -15,8 +16,6 @@ interface HighlightsSectionProps {
 
 export function HighlightsSection({ canManage = true }: HighlightsSectionProps) {
   const { data: highlights = [], isLoading } = useCoachHighlights();
-  const updateCategory = useUpdateStoryCategory();
-  const upsertMeta = useUpsertHighlightMetadata();
 
   const [editMode, setEditMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -24,13 +23,13 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isActiveStoriesOpen, setIsActiveStoriesOpen] = useState(false);
-  const [cropperCategory, setCropperCategory] = useState<string | null>(null);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
   const handleStoryUpload = (_file: File, _categoryId: string) => {
     // Upload handled by StoryUploadModal — query invalidation refreshes highlights.
   };
 
-  const selectedGroup = highlights.find((h) => h.category === selectedCategory);
+  const selectedGroup = highlights.find((h) => h.category === selectedCategory) ?? null;
 
   return (
     <>
