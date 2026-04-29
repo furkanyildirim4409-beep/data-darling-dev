@@ -758,6 +758,7 @@ export type Database = {
           created_at: string
           custom_cover_url: string | null
           id: string
+          order_index: number
           updated_at: string
         }
         Insert: {
@@ -766,6 +767,7 @@ export type Database = {
           created_at?: string
           custom_cover_url?: string | null
           id?: string
+          order_index?: number
           updated_at?: string
         }
         Update: {
@@ -774,6 +776,7 @@ export type Database = {
           created_at?: string
           custom_cover_url?: string | null
           id?: string
+          order_index?: number
           updated_at?: string
         }
         Relationships: []
