@@ -238,6 +238,7 @@ export interface HighlightGroup {
   stories: any[];
   count: number;
   customCoverUrl: string | null;
+  orderIndex: number;
 }
 
 export function useCoachHighlights() {
@@ -257,14 +258,17 @@ export function useCoachHighlights() {
           .order("created_at", { ascending: false }),
         supabase
           .from("coach_highlight_metadata")
-          .select("category_name, custom_cover_url")
+          .select("category_name, custom_cover_url, order_index")
           .eq("coach_id", user.id),
       ]);
       if (storiesRes.error) throw storiesRes.error;
       if (metaRes.error) throw metaRes.error;
 
-      const coverMap = new Map<string, string | null>(
-        (metaRes.data ?? []).map((m: any) => [m.category_name, m.custom_cover_url]),
+      const metaMap = new Map<string, { cover: string | null; order: number }>(
+        (metaRes.data ?? []).map((m: any) => [
+          m.category_name,
+          { cover: m.custom_cover_url, order: m.order_index ?? 0 },
+        ]),
       );
 
       const groups = new Map<string, any[]>();
@@ -273,12 +277,26 @@ export function useCoachHighlights() {
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(s);
       }
-      return Array.from(groups.entries()).map(([category, stories]) => ({
+
+      // Include metadata-only (empty) highlight groups too — coaches create groups before adding stories.
+      for (const name of metaMap.keys()) {
+        if (!groups.has(name)) groups.set(name, []);
+      }
+
+      const result: HighlightGroup[] = Array.from(groups.entries()).map(([category, stories]) => ({
         category,
         stories,
         count: stories.length,
-        customCoverUrl: coverMap.get(category) ?? null,
+        customCoverUrl: metaMap.get(category)?.cover ?? null,
+        orderIndex: metaMap.get(category)?.order ?? Number.MAX_SAFE_INTEGER,
       }));
+
+      // Ordered by metadata order_index; metadata-less groups fall to the end alphabetically.
+      result.sort((a, b) => {
+        if (a.orderIndex !== b.orderIndex) return a.orderIndex - b.orderIndex;
+        return a.category.localeCompare(b.category, "tr");
+      });
+      return result;
     },
   });
 }
@@ -457,6 +475,191 @@ export function useMyFollowerCount() {
         .eq("followed_id", user.id);
       if (error) throw error;
       return count || 0;
+    },
+  });
+}
+
+// ── Highlights Manager (Part 8) ──
+
+async function uploadToSocialMedia(file: File, userId: string, prefix = "") {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${userId}/${prefix}${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+  const { error } = await supabase.storage.from("social-media").upload(path, file);
+  if (error) throw error;
+  const { data } = supabase.storage.from("social-media").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export function useCreateHighlightGroup() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ name, coverFile }: { name: string; coverFile: File }) => {
+      if (!user) throw new Error("Not authenticated");
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("Grup adı boş olamaz");
+
+      // Compute next order_index per coach
+      const { data: existing } = await supabase
+        .from("coach_highlight_metadata")
+        .select("order_index")
+        .eq("coach_id", user.id)
+        .order("order_index", { ascending: false })
+        .limit(1);
+      const nextOrder = (existing?.[0]?.order_index ?? -1) + 1;
+
+      const coverUrl = await uploadToSocialMedia(coverFile, user.id, "highlight-covers/");
+
+      const { data, error } = await supabase
+        .from("coach_highlight_metadata")
+        .upsert(
+          {
+            coach_id: user.id,
+            category_name: trimmed,
+            custom_cover_url: coverUrl,
+            order_index: nextOrder,
+          },
+          { onConflict: "coach_id,category_name" },
+        )
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      toast.success("Yeni öne çıkan grup oluşturuldu.");
+    },
+    onError: (err: Error) => {
+      toast.error(`Grup oluşturulamadı: ${err.message}`);
+    },
+  });
+}
+
+export function useDeleteHighlightGroup() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryName: string) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { error: storiesErr } = await supabase
+        .from("coach_stories")
+        .update({ is_highlighted: false, category: null })
+        .eq("coach_id", user.id)
+        .eq("category", categoryName);
+      if (storiesErr) throw storiesErr;
+
+      const { error: metaErr } = await supabase
+        .from("coach_highlight_metadata")
+        .delete()
+        .eq("coach_id", user.id)
+        .eq("category_name", categoryName);
+      if (metaErr) throw metaErr;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
+      toast.success("Grup silindi.");
+    },
+    onError: (err: Error) => {
+      toast.error(`Grup silinemedi: ${err.message}`);
+    },
+  });
+}
+
+export function useAddStoriesToHighlight() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ category, files }: { category: string; files: File[] }) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!files.length) return [];
+
+      const farFuture = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+      const inserts: any[] = [];
+
+      for (const file of files) {
+        const url = await uploadToSocialMedia(file, user.id);
+        inserts.push({
+          coach_id: user.id,
+          media_url: url,
+          category,
+          is_highlighted: true,
+          expires_at: farFuture,
+        });
+      }
+
+      const { data, error } = await supabase
+        .from("coach_stories")
+        .insert(inserts)
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
+      const n = Array.isArray(data) ? data.length : 0;
+      if (n > 0) toast.success(`${n} hikaye eklendi.`);
+    },
+    onError: (err: Error) => {
+      toast.error(`Hikaye eklenemedi: ${err.message}`);
+    },
+  });
+}
+
+export function useDeleteStoryFromHighlight() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storyId: string) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("coach_stories")
+        .update({ is_highlighted: false })
+        .eq("id", storyId)
+        .eq("coach_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Hikaye kaldırılamadı: ${err.message}`);
+    },
+  });
+}
+
+export function useReorderHighlights() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orderedNames: string[]) => {
+      if (!user) throw new Error("Not authenticated");
+      const rows = orderedNames.map((name, idx) => ({
+        coach_id: user.id,
+        category_name: name,
+        order_index: idx,
+      }));
+      const { error } = await supabase
+        .from("coach_highlight_metadata")
+        .upsert(rows, { onConflict: "coach_id,category_name" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Sıralama güncellenemedi: ${err.message}`);
     },
   });
 }

@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Plus, Edit2, Star, Wand2, Upload, Archive, Radio, Loader2, ImagePlus } from "lucide-react";
+import { Plus, Edit2, Star, Wand2, Upload, Archive, Radio, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StoryTemplateBuilder } from "./StoryTemplateBuilder";
 import { StoryUploadModal } from "./StoryUploadModal";
 import { StoryArchiveDialog } from "./StoryArchiveDialog";
 import { ActiveStoriesDialog } from "./ActiveStoriesDialog";
-import { HighlightCoverCropper } from "./HighlightCoverCropper";
-import { useCoachHighlights, useUpdateStoryCategory, useUpsertHighlightMetadata } from "@/hooks/useSocialMutations";
+import { CreateHighlightGroupDialog } from "./CreateHighlightGroupDialog";
+import { HighlightDetailSheet } from "./HighlightDetailSheet";
+import { useCoachHighlights } from "@/hooks/useSocialMutations";
 
 interface HighlightsSectionProps {
   canManage?: boolean;
@@ -15,8 +16,6 @@ interface HighlightsSectionProps {
 
 export function HighlightsSection({ canManage = true }: HighlightsSectionProps) {
   const { data: highlights = [], isLoading } = useCoachHighlights();
-  const updateCategory = useUpdateStoryCategory();
-  const upsertMeta = useUpsertHighlightMetadata();
 
   const [editMode, setEditMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -24,13 +23,13 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isActiveStoriesOpen, setIsActiveStoriesOpen] = useState(false);
-  const [cropperCategory, setCropperCategory] = useState<string | null>(null);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
   const handleStoryUpload = (_file: File, _categoryId: string) => {
     // Upload handled by StoryUploadModal — query invalidation refreshes highlights.
   };
 
-  const selectedGroup = highlights.find((h) => h.category === selectedCategory);
+  const selectedGroup = highlights.find((h) => h.category === selectedCategory) ?? null;
 
   return (
     <>
@@ -94,17 +93,32 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
 
         {/* Highlights Row */}
         <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-thin">
-          {/* Add New Button */}
+          {/* Create New Group */}
+          {canManage && (
+            <button
+              onClick={() => setIsCreateGroupOpen(true)}
+              className="flex flex-col items-center gap-2 shrink-0 group"
+            >
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/50 flex items-center justify-center bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all group-hover:scale-105 glow-lime">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                + Yeni Grup
+              </span>
+            </button>
+          )}
+
+          {/* Pick from archive (secondary) */}
           {canManage && (
             <button
               onClick={() => setIsArchiveOpen(true)}
               className="flex flex-col items-center gap-2 shrink-0 group"
             >
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/50 flex items-center justify-center bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all group-hover:scale-105 glow-lime">
-                <Plus className="w-6 h-6 text-primary" />
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center bg-muted/30 hover:bg-muted/60 hover:border-muted-foreground transition-all group-hover:scale-105">
+                <Plus className="w-6 h-6 text-muted-foreground" />
               </div>
-              <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                Arşivden Seç
+              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                Arşivden
               </span>
             </button>
           )}
@@ -118,7 +132,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
 
           {!isLoading && highlights.length === 0 && (
             <p className="text-xs text-muted-foreground py-4">
-              Henüz öne çıkan hikaye yok — Arşiv'den bir hikaye seçip kategorisini belirleyerek öne çıkarın.
+              Henüz öne çıkan grup yok — "+ Yeni Grup" ile başla.
             </p>
           )}
 
@@ -131,7 +145,7 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
             return (
               <button
                 key={group.category}
-                onClick={() => setSelectedCategory(isSelected ? null : group.category)}
+                onClick={() => setSelectedCategory(group.category)}
                 className={cn(
                   "flex flex-col items-center gap-2 shrink-0 group transition-all",
                   editMode && "animate-pulse",
@@ -173,53 +187,6 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
             );
           })}
         </div>
-
-        {/* Selected Highlight Details */}
-        {selectedGroup && (
-          <div className="mt-4 pt-4 border-t border-border animate-fade-in">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{selectedGroup.category}</p>
-                <p className="text-xs text-muted-foreground">{selectedGroup.count} hikaye</p>
-              </div>
-              {canManage && (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCropperCategory(selectedGroup.category)}
-                    className="border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    <ImagePlus className="w-3 h-3 mr-1" />
-                    Kapak Fotoğrafı Değiştir
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsArchiveOpen(true)}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Hikaye Ekle
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    disabled={updateCategory.isPending}
-                    onClick={async () => {
-                      for (const story of selectedGroup.stories) {
-                        await updateCategory.mutateAsync({ storyId: story.id, category: null });
-                      }
-                      setSelectedCategory(null);
-                    }}
-                  >
-                    Kaldır
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       <StoryTemplateBuilder
@@ -243,17 +210,16 @@ export function HighlightsSection({ canManage = true }: HighlightsSectionProps) 
         onOpenChange={setIsActiveStoriesOpen}
       />
 
-      {cropperCategory && (
-        <HighlightCoverCropper
-          open={!!cropperCategory}
-          onOpenChange={(o) => !o && setCropperCategory(null)}
-          categoryName={cropperCategory}
-          onSaved={(url) => {
-            upsertMeta.mutate({ categoryName: cropperCategory, customCoverUrl: url });
-            setCropperCategory(null);
-          }}
-        />
-      )}
+      <CreateHighlightGroupDialog
+        open={isCreateGroupOpen}
+        onOpenChange={setIsCreateGroupOpen}
+      />
+
+      <HighlightDetailSheet
+        group={selectedGroup}
+        open={!!selectedGroup}
+        onOpenChange={(o) => !o && setSelectedCategory(null)}
+      />
     </>
   );
 }

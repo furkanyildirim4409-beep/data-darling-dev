@@ -1,101 +1,104 @@
-## Coach Notification & Alarm Engine — Part 7
+## Highlights Manager — Part 8
 
-Foundation + UI layer for the Coach OS notification center. No CRON triggers yet — those come in a later part.
+Coach OS already has a working Highlights backbone (`coach_stories` with `category` + `is_highlighted`, `coach_highlight_metadata` for custom covers). The user picked **Option A — extend, do not duplicate**. So no parallel `coach_highlights` / `coach_stories` tables and no new `highlights` bucket. We reuse `social-media`.
 
-### Step A — Database (`coach_notifications`)
+This part fills the UX gaps: a true "Create Highlight Group" flow, a polished group-detail panel with thumbnails + per-story delete + in-group dropzone, and per-group ordering.
 
-Single migration creating the table, indexes, RLS, and realtime publication.
+### Step A — Database (single small migration)
+
+Add `order_index` to `coach_highlight_metadata` so the Manager controls highlight order deterministically. Backfill = current `created_at` rank.
 
 ```sql
-create table public.coach_notifications (
-  id uuid primary key default gen_random_uuid(),
-  coach_id uuid not null references auth.users(id) on delete cascade,
-  athlete_id uuid references auth.users(id) on delete set null,
-  type text not null check (type in ('order','compliance_alert','message','system')),
-  title text not null,
-  message text not null,
-  is_read boolean not null default false,
-  action_url text,
-  created_at timestamptz not null default now()
-);
+alter table public.coach_highlight_metadata
+  add column if not exists order_index integer not null default 0;
 
-create index idx_coach_notifications_feed
-  on public.coach_notifications (coach_id, is_read, created_at desc);
+-- Backfill existing rows by created_at order per coach
+with ranked as (
+  select id,
+         row_number() over (partition by coach_id order by created_at) - 1 as rn
+  from public.coach_highlight_metadata
+)
+update public.coach_highlight_metadata m
+set order_index = r.rn
+from ranked r
+where r.id = m.id;
 
-alter table public.coach_notifications enable row level security;
-
--- SELECT own
-create policy "Coaches read own notifications"
-  on public.coach_notifications for select
-  to authenticated
-  using (coach_id = auth.uid());
-
--- UPDATE own (is_read toggle); WITH CHECK pins coach_id immutably
-create policy "Coaches update own notifications"
-  on public.coach_notifications for update
-  to authenticated
-  using (coach_id = auth.uid())
-  with check (coach_id = auth.uid());
-
--- No INSERT/DELETE policy → only service-role (edge functions / future triggers) can write.
-
-alter publication supabase_realtime add table public.coach_notifications;
-alter table public.coach_notifications replica identity full;
+create index if not exists idx_chm_coach_order
+  on public.coach_highlight_metadata (coach_id, order_index);
 ```
 
-Notes:
-- No INSERT policy on purpose — writes will come from edge functions / future DB triggers using service-role, never from the browser.
-- `type` is constrained via CHECK so invalid types fail loudly.
-- Composite index matches the exact query shape of the feed and the unread-count.
+No changes to `coach_stories`, RLS, or buckets. The `social-media` bucket already exists and is correctly scoped (`auth.uid()` folder). The Student App fetcher continues working unchanged.
 
-### Step B — Hook (`src/hooks/useCoachNotifications.ts`)
+### Step B — Hooks: extend `src/hooks/useSocialMutations.ts`
 
-React Query + Supabase Realtime, mirroring patterns already used in `useAlerts` / `useTeamChat`.
+All new logic lives in the existing file to keep one source of truth. Additions:
 
-- `useQuery(['coach-notifications', userId])` → `select('*').eq('coach_id', userId).order('created_at', desc).limit(50)`.
-- `unreadCount` derived client-side from the cached list (avoids a second roundtrip; the list is bounded to 50 and realtime keeps it fresh).
-- Realtime: `supabase.channel('coach-notifications:'+userId)` with a `postgres_changes` listener filtered by `coach_id=eq.{userId}` for events `INSERT | UPDATE | DELETE`. Listener attached **before** `.subscribe()`, cleanup via `removeChannel` (per Core memory).
-- `markAsRead(id)` → `update({ is_read: true }).eq('id', id)` then optimistic cache patch.
-- `markAllAsRead()` → `update({ is_read: true }).eq('coach_id', userId).eq('is_read', false)` then optimistic patch.
-- Returns `{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead }`.
+1. **`useCoachHighlights`** — extend `select` on `coach_highlight_metadata` to include `order_index`; sort the returned `groups` by `order_index` (groups missing metadata fall to the end alphabetically).
+2. **`useCreateHighlightGroup({ name, coverFile })`** —
+   - Upload `coverFile` to `social-media/{user.id}/highlight-covers/{ts}.{ext}` → `getPublicUrl`.
+   - `upsert coach_highlight_metadata { coach_id, category_name: name, custom_cover_url: url, order_index: max+1 }`.
+   - Toast + invalidate `coach-highlights`.
+3. **`useDeleteHighlightGroup(name)`** —
+   - Update all `coach_stories` where `coach_id = me AND category = name` → set `is_highlighted=false, category=null` (mirrors the existing "Kaldır" loop in `HighlightsSection`, but as a single bulk update).
+   - Delete the `coach_highlight_metadata` row.
+   - Invalidate.
+4. **`useAddStoriesToHighlight({ category, files })`** —
+   - For each file: upload to `social-media/{user.id}/{ts}-{i}.{ext}`, then `insert coach_stories { coach_id, media_url, category, is_highlighted: true, expires_at: null }` (highlighted stories don't expire — confirmed by existing schema where `is_highlighted` decouples from `expires_at`).
+   - Surfaces a single aggregate toast on completion.
+5. **`useDeleteStoryFromHighlight(storyId)`** —
+   - `update coach_stories { is_highlighted: false }` (keeps the row in archive instead of hard-deleting; consistent with existing "Kaldır" semantics).
+6. **`useReorderHighlights(orderedNames[])`** —
+   - For each name: `upsert { coach_id, category_name, order_index: idx }` with `onConflict: 'coach_id,category_name'`. Used later for drag-reorder; we wire the mutation now even if drag UI ships in a follow-up.
 
-### Step C — TopBar Integration
+### Step C — UI: Polished Manager
 
-New isolated component `src/components/layout/CoachNotificationBell.tsx` to keep `TopBar.tsx` lean. The existing alerts bell stays as-is (it surfaces compliance/health alerts derived from `useAlerts`); the new bell sits next to it and represents the persisted `coach_notifications` inbox.
+Two additions, no rewrite of `HighlightsSection`:
 
-- Bell icon (`lucide-react` `Bell`) + red destructive badge when `unreadCount > 0` (cap at `99+`), pulse animation matching existing alert badge.
-- `Popover` (Radix) with: header (title + "Tümünü Okundu İşaretle" button when unread > 0), scrollable list (max-h-96, native overflow per Core memory), empty state ("Henüz bildirim yok").
-- Per row:
-  - Type-driven icon + tint:
-    - `order` → `ShoppingBag`, emerald
-    - `compliance_alert` → `AlertTriangle`, destructive
-    - `message` → `MessageSquare`, primary
-    - `system` → `Info`, muted
-  - Title (medium weight when unread), message (muted), relative time (`timeAgo` helper reused from `useAlerts`).
-  - Unread = subtle `bg-primary/5` + dot indicator, identical to existing notification UI for visual consistency.
-  - Click → `markAsRead(id)` then `navigate(action_url)` if present, close popover.
-- Footer: "Tüm bildirimleri görüntüle" → no-op for now (route comes later); render only if list is non-empty.
+#### C.1 — `src/components/content-studio/CreateHighlightGroupDialog.tsx` (new)
 
-`TopBar.tsx` change is minimal: import `CoachNotificationBell` and render it just before the existing alerts `Popover` in the right-section cluster. Existing alerts bell, profile dropdown, mobile search — untouched.
+- Inputs: `title` (text, required, max 24 chars), `coverFile` (image-only dropzone with live preview).
+- Submit → `useCreateHighlightGroup`. The new group appears empty; coach then opens it to add stories.
+- Reused `Dialog` + `Label` + `Input` primitives.
+
+#### C.2 — `src/components/content-studio/HighlightDetailSheet.tsx` (new)
+
+A right-side `Sheet` (Radix) that opens when a coach clicks a highlight in `HighlightsSection` (or the new "Yönet" button on the selected group). Shows:
+
+- Header: cover, title, story count, "Kapak Değiştir" (reuses existing `HighlightCoverCropper`), "Grubu Sil" (uses `useDeleteHighlightGroup` with confirm).
+- Dropzone (multi-file image/video) → `useAddStoriesToHighlight` with progress.
+- Grid of existing stories (3 cols, native overflow): each tile shows the media, hover `X` button → `useDeleteStoryFromHighlight`. Video tiles show a `Play` overlay.
+- Empty state when group has 0 stories: "Bu gruba henüz hikaye eklenmedi — yukarıdan yükleyin."
+
+#### C.3 — `HighlightsSection.tsx` wiring (minimal edits)
+
+- Replace the "Arşivden Seç" tile with **"+ Yeni Grup"** that opens `CreateHighlightGroupDialog`. Keep "Arşivden Seç" as a secondary smaller button below the row so the existing archive-promotion flow stays.
+- Clicking a highlight tile now opens `HighlightDetailSheet` (instead of just toggling the inline accordion). The inline `selectedGroup` block is removed; all management lives in the Sheet.
+
+#### C.4 — `ContentStudio.tsx`
+
+No structural change. `HighlightsSection` already renders here. Just confirms the page picks up the new Manager UX automatically.
 
 ### Files
 
 | File | Action |
 |---|---|
-| `supabase/migrations/<ts>_coach_notifications.sql` | Create — table, index, RLS, realtime |
-| `src/hooks/useCoachNotifications.ts` | Create — query + realtime + mutations |
-| `src/components/layout/CoachNotificationBell.tsx` | Create — bell + popover UI |
-| `src/components/layout/TopBar.tsx` | Edit — mount the bell |
+| `supabase/migrations/<ts>_chm_order_index.sql` | Create — adds `order_index` + backfill + index |
+| `src/hooks/useSocialMutations.ts` | Edit — add 5 new hooks, extend `useCoachHighlights` |
+| `src/components/content-studio/CreateHighlightGroupDialog.tsx` | Create |
+| `src/components/content-studio/HighlightDetailSheet.tsx` | Create |
+| `src/components/content-studio/HighlightsSection.tsx` | Edit — swap inline accordion → Sheet, add "+ Yeni Grup" |
 
-### Out of Scope (deferred)
+### Out of Scope
 
-- DB triggers / edge functions that insert rows on order paid, message received, compliance breach — Part 8.
-- Push notification fan-out — already handled by `send-chat-push` for chat; will hook in later.
-- Dedicated `/notifications` page — footer button is a placeholder for now.
+- Drag-to-reorder UI (mutation is wired; UI in a follow-up).
+- Migrating story media into a separate `highlights` bucket. Reusing `social-media` keeps backward compatibility with existing rows whose URLs already point there.
+- Modifying the Student App fetcher — it consumes the same `coach_stories` rows and now gets ordered groups for free.
 
 ### Acceptance
 
-1. Migration applies cleanly; manually inserting a row via SQL editor (as service role) instantly appears in the bell for the matching coach without refresh.
-2. Clicking a row marks it read (badge decrements) and navigates if `action_url` present.
-3. "Tümünü Okundu İşaretle" zeroes the badge in one network call.
-4. Sub-coaches see only their own `coach_id = auth.uid()` rows (RLS enforced); no cross-tenant leakage.
+1. "+ Yeni Grup" creates an empty highlight with cover; appears immediately in the row.
+2. Clicking a highlight opens the Sheet; uploaded files appear as story tiles instantly with realtime invalidation.
+3. Per-story `X` removes the tile (`is_highlighted=false`), story falls back into Archive.
+4. "Grubu Sil" un-highlights all member stories and deletes the metadata row.
+5. Custom cover replacement still works through the existing `HighlightCoverCropper`.
+6. Highlights render in `order_index` order across page reloads.
