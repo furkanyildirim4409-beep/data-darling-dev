@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { GlobalSearch } from "./GlobalSearch";
 import { MobileNav } from "./MobileNav";
+import { CoachNotificationBell } from "./CoachNotificationBell";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +115,10 @@ export function TopBar() {
       {/* Right Section - Hidden when mobile search is open */}
       {!(isMobile && mobileSearchOpen) && (
         <div className="flex items-center gap-2 md:gap-4">
-        {/* Notifications */}
+        {/* Coach Notification Center (persisted inbox) */}
+        <CoachNotificationBell />
+
+        {/* Alerts (derived health/compliance feed) */}
         <Popover open={isOpen} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative hover:bg-secondary">
