@@ -238,6 +238,7 @@ export interface HighlightGroup {
   stories: any[];
   count: number;
   customCoverUrl: string | null;
+  orderIndex: number;
 }
 
 export function useCoachHighlights() {
@@ -257,14 +258,17 @@ export function useCoachHighlights() {
           .order("created_at", { ascending: false }),
         supabase
           .from("coach_highlight_metadata")
-          .select("category_name, custom_cover_url")
+          .select("category_name, custom_cover_url, order_index")
           .eq("coach_id", user.id),
       ]);
       if (storiesRes.error) throw storiesRes.error;
       if (metaRes.error) throw metaRes.error;
 
-      const coverMap = new Map<string, string | null>(
-        (metaRes.data ?? []).map((m: any) => [m.category_name, m.custom_cover_url]),
+      const metaMap = new Map<string, { cover: string | null; order: number }>(
+        (metaRes.data ?? []).map((m: any) => [
+          m.category_name,
+          { cover: m.custom_cover_url, order: m.order_index ?? 0 },
+        ]),
       );
 
       const groups = new Map<string, any[]>();
@@ -273,12 +277,26 @@ export function useCoachHighlights() {
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(s);
       }
-      return Array.from(groups.entries()).map(([category, stories]) => ({
+
+      // Include metadata-only (empty) highlight groups too — coaches create groups before adding stories.
+      for (const name of metaMap.keys()) {
+        if (!groups.has(name)) groups.set(name, []);
+      }
+
+      const result: HighlightGroup[] = Array.from(groups.entries()).map(([category, stories]) => ({
         category,
         stories,
         count: stories.length,
-        customCoverUrl: coverMap.get(category) ?? null,
+        customCoverUrl: metaMap.get(category)?.cover ?? null,
+        orderIndex: metaMap.get(category)?.order ?? Number.MAX_SAFE_INTEGER,
       }));
+
+      // Ordered by metadata order_index; metadata-less groups fall to the end alphabetically.
+      result.sort((a, b) => {
+        if (a.orderIndex !== b.orderIndex) return a.orderIndex - b.orderIndex;
+        return a.category.localeCompare(b.category, "tr");
+      });
+      return result;
     },
   });
 }
