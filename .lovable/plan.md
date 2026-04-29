@@ -1,58 +1,101 @@
+## Coach Notification & Alarm Engine — Part 7
 
+Foundation + UI layer for the Coach OS notification center. No CRON triggers yet — those come in a later part.
 
-## Fork'taki Shopify Admin Token Motorunu Port Et
+### Step A — Database (`coach_notifications`)
 
-### Bulgular
+Single migration creating the table, indexes, RLS, and realtime publication.
 
-- Fork projesi (`Your Dynabolic Fork`), Shopify Admin token'ını **runtime'da** Dev Dashboard `client_credentials` grant ile kendisi üretiyor.
-- Bu projede gerekli secret'ların **hepsi zaten mevcut**: `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_DOMAIN`. Yeni secret istenmeyecek.
-- Mevcut `create-shopify-product` fonksiyonu hâlâ stale `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_ADMIN_TOKEN` deniyor — bu yüzden 401 + ACCESS_DENIED alıyoruz.
-- Çözüm: fork'taki `_shared/shopify-admin.ts` motorunu birebir buraya kopyalamak ve `create-shopify-product` fonksiyonunu bu motoru kullanacak şekilde sadeleştirmek.
+```sql
+create table public.coach_notifications (
+  id uuid primary key default gen_random_uuid(),
+  coach_id uuid not null references auth.users(id) on delete cascade,
+  athlete_id uuid references auth.users(id) on delete set null,
+  type text not null check (type in ('order','compliance_alert','message','system')),
+  title text not null,
+  message text not null,
+  is_read boolean not null default false,
+  action_url text,
+  created_at timestamptz not null default now()
+);
 
-### Yapılacaklar
+create index idx_coach_notifications_feed
+  on public.coach_notifications (coach_id, is_read, created_at desc);
 
-#### 1) Yeni dosya — `supabase/functions/_shared/shopify-admin.ts`
-Fork'taki dosyanın birebir aynısı:
-- `getShopifyAdminToken(forceRefresh?)` — `https://{SHOPIFY_DOMAIN}/admin/oauth/access_token` adresine `grant_type=client_credentials` POST atar, token'ı edge instance'ında cache'ler (expiry − 60s).
-- `shopifyAdminGraphQL<T>(query, variables)` — Admin API `2025-07`'ye GraphQL çağrısı atar; 401'de bir kez force-refresh yapar; hata olursa structured `ShopifyAdminError` (status, requiredAccess, shopifyMessage) fırlatır.
-- `invalidateShopifyAdminToken()` helper'ı.
+alter table public.coach_notifications enable row level security;
 
-#### 2) `supabase/functions/create-shopify-product/index.ts` — yeniden yaz
-Mevcut "iki token deneme" akışı tamamen silinir, fork'taki temiz akış konur:
-- JWT validation `getClaims()` ile (mevcut korunur).
-- `has_role` ile coach/admin yetki kontrolü (mevcut korunur).
-- Zod ile body validation.
-- 3 adımlı pipeline `shopifyAdminGraphQL` üzerinden:
-  1. `productCreate` (status ACTIVE, vendor, productType, tags `coach:{userId}`, `category:{category}`)
-  2. `productVariantsBulkUpdate` — default variant'a fiyat
-  3. `productCreateMedia` — görsel
-- Media adımı fail olsa bile `success: true, productId, variantId, warning` ile 200 döner (best-effort).
-- `mapShopifyError`:
-  - `403 / "access denied"` → Dev Dashboard scope mesajı
-  - `401` → `SHOPIFY_CLIENT_ID/SECRET` kontrolü mesajı
-  - diğer → 502
+-- SELECT own
+create policy "Coaches read own notifications"
+  on public.coach_notifications for select
+  to authenticated
+  using (coach_id = auth.uid());
 
-#### 3) `src/hooks/useStoreMutations.ts` — küçük hata parser güncellemesi
-Edge function artık structured `{ code: "ACCESS_DENIED", message, helpUrl }` döndüğü için parser sadeleştirilir:
-- `ACCESS_DENIED` → "Shopify Dev Dashboard → App → Configuration → write_products scope'unu aktif edin."
-- `UNAUTHORIZED` → "SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET kontrol edilmeli."
-- Storage rollback davranışı korunur.
+-- UPDATE own (is_read toggle); WITH CHECK pins coach_id immutably
+create policy "Coaches update own notifications"
+  on public.coach_notifications for update
+  to authenticated
+  using (coach_id = auth.uid())
+  with check (coach_id = auth.uid());
 
-### Etkilenen Dosyalar
+-- No INSERT/DELETE policy → only service-role (edge functions / future triggers) can write.
 
-| Dosya | İşlem |
-|------|------|
-| `supabase/functions/_shared/shopify-admin.ts` | Yeni — fork motoru birebir |
-| `supabase/functions/create-shopify-product/index.ts` | Yeniden yaz — shared motoru kullan |
-| `src/hooks/useStoreMutations.ts` | Küçük — yeni structured error mesajları |
+alter publication supabase_realtime add table public.coach_notifications;
+alter table public.coach_notifications replica identity full;
+```
 
-### Secret / Migration Durumu
+Notes:
+- No INSERT policy on purpose — writes will come from edge functions / future DB triggers using service-role, never from the browser.
+- `type` is constrained via CHECK so invalid types fail loudly.
+- Composite index matches the exact query shape of the feed and the unread-count.
 
-- **Yeni secret yok.** `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_DOMAIN` zaten mevcut.
-- **Migration yok.**
-- Stale `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_ADMIN_TOKEN` artık `create-shopify-product` tarafından okunmayacak; storefront tarafı için silinmeden duracak.
+### Step B — Hook (`src/hooks/useCoachNotifications.ts`)
 
-### Beklenen Sonuç
+React Query + Supabase Realtime, mirroring patterns already used in `useAlerts` / `useTeamChat`.
 
-Token artık staff hesabına bağlı olmadan, app'in kendi `write_products` scope'uyla mintleniyor. `ACCESS_DENIED` ortadan kalkar; eğer hâlâ scope eksikse hata net olarak Dev Dashboard'a yönlendirir.
+- `useQuery(['coach-notifications', userId])` → `select('*').eq('coach_id', userId).order('created_at', desc).limit(50)`.
+- `unreadCount` derived client-side from the cached list (avoids a second roundtrip; the list is bounded to 50 and realtime keeps it fresh).
+- Realtime: `supabase.channel('coach-notifications:'+userId)` with a `postgres_changes` listener filtered by `coach_id=eq.{userId}` for events `INSERT | UPDATE | DELETE`. Listener attached **before** `.subscribe()`, cleanup via `removeChannel` (per Core memory).
+- `markAsRead(id)` → `update({ is_read: true }).eq('id', id)` then optimistic cache patch.
+- `markAllAsRead()` → `update({ is_read: true }).eq('coach_id', userId).eq('is_read', false)` then optimistic patch.
+- Returns `{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead }`.
 
+### Step C — TopBar Integration
+
+New isolated component `src/components/layout/CoachNotificationBell.tsx` to keep `TopBar.tsx` lean. The existing alerts bell stays as-is (it surfaces compliance/health alerts derived from `useAlerts`); the new bell sits next to it and represents the persisted `coach_notifications` inbox.
+
+- Bell icon (`lucide-react` `Bell`) + red destructive badge when `unreadCount > 0` (cap at `99+`), pulse animation matching existing alert badge.
+- `Popover` (Radix) with: header (title + "Tümünü Okundu İşaretle" button when unread > 0), scrollable list (max-h-96, native overflow per Core memory), empty state ("Henüz bildirim yok").
+- Per row:
+  - Type-driven icon + tint:
+    - `order` → `ShoppingBag`, emerald
+    - `compliance_alert` → `AlertTriangle`, destructive
+    - `message` → `MessageSquare`, primary
+    - `system` → `Info`, muted
+  - Title (medium weight when unread), message (muted), relative time (`timeAgo` helper reused from `useAlerts`).
+  - Unread = subtle `bg-primary/5` + dot indicator, identical to existing notification UI for visual consistency.
+  - Click → `markAsRead(id)` then `navigate(action_url)` if present, close popover.
+- Footer: "Tüm bildirimleri görüntüle" → no-op for now (route comes later); render only if list is non-empty.
+
+`TopBar.tsx` change is minimal: import `CoachNotificationBell` and render it just before the existing alerts `Popover` in the right-section cluster. Existing alerts bell, profile dropdown, mobile search — untouched.
+
+### Files
+
+| File | Action |
+|---|---|
+| `supabase/migrations/<ts>_coach_notifications.sql` | Create — table, index, RLS, realtime |
+| `src/hooks/useCoachNotifications.ts` | Create — query + realtime + mutations |
+| `src/components/layout/CoachNotificationBell.tsx` | Create — bell + popover UI |
+| `src/components/layout/TopBar.tsx` | Edit — mount the bell |
+
+### Out of Scope (deferred)
+
+- DB triggers / edge functions that insert rows on order paid, message received, compliance breach — Part 8.
+- Push notification fan-out — already handled by `send-chat-push` for chat; will hook in later.
+- Dedicated `/notifications` page — footer button is a placeholder for now.
+
+### Acceptance
+
+1. Migration applies cleanly; manually inserting a row via SQL editor (as service role) instantly appears in the bell for the matching coach without refresh.
+2. Clicking a row marks it read (badge decrements) and navigates if `action_url` present.
+3. "Tümünü Okundu İşaretle" zeroes the badge in one network call.
+4. Sub-coaches see only their own `coach_id = auth.uid()` rows (RLS enforced); no cross-tenant leakage.
