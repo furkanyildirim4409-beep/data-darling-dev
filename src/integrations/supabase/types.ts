@@ -342,6 +342,7 @@ export type Database = {
       }
       athlete_notifications: {
         Row: {
+          action_url: string | null
           athlete_id: string
           coach_id: string | null
           created_at: string
@@ -354,6 +355,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          action_url?: string | null
           athlete_id: string
           coach_id?: string | null
           created_at?: string
@@ -366,6 +368,7 @@ export type Database = {
           type?: string
         }
         Update: {
+          action_url?: string | null
           athlete_id?: string
           coach_id?: string | null
           created_at?: string
@@ -802,6 +805,42 @@ export type Database = {
           token?: string
           used_at?: string | null
           used_by?: string | null
+        }
+        Relationships: []
+      }
+      coach_notifications: {
+        Row: {
+          action_url: string | null
+          athlete_id: string | null
+          coach_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          title: string
+          type: string
+        }
+        Insert: {
+          action_url?: string | null
+          athlete_id?: string | null
+          coach_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          title: string
+          type: string
+        }
+        Update: {
+          action_url?: string | null
+          athlete_id?: string | null
+          coach_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          title?: string
+          type?: string
         }
         Relationships: []
       }
@@ -2748,6 +2787,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_total_volume: { Args: { _kg: number }; Returns: number }
       is_active_team_member_of: {
         Args: { _head_coach_id: string }
         Returns: boolean
