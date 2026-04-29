@@ -18,6 +18,7 @@ import {
   useAddStoriesToHighlight,
   useDeleteHighlightGroup,
   useDeleteStoryFromHighlight,
+  useUpsertHighlightMetadata,
   type HighlightGroup,
 } from "@/hooks/useSocialMutations";
 import { HighlightCoverCropper } from "./HighlightCoverCropper";
@@ -39,6 +40,7 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
   const addStories = useAddStoriesToHighlight();
   const deleteStory = useDeleteStoryFromHighlight();
   const deleteGroup = useDeleteHighlightGroup();
+  const upsertMeta = useUpsertHighlightMetadata();
 
   if (!group) return null;
 
