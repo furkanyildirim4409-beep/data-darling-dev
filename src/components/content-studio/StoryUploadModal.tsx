@@ -41,9 +41,10 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<MediaType>(null);
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
-  // Focus rect normalized in source coords (0..1)
-  const [focusRect, setFocusRect] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 1, h: 1 });
-  const [zoom, setZoom] = useState<number>(1); // 1 = max-fit 9:16, larger = tighter crop
+  // Pan offset in stage pixels (top-left of media relative to stage). Zoom = scale multiplier over base "cover" fit.
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(1);
+  const [stageSize, setStageSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [selectedCategory, setSelectedCategory] = useState<string>("none");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
