@@ -239,6 +239,7 @@ export interface HighlightGroup {
   count: number;
   customCoverUrl: string | null;
   orderIndex: number;
+  isPinnedToKokpit: boolean;
 }
 
 export function useCoachHighlights() {
@@ -258,16 +259,20 @@ export function useCoachHighlights() {
           .order("created_at", { ascending: false }),
         supabase
           .from("coach_highlight_metadata")
-          .select("category_name, custom_cover_url, order_index")
+          .select("category_name, custom_cover_url, order_index, is_pinned_to_kokpit")
           .eq("coach_id", user.id),
       ]);
       if (storiesRes.error) throw storiesRes.error;
       if (metaRes.error) throw metaRes.error;
 
-      const metaMap = new Map<string, { cover: string | null; order: number }>(
+      const metaMap = new Map<string, { cover: string | null; order: number; isPinned: boolean }>(
         (metaRes.data ?? []).map((m: any) => [
           m.category_name,
-          { cover: m.custom_cover_url, order: m.order_index ?? 0 },
+          {
+            cover: m.custom_cover_url,
+            order: m.order_index ?? 0,
+            isPinned: m.is_pinned_to_kokpit ?? true,
+          },
         ]),
       );
 
@@ -289,6 +294,7 @@ export function useCoachHighlights() {
         count: stories.length,
         customCoverUrl: metaMap.get(category)?.cover ?? null,
         orderIndex: metaMap.get(category)?.order ?? Number.MAX_SAFE_INTEGER,
+        isPinnedToKokpit: metaMap.get(category)?.isPinned ?? true,
       }));
 
       // Ordered by metadata order_index; metadata-less groups fall to the end alphabetically.
