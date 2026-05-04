@@ -320,10 +320,15 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                           <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                         )}
                         <p className={cn(
-                          "text-[10px] mt-1",
-                          isCoach ? "text-primary-foreground/70 text-right" : "text-muted-foreground text-right"
+                          "text-[10px] mt-1 flex items-center gap-1",
+                          isCoach ? "text-primary-foreground/70 justify-end" : "text-muted-foreground justify-end"
                         )}>
-                          {format(new Date(msg.created_at), "HH:mm")}
+                          <span>{format(new Date(msg.created_at), "HH:mm")}</span>
+                          {isCoach && (
+                            msg.is_read
+                              ? <CheckCheck className="w-3 h-3 text-sky-300" aria-label="Görüldü" />
+                              : <Check className="w-3 h-3 opacity-70" aria-label="Gönderildi" />
+                          )}
                         </p>
                       </div>
                     </div>
