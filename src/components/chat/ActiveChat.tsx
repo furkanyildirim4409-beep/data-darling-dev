@@ -416,33 +416,45 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
             </DialogDescription>
           </DialogHeader>
           {storyPreview && (
-            <div className="bg-black flex items-center justify-center max-h-[70vh]">
-              {previewIsVideo ? (
+            <div className="bg-black flex items-center justify-center min-h-[200px] max-h-[70vh]">
+              {!previewHasValidMedia || previewMediaError ? (
+                <div className="flex flex-col items-center gap-2 text-center px-6 py-10 text-muted-foreground">
+                  <ImageOff className="w-8 h-8 opacity-70" />
+                  <p className="text-sm">
+                    {previewHasValidMedia ? "Hikaye medyası yüklenemedi" : "Hikaye artık mevcut değil"}
+                  </p>
+                  <p className="text-[11px] opacity-70">
+                    Hikayeler 24 saat sonra otomatik olarak kaldırılır.
+                  </p>
+                </div>
+              ) : previewIsVideo ? (
                 <video
-                  src={storyPreview.media_url}
+                  src={storyPreview.media_url as string}
                   controls
                   autoPlay
                   playsInline
                   className="max-h-[70vh] w-full object-contain"
+                  onError={() => setPreviewMediaError(true)}
                 />
               ) : (
                 <img
-                  src={storyPreview.media_url}
+                  src={storyPreview.media_url as string}
                   alt="Hikaye"
                   className="max-h-[70vh] w-full object-contain"
+                  onError={() => setPreviewMediaError(true)}
                 />
               )}
             </div>
           )}
           <div className="flex justify-end gap-2 p-3 border-t border-border">
-            {storyPreview && (
+            {previewHasValidMedia && !previewMediaError && (
               <Button
                 variant="ghost"
                 size="sm"
                 asChild
                 className="gap-1.5 text-muted-foreground"
               >
-                <a href={storyPreview.media_url} target="_blank" rel="noopener noreferrer">
+                <a href={storyPreview!.media_url as string} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-3.5 h-3.5" />
                   Yeni sekmede aç
                 </a>
