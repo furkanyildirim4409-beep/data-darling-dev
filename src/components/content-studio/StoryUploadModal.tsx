@@ -41,6 +41,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [selectedCategory, setSelectedCategory] = useState<string>("none");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingLabel, setProcessingLabel] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
