@@ -237,19 +237,22 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-xl overflow-hidden border border-border">
+              <div className="relative rounded-xl overflow-hidden border border-border mx-auto bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh", width: "auto" }}>
                 {isVideo ? (
-                  <div className="relative">
-                    <video src={previewUrl} className="w-full h-48 object-cover" muted loop autoPlay playsInline />
+                  <div className="relative w-full h-full">
+                    <video src={previewUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
                     <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
                       <Play className="w-3 h-3" />
                       Video
                     </div>
                   </div>
                 ) : (
-                  <img src={previewUrl} alt="Preview" className="w-full h-48 object-cover" />
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                 )}
-                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
+                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
+                  9:16
+                </div>
+                <Button variant="destructive" size="icon" className="absolute top-10 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
                   <X className="w-4 h-4" />
                 </Button>
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
