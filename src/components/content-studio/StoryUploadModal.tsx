@@ -37,14 +37,21 @@ const categories = storyCategories;
 
 export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<MediaType>(null);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // Focus rect normalized in source coords (0..1)
+  const [focusRect, setFocusRect] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 1, h: 1 });
+  const [zoom, setZoom] = useState<number>(1); // 1 = max-fit 9:16, larger = tighter crop
   const [selectedCategory, setSelectedCategory] = useState<string>("none");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; startFx: number; startFy: number } | null>(null);
 
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
