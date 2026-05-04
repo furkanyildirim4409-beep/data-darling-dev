@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,38 +37,81 @@ const categories = storyCategories;
 
 export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<MediaType>(null);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // Focus rect normalized in source coords (0..1)
+  const [focusRect, setFocusRect] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 1, h: 1 });
+  const [zoom, setZoom] = useState<number>(1); // 1 = max-fit 9:16, larger = tighter crop
   const [selectedCategory, setSelectedCategory] = useState<string>("none");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; startFx: number; startFy: number } | null>(null);
 
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
-  const cropImageTo9x16 = (file: File): Promise<File> => {
+  const TARGET_RATIO = 9 / 16;
+
+  // Compute the maximum 9:16 rect (in normalized source coords) that fits inside the source.
+  const computeMaxFitRect = (srcW: number, srcH: number) => {
+    const srcRatio = srcW / srcH;
+    if (srcRatio > TARGET_RATIO) {
+      // wide → frame height = 1, width narrower
+      const w = (srcH * TARGET_RATIO) / srcW;
+      return { w, h: 1 };
+    } else {
+      const h = (srcW / TARGET_RATIO) / srcH;
+      return { w: 1, h };
+    }
+  };
+
+  // Reset focus rect to centered max-fit when zoom or media changes
+  const resetFocusToCenter = useCallback((srcW: number, srcH: number, z: number = 1) => {
+    const fit = computeMaxFitRect(srcW, srcH);
+    const w = Math.min(1, fit.w / z);
+    const h = Math.min(1, fit.h / z);
+    setFocusRect({
+      x: (1 - w) / 2,
+      y: (1 - h) / 2,
+      w,
+      h,
+    });
+  }, []);
+
+  // Apply zoom changes (keep focus centered around current center)
+  useEffect(() => {
+    if (!naturalSize) return;
+    const fit = computeMaxFitRect(naturalSize.w, naturalSize.h);
+    const w = Math.min(1, fit.w / zoom);
+    const h = Math.min(1, fit.h / zoom);
+    setFocusRect((prev) => {
+      const cx = prev.x + prev.w / 2;
+      const cy = prev.y + prev.h / 2;
+      let x = cx - w / 2;
+      let y = cy - h / 2;
+      x = Math.max(0, Math.min(1 - w, x));
+      y = Math.max(0, Math.min(1 - h, y));
+      return { x, y, w, h };
+    });
+  }, [zoom, naturalSize]);
+
+  const cropImageWithRect = (file: File, rect: { x: number; y: number; w: number; h: number }): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const targetRatio = 9 / 16;
-        const srcRatio = img.width / img.height;
-        let sx = 0, sy = 0, sW = img.width, sH = img.height;
-        if (srcRatio > targetRatio) {
-          // too wide → crop sides
-          sW = img.height * targetRatio;
-          sx = (img.width - sW) / 2;
-        } else if (srcRatio < targetRatio) {
-          // too tall → crop top/bottom
-          sH = img.width / targetRatio;
-          sy = (img.height - sH) / 2;
-        }
-        // Output at sensible resolution
+        const sx = rect.x * img.width;
+        const sy = rect.y * img.height;
+        const sW = rect.w * img.width;
+        const sH = rect.h * img.height;
         const outW = Math.min(1080, Math.round(sW));
-        const outH = Math.round(outW / targetRatio);
+        const outH = Math.round(outW / TARGET_RATIO);
         const canvas = document.createElement("canvas");
         canvas.width = outW;
         canvas.height = outH;
@@ -96,7 +140,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     });
   };
 
-  const cropVideoTo9x16 = (file: File): Promise<File> => {
+  const cropVideoWithRect = (file: File, rect: { x: number; y: number; w: number; h: number }): Promise<File> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
       video.preload = "auto";
@@ -111,7 +155,6 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
       };
 
       video.onloadedmetadata = () => {
-        const targetRatio = 9 / 16;
         const vw = video.videoWidth;
         const vh = video.videoHeight;
         if (!vw || !vh) {
@@ -120,24 +163,12 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           return;
         }
 
-        const srcRatio = vw / vh;
-        // If already 9:16 (within 1% tolerance), skip re-encoding
-        if (Math.abs(srcRatio - targetRatio) < 0.01) {
-          cleanup();
-          resolve(file);
-          return;
-        }
-
-        let sx = 0, sy = 0, sW = vw, sH = vh;
-        if (srcRatio > targetRatio) {
-          sW = vh * targetRatio;
-          sx = (vw - sW) / 2;
-        } else {
-          sH = vw / targetRatio;
-          sy = (vh - sH) / 2;
-        }
+        const sx = rect.x * vw;
+        const sy = rect.y * vh;
+        const sW = rect.w * vw;
+        const sH = rect.h * vh;
         const outW = Math.min(720, Math.round(sW));
-        const outH = Math.round(outW / targetRatio);
+        const outH = Math.round(outW / TARGET_RATIO);
 
         const canvas = document.createElement("canvas");
         canvas.width = outW;
@@ -149,7 +180,6 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           return;
         }
 
-        // Pick supported mime
         const candidates = [
           "video/mp4;codecs=avc1.42E01E",
           "video/webm;codecs=vp9",
@@ -191,9 +221,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           if (recorder.state !== "inactive") recorder.stop();
         };
 
-        video.onplay = () => {
-          drawFrame();
-        };
+        video.onplay = () => { drawFrame(); };
 
         recorder.start();
         video.play().catch((err) => {
@@ -209,42 +237,79 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     });
   };
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = (file: File) => {
     if (file.type.startsWith("image/")) {
-      try {
-        setIsProcessing(true);
-        setProcessingLabel("Görsel kırpılıyor...");
-        const cropped = await cropImageTo9x16(file);
-        setSelectedFile(cropped);
-        setMediaType("image");
-        setPreviewUrl(URL.createObjectURL(cropped));
-      } catch (err: any) {
-        toast.error(err.message || "Görsel işlenemedi");
-      } finally {
-        setIsProcessing(false);
-        setProcessingLabel("");
-      }
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        setNaturalSize({ w: img.width, h: img.height });
+        setZoom(1);
+        resetFocusToCenter(img.width, img.height, 1);
+      };
+      img.src = url;
+      setSelectedFile(file);
+      setMediaType("image");
+      setOriginalUrl(url);
+      setPreviewUrl(url);
     } else if (file.type.startsWith("video/")) {
-      try {
-        setIsProcessing(true);
-        setProcessingLabel("Video 9:16 oranına kırpılıyor...");
-        const cropped = await cropVideoTo9x16(file);
-        setSelectedFile(cropped);
-        setMediaType("video");
-        setPreviewUrl(URL.createObjectURL(cropped));
-      } catch (err: any) {
-        toast.error(err.message || "Video işlenemedi");
-        // Fallback: use the original so user isn't blocked
-        setSelectedFile(file);
-        setMediaType("video");
-        setPreviewUrl(URL.createObjectURL(file));
-      } finally {
-        setIsProcessing(false);
-        setProcessingLabel("");
-      }
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        if (v.videoWidth && v.videoHeight) {
+          setNaturalSize({ w: v.videoWidth, h: v.videoHeight });
+          setZoom(1);
+          resetFocusToCenter(v.videoWidth, v.videoHeight, 1);
+        }
+      };
+      v.src = url;
+      setSelectedFile(file);
+      setMediaType("video");
+      setOriginalUrl(url);
+      setPreviewUrl(url);
     } else {
       toast.error("Lütfen geçerli bir görsel veya video dosyası seçin.");
     }
+  };
+
+  // Drag focus rect
+  const onFocusPointerDown = (e: React.PointerEvent) => {
+    if (!stageRef.current) return;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    dragStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: focusRect.x,
+      startFy: focusRect.y,
+    };
+  };
+
+  const onFocusPointerMove = (e: React.PointerEvent) => {
+    const ds = dragStateRef.current;
+    if (!ds || !stageRef.current || !naturalSize) return;
+    const stage = stageRef.current.getBoundingClientRect();
+    // Stage shows the source media at "contain" — compute its rendered rect
+    const stageRatio = stage.width / stage.height;
+    const srcRatio = naturalSize.w / naturalSize.h;
+    let renderedW = stage.width, renderedH = stage.height;
+    if (srcRatio > stageRatio) {
+      renderedH = stage.width / srcRatio;
+    } else {
+      renderedW = stage.height * srcRatio;
+    }
+    const dxNorm = (e.clientX - ds.startX) / renderedW;
+    const dyNorm = (e.clientY - ds.startY) / renderedH;
+    let nx = ds.startFx + dxNorm;
+    let ny = ds.startFy + dyNorm;
+    nx = Math.max(0, Math.min(1 - focusRect.w, nx));
+    ny = Math.max(0, Math.min(1 - focusRect.h, ny));
+    setFocusRect((prev) => ({ ...prev, x: nx, y: ny }));
+  };
+
+  const onFocusPointerUp = (e: React.PointerEvent) => {
+    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    dragStateRef.current = null;
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -266,12 +331,29 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
     try {
       setIsUploading(true);
-      const ext = selectedFile.name.split(".").pop() || "jpg";
+
+      // Apply user-selected focus crop now
+      let fileToUpload: File = selectedFile;
+      try {
+        if (mediaType === "image") {
+          setProcessingLabel("Görsel kırpılıyor...");
+          fileToUpload = await cropImageWithRect(selectedFile, focusRect);
+        } else if (mediaType === "video") {
+          setProcessingLabel("Video kırpılıyor...");
+          fileToUpload = await cropVideoWithRect(selectedFile, focusRect);
+        }
+      } catch (cropErr: any) {
+        toast.error(cropErr?.message || "Kırpma başarısız, orijinal dosya yükleniyor");
+      } finally {
+        setProcessingLabel("");
+      }
+
+      const ext = fileToUpload.name.split(".").pop() || "jpg";
       const path = `${user.id}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("social-media")
-        .upload(path, selectedFile);
+        .upload(path, fileToUpload);
 
       if (uploadError) throw uploadError;
 
@@ -284,8 +366,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
         : undefined;
       await createStory({ media_url: urlData.publicUrl, duration_hours: 24, category: categoryName });
 
-      // Notify parent for local highlight count update
-      onUpload(selectedFile, selectedCategory);
+      onUpload(fileToUpload, selectedCategory);
       handleClose();
     } catch (err: any) {
       toast.error(`Yükleme başarısız: ${err.message}`);
@@ -295,17 +376,27 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   };
 
   const handleClose = () => {
+    if (originalUrl) { try { URL.revokeObjectURL(originalUrl); } catch { /* noop */ } }
     setSelectedFile(null);
+    setOriginalUrl(null);
     setPreviewUrl(null);
     setMediaType(null);
+    setNaturalSize(null);
+    setZoom(1);
+    setFocusRect({ x: 0, y: 0, w: 1, h: 1 });
     setSelectedCategory("none");
     onOpenChange(false);
   };
 
   const clearFile = () => {
+    if (originalUrl) { try { URL.revokeObjectURL(originalUrl); } catch { /* noop */ } }
     setSelectedFile(null);
+    setOriginalUrl(null);
     setPreviewUrl(null);
     setMediaType(null);
+    setNaturalSize(null);
+    setZoom(1);
+    setFocusRect({ x: 0, y: 0, w: 1, h: 1 });
   };
 
   const isBusy = isUploading || isCreatingStory || isProcessing;
@@ -377,27 +468,95 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-xl overflow-hidden border border-border mx-auto bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh", width: "auto" }}>
-                {isVideo ? (
-                  <div className="relative w-full h-full">
-                    <video src={previewUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
-                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">9:16 odak alanını sürükleyerek seçin</p>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">9:16</span>
+                </div>
+                <div
+                  ref={stageRef}
+                  className="relative mx-auto bg-black/90 rounded-xl overflow-hidden border border-border select-none"
+                  style={{
+                    aspectRatio: naturalSize ? `${naturalSize.w} / ${naturalSize.h}` : "9 / 16",
+                    maxHeight: "55vh",
+                    width: "100%",
+                  }}
+                >
+                  {isVideo ? (
+                    <video
+                      src={previewUrl}
+                      className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                      draggable={false}
+                    />
+                  )}
+
+                  {naturalSize && (
+                    <div
+                      onPointerDown={onFocusPointerDown}
+                      onPointerMove={onFocusPointerMove}
+                      onPointerUp={onFocusPointerUp}
+                      onPointerCancel={onFocusPointerUp}
+                      className="absolute border-2 border-primary cursor-move shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] touch-none"
+                      style={{
+                        left: `${focusRect.x * 100}%`,
+                        top: `${focusRect.y * 100}%`,
+                        width: `${focusRect.w * 100}%`,
+                        height: `${focusRect.h * 100}%`,
+                      }}
+                    >
+                      <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
+                        <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
+                        <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
+                        <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+                      </div>
+                      <span className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-primary" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-primary" />
+                      <span className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-primary" />
+                      <span className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-primary" />
+                    </div>
+                  )}
+
+                  {isVideo && (
+                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs pointer-events-none">
                       <Play className="w-3 h-3" />
                       Video
                     </div>
-                  </div>
-                ) : (
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                )}
-                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
-                  9:16
+                  )}
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 z-10"
+                    onClick={clearFile}
+                    disabled={isBusy}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button variant="destructive" size="icon" className="absolute top-10 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
-                  <X className="w-4 h-4" />
-                </Button>
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                  <p className="text-xs text-white truncate">{selectedFile?.name}</p>
+
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-[10px] text-muted-foreground w-10">Zoom</span>
+                  <Slider
+                    value={[zoom]}
+                    min={1}
+                    max={3}
+                    step={0.05}
+                    onValueChange={(v) => setZoom(v[0] ?? 1)}
+                    className="flex-1"
+                  />
+                  <span className="text-[10px] text-muted-foreground w-10 text-right">{zoom.toFixed(2)}x</span>
                 </div>
+                <p className="text-[10px] text-muted-foreground truncate">{selectedFile?.name}</p>
               </div>
             )}
           </div>
