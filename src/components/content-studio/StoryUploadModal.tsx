@@ -181,7 +181,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
   const cropVideo = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
-      const { sx, sy, sW, sH } = computeSourceCrop();
+      const plan = computeRenderPlan(720);
       const video = document.createElement("video");
       video.preload = "auto";
       video.muted = true;
@@ -191,11 +191,9 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
       const cleanup = () => { try { URL.revokeObjectURL(url); } catch { /* noop */ } };
 
       video.onloadedmetadata = () => {
-        const outW = Math.min(720, Math.round(sW));
-        const outH = Math.round(outW / TARGET_RATIO);
         const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
+        canvas.width = plan.outW;
+        canvas.height = plan.outH;
         const ctx = canvas.getContext("2d");
         if (!ctx) { cleanup(); reject(new Error("Canvas context yok")); return; }
 
@@ -222,7 +220,11 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
         let rafId = 0;
         const drawFrame = () => {
-          ctx.drawImage(video, sx, sy, sW, sH, 0, 0, outW, outH);
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, plan.outW, plan.outH);
+          if (plan.sW > 0 && plan.sH > 0 && plan.dW > 0 && plan.dH > 0) {
+            ctx.drawImage(video, plan.sx, plan.sy, plan.sW, plan.sH, plan.dx, plan.dy, plan.dW, plan.dH);
+          }
           if (!video.paused && !video.ended) rafId = requestAnimationFrame(drawFrame);
         };
         video.onended = () => { cancelAnimationFrame(rafId); if (recorder.state !== "inactive") recorder.stop(); };
