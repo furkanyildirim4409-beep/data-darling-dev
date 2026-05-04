@@ -198,24 +198,36 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                       >
                         {/* Story-reply preview */}
                         {msg.metadata?.story_id && msg.metadata?.media_url && (
-                          <a
-                            href={msg.metadata.media_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setStoryPreview({
+                              media_url: msg.metadata!.media_url!,
+                              category: msg.metadata?.category,
+                            })}
                             className={cn(
-                              "flex items-center gap-2 mb-2 p-1.5 rounded-lg border",
+                              "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
                               isCoach
                                 ? "border-primary-foreground/20 bg-primary-foreground/10"
                                 : "border-border/60 bg-background/40"
                             )}
                           >
-                            <img
-                              src={msg.metadata.media_url}
-                              alt="Hikaye"
-                              className="w-10 h-14 rounded object-cover flex-shrink-0"
-                              loading="lazy"
-                            />
-                            <div className="min-w-0">
+                            {isVideoUrl(msg.metadata.media_url) ? (
+                              <video
+                                src={msg.metadata.media_url}
+                                className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <img
+                                src={msg.metadata.media_url}
+                                alt="Hikaye"
+                                className="w-10 h-14 rounded object-cover flex-shrink-0"
+                                loading="lazy"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
                               <p className={cn(
                                 "text-[10px] font-medium uppercase tracking-wide",
                                 isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
@@ -229,7 +241,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                                 Hikayeyi görüntüle
                               </p>
                             </div>
-                          </a>
+                          </button>
                         )}
                         {/* Media rendering */}
                         {msg.media_type === 'image' && msg.media_url && (
