@@ -19,6 +19,7 @@ import {
   useDeleteHighlightGroup,
   useDeleteStoryFromHighlight,
   useToggleKokpitPin,
+  useToggleProfileVisibility,
   useUpsertHighlightMetadata,
   type HighlightGroup,
 } from "@/hooks/useSocialMutations";
@@ -45,6 +46,7 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
   const deleteGroup = useDeleteHighlightGroup();
   const upsertMeta = useUpsertHighlightMetadata();
   const togglePin = useToggleKokpitPin();
+  const toggleProfile = useToggleProfileVisibility();
 
   if (!group) return null;
 
@@ -109,6 +111,25 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Grubu Sil
               </Button>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <div className="min-w-0">
+                <Label htmlFor="profile-visibility" className="text-sm font-medium cursor-pointer">
+                  Profilde Göster
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Kapalıyken bu grup koç profilinde gizlenir.
+                </p>
+              </div>
+              <Switch
+                id="profile-visibility"
+                checked={group.showOnProfile}
+                disabled={toggleProfile.isPending}
+                onCheckedChange={(checked) =>
+                  toggleProfile.mutate({ categoryName: group.category, showOnProfile: checked })
+                }
+              />
             </div>
 
 
