@@ -60,22 +60,24 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
-  // Cover-fit base scale: smallest scale that fully covers the stage
+  // Contain-fit base scale: largest scale that fully fits inside the stage (no auto-crop)
   const baseScale = naturalSize && stageSize.w && stageSize.h
-    ? Math.max(stageSize.w / naturalSize.w, stageSize.h / naturalSize.h)
+    ? Math.min(stageSize.w / naturalSize.w, stageSize.h / naturalSize.h)
     : 1;
   const effectiveScale = baseScale * zoom;
   const renderedW = naturalSize ? naturalSize.w * effectiveScale : 0;
   const renderedH = naturalSize ? naturalSize.h * effectiveScale : 0;
 
-  // Clamp pan so media always covers the stage (no empty bands)
+  // Clamp pan: if media is larger than stage on an axis, keep stage covered;
+  // if smaller (contain mode, zoom=1), center it on that axis.
   const clampPan = useCallback((p: { x: number; y: number }) => {
-    const minX = stageSize.w - renderedW; // ≤ 0
-    const minY = stageSize.h - renderedH;
-    return {
-      x: Math.min(0, Math.max(minX, p.x)),
-      y: Math.min(0, Math.max(minY, p.y)),
-    };
+    const x = renderedW >= stageSize.w
+      ? Math.min(0, Math.max(stageSize.w - renderedW, p.x))
+      : (stageSize.w - renderedW) / 2;
+    const y = renderedH >= stageSize.h
+      ? Math.min(0, Math.max(stageSize.h - renderedH, p.y))
+      : (stageSize.h - renderedH) / 2;
+    return { x, y };
   }, [stageSize.w, stageSize.h, renderedW, renderedH]);
 
   // Center on zoom/media change
