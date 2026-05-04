@@ -347,6 +347,53 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
           </form>
         )}
       </div>
+
+      {/* Story reply preview dialog */}
+      <Dialog open={!!storyPreview} onOpenChange={(open) => !open && setStoryPreview(null)}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-background border-border">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle className="text-base">Yanıtlanan hikaye</DialogTitle>
+            <DialogDescription className="text-xs">
+              {previewCategoryName ? `Kategori: ${previewCategoryName}` : "Sporcunun yanıt verdiği hikaye"}
+            </DialogDescription>
+          </DialogHeader>
+          {storyPreview && (
+            <div className="bg-black flex items-center justify-center max-h-[70vh]">
+              {previewIsVideo ? (
+                <video
+                  src={storyPreview.media_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              ) : (
+                <img
+                  src={storyPreview.media_url}
+                  alt="Hikaye"
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 p-3 border-t border-border">
+            {storyPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="gap-1.5 text-muted-foreground"
+              >
+                <a href={storyPreview.media_url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Yeni sekmede aç
+                </a>
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setStoryPreview(null)}>Kapat</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
