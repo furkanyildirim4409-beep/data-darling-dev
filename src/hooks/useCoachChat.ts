@@ -372,7 +372,7 @@ export function useCoachChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coachId, selectedAthleteId]);
+  }, [coachId, selectedAthleteId, fetchAthletes]);
 
   useEffect(() => {
     fetchAthletes();
