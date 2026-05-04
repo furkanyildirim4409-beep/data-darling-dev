@@ -298,20 +298,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     if (!selectedFile || !user) return;
     try {
       setIsUploading(true);
-      let fileToUpload: File = selectedFile;
-      try {
-        if (mediaType === "image") {
-          setProcessingLabel("Görsel kırpılıyor...");
-          fileToUpload = await cropImage(selectedFile);
-        } else if (mediaType === "video") {
-          setProcessingLabel("Video kırpılıyor...");
-          fileToUpload = await cropVideo(selectedFile);
-        }
-      } catch (cropErr: any) {
-        toast.error(cropErr?.message || "Kırpma başarısız, orijinal dosya yükleniyor");
-      } finally {
-        setProcessingLabel("");
-      }
+      // Upload original file untouched — no resize/crop/recompression
+      const fileToUpload: File = selectedFile;
 
       const ext = fileToUpload.name.split(".").pop() || "jpg";
       const path = `${user.id}/${Date.now()}.${ext}`;
