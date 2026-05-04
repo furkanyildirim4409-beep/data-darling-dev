@@ -240,6 +240,7 @@ export interface HighlightGroup {
   customCoverUrl: string | null;
   orderIndex: number;
   isPinnedToKokpit: boolean;
+  showOnProfile: boolean;
 }
 
 export function useCoachHighlights() {
@@ -259,19 +260,20 @@ export function useCoachHighlights() {
           .order("created_at", { ascending: false }),
         supabase
           .from("coach_highlight_metadata")
-          .select("category_name, custom_cover_url, order_index, is_pinned_to_kokpit")
+          .select("category_name, custom_cover_url, order_index, is_pinned_to_kokpit, show_on_profile")
           .eq("coach_id", user.id),
       ]);
       if (storiesRes.error) throw storiesRes.error;
       if (metaRes.error) throw metaRes.error;
 
-      const metaMap = new Map<string, { cover: string | null; order: number; isPinned: boolean }>(
+      const metaMap = new Map<string, { cover: string | null; order: number; isPinned: boolean; showOnProfile: boolean }>(
         (metaRes.data ?? []).map((m: any) => [
           m.category_name,
           {
             cover: m.custom_cover_url,
             order: m.order_index ?? 0,
             isPinned: m.is_pinned_to_kokpit ?? true,
+            showOnProfile: m.show_on_profile ?? true,
           },
         ]),
       );
@@ -295,6 +297,7 @@ export function useCoachHighlights() {
         customCoverUrl: metaMap.get(category)?.cover ?? null,
         orderIndex: metaMap.get(category)?.order ?? Number.MAX_SAFE_INTEGER,
         isPinnedToKokpit: metaMap.get(category)?.isPinned ?? true,
+        showOnProfile: metaMap.get(category)?.showOnProfile ?? true,
       }));
 
       // Ordered by metadata order_index; metadata-less groups fall to the end alphabetically.
@@ -713,6 +716,53 @@ export function useToggleKokpitPin() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["coach-highlights"] });
       qc.invalidateQueries({ queryKey: ["athlete-coach-highlights"] });
+    },
+  });
+}
+
+export function useToggleProfileVisibility() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryName, showOnProfile }: { categoryName: string; showOnProfile: boolean }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("coach_highlight_metadata")
+        .upsert(
+          {
+            coach_id: user.id,
+            category_name: categoryName,
+            show_on_profile: showOnProfile,
+          },
+          { onConflict: "coach_id,category_name" },
+        );
+      if (error) throw error;
+      return { categoryName, showOnProfile };
+    },
+    onMutate: async ({ categoryName, showOnProfile }) => {
+      await qc.cancelQueries({ queryKey: ["coach-highlights"] });
+      const prev = qc.getQueryData<HighlightGroup[]>(["coach-highlights", user?.id]);
+      if (prev) {
+        qc.setQueryData<HighlightGroup[]>(
+          ["coach-highlights", user?.id],
+          prev.map((g) =>
+            g.category === categoryName ? { ...g, showOnProfile } : g,
+          ),
+        );
+      }
+      return { prev };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["coach-highlights", user?.id], ctx.prev);
+      toast.error(`Güncellenemedi: ${err.message}`);
+    },
+    onSuccess: ({ showOnProfile }) => {
+      toast.success(showOnProfile ? "Profilde gösteriliyor." : "Profilden gizlendi.");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      qc.invalidateQueries({ queryKey: ["coach-profile-highlights"] });
     },
   });
 }

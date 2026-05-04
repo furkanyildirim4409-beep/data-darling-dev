@@ -760,6 +760,7 @@ export type Database = {
           id: string
           is_pinned_to_kokpit: boolean
           order_index: number
+          show_on_profile: boolean
           updated_at: string
         }
         Insert: {
@@ -770,6 +771,7 @@ export type Database = {
           id?: string
           is_pinned_to_kokpit?: boolean
           order_index?: number
+          show_on_profile?: boolean
           updated_at?: string
         }
         Update: {
@@ -780,6 +782,7 @@ export type Database = {
           id?: string
           is_pinned_to_kokpit?: boolean
           order_index?: number
+          show_on_profile?: boolean
           updated_at?: string
         }
         Relationships: []
