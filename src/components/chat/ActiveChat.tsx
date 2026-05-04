@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink, ImageOff, Reply } from "lucide-react";
 import { storyCategories } from "@/data/storyCategories";
 import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
@@ -30,7 +30,9 @@ interface ActiveChatProps {
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
-  const [storyPreview, setStoryPreview] = useState<{ media_url: string; category?: string } | null>(null);
+  const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
+  const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
+  const [previewMediaError, setPreviewMediaError] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +40,34 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
 
+  const isValidHttpUrl = (url: unknown): url is string => {
+    if (typeof url !== "string" || !url.trim()) return false;
+    try {
+      const u = new URL(url);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
   const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
-  const previewIsVideo = useMemo(() => (storyPreview ? isVideoUrl(storyPreview.media_url) : false), [storyPreview]);
+  const markThumbBroken = useCallback((id: string) => {
+    setBrokenThumbs(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setPreviewMediaError(false);
+  }, [storyPreview?.media_url]);
+
+  const previewHasValidMedia = !!storyPreview && isValidHttpUrl(storyPreview.media_url);
+  const previewIsVideo = useMemo(
+    () => (previewHasValidMedia ? isVideoUrl(storyPreview!.media_url as string) : false),
+    [previewHasValidMedia, storyPreview]
+  );
   const previewCategoryName = useMemo(() => {
     if (!storyPreview?.category) return null;
     return storyCategories.find(c => c.id === storyPreview.category)?.name ?? storyPreview.category;
@@ -196,53 +224,83 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                             : "bg-muted text-foreground rounded-bl-md"
                         )}
                       >
-                        {/* Story-reply preview */}
-                        {msg.metadata?.story_id && msg.metadata?.media_url && (
-                          <button
-                            type="button"
-                            onClick={() => setStoryPreview({
-                              media_url: msg.metadata!.media_url!,
-                              category: msg.metadata?.category,
-                            })}
-                            className={cn(
-                              "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
-                              isCoach
-                                ? "border-primary-foreground/20 bg-primary-foreground/10"
-                                : "border-border/60 bg-background/40"
-                            )}
-                          >
-                            {isVideoUrl(msg.metadata.media_url) ? (
-                              <video
-                                src={msg.metadata.media_url}
-                                className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-                            ) : (
-                              <img
-                                src={msg.metadata.media_url}
-                                alt="Hikaye"
-                                className="w-10 h-14 rounded object-cover flex-shrink-0"
-                                loading="lazy"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className={cn(
-                                "text-[10px] font-medium uppercase tracking-wide",
-                                isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
-                              )}>
-                                {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
-                              </p>
-                              <p className={cn(
-                                "text-[11px] truncate",
-                                isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                              )}>
-                                Hikayeyi görüntüle
-                              </p>
-                            </div>
-                          </button>
-                        )}
+                        {/* Story-reply preview — tolerant of missing/invalid metadata */}
+                        {(() => {
+                          const meta = msg.metadata;
+                          if (!meta || typeof meta !== "object") return null;
+                          const hasStoryRef =
+                            !!meta.story_id || !!meta.media_url || !!meta.category;
+                          if (!hasStoryRef) return null;
+
+                          const rawUrl = meta.media_url;
+                          const validUrl = isValidHttpUrl(rawUrl) ? rawUrl : null;
+                          const thumbBroken = validUrl ? brokenThumbs.has(msg.id) : true;
+                          const showPlaceholder = !validUrl || thumbBroken;
+                          const isVideo = validUrl ? isVideoUrl(validUrl) : false;
+                          const subtitle = showPlaceholder
+                            ? (validUrl ? "Hikaye yüklenemedi" : "Hikaye artık mevcut değil")
+                            : "Hikayeyi görüntüle";
+
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setStoryPreview({
+                                media_url: validUrl,
+                                category: meta.category ?? null,
+                              })}
+                              className={cn(
+                                "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
+                                isCoach
+                                  ? "border-primary-foreground/20 bg-primary-foreground/10"
+                                  : "border-border/60 bg-background/40"
+                              )}
+                            >
+                              {showPlaceholder ? (
+                                <div className={cn(
+                                  "w-10 h-14 rounded flex items-center justify-center flex-shrink-0",
+                                  isCoach ? "bg-primary-foreground/15" : "bg-muted-foreground/15"
+                                )}>
+                                  <ImageOff className={cn(
+                                    "w-4 h-4",
+                                    isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                                  )} />
+                                </div>
+                              ) : isVideo ? (
+                                <video
+                                  src={validUrl!}
+                                  className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  onError={() => markThumbBroken(msg.id)}
+                                />
+                              ) : (
+                                <img
+                                  src={validUrl!}
+                                  alt="Hikaye"
+                                  className="w-10 h-14 rounded object-cover flex-shrink-0"
+                                  loading="lazy"
+                                  onError={() => markThumbBroken(msg.id)}
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className={cn(
+                                  "text-[10px] font-medium uppercase tracking-wide flex items-center gap-1",
+                                  isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
+                                )}>
+                                  <Reply className="w-3 h-3" />
+                                  {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
+                                </p>
+                                <p className={cn(
+                                  "text-[11px] truncate",
+                                  isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                                )}>
+                                  {subtitle}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })()}
                         {/* Media rendering */}
                         {msg.media_type === 'image' && msg.media_url && (
                           <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
@@ -358,33 +416,45 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
             </DialogDescription>
           </DialogHeader>
           {storyPreview && (
-            <div className="bg-black flex items-center justify-center max-h-[70vh]">
-              {previewIsVideo ? (
+            <div className="bg-black flex items-center justify-center min-h-[200px] max-h-[70vh]">
+              {!previewHasValidMedia || previewMediaError ? (
+                <div className="flex flex-col items-center gap-2 text-center px-6 py-10 text-muted-foreground">
+                  <ImageOff className="w-8 h-8 opacity-70" />
+                  <p className="text-sm">
+                    {previewHasValidMedia ? "Hikaye medyası yüklenemedi" : "Hikaye artık mevcut değil"}
+                  </p>
+                  <p className="text-[11px] opacity-70">
+                    Hikayeler 24 saat sonra otomatik olarak kaldırılır.
+                  </p>
+                </div>
+              ) : previewIsVideo ? (
                 <video
-                  src={storyPreview.media_url}
+                  src={storyPreview.media_url as string}
                   controls
                   autoPlay
                   playsInline
                   className="max-h-[70vh] w-full object-contain"
+                  onError={() => setPreviewMediaError(true)}
                 />
               ) : (
                 <img
-                  src={storyPreview.media_url}
+                  src={storyPreview.media_url as string}
                   alt="Hikaye"
                   className="max-h-[70vh] w-full object-contain"
+                  onError={() => setPreviewMediaError(true)}
                 />
               )}
             </div>
           )}
           <div className="flex justify-end gap-2 p-3 border-t border-border">
-            {storyPreview && (
+            {previewHasValidMedia && !previewMediaError && (
               <Button
                 variant="ghost"
                 size="sm"
                 asChild
                 className="gap-1.5 text-muted-foreground"
               >
-                <a href={storyPreview.media_url} target="_blank" rel="noopener noreferrer">
+                <a href={storyPreview!.media_url as string} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-3.5 h-3.5" />
                   Yeni sekmede aç
                 </a>
