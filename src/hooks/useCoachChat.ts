@@ -365,6 +365,22 @@ export function useCoachChat() {
           });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `sender_id=eq.${coachId}`,
+        },
+        (payload) => {
+          const updated = payload.new as ChatMessage;
+          if (!updated?.is_read) return;
+          setMessages(prev =>
+            prev.map(m => (m.id === updated.id ? { ...m, is_read: true } : m))
+          );
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;
