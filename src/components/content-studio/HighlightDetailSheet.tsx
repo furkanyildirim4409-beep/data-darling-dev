@@ -18,9 +18,12 @@ import {
   useAddStoriesToHighlight,
   useDeleteHighlightGroup,
   useDeleteStoryFromHighlight,
+  useToggleKokpitPin,
   useUpsertHighlightMetadata,
   type HighlightGroup,
 } from "@/hooks/useSocialMutations";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { HighlightCoverCropper } from "./HighlightCoverCropper";
 
 interface Props {
@@ -41,6 +44,7 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
   const deleteStory = useDeleteStoryFromHighlight();
   const deleteGroup = useDeleteHighlightGroup();
   const upsertMeta = useUpsertHighlightMetadata();
+  const togglePin = useToggleKokpitPin();
 
   if (!group) return null;
 
@@ -105,6 +109,26 @@ export function HighlightDetailSheet({ group, open, onOpenChange }: Props) {
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Grubu Sil
               </Button>
+            </div>
+
+
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <div className="min-w-0">
+                <Label htmlFor="kokpit-pin" className="text-sm font-medium cursor-pointer">
+                  Öğrenci Kokpitinde Göster
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Kapalıyken bu grup yalnızca profilinde görünür.
+                </p>
+              </div>
+              <Switch
+                id="kokpit-pin"
+                checked={group.isPinnedToKokpit}
+                disabled={togglePin.isPending}
+                onCheckedChange={(checked) =>
+                  togglePin.mutate({ categoryName: group.category, isPinned: checked })
+                }
+              />
             </div>
           </SheetHeader>
 
