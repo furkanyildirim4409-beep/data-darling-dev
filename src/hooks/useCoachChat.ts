@@ -25,6 +25,7 @@ export interface ChatMessage {
   is_read: boolean;
   media_url?: string | null;
   media_type?: string | null;
+  metadata?: { story_id?: string; media_url?: string; category?: string } | null;
 }
 
 export function useCoachChat() {
