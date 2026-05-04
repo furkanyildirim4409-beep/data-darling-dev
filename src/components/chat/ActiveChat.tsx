@@ -30,7 +30,9 @@ interface ActiveChatProps {
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
-  const [storyPreview, setStoryPreview] = useState<{ media_url: string; category?: string } | null>(null);
+  const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
+  const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
+  const [previewMediaError, setPreviewMediaError] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +40,34 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
 
+  const isValidHttpUrl = (url: unknown): url is string => {
+    if (typeof url !== "string" || !url.trim()) return false;
+    try {
+      const u = new URL(url);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
   const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
-  const previewIsVideo = useMemo(() => (storyPreview ? isVideoUrl(storyPreview.media_url) : false), [storyPreview]);
+  const markThumbBroken = useCallback((id: string) => {
+    setBrokenThumbs(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setPreviewMediaError(false);
+  }, [storyPreview?.media_url]);
+
+  const previewHasValidMedia = !!storyPreview && isValidHttpUrl(storyPreview.media_url);
+  const previewIsVideo = useMemo(
+    () => (previewHasValidMedia ? isVideoUrl(storyPreview!.media_url as string) : false),
+    [previewHasValidMedia, storyPreview]
+  );
   const previewCategoryName = useMemo(() => {
     if (!storyPreview?.category) return null;
     return storyCategories.find(c => c.id === storyPreview.category)?.name ?? storyPreview.category;
