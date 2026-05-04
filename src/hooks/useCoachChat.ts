@@ -307,6 +307,17 @@ export function useCoachChat() {
           const senderId = newMsg.sender_id;
           const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
+          // If sender is unknown to current inbox, refresh roster to surface them
+          let knownSender = false;
+          setAthletes(prev => {
+            knownSender = prev.some(a => a.id === senderId);
+            return prev;
+          });
+          if (!knownSender) {
+            // Defer to avoid setState-in-setState; refresh full inbox
+            setTimeout(() => fetchAthletes(), 0);
+          }
+
           if (senderId === selectedAthleteId) {
             setMessages(prev => [...prev, newMsg]);
             supabase
