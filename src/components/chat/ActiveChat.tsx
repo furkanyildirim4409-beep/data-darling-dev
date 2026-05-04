@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink } from "lucide-react";
+import { storyCategories } from "@/data/storyCategories";
 import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
