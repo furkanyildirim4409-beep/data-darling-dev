@@ -331,12 +331,29 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
     try {
       setIsUploading(true);
-      const ext = selectedFile.name.split(".").pop() || "jpg";
+
+      // Apply user-selected focus crop now
+      let fileToUpload: File = selectedFile;
+      try {
+        if (mediaType === "image") {
+          setProcessingLabel("Görsel kırpılıyor...");
+          fileToUpload = await cropImageWithRect(selectedFile, focusRect);
+        } else if (mediaType === "video") {
+          setProcessingLabel("Video kırpılıyor...");
+          fileToUpload = await cropVideoWithRect(selectedFile, focusRect);
+        }
+      } catch (cropErr: any) {
+        toast.error(cropErr?.message || "Kırpma başarısız, orijinal dosya yükleniyor");
+      } finally {
+        setProcessingLabel("");
+      }
+
+      const ext = fileToUpload.name.split(".").pop() || "jpg";
       const path = `${user.id}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("social-media")
-        .upload(path, selectedFile);
+        .upload(path, fileToUpload);
 
       if (uploadError) throw uploadError;
 
@@ -349,8 +366,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
         : undefined;
       await createStory({ media_url: urlData.publicUrl, duration_hours: 24, category: categoryName });
 
-      // Notify parent for local highlight count update
-      onUpload(selectedFile, selectedCategory);
+      onUpload(fileToUpload, selectedCategory);
       handleClose();
     } catch (err: any) {
       toast.error(`Yükleme başarısız: ${err.message}`);
@@ -360,17 +376,27 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   };
 
   const handleClose = () => {
+    if (originalUrl) { try { URL.revokeObjectURL(originalUrl); } catch { /* noop */ } }
     setSelectedFile(null);
+    setOriginalUrl(null);
     setPreviewUrl(null);
     setMediaType(null);
+    setNaturalSize(null);
+    setZoom(1);
+    setFocusRect({ x: 0, y: 0, w: 1, h: 1 });
     setSelectedCategory("none");
     onOpenChange(false);
   };
 
   const clearFile = () => {
+    if (originalUrl) { try { URL.revokeObjectURL(originalUrl); } catch { /* noop */ } }
     setSelectedFile(null);
+    setOriginalUrl(null);
     setPreviewUrl(null);
     setMediaType(null);
+    setNaturalSize(null);
+    setZoom(1);
+    setFocusRect({ x: 0, y: 0, w: 1, h: 1 });
   };
 
   const isBusy = isUploading || isCreatingStory || isProcessing;
