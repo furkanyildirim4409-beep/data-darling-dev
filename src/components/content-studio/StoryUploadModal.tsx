@@ -308,7 +308,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     setMediaType(null);
   };
 
-  const isBusy = isUploading || isCreatingStory;
+  const isBusy = isUploading || isCreatingStory || isProcessing;
   const isVideo = mediaType === "video";
 
   return (
