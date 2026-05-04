@@ -468,27 +468,95 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-xl overflow-hidden border border-border mx-auto bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh", width: "auto" }}>
-                {isVideo ? (
-                  <div className="relative w-full h-full">
-                    <video src={previewUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
-                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">9:16 odak alanını sürükleyerek seçin</p>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">9:16</span>
+                </div>
+                <div
+                  ref={stageRef}
+                  className="relative mx-auto bg-black/90 rounded-xl overflow-hidden border border-border select-none"
+                  style={{
+                    aspectRatio: naturalSize ? `${naturalSize.w} / ${naturalSize.h}` : "9 / 16",
+                    maxHeight: "55vh",
+                    width: "100%",
+                  }}
+                >
+                  {isVideo ? (
+                    <video
+                      src={previewUrl}
+                      className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                      draggable={false}
+                    />
+                  )}
+
+                  {naturalSize && (
+                    <div
+                      onPointerDown={onFocusPointerDown}
+                      onPointerMove={onFocusPointerMove}
+                      onPointerUp={onFocusPointerUp}
+                      onPointerCancel={onFocusPointerUp}
+                      className="absolute border-2 border-primary cursor-move shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] touch-none"
+                      style={{
+                        left: `${focusRect.x * 100}%`,
+                        top: `${focusRect.y * 100}%`,
+                        width: `${focusRect.w * 100}%`,
+                        height: `${focusRect.h * 100}%`,
+                      }}
+                    >
+                      <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
+                        <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
+                        <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
+                        <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+                      </div>
+                      <span className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-primary" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-primary" />
+                      <span className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-primary" />
+                      <span className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-primary" />
+                    </div>
+                  )}
+
+                  {isVideo && (
+                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs pointer-events-none">
                       <Play className="w-3 h-3" />
                       Video
                     </div>
-                  </div>
-                ) : (
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                )}
-                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
-                  9:16
+                  )}
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 z-10"
+                    onClick={clearFile}
+                    disabled={isBusy}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button variant="destructive" size="icon" className="absolute top-10 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
-                  <X className="w-4 h-4" />
-                </Button>
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                  <p className="text-xs text-white truncate">{selectedFile?.name}</p>
+
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-[10px] text-muted-foreground w-10">Zoom</span>
+                  <Slider
+                    value={[zoom]}
+                    min={1}
+                    max={3}
+                    step={0.05}
+                    onValueChange={(v) => setZoom(v[0] ?? 1)}
+                    className="flex-1"
+                  />
+                  <span className="text-[10px] text-muted-foreground w-10 text-right">{zoom.toFixed(2)}x</span>
                 </div>
+                <p className="text-[10px] text-muted-foreground truncate">{selectedFile?.name}</p>
               </div>
             )}
           </div>
