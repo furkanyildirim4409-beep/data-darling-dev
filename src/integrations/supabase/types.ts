@@ -1390,6 +1390,7 @@ export type Database = {
           is_read: boolean | null
           media_type: string | null
           media_url: string | null
+          metadata: Json
           receiver_id: string
           sender_id: string
         }
@@ -1400,6 +1401,7 @@ export type Database = {
           is_read?: boolean | null
           media_type?: string | null
           media_url?: string | null
+          metadata?: Json
           receiver_id: string
           sender_id: string
         }
@@ -1410,6 +1412,7 @@ export type Database = {
           is_read?: boolean | null
           media_type?: string | null
           media_url?: string | null
+          metadata?: Json
           receiver_id?: string
           sender_id?: string
         }
