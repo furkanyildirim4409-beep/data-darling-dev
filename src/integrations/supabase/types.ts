@@ -758,6 +758,7 @@ export type Database = {
           created_at: string
           custom_cover_url: string | null
           id: string
+          is_pinned_to_kokpit: boolean
           order_index: number
           updated_at: string
         }
@@ -767,6 +768,7 @@ export type Database = {
           created_at?: string
           custom_cover_url?: string | null
           id?: string
+          is_pinned_to_kokpit?: boolean
           order_index?: number
           updated_at?: string
         }
@@ -776,6 +778,7 @@ export type Database = {
           created_at?: string
           custom_cover_url?: string | null
           id?: string
+          is_pinned_to_kokpit?: boolean
           order_index?: number
           updated_at?: string
         }

@@ -1,104 +1,46 @@
-## Highlights Manager — Part 8
+# Kokpit Highlights Pinning
 
-Coach OS already has a working Highlights backbone (`coach_stories` with `category` + `is_highlighted`, `coach_highlight_metadata` for custom covers). The user picked **Option A — extend, do not duplicate**. So no parallel `coach_highlights` / `coach_stories` tables and no new `highlights` bucket. We reuse `social-media`.
+Add the ability for coaches to control which highlight groups appear on the athlete's Kokpit (dashboard).
 
-This part fills the UX gaps: a true "Create Highlight Group" flow, a polished group-detail panel with thumbnails + per-story delete + in-group dropzone, and per-group ordering.
+## Step A — Database Migration
 
-### Step A — Database (single small migration)
-
-Add `order_index` to `coach_highlight_metadata` so the Manager controls highlight order deterministically. Backfill = current `created_at` rank.
+New migration file under `supabase/migrations/`:
 
 ```sql
-alter table public.coach_highlight_metadata
-  add column if not exists order_index integer not null default 0;
+ALTER TABLE public.coach_highlight_metadata
+  ADD COLUMN IF NOT EXISTS is_pinned_to_kokpit boolean NOT NULL DEFAULT true;
 
--- Backfill existing rows by created_at order per coach
-with ranked as (
-  select id,
-         row_number() over (partition by coach_id order by created_at) - 1 as rn
-  from public.coach_highlight_metadata
-)
-update public.coach_highlight_metadata m
-set order_index = r.rn
-from ranked r
-where r.id = m.id;
-
-create index if not exists idx_chm_coach_order
-  on public.coach_highlight_metadata (coach_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_chm_coach_pinned
+  ON public.coach_highlight_metadata (coach_id, is_pinned_to_kokpit);
 ```
 
-No changes to `coach_stories`, RLS, or buckets. The `social-media` bucket already exists and is correctly scoped (`auth.uid()` folder). The Student App fetcher continues working unchanged.
+Default `true` so existing groups stay visible (no behavior regression). Existing RLS policies on `coach_highlight_metadata` already allow the coach to update their own rows — no policy changes needed.
 
-### Step B — Hooks: extend `src/hooks/useSocialMutations.ts`
+## Step B — Hooks (`src/hooks/useSocialMutations.ts`)
 
-All new logic lives in the existing file to keep one source of truth. Additions:
+1. **`useCoachHighlights`** — extend the `coach_highlight_metadata` SELECT to include `is_pinned_to_kokpit`, and surface it on each returned group (e.g. `isPinnedToKokpit: boolean`, defaulting to `true` when no metadata row exists).
+2. **`useToggleKokpitPin`** — new mutation:
+   - Input: `{ categoryName: string; isPinned: boolean }`
+   - Upserts `coach_highlight_metadata` for the current `coach_id` + `category_name` setting `is_pinned_to_kokpit`. Upsert (rather than update) ensures groups without a metadata row still get one created.
+   - On success: `invalidateQueries(["coach-highlights"])` and any athlete-side query key used to render the kokpit highlights (will check at implementation time and add invalidation if a separate key exists).
+   - Optimistic update on the cached `["coach-highlights"]` list so the toggle feels instant.
 
-1. **`useCoachHighlights`** — extend `select` on `coach_highlight_metadata` to include `order_index`; sort the returned `groups` by `order_index` (groups missing metadata fall to the end alphabetically).
-2. **`useCreateHighlightGroup({ name, coverFile })`** —
-   - Upload `coverFile` to `social-media/{user.id}/highlight-covers/{ts}.{ext}` → `getPublicUrl`.
-   - `upsert coach_highlight_metadata { coach_id, category_name: name, custom_cover_url: url, order_index: max+1 }`.
-   - Toast + invalidate `coach-highlights`.
-3. **`useDeleteHighlightGroup(name)`** —
-   - Update all `coach_stories` where `coach_id = me AND category = name` → set `is_highlighted=false, category=null` (mirrors the existing "Kaldır" loop in `HighlightsSection`, but as a single bulk update).
-   - Delete the `coach_highlight_metadata` row.
-   - Invalidate.
-4. **`useAddStoriesToHighlight({ category, files })`** —
-   - For each file: upload to `social-media/{user.id}/{ts}-{i}.{ext}`, then `insert coach_stories { coach_id, media_url, category, is_highlighted: true, expires_at: null }` (highlighted stories don't expire — confirmed by existing schema where `is_highlighted` decouples from `expires_at`).
-   - Surfaces a single aggregate toast on completion.
-5. **`useDeleteStoryFromHighlight(storyId)`** —
-   - `update coach_stories { is_highlighted: false }` (keeps the row in archive instead of hard-deleting; consistent with existing "Kaldır" semantics).
-6. **`useReorderHighlights(orderedNames[])`** —
-   - For each name: `upsert { coach_id, category_name, order_index: idx }` with `onConflict: 'coach_id,category_name'`. Used later for drag-reorder; we wire the mutation now even if drag UI ships in a follow-up.
+## Step C — UI (`src/components/content-studio/HighlightDetailSheet.tsx`)
 
-### Step C — UI: Polished Manager
+- Pass `isPinnedToKokpit` through the `group` prop (already wired via `useCoachHighlights`).
+- Add a `Switch` row above the "Kapak Değiştir" / "Grubu Sil" actions:
+  - Label: **"Öğrenci Kokpitinde Göster"**
+  - Subtext: short helper explaining it controls the athlete dashboard visibility
+  - Bound to `useToggleKokpitPin`, disabled while the mutation is pending
+- Toast confirms the new state.
 
-Two additions, no rewrite of `HighlightsSection`:
+## Step D — Athlete Kokpit consumer
 
-#### C.1 — `src/components/content-studio/CreateHighlightGroupDialog.tsx` (new)
+Locate the athlete dashboard consumer for highlights (likely fetches `coach_stories` + `coach_highlight_metadata` for the assigned coach) and filter out groups where `is_pinned_to_kokpit = false`. Coach profile page continues to show all groups.
 
-- Inputs: `title` (text, required, max 24 chars), `coverFile` (image-only dropzone with live preview).
-- Submit → `useCreateHighlightGroup`. The new group appears empty; coach then opens it to add stories.
-- Reused `Dialog` + `Label` + `Input` primitives.
+## Files
 
-#### C.2 — `src/components/content-studio/HighlightDetailSheet.tsx` (new)
-
-A right-side `Sheet` (Radix) that opens when a coach clicks a highlight in `HighlightsSection` (or the new "Yönet" button on the selected group). Shows:
-
-- Header: cover, title, story count, "Kapak Değiştir" (reuses existing `HighlightCoverCropper`), "Grubu Sil" (uses `useDeleteHighlightGroup` with confirm).
-- Dropzone (multi-file image/video) → `useAddStoriesToHighlight` with progress.
-- Grid of existing stories (3 cols, native overflow): each tile shows the media, hover `X` button → `useDeleteStoryFromHighlight`. Video tiles show a `Play` overlay.
-- Empty state when group has 0 stories: "Bu gruba henüz hikaye eklenmedi — yukarıdan yükleyin."
-
-#### C.3 — `HighlightsSection.tsx` wiring (minimal edits)
-
-- Replace the "Arşivden Seç" tile with **"+ Yeni Grup"** that opens `CreateHighlightGroupDialog`. Keep "Arşivden Seç" as a secondary smaller button below the row so the existing archive-promotion flow stays.
-- Clicking a highlight tile now opens `HighlightDetailSheet` (instead of just toggling the inline accordion). The inline `selectedGroup` block is removed; all management lives in the Sheet.
-
-#### C.4 — `ContentStudio.tsx`
-
-No structural change. `HighlightsSection` already renders here. Just confirms the page picks up the new Manager UX automatically.
-
-### Files
-
-| File | Action |
-|---|---|
-| `supabase/migrations/<ts>_chm_order_index.sql` | Create — adds `order_index` + backfill + index |
-| `src/hooks/useSocialMutations.ts` | Edit — add 5 new hooks, extend `useCoachHighlights` |
-| `src/components/content-studio/CreateHighlightGroupDialog.tsx` | Create |
-| `src/components/content-studio/HighlightDetailSheet.tsx` | Create |
-| `src/components/content-studio/HighlightsSection.tsx` | Edit — swap inline accordion → Sheet, add "+ Yeni Grup" |
-
-### Out of Scope
-
-- Drag-to-reorder UI (mutation is wired; UI in a follow-up).
-- Migrating story media into a separate `highlights` bucket. Reusing `social-media` keeps backward compatibility with existing rows whose URLs already point there.
-- Modifying the Student App fetcher — it consumes the same `coach_stories` rows and now gets ordered groups for free.
-
-### Acceptance
-
-1. "+ Yeni Grup" creates an empty highlight with cover; appears immediately in the row.
-2. Clicking a highlight opens the Sheet; uploaded files appear as story tiles instantly with realtime invalidation.
-3. Per-story `X` removes the tile (`is_highlighted=false`), story falls back into Archive.
-4. "Grubu Sil" un-highlights all member stories and deletes the metadata row.
-5. Custom cover replacement still works through the existing `HighlightCoverCropper`.
-6. Highlights render in `order_index` order across page reloads.
+- New: `supabase/migrations/<ts>_chm_pin_kokpit.sql`
+- Edit: `src/hooks/useSocialMutations.ts` (extend select + new `useToggleKokpitPin`)
+- Edit: `src/components/content-studio/HighlightDetailSheet.tsx` (Switch UI)
+- Edit: athlete kokpit highlights query (filter by `is_pinned_to_kokpit`)
