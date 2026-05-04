@@ -96,20 +96,152 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     });
   };
 
+  const cropVideoTo9x16 = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "auto";
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = "anonymous";
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      const cleanup = () => {
+        try { URL.revokeObjectURL(url); } catch { /* noop */ }
+      };
+
+      video.onloadedmetadata = () => {
+        const targetRatio = 9 / 16;
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        if (!vw || !vh) {
+          cleanup();
+          reject(new Error("Video boyutu okunamadı"));
+          return;
+        }
+
+        const srcRatio = vw / vh;
+        // If already 9:16 (within 1% tolerance), skip re-encoding
+        if (Math.abs(srcRatio - targetRatio) < 0.01) {
+          cleanup();
+          resolve(file);
+          return;
+        }
+
+        let sx = 0, sy = 0, sW = vw, sH = vh;
+        if (srcRatio > targetRatio) {
+          sW = vh * targetRatio;
+          sx = (vw - sW) / 2;
+        } else {
+          sH = vw / targetRatio;
+          sy = (vh - sH) / 2;
+        }
+        const outW = Math.min(720, Math.round(sW));
+        const outH = Math.round(outW / targetRatio);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          cleanup();
+          reject(new Error("Canvas context yok"));
+          return;
+        }
+
+        // Pick supported mime
+        const candidates = [
+          "video/mp4;codecs=avc1.42E01E",
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ];
+        const mime = candidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || "video/webm";
+        const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
+
+        const stream = (canvas as HTMLCanvasElement).captureStream(30);
+        const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+        const chunks: BlobPart[] = [];
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onerror = (e: any) => {
+          cleanup();
+          reject(new Error("Video kaydedilemedi: " + (e?.error?.message || "bilinmeyen")));
+        };
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mime });
+          cleanup();
+          if (!blob.size) {
+            reject(new Error("Video çıktısı boş"));
+            return;
+          }
+          const out = new File([blob], file.name.replace(/\.[^.]+$/, "") + "." + ext, { type: mime });
+          resolve(out);
+        };
+
+        let rafId = 0;
+        const drawFrame = () => {
+          ctx.drawImage(video, sx, sy, sW, sH, 0, 0, outW, outH);
+          if (!video.paused && !video.ended) {
+            rafId = requestAnimationFrame(drawFrame);
+          }
+        };
+
+        video.onended = () => {
+          cancelAnimationFrame(rafId);
+          if (recorder.state !== "inactive") recorder.stop();
+        };
+
+        video.onplay = () => {
+          drawFrame();
+        };
+
+        recorder.start();
+        video.play().catch((err) => {
+          cleanup();
+          reject(err);
+        });
+      };
+
+      video.onerror = () => {
+        cleanup();
+        reject(new Error("Video yüklenemedi"));
+      };
+    });
+  };
+
   const handleFileSelect = async (file: File) => {
     if (file.type.startsWith("image/")) {
       try {
+        setIsProcessing(true);
+        setProcessingLabel("Görsel kırpılıyor...");
         const cropped = await cropImageTo9x16(file);
         setSelectedFile(cropped);
         setMediaType("image");
         setPreviewUrl(URL.createObjectURL(cropped));
       } catch (err: any) {
         toast.error(err.message || "Görsel işlenemedi");
+      } finally {
+        setIsProcessing(false);
+        setProcessingLabel("");
       }
     } else if (file.type.startsWith("video/")) {
-      setSelectedFile(file);
-      setMediaType("video");
-      setPreviewUrl(URL.createObjectURL(file));
+      try {
+        setIsProcessing(true);
+        setProcessingLabel("Video 9:16 oranına kırpılıyor...");
+        const cropped = await cropVideoTo9x16(file);
+        setSelectedFile(cropped);
+        setMediaType("video");
+        setPreviewUrl(URL.createObjectURL(cropped));
+      } catch (err: any) {
+        toast.error(err.message || "Video işlenemedi");
+        // Fallback: use the original so user isn't blocked
+        setSelectedFile(file);
+        setMediaType("video");
+        setPreviewUrl(URL.createObjectURL(file));
+      } finally {
+        setIsProcessing(false);
+        setProcessingLabel("");
+      }
     } else {
       toast.error("Lütfen geçerli bir görsel veya video dosyası seçin.");
     }
