@@ -146,7 +146,7 @@ export function useCoachChat() {
       }
     }
 
-    const mapped: ChatAthlete[] = profiles.map(p => {
+    const mapped: ChatAthlete[] = allProfiles.map(p => {
       const latest = latestMap.get(p.id);
       return {
         id: p.id,
