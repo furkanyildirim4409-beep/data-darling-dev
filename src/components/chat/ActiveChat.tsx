@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink } from "lucide-react";
+import { storyCategories } from "@/data/storyCategories";
 import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -28,12 +30,20 @@ interface ActiveChatProps {
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
+  const [storyPreview, setStoryPreview] = useState<{ media_url: string; category?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
+
+  const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
+  const previewIsVideo = useMemo(() => (storyPreview ? isVideoUrl(storyPreview.media_url) : false), [storyPreview]);
+  const previewCategoryName = useMemo(() => {
+    if (!storyPreview?.category) return null;
+    return storyCategories.find(c => c.id === storyPreview.category)?.name ?? storyPreview.category;
+  }, [storyPreview]);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
     onSendMessage('', mediaUrl, mediaType);
@@ -188,24 +198,36 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                       >
                         {/* Story-reply preview */}
                         {msg.metadata?.story_id && msg.metadata?.media_url && (
-                          <a
-                            href={msg.metadata.media_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setStoryPreview({
+                              media_url: msg.metadata!.media_url!,
+                              category: msg.metadata?.category,
+                            })}
                             className={cn(
-                              "flex items-center gap-2 mb-2 p-1.5 rounded-lg border",
+                              "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
                               isCoach
                                 ? "border-primary-foreground/20 bg-primary-foreground/10"
                                 : "border-border/60 bg-background/40"
                             )}
                           >
-                            <img
-                              src={msg.metadata.media_url}
-                              alt="Hikaye"
-                              className="w-10 h-14 rounded object-cover flex-shrink-0"
-                              loading="lazy"
-                            />
-                            <div className="min-w-0">
+                            {isVideoUrl(msg.metadata.media_url) ? (
+                              <video
+                                src={msg.metadata.media_url}
+                                className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <img
+                                src={msg.metadata.media_url}
+                                alt="Hikaye"
+                                className="w-10 h-14 rounded object-cover flex-shrink-0"
+                                loading="lazy"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
                               <p className={cn(
                                 "text-[10px] font-medium uppercase tracking-wide",
                                 isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
@@ -219,7 +241,7 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                                 Hikayeyi görüntüle
                               </p>
                             </div>
-                          </a>
+                          </button>
                         )}
                         {/* Media rendering */}
                         {msg.media_type === 'image' && msg.media_url && (
@@ -325,6 +347,53 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
           </form>
         )}
       </div>
+
+      {/* Story reply preview dialog */}
+      <Dialog open={!!storyPreview} onOpenChange={(open) => !open && setStoryPreview(null)}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-background border-border">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle className="text-base">Yanıtlanan hikaye</DialogTitle>
+            <DialogDescription className="text-xs">
+              {previewCategoryName ? `Kategori: ${previewCategoryName}` : "Sporcunun yanıt verdiği hikaye"}
+            </DialogDescription>
+          </DialogHeader>
+          {storyPreview && (
+            <div className="bg-black flex items-center justify-center max-h-[70vh]">
+              {previewIsVideo ? (
+                <video
+                  src={storyPreview.media_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              ) : (
+                <img
+                  src={storyPreview.media_url}
+                  alt="Hikaye"
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 p-3 border-t border-border">
+            {storyPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="gap-1.5 text-muted-foreground"
+              >
+                <a href={storyPreview.media_url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Yeni sekmede aç
+                </a>
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setStoryPreview(null)}>Kapat</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
