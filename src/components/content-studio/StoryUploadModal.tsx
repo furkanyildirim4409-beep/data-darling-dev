@@ -332,7 +332,13 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
               Hikaye {isVideo ? "Videosu" : "Görseli"}
             </Label>
             
-            {!previewUrl ? (
+            {isProcessing && !previewUrl ? (
+              <div className="relative rounded-xl border border-border mx-auto bg-black flex flex-col items-center justify-center text-white" style={{ aspectRatio: "9 / 16", maxHeight: "60vh", width: "auto", minWidth: 220 }}>
+                <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
+                <p className="text-sm">{processingLabel || "İşleniyor..."}</p>
+                <p className="text-xs text-white/60 mt-1">Lütfen bekleyin</p>
+              </div>
+            ) : !previewUrl ? (
               <div
                 className={cn(
                   "relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer",
