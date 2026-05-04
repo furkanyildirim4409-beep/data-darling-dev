@@ -56,26 +56,62 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
-  const cropImageTo9x16 = (file: File): Promise<File> => {
+  const TARGET_RATIO = 9 / 16;
+
+  // Compute the maximum 9:16 rect (in normalized source coords) that fits inside the source.
+  const computeMaxFitRect = (srcW: number, srcH: number) => {
+    const srcRatio = srcW / srcH;
+    if (srcRatio > TARGET_RATIO) {
+      // wide → frame height = 1, width narrower
+      const w = (srcH * TARGET_RATIO) / srcW;
+      return { w, h: 1 };
+    } else {
+      const h = (srcW / TARGET_RATIO) / srcH;
+      return { w: 1, h };
+    }
+  };
+
+  // Reset focus rect to centered max-fit when zoom or media changes
+  const resetFocusToCenter = useCallback((srcW: number, srcH: number, z: number = 1) => {
+    const fit = computeMaxFitRect(srcW, srcH);
+    const w = Math.min(1, fit.w / z);
+    const h = Math.min(1, fit.h / z);
+    setFocusRect({
+      x: (1 - w) / 2,
+      y: (1 - h) / 2,
+      w,
+      h,
+    });
+  }, []);
+
+  // Apply zoom changes (keep focus centered around current center)
+  useEffect(() => {
+    if (!naturalSize) return;
+    const fit = computeMaxFitRect(naturalSize.w, naturalSize.h);
+    const w = Math.min(1, fit.w / zoom);
+    const h = Math.min(1, fit.h / zoom);
+    setFocusRect((prev) => {
+      const cx = prev.x + prev.w / 2;
+      const cy = prev.y + prev.h / 2;
+      let x = cx - w / 2;
+      let y = cy - h / 2;
+      x = Math.max(0, Math.min(1 - w, x));
+      y = Math.max(0, Math.min(1 - h, y));
+      return { x, y, w, h };
+    });
+  }, [zoom, naturalSize]);
+
+  const cropImageWithRect = (file: File, rect: { x: number; y: number; w: number; h: number }): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const targetRatio = 9 / 16;
-        const srcRatio = img.width / img.height;
-        let sx = 0, sy = 0, sW = img.width, sH = img.height;
-        if (srcRatio > targetRatio) {
-          // too wide → crop sides
-          sW = img.height * targetRatio;
-          sx = (img.width - sW) / 2;
-        } else if (srcRatio < targetRatio) {
-          // too tall → crop top/bottom
-          sH = img.width / targetRatio;
-          sy = (img.height - sH) / 2;
-        }
-        // Output at sensible resolution
+        const sx = rect.x * img.width;
+        const sy = rect.y * img.height;
+        const sW = rect.w * img.width;
+        const sH = rect.h * img.height;
         const outW = Math.min(1080, Math.round(sW));
-        const outH = Math.round(outW / targetRatio);
+        const outH = Math.round(outW / TARGET_RATIO);
         const canvas = document.createElement("canvas");
         canvas.width = outW;
         canvas.height = outH;
@@ -104,7 +140,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     });
   };
 
-  const cropVideoTo9x16 = (file: File): Promise<File> => {
+  const cropVideoWithRect = (file: File, rect: { x: number; y: number; w: number; h: number }): Promise<File> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
       video.preload = "auto";
@@ -119,7 +155,6 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
       };
 
       video.onloadedmetadata = () => {
-        const targetRatio = 9 / 16;
         const vw = video.videoWidth;
         const vh = video.videoHeight;
         if (!vw || !vh) {
@@ -128,24 +163,12 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           return;
         }
 
-        const srcRatio = vw / vh;
-        // If already 9:16 (within 1% tolerance), skip re-encoding
-        if (Math.abs(srcRatio - targetRatio) < 0.01) {
-          cleanup();
-          resolve(file);
-          return;
-        }
-
-        let sx = 0, sy = 0, sW = vw, sH = vh;
-        if (srcRatio > targetRatio) {
-          sW = vh * targetRatio;
-          sx = (vw - sW) / 2;
-        } else {
-          sH = vw / targetRatio;
-          sy = (vh - sH) / 2;
-        }
+        const sx = rect.x * vw;
+        const sy = rect.y * vh;
+        const sW = rect.w * vw;
+        const sH = rect.h * vh;
         const outW = Math.min(720, Math.round(sW));
-        const outH = Math.round(outW / targetRatio);
+        const outH = Math.round(outW / TARGET_RATIO);
 
         const canvas = document.createElement("canvas");
         canvas.width = outW;
@@ -157,7 +180,6 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           return;
         }
 
-        // Pick supported mime
         const candidates = [
           "video/mp4;codecs=avc1.42E01E",
           "video/webm;codecs=vp9",
@@ -199,9 +221,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           if (recorder.state !== "inactive") recorder.stop();
         };
 
-        video.onplay = () => {
-          drawFrame();
-        };
+        video.onplay = () => { drawFrame(); };
 
         recorder.start();
         video.play().catch((err) => {
@@ -217,42 +237,79 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     });
   };
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = (file: File) => {
     if (file.type.startsWith("image/")) {
-      try {
-        setIsProcessing(true);
-        setProcessingLabel("Görsel kırpılıyor...");
-        const cropped = await cropImageTo9x16(file);
-        setSelectedFile(cropped);
-        setMediaType("image");
-        setPreviewUrl(URL.createObjectURL(cropped));
-      } catch (err: any) {
-        toast.error(err.message || "Görsel işlenemedi");
-      } finally {
-        setIsProcessing(false);
-        setProcessingLabel("");
-      }
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        setNaturalSize({ w: img.width, h: img.height });
+        setZoom(1);
+        resetFocusToCenter(img.width, img.height, 1);
+      };
+      img.src = url;
+      setSelectedFile(file);
+      setMediaType("image");
+      setOriginalUrl(url);
+      setPreviewUrl(url);
     } else if (file.type.startsWith("video/")) {
-      try {
-        setIsProcessing(true);
-        setProcessingLabel("Video 9:16 oranına kırpılıyor...");
-        const cropped = await cropVideoTo9x16(file);
-        setSelectedFile(cropped);
-        setMediaType("video");
-        setPreviewUrl(URL.createObjectURL(cropped));
-      } catch (err: any) {
-        toast.error(err.message || "Video işlenemedi");
-        // Fallback: use the original so user isn't blocked
-        setSelectedFile(file);
-        setMediaType("video");
-        setPreviewUrl(URL.createObjectURL(file));
-      } finally {
-        setIsProcessing(false);
-        setProcessingLabel("");
-      }
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        if (v.videoWidth && v.videoHeight) {
+          setNaturalSize({ w: v.videoWidth, h: v.videoHeight });
+          setZoom(1);
+          resetFocusToCenter(v.videoWidth, v.videoHeight, 1);
+        }
+      };
+      v.src = url;
+      setSelectedFile(file);
+      setMediaType("video");
+      setOriginalUrl(url);
+      setPreviewUrl(url);
     } else {
       toast.error("Lütfen geçerli bir görsel veya video dosyası seçin.");
     }
+  };
+
+  // Drag focus rect
+  const onFocusPointerDown = (e: React.PointerEvent) => {
+    if (!stageRef.current) return;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    dragStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: focusRect.x,
+      startFy: focusRect.y,
+    };
+  };
+
+  const onFocusPointerMove = (e: React.PointerEvent) => {
+    const ds = dragStateRef.current;
+    if (!ds || !stageRef.current || !naturalSize) return;
+    const stage = stageRef.current.getBoundingClientRect();
+    // Stage shows the source media at "contain" — compute its rendered rect
+    const stageRatio = stage.width / stage.height;
+    const srcRatio = naturalSize.w / naturalSize.h;
+    let renderedW = stage.width, renderedH = stage.height;
+    if (srcRatio > stageRatio) {
+      renderedH = stage.width / srcRatio;
+    } else {
+      renderedW = stage.height * srcRatio;
+    }
+    const dxNorm = (e.clientX - ds.startX) / renderedW;
+    const dyNorm = (e.clientY - ds.startY) / renderedH;
+    let nx = ds.startFx + dxNorm;
+    let ny = ds.startFy + dyNorm;
+    nx = Math.max(0, Math.min(1 - focusRect.w, nx));
+    ny = Math.max(0, Math.min(1 - focusRect.h, ny));
+    setFocusRect((prev) => ({ ...prev, x: nx, y: ny }));
+  };
+
+  const onFocusPointerUp = (e: React.PointerEvent) => {
+    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    dragStateRef.current = null;
   };
 
   const handleDrop = (e: React.DragEvent) => {
