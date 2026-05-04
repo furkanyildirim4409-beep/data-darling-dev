@@ -186,6 +186,41 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                             : "bg-muted text-foreground rounded-bl-md"
                         )}
                       >
+                        {/* Story-reply preview */}
+                        {msg.metadata?.story_id && msg.metadata?.media_url && (
+                          <a
+                            href={msg.metadata.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "flex items-center gap-2 mb-2 p-1.5 rounded-lg border",
+                              isCoach
+                                ? "border-primary-foreground/20 bg-primary-foreground/10"
+                                : "border-border/60 bg-background/40"
+                            )}
+                          >
+                            <img
+                              src={msg.metadata.media_url}
+                              alt="Hikaye"
+                              className="w-10 h-14 rounded object-cover flex-shrink-0"
+                              loading="lazy"
+                            />
+                            <div className="min-w-0">
+                              <p className={cn(
+                                "text-[10px] font-medium uppercase tracking-wide",
+                                isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
+                              )}>
+                                {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
+                              </p>
+                              <p className={cn(
+                                "text-[11px] truncate",
+                                isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}>
+                                Hikayeyi görüntüle
+                              </p>
+                            </div>
+                          </a>
+                        )}
                         {/* Media rendering */}
                         {msg.media_type === 'image' && msg.media_url && (
                           <a href={msg.media_url} target="_blank" rel="noopener noreferrer">

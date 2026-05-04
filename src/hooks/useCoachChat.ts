@@ -25,6 +25,7 @@ export interface ChatMessage {
   is_read: boolean;
   media_url?: string | null;
   media_type?: string | null;
+  metadata?: { story_id?: string; media_url?: string; category?: string } | null;
 }
 
 export function useCoachChat() {
@@ -82,13 +83,44 @@ export function useCoachChat() {
 
     const { data: profiles } = await profilesQuery;
 
-    if (!profiles || profiles.length === 0) {
+    const profileMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }>();
+    for (const p of profiles || []) profileMap.set(p.id, p);
+
+    // Find any senders messaging the coach who are NOT in the scoped roster
+    // (e.g. story-reply senders). Look back 90 days.
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: extraSenders } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('receiver_id', coachId)
+      .gte('created_at', ninetyDaysAgo)
+      .limit(1000);
+
+    const extraIds = new Set<string>();
+    for (const row of (extraSenders || []) as { sender_id: string }[]) {
+      if (row.sender_id !== coachId && !profileMap.has(row.sender_id)) {
+        // Honor sub-coach scoping: skip if assignedIds restricts and sender isn't assigned
+        if (assignedIds && !assignedIds.includes(row.sender_id)) continue;
+        extraIds.add(row.sender_id);
+      }
+    }
+
+    if (extraIds.size > 0) {
+      const { data: extraProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', Array.from(extraIds));
+      for (const p of extraProfiles || []) profileMap.set(p.id, p);
+    }
+
+    const allProfiles = Array.from(profileMap.values());
+    if (allProfiles.length === 0) {
       setAthletes([]);
       setIsLoadingAthletes(false);
       return;
     }
 
-    const athleteIds = profiles.map(p => p.id);
+    const athleteIds = allProfiles.map(p => p.id);
 
     const { data: allMessages } = await supabase
       .from('messages')
@@ -114,7 +146,7 @@ export function useCoachChat() {
       }
     }
 
-    const mapped: ChatAthlete[] = profiles.map(p => {
+    const mapped: ChatAthlete[] = allProfiles.map(p => {
       const latest = latestMap.get(p.id);
       return {
         id: p.id,
@@ -275,6 +307,17 @@ export function useCoachChat() {
           const senderId = newMsg.sender_id;
           const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
+          // If sender is unknown to current inbox, refresh roster to surface them
+          let knownSender = false;
+          setAthletes(prev => {
+            knownSender = prev.some(a => a.id === senderId);
+            return prev;
+          });
+          if (!knownSender) {
+            // Defer to avoid setState-in-setState; refresh full inbox
+            setTimeout(() => fetchAthletes(), 0);
+          }
+
           if (senderId === selectedAthleteId) {
             setMessages(prev => [...prev, newMsg]);
             supabase
@@ -329,7 +372,7 @@ export function useCoachChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coachId, selectedAthleteId]);
+  }, [coachId, selectedAthleteId, fetchAthletes]);
 
   useEffect(() => {
     fetchAthletes();
