@@ -298,20 +298,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     if (!selectedFile || !user) return;
     try {
       setIsUploading(true);
-      let fileToUpload: File = selectedFile;
-      try {
-        if (mediaType === "image") {
-          setProcessingLabel("Görsel kırpılıyor...");
-          fileToUpload = await cropImage(selectedFile);
-        } else if (mediaType === "video") {
-          setProcessingLabel("Video kırpılıyor...");
-          fileToUpload = await cropVideo(selectedFile);
-        }
-      } catch (cropErr: any) {
-        toast.error(cropErr?.message || "Kırpma başarısız, orijinal dosya yükleniyor");
-      } finally {
-        setProcessingLabel("");
-      }
+      // Upload original file untouched — no resize/crop/recompression
+      const fileToUpload: File = selectedFile;
 
       const ext = fileToUpload.name.split(".").pop() || "jpg";
       const path = `${user.id}/${Date.now()}.${ext}`;
@@ -415,58 +403,24 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Sürükle ve yakınlaştır — çerçeveye giren alan paylaşılır</p>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">9:16</span>
-                </div>
-
-                {/* Stage = real 9:16 frame */}
-                <div
-                  ref={stageRef}
-                  onPointerDown={onPointerDown}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={onPointerUp}
-                  onPointerCancel={onPointerUp}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden border border-border select-none cursor-move touch-none"
-                  style={{ aspectRatio: "9 / 16", maxHeight: "55vh", width: "auto" }}
-                >
-                  {naturalSize && (
-                    isVideo ? (
-                      <video
-                        src={previewUrl}
-                        className="absolute top-0 left-0 pointer-events-none max-w-none"
-                        style={{
-                          width: `${renderedW}px`,
-                          height: `${renderedH}px`,
-                          transform: `translate(${pan.x}px, ${pan.y}px)`,
-                        }}
-                        muted
-                        loop
-                        autoPlay
-                        playsInline
-                      />
-                    ) : (
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        draggable={false}
-                        className="absolute top-0 left-0 pointer-events-none max-w-none"
-                        style={{
-                          width: `${renderedW}px`,
-                          height: `${renderedH}px`,
-                          transform: `translate(${pan.x}px, ${pan.y}px)`,
-                        }}
-                      />
-                    )
+                <div className="relative mx-auto bg-black rounded-xl overflow-hidden border border-border" style={{ maxHeight: "55vh" }}>
+                  {isVideo ? (
+                    <video
+                      src={previewUrl}
+                      className="w-full h-auto max-h-[55vh] object-contain"
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-full h-auto max-h-[55vh] object-contain"
+                      draggable={false}
+                    />
                   )}
-
-                  {/* Rule-of-thirds overlay */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/20" />
-                    <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/20" />
-                    <div className="absolute top-1/3 left-0 right-0 h-px bg-white/20" />
-                    <div className="absolute top-2/3 left-0 right-0 h-px bg-white/20" />
-                  </div>
 
                   {isVideo && (
                     <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs pointer-events-none">
@@ -478,27 +432,13 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                     variant="destructive"
                     size="icon"
                     className="absolute top-2 right-2 h-8 w-8 z-10"
-                    onClick={(e) => { e.stopPropagation(); clearFile(); }}
-                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={clearFile}
                     disabled={isBusy}
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-
-                <div className="flex items-center gap-3 px-1">
-                  <span className="text-[10px] text-muted-foreground w-10">Zoom</span>
-                  <Slider
-                    value={[zoom]}
-                    min={1}
-                    max={3}
-                    step={0.05}
-                    onValueChange={(v) => setZoom(v[0] ?? 1)}
-                    className="flex-1"
-                  />
-                  <span className="text-[10px] text-muted-foreground w-10 text-right">{zoom.toFixed(2)}x</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground truncate">{selectedFile?.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{selectedFile?.name} — orijinal kalitede yüklenecek</p>
               </div>
             )}
           </div>
