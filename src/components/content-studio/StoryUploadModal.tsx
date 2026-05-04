@@ -46,11 +46,64 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
-  const handleFileSelect = (file: File) => {
+  const cropImageTo9x16 = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const targetRatio = 9 / 16;
+        const srcRatio = img.width / img.height;
+        let sx = 0, sy = 0, sW = img.width, sH = img.height;
+        if (srcRatio > targetRatio) {
+          // too wide → crop sides
+          sW = img.height * targetRatio;
+          sx = (img.width - sW) / 2;
+        } else if (srcRatio < targetRatio) {
+          // too tall → crop top/bottom
+          sH = img.width / targetRatio;
+          sy = (img.height - sH) / 2;
+        }
+        // Output at sensible resolution
+        const outW = Math.min(1080, Math.round(sW));
+        const outH = Math.round(outW / targetRatio);
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          reject(new Error("Canvas context yok"));
+          return;
+        }
+        ctx.drawImage(img, sx, sy, sW, sH, 0, 0, outW, outH);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(url);
+          if (!blob) {
+            reject(new Error("Görsel kırpılamadı"));
+            return;
+          }
+          const cropped = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+          resolve(cropped);
+        }, "image/jpeg", 0.92);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Görsel yüklenemedi"));
+      };
+      img.src = url;
+    });
+  };
+
+  const handleFileSelect = async (file: File) => {
     if (file.type.startsWith("image/")) {
-      setSelectedFile(file);
-      setMediaType("image");
-      setPreviewUrl(URL.createObjectURL(file));
+      try {
+        const cropped = await cropImageTo9x16(file);
+        setSelectedFile(cropped);
+        setMediaType("image");
+        setPreviewUrl(URL.createObjectURL(cropped));
+      } catch (err: any) {
+        toast.error(err.message || "Görsel işlenemedi");
+      }
     } else if (file.type.startsWith("video/")) {
       setSelectedFile(file);
       setMediaType("video");
@@ -184,19 +237,22 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-xl overflow-hidden border border-border">
+              <div className="relative rounded-xl overflow-hidden border border-border mx-auto bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh", width: "auto" }}>
                 {isVideo ? (
-                  <div className="relative">
-                    <video src={previewUrl} className="w-full h-48 object-cover" muted loop autoPlay playsInline />
+                  <div className="relative w-full h-full">
+                    <video src={previewUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
                     <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
                       <Play className="w-3 h-3" />
                       Video
                     </div>
                   </div>
                 ) : (
-                  <img src={previewUrl} alt="Preview" className="w-full h-48 object-cover" />
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                 )}
-                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
+                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
+                  9:16
+                </div>
+                <Button variant="destructive" size="icon" className="absolute top-10 right-2 h-8 w-8" onClick={clearFile} disabled={isBusy}>
                   <X className="w-4 h-4" />
                 </Button>
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
