@@ -60,22 +60,24 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
 
-  // Cover-fit base scale: smallest scale that fully covers the stage
+  // Contain-fit base scale: largest scale that fully fits inside the stage (no auto-crop)
   const baseScale = naturalSize && stageSize.w && stageSize.h
-    ? Math.max(stageSize.w / naturalSize.w, stageSize.h / naturalSize.h)
+    ? Math.min(stageSize.w / naturalSize.w, stageSize.h / naturalSize.h)
     : 1;
   const effectiveScale = baseScale * zoom;
   const renderedW = naturalSize ? naturalSize.w * effectiveScale : 0;
   const renderedH = naturalSize ? naturalSize.h * effectiveScale : 0;
 
-  // Clamp pan so media always covers the stage (no empty bands)
+  // Clamp pan: if media is larger than stage on an axis, keep stage covered;
+  // if smaller (contain mode, zoom=1), center it on that axis.
   const clampPan = useCallback((p: { x: number; y: number }) => {
-    const minX = stageSize.w - renderedW; // ≤ 0
-    const minY = stageSize.h - renderedH;
-    return {
-      x: Math.min(0, Math.max(minX, p.x)),
-      y: Math.min(0, Math.max(minY, p.y)),
-    };
+    const x = renderedW >= stageSize.w
+      ? Math.min(0, Math.max(stageSize.w - renderedW, p.x))
+      : (stageSize.w - renderedW) / 2;
+    const y = renderedH >= stageSize.h
+      ? Math.min(0, Math.max(stageSize.h - renderedH, p.y))
+      : (stageSize.h - renderedH) / 2;
+    return { x, y };
   }, [stageSize.w, stageSize.h, renderedW, renderedH]);
 
   // Center on zoom/media change
@@ -102,39 +104,64 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
     return () => ro.disconnect();
   }, [previewUrl]);
 
-  // Crop helpers — pull current visible 9:16 area back to source-space rect
-  const computeSourceCrop = () => {
-    if (!naturalSize) return { sx: 0, sy: 0, sW: 0, sH: 0 };
-    const sx = -pan.x / effectiveScale;
-    const sy = -pan.y / effectiveScale;
-    const sW = stageSize.w / effectiveScale;
-    const sH = stageSize.h / effectiveScale;
+  // Map the visible 9:16 stage back to source-space, returning both the
+  // source rect AND where it should be drawn inside a 9:16 output canvas
+  // (so letterboxing is preserved when the user has not zoomed to fill).
+  const computeRenderPlan = (outW: number) => {
+    const outH = Math.round(outW / TARGET_RATIO);
+    if (!naturalSize || !stageSize.w) {
+      return { outW, outH, sx: 0, sy: 0, sW: 0, sH: 0, dx: 0, dy: 0, dW: 0, dH: 0 };
+    }
+    // Source rect intersected with media bounds
+    const rawSx = -pan.x / effectiveScale;
+    const rawSy = -pan.y / effectiveScale;
+    const rawSW = stageSize.w / effectiveScale;
+    const rawSH = stageSize.h / effectiveScale;
+
+    const sx = Math.max(0, rawSx);
+    const sy = Math.max(0, rawSy);
+    const sW = Math.min(naturalSize.w - sx, rawSW - (sx - rawSx));
+    const sH = Math.min(naturalSize.h - sy, rawSH - (sy - rawSy));
+
+    // Convert stage-space → output-space scale factor
+    const k = outW / stageSize.w;
+    // Where the source rect lands in stage coords
+    const stageDx = sx * effectiveScale + pan.x;
+    const stageDy = sy * effectiveScale + pan.y;
+    const stageDW = sW * effectiveScale;
+    const stageDH = sH * effectiveScale;
+
     return {
-      sx: Math.max(0, sx),
-      sy: Math.max(0, sy),
-      sW: Math.min(naturalSize.w - Math.max(0, sx), sW),
-      sH: Math.min(naturalSize.h - Math.max(0, sy), sH),
+      outW, outH,
+      sx, sy, sW, sH,
+      dx: Math.round(stageDx * k),
+      dy: Math.round(stageDy * k),
+      dW: Math.round(stageDW * k),
+      dH: Math.round(stageDH * k),
     };
   };
 
   const cropImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
-      const { sx, sy, sW, sH } = computeSourceCrop();
       const img = new window.Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const outW = Math.min(1080, Math.round(sW));
-        const outH = Math.round(outW / TARGET_RATIO);
+        const plan = computeRenderPlan(1080);
         const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
+        canvas.width = plan.outW;
+        canvas.height = plan.outH;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           URL.revokeObjectURL(url);
           reject(new Error("Canvas context yok"));
           return;
         }
-        ctx.drawImage(img, sx, sy, sW, sH, 0, 0, outW, outH);
+        // Letterbox fill for areas not covered by media
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, plan.outW, plan.outH);
+        if (plan.sW > 0 && plan.sH > 0 && plan.dW > 0 && plan.dH > 0) {
+          ctx.drawImage(img, plan.sx, plan.sy, plan.sW, plan.sH, plan.dx, plan.dy, plan.dW, plan.dH);
+        }
         canvas.toBlob((blob) => {
           URL.revokeObjectURL(url);
           if (!blob) {
@@ -154,7 +181,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
   const cropVideo = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
-      const { sx, sy, sW, sH } = computeSourceCrop();
+      const plan = computeRenderPlan(720);
       const video = document.createElement("video");
       video.preload = "auto";
       video.muted = true;
@@ -164,11 +191,9 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
       const cleanup = () => { try { URL.revokeObjectURL(url); } catch { /* noop */ } };
 
       video.onloadedmetadata = () => {
-        const outW = Math.min(720, Math.round(sW));
-        const outH = Math.round(outW / TARGET_RATIO);
         const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
+        canvas.width = plan.outW;
+        canvas.height = plan.outH;
         const ctx = canvas.getContext("2d");
         if (!ctx) { cleanup(); reject(new Error("Canvas context yok")); return; }
 
@@ -195,7 +220,11 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
         let rafId = 0;
         const drawFrame = () => {
-          ctx.drawImage(video, sx, sy, sW, sH, 0, 0, outW, outH);
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, plan.outW, plan.outH);
+          if (plan.sW > 0 && plan.sH > 0 && plan.dW > 0 && plan.dH > 0) {
+            ctx.drawImage(video, plan.sx, plan.sy, plan.sW, plan.sH, plan.dx, plan.dy, plan.dW, plan.dH);
+          }
           if (!video.paused && !video.ended) rafId = requestAnimationFrame(drawFrame);
         };
         video.onended = () => { cancelAnimationFrame(rafId); if (recorder.state !== "inactive") recorder.stop(); };
