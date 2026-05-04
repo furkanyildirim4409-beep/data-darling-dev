@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
