@@ -30,12 +30,20 @@ interface ActiveChatProps {
 
 export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
   const [input, setInput] = useState("");
+  const [storyPreview, setStoryPreview] = useState<{ media_url: string; category?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isMuted, toggleMute } = useMutedChats();
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
+
+  const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
+  const previewIsVideo = useMemo(() => (storyPreview ? isVideoUrl(storyPreview.media_url) : false), [storyPreview]);
+  const previewCategoryName = useMemo(() => {
+    if (!storyPreview?.category) return null;
+    return storyCategories.find(c => c.id === storyPreview.category)?.name ?? storyPreview.category;
+  }, [storyPreview]);
 
   const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
     onSendMessage('', mediaUrl, mediaType);
