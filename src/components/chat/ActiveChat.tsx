@@ -224,53 +224,83 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
                             : "bg-muted text-foreground rounded-bl-md"
                         )}
                       >
-                        {/* Story-reply preview */}
-                        {msg.metadata?.story_id && msg.metadata?.media_url && (
-                          <button
-                            type="button"
-                            onClick={() => setStoryPreview({
-                              media_url: msg.metadata!.media_url!,
-                              category: msg.metadata?.category,
-                            })}
-                            className={cn(
-                              "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
-                              isCoach
-                                ? "border-primary-foreground/20 bg-primary-foreground/10"
-                                : "border-border/60 bg-background/40"
-                            )}
-                          >
-                            {isVideoUrl(msg.metadata.media_url) ? (
-                              <video
-                                src={msg.metadata.media_url}
-                                className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-                            ) : (
-                              <img
-                                src={msg.metadata.media_url}
-                                alt="Hikaye"
-                                className="w-10 h-14 rounded object-cover flex-shrink-0"
-                                loading="lazy"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className={cn(
-                                "text-[10px] font-medium uppercase tracking-wide",
-                                isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
-                              )}>
-                                {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
-                              </p>
-                              <p className={cn(
-                                "text-[11px] truncate",
-                                isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                              )}>
-                                Hikayeyi görüntüle
-                              </p>
-                            </div>
-                          </button>
-                        )}
+                        {/* Story-reply preview — tolerant of missing/invalid metadata */}
+                        {(() => {
+                          const meta = msg.metadata;
+                          if (!meta || typeof meta !== "object") return null;
+                          const hasStoryRef =
+                            !!meta.story_id || !!meta.media_url || !!meta.category;
+                          if (!hasStoryRef) return null;
+
+                          const rawUrl = meta.media_url;
+                          const validUrl = isValidHttpUrl(rawUrl) ? rawUrl : null;
+                          const thumbBroken = validUrl ? brokenThumbs.has(msg.id) : true;
+                          const showPlaceholder = !validUrl || thumbBroken;
+                          const isVideo = validUrl ? isVideoUrl(validUrl) : false;
+                          const subtitle = showPlaceholder
+                            ? (validUrl ? "Hikaye yüklenemedi" : "Hikaye artık mevcut değil")
+                            : "Hikayeyi görüntüle";
+
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setStoryPreview({
+                                media_url: validUrl,
+                                category: meta.category ?? null,
+                              })}
+                              className={cn(
+                                "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
+                                isCoach
+                                  ? "border-primary-foreground/20 bg-primary-foreground/10"
+                                  : "border-border/60 bg-background/40"
+                              )}
+                            >
+                              {showPlaceholder ? (
+                                <div className={cn(
+                                  "w-10 h-14 rounded flex items-center justify-center flex-shrink-0",
+                                  isCoach ? "bg-primary-foreground/15" : "bg-muted-foreground/15"
+                                )}>
+                                  <ImageOff className={cn(
+                                    "w-4 h-4",
+                                    isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                                  )} />
+                                </div>
+                              ) : isVideo ? (
+                                <video
+                                  src={validUrl!}
+                                  className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  onError={() => markThumbBroken(msg.id)}
+                                />
+                              ) : (
+                                <img
+                                  src={validUrl!}
+                                  alt="Hikaye"
+                                  className="w-10 h-14 rounded object-cover flex-shrink-0"
+                                  loading="lazy"
+                                  onError={() => markThumbBroken(msg.id)}
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className={cn(
+                                  "text-[10px] font-medium uppercase tracking-wide flex items-center gap-1",
+                                  isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
+                                )}>
+                                  <Reply className="w-3 h-3" />
+                                  {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
+                                </p>
+                                <p className={cn(
+                                  "text-[11px] truncate",
+                                  isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                                )}>
+                                  {subtitle}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })()}
                         {/* Media rendering */}
                         {msg.media_type === 'image' && msg.media_url && (
                           <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
