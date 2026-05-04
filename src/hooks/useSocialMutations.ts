@@ -669,3 +669,50 @@ export function useReorderHighlights() {
     },
   });
 }
+
+export function useToggleKokpitPin() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryName, isPinned }: { categoryName: string; isPinned: boolean }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("coach_highlight_metadata")
+        .upsert(
+          {
+            coach_id: user.id,
+            category_name: categoryName,
+            is_pinned_to_kokpit: isPinned,
+          },
+          { onConflict: "coach_id,category_name" },
+        );
+      if (error) throw error;
+      return { categoryName, isPinned };
+    },
+    onMutate: async ({ categoryName, isPinned }) => {
+      await qc.cancelQueries({ queryKey: ["coach-highlights"] });
+      const prev = qc.getQueryData<HighlightGroup[]>(["coach-highlights", user?.id]);
+      if (prev) {
+        qc.setQueryData<HighlightGroup[]>(
+          ["coach-highlights", user?.id],
+          prev.map((g) =>
+            g.category === categoryName ? { ...g, isPinnedToKokpit: isPinned } : g,
+          ),
+        );
+      }
+      return { prev };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["coach-highlights", user?.id], ctx.prev);
+      toast.error(`Güncellenemedi: ${err.message}`);
+    },
+    onSuccess: ({ isPinned }) => {
+      toast.success(isPinned ? "Kokpit'te gösteriliyor." : "Kokpit'ten gizlendi.");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
+      qc.invalidateQueries({ queryKey: ["athlete-coach-highlights"] });
+    },
+  });
+}
