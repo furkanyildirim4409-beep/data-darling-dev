@@ -15,7 +15,16 @@ let cachedUntil = 0;
 function getShopHost(): string {
   const raw = Deno.env.get("SHOPIFY_DOMAIN");
   if (!raw) throw new Error("SHOPIFY_DOMAIN not configured");
-  return raw.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const cleaned = raw.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const adminStoreMatch = cleaned.match(/^admin\.shopify\.com\/store\/([^/?#]+)/i);
+
+  // `admin.shopify.com/store/<handle>` is a browser/admin UI URL protected by
+  // Cloudflare. Admin API calls must go to the shop's permanent domain instead.
+  if (adminStoreMatch?.[1]) {
+    return `${adminStoreMatch[1]}.myshopify.com`;
+  }
+
+  return cleaned.split("/")[0];
 }
 
 function directTokenCandidates(): TokenCandidate[] {
