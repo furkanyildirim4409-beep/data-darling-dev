@@ -63,8 +63,30 @@ const PRIMARY_LOCATION = `
   }`;
 
 const INVENTORY_ADJUST = `
-  mutation inventorySetOnHand($input: InventorySetOnHandQuantitiesInput!) {
-    inventorySetOnHandQuantities(input: $input) {
+  mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+    inventorySetQuantities(input: $input) {
+      inventoryAdjustmentGroup { id }
+      userErrors { field message }
+    }
+  }`;
+
+const COLLECTION_BY_HANDLE = `
+  query collectionByHandle($query: String!) {
+    collections(first: 1, query: $query) { nodes { id handle title } }
+  }`;
+
+const COLLECTION_CREATE = `
+  mutation collectionCreate($input: CollectionInput!) {
+    collectionCreate(input: $input) {
+      collection { id handle title }
+      userErrors { field message }
+    }
+  }`;
+
+const COLLECTION_ADD_PRODUCTS = `
+  mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
+    collectionAddProducts(id: $id, productIds: $productIds) {
+      collection { id }
       userErrors { field message }
     }
   }`;
@@ -87,7 +109,8 @@ function mapShopifyError(err: ShopifyAdminError) {
         message:
           "Shopify ürün oluşturma yetkisi eksik. Dev Dashboard → App → Configuration üzerinden write_products (ve gerekirse write_files, write_inventory) scope'larını aktif edin.",
         requiredAccess: err.requiredAccess ?? "write_products",
-        tokenSource: "client_credentials grant (auto)",
+        tokenSource: err.tokenSource ?? "unknown",
+        attemptedTokenSources: err.attemptedTokenSources ?? [],
         shopifyMessage: msg,
         helpUrl: "https://dev.shopify.com/dashboard",
       },
@@ -106,6 +129,42 @@ function mapShopifyError(err: ShopifyAdminError) {
     );
   }
   return jsonResponse({ error: msg || "Shopify Admin hatası", status: err.status ?? 500 }, 502);
+}
+
+function toHandle(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("en-US")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "kategori";
+}
+
+function userErrorMessage(prefix: string, errors: ShopifyUserError[]) {
+  return `${prefix}: ${errors.map((e) => e.message).join(", ")}`;
+}
+
+async function ensureCategoryCollection(category: string) {
+  const handle = toHandle(category);
+  const found = await shopifyAdminGraphQL<any>(COLLECTION_BY_HANDLE, {
+    query: `handle:${handle}`,
+  });
+  const existing = found.collections?.nodes?.find((node: any) => node.handle === handle);
+  if (existing?.id) return existing.id as string;
+
+  const created = await shopifyAdminGraphQL<any>(COLLECTION_CREATE, {
+    input: { title: category, handle },
+  });
+  const errors: ShopifyUserError[] = created.collectionCreate.userErrors ?? [];
+  if (errors.length > 0) throw new Error(userErrorMessage("collectionCreate failed", errors));
+  return created.collectionCreate.collection.id as string;
 }
 
 Deno.serve(async (req) => {
