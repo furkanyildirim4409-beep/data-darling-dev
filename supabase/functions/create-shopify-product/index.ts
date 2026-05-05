@@ -21,6 +21,9 @@ const BodySchema = z.object({
   imageUrl: z.string().url(),
   category: z.string().max(255).optional(),
   vendorName: z.string().max(255).optional(),
+  productType: z.enum(["physical", "digital"]).default("physical"),
+  trackInventory: z.boolean().default(false),
+  stockQuantity: z.number().int().min(0).max(1_000_000).nullable().optional(),
 });
 
 function jsonResponse(body: unknown, status = 200) {
@@ -41,7 +44,12 @@ const PRODUCT_CREATE = `
       product {
         id
         handle
-        variants(first: 1) { nodes { id } }
+        variants(first: 1) {
+          nodes {
+            id
+            inventoryItem { id }
+          }
+        }
       }
       userErrors { field message }
     }
@@ -63,6 +71,34 @@ const PRODUCT_CREATE_MEDIA = `
     }
   }`;
 
+const LOCATIONS_QUERY = `
+  query primaryLocation {
+    locations(first: 1) {
+      nodes { id }
+    }
+  }`;
+
+const INVENTORY_SET_QUANTITIES = `
+  mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+    inventorySetQuantities(input: $input) {
+      userErrors { field message code }
+    }
+  }`;
+
+const PUBLICATIONS_QUERY = `
+  query publications {
+    publications(first: 25) {
+      nodes { id name }
+    }
+  }`;
+
+const PUBLISHABLE_PUBLISH = `
+  mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+    publishablePublish(id: $id, input: $input) {
+      userErrors { field message }
+    }
+  }`;
+
 function mapShopifyError(err: ShopifyAdminError) {
   const msg = err.message ?? "";
   if (err.status === 403 || /access denied|required access/i.test(msg)) {
@@ -71,8 +107,8 @@ function mapShopifyError(err: ShopifyAdminError) {
         error: "ACCESS_DENIED",
         code: "ACCESS_DENIED",
         message:
-          "Shopify ürün oluşturma yetkisi eksik. Dev Dashboard → App → Configuration üzerinden write_products (ve gerekirse write_files, write_inventory) scope'larını aktif edin.",
-        requiredAccess: err.requiredAccess ?? "write_products",
+          "Shopify yetkisi eksik. Dev Dashboard → App → Configuration üzerinden write_products, write_inventory ve write_publications scope'larını aktif edin.",
+        requiredAccess: err.requiredAccess ?? "write_products write_inventory write_publications",
         tokenSource: "client_credentials grant (auto)",
         shopifyMessage: msg,
         helpUrl: "https://dev.shopify.com/dashboard",
@@ -147,7 +183,20 @@ Deno.serve(async (req) => {
       400,
     );
   }
-  const { title, descriptionHtml, price, imageUrl, category, vendorName } = parsed.data;
+  const {
+    title,
+    descriptionHtml,
+    price,
+    imageUrl,
+    category,
+    vendorName,
+    productType,
+    trackInventory,
+    stockQuantity,
+  } = parsed.data;
+
+  const isDigital = productType === "digital";
+  const warnings: Record<string, unknown> = {};
 
   try {
     // 1) productCreate
@@ -156,9 +205,13 @@ Deno.serve(async (req) => {
         title,
         descriptionHtml: descriptionHtml ?? "",
         status: "ACTIVE",
-        productType: category ?? "",
+        productType: isDigital ? "Digital" : (category ?? "Physical"),
         vendor: vendorName ?? "",
-        tags: [`coach:${userId}`, ...(category ? [`category:${category}`] : [])],
+        tags: [
+          `coach:${userId}`,
+          `type:${productType}`,
+          ...(category ? [`category:${category}`] : []),
+        ],
       },
     });
     const createErrors: ShopifyUserError[] = createData.productCreate.userErrors ?? [];
@@ -166,17 +219,28 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "productCreate failed", details: createErrors }, 400);
     }
     const productId: string = createData.productCreate.product.id;
-    const variantId: string | undefined =
-      createData.productCreate.product.variants.nodes?.[0]?.id;
+    const variantNode = createData.productCreate.product.variants.nodes?.[0];
+    const variantId: string | undefined = variantNode?.id;
+    const inventoryItemId: string | undefined = variantNode?.inventoryItem?.id;
 
     if (!variantId) {
       return jsonResponse({ error: "No default variant returned by Shopify", productId }, 500);
     }
 
-    // 2) productVariantsBulkUpdate – set price on default variant
+    // 2) productVariantsBulkUpdate – set price, shipping, tracking on default variant
     const priceData = await shopifyAdminGraphQL<any>(VARIANTS_BULK_UPDATE, {
       productId,
-      variants: [{ id: variantId, price: price.toFixed(2) }],
+      variants: [
+        {
+          id: variantId,
+          price: price.toFixed(2),
+          inventoryPolicy: "DENY",
+          inventoryItem: {
+            tracked: trackInventory,
+            requiresShipping: !isDigital,
+          },
+        },
+      ],
     });
     const priceErrors: ShopifyUserError[] = priceData.productVariantsBulkUpdate.userErrors ?? [];
     if (priceErrors.length > 0) {
@@ -186,7 +250,55 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3) productCreateMedia – attach image (best-effort)
+    // 3) Set inventory quantity (only when tracked + qty provided)
+    if (trackInventory && stockQuantity !== null && stockQuantity !== undefined && inventoryItemId) {
+      try {
+        const locData = await shopifyAdminGraphQL<any>(LOCATIONS_QUERY, {});
+        const locationId: string | undefined = locData?.locations?.nodes?.[0]?.id;
+        if (locationId) {
+          const invData = await shopifyAdminGraphQL<any>(INVENTORY_SET_QUANTITIES, {
+            input: {
+              name: "available",
+              reason: "correction",
+              ignoreCompareQuantity: true,
+              quantities: [
+                {
+                  inventoryItemId,
+                  locationId,
+                  quantity: stockQuantity,
+                },
+              ],
+            },
+          });
+          const invErrors: ShopifyUserError[] =
+            invData?.inventorySetQuantities?.userErrors ?? [];
+          if (invErrors.length > 0) warnings.inventory = invErrors;
+        } else {
+          warnings.inventory = "No location found";
+        }
+      } catch (invErr) {
+        warnings.inventory = invErr instanceof Error ? invErr.message : "Inventory update failed";
+      }
+    }
+
+    // 4) Publish to all sales channels (publications)
+    try {
+      const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
+      const pubs: Array<{ id: string }> = pubData?.publications?.nodes ?? [];
+      if (pubs.length > 0) {
+        const publishData = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
+          id: productId,
+          input: pubs.map((p) => ({ publicationId: p.id })),
+        });
+        const pubErrors: ShopifyUserError[] =
+          publishData?.publishablePublish?.userErrors ?? [];
+        if (pubErrors.length > 0) warnings.publications = pubErrors;
+      }
+    } catch (pubErr) {
+      warnings.publications = pubErr instanceof Error ? pubErr.message : "Publish failed";
+    }
+
+    // 5) productCreateMedia – attach image (best-effort)
     try {
       const mediaData = await shopifyAdminGraphQL<any>(PRODUCT_CREATE_MEDIA, {
         productId,
@@ -199,31 +311,20 @@ Deno.serve(async (req) => {
         ],
       });
       const mediaErrors: ShopifyUserError[] = mediaData.productCreateMedia.mediaUserErrors ?? [];
-      if (mediaErrors.length > 0) {
-        return jsonResponse(
-          {
-            success: true,
-            productId,
-            variantId,
-            warning: "Image attach failed",
-            mediaErrors,
-          },
-          200,
-        );
-      }
+      if (mediaErrors.length > 0) warnings.media = mediaErrors;
     } catch (mediaErr) {
-      return jsonResponse(
-        {
-          success: true,
-          productId,
-          variantId,
-          warning: mediaErr instanceof Error ? mediaErr.message : "Image attach failed",
-        },
-        200,
-      );
+      warnings.media = mediaErr instanceof Error ? mediaErr.message : "Image attach failed";
     }
 
-    return jsonResponse({ success: true, productId, variantId }, 200);
+    return jsonResponse(
+      {
+        success: true,
+        productId,
+        variantId,
+        ...(Object.keys(warnings).length > 0 ? { warnings } : {}),
+      },
+      200,
+    );
   } catch (err) {
     const e = err as ShopifyAdminError;
     if (e.status) return mapShopifyError(e);
