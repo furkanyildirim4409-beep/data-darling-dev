@@ -21,8 +21,6 @@ const BodySchema = z.object({
   imageUrl: z.string().url(),
   category: z.string().max(255).optional(),
   vendorName: z.string().max(255).optional(),
-  stock: z.number().int().min(0).optional(),
-  productKind: z.enum(["physical", "digital"]).optional(),
 });
 
 function jsonResponse(body: unknown, status = 200) {
@@ -57,40 +55,6 @@ const VARIANTS_BULK_UPDATE = `
     }
   }`;
 
-const PRIMARY_LOCATION = `
-  query PrimaryLocation {
-    locations(first: 1) { nodes { id } }
-  }`;
-
-const INVENTORY_ADJUST = `
-  mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
-    inventorySetQuantities(input: $input) {
-      inventoryAdjustmentGroup { id }
-      userErrors { field message }
-    }
-  }`;
-
-const COLLECTION_BY_HANDLE = `
-  query collectionByHandle($query: String!) {
-    collections(first: 1, query: $query) { nodes { id handle title } }
-  }`;
-
-const COLLECTION_CREATE = `
-  mutation collectionCreate($input: CollectionInput!) {
-    collectionCreate(input: $input) {
-      collection { id handle title }
-      userErrors { field message }
-    }
-  }`;
-
-const COLLECTION_ADD_PRODUCTS = `
-  mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
-    collectionAddProducts(id: $id, productIds: $productIds) {
-      collection { id }
-      userErrors { field message }
-    }
-  }`;
-
 const PRODUCT_CREATE_MEDIA = `
   mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
     productCreateMedia(productId: $productId, media: $media) {
@@ -109,8 +73,7 @@ function mapShopifyError(err: ShopifyAdminError) {
         message:
           "Shopify ürün oluşturma yetkisi eksik. Dev Dashboard → App → Configuration üzerinden write_products (ve gerekirse write_files, write_inventory) scope'larını aktif edin.",
         requiredAccess: err.requiredAccess ?? "write_products",
-        tokenSource: err.tokenSource ?? "unknown",
-        attemptedTokenSources: err.attemptedTokenSources ?? [],
+        tokenSource: "client_credentials grant (auto)",
         shopifyMessage: msg,
         helpUrl: "https://dev.shopify.com/dashboard",
       },
@@ -129,42 +92,6 @@ function mapShopifyError(err: ShopifyAdminError) {
     );
   }
   return jsonResponse({ error: msg || "Shopify Admin hatası", status: err.status ?? 500 }, 502);
-}
-
-function toHandle(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("en-US")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "kategori";
-}
-
-function userErrorMessage(prefix: string, errors: ShopifyUserError[]) {
-  return `${prefix}: ${errors.map((e) => e.message).join(", ")}`;
-}
-
-async function ensureCategoryCollection(category: string) {
-  const handle = toHandle(category);
-  const found = await shopifyAdminGraphQL<any>(COLLECTION_BY_HANDLE, {
-    query: `handle:${handle}`,
-  });
-  const existing = found.collections?.nodes?.find((node: any) => node.handle === handle);
-  if (existing?.id) return existing.id as string;
-
-  const created = await shopifyAdminGraphQL<any>(COLLECTION_CREATE, {
-    input: { title: category, handle },
-  });
-  const errors: ShopifyUserError[] = created.collectionCreate.userErrors ?? [];
-  if (errors.length > 0) throw new Error(userErrorMessage("collectionCreate failed", errors));
-  return created.collectionCreate.collection.id as string;
 }
 
 Deno.serve(async (req) => {
@@ -220,8 +147,7 @@ Deno.serve(async (req) => {
       400,
     );
   }
-  const { title, descriptionHtml, price, imageUrl, category, vendorName, stock, productKind } = parsed.data;
-  const isDigital = productKind === "digital";
+  const { title, descriptionHtml, price, imageUrl, category, vendorName } = parsed.data;
 
   try {
     // 1) productCreate
@@ -232,11 +158,7 @@ Deno.serve(async (req) => {
         status: "ACTIVE",
         productType: category ?? "",
         vendor: vendorName ?? "",
-        tags: [
-          `coach:${userId}`,
-          ...(category ? [`category:${category}`] : []),
-          isDigital ? "digital" : "physical",
-        ],
+        tags: [`coach:${userId}`, ...(category ? [`category:${category}`] : [])],
       },
     });
     const createErrors: ShopifyUserError[] = createData.productCreate.userErrors ?? [];
@@ -251,35 +173,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "No default variant returned by Shopify", productId }, 500);
     }
 
-    // 1b) Real category assignment: productType is metadata; collections are the visible Shopify category buckets.
-    let collectionId: string | null = null;
-    if (category) {
-      try {
-        collectionId = await ensureCategoryCollection(category);
-        const addData = await shopifyAdminGraphQL<any>(COLLECTION_ADD_PRODUCTS, {
-          id: collectionId,
-          productIds: [productId],
-        });
-        const addErrors: ShopifyUserError[] = addData.collectionAddProducts.userErrors ?? [];
-        if (addErrors.length > 0) {
-          console.error("collectionAddProducts failed:", addErrors);
-        }
-      } catch (collectionErr) {
-        console.error("Category collection assignment failed:", collectionErr);
-      }
-    }
-
-    // 2) productVariantsBulkUpdate – set price + inventory tracking + shipping flag
+    // 2) productVariantsBulkUpdate – set price on default variant
     const priceData = await shopifyAdminGraphQL<any>(VARIANTS_BULK_UPDATE, {
       productId,
-      variants: [{
-        id: variantId,
-        price: price.toFixed(2),
-        inventoryItem: {
-          tracked: typeof stock === "number",
-          requiresShipping: !isDigital,
-        },
-      }],
+      variants: [{ id: variantId, price: price.toFixed(2) }],
     });
     const priceErrors: ShopifyUserError[] = priceData.productVariantsBulkUpdate.userErrors ?? [];
     if (priceErrors.length > 0) {
@@ -287,37 +184,6 @@ Deno.serve(async (req) => {
         { error: "productVariantsBulkUpdate failed", details: priceErrors, productId, variantId },
         400,
       );
-    }
-
-    // 2b) Set inventory on hand if stock provided
-    if (typeof stock === "number") {
-      try {
-        const fetched = await shopifyAdminGraphQL<any>(
-          `query($id: ID!) { productVariant(id: $id) { inventoryItem { id } } }`,
-          { id: variantId },
-        );
-        const invItemId = fetched.productVariant?.inventoryItem?.id;
-        const loc = await shopifyAdminGraphQL<any>(PRIMARY_LOCATION, {});
-        const locationId = loc.locations?.nodes?.[0]?.id;
-        if (invItemId && locationId) {
-          const inventoryData = await shopifyAdminGraphQL<any>(INVENTORY_ADJUST, {
-            input: {
-              name: "available",
-              reason: "correction",
-              ignoreCompareQuantity: true,
-              setQuantities: [
-                { inventoryItemId: invItemId, locationId, quantity: stock },
-              ],
-            },
-          });
-          const inventoryErrors: ShopifyUserError[] = inventoryData.inventorySetQuantities.userErrors ?? [];
-          if (inventoryErrors.length > 0) {
-            console.error("inventorySetQuantities failed:", inventoryErrors);
-          }
-        }
-      } catch (invErr) {
-        console.error("Inventory set failed:", invErr);
-      }
     }
 
     // 3) productCreateMedia – attach image (best-effort)
@@ -339,7 +205,6 @@ Deno.serve(async (req) => {
             success: true,
             productId,
             variantId,
-            collectionId,
             warning: "Image attach failed",
             mediaErrors,
           },
@@ -352,14 +217,13 @@ Deno.serve(async (req) => {
           success: true,
           productId,
           variantId,
-          collectionId,
           warning: mediaErr instanceof Error ? mediaErr.message : "Image attach failed",
         },
         200,
       );
     }
 
-    return jsonResponse({ success: true, productId, variantId, collectionId }, 200);
+    return jsonResponse({ success: true, productId, variantId }, 200);
   } catch (err) {
     const e = err as ShopifyAdminError;
     if (e.status) return mapShopifyError(e);

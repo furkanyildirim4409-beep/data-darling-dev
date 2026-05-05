@@ -10,8 +10,6 @@ interface CreateProductPayload {
   price: number;
   category: string;
   imageFile: File;
-  stock?: number;
-  productKind?: "physical" | "digital";
 }
 
 interface UpdateProductStatusPayload {
@@ -84,8 +82,6 @@ export function useCreateProduct() {
               imageUrl,
               category: payload.category,
               vendorName: profile?.name ?? "Dynabolic Coach",
-              stock: payload.stock,
-              productKind: payload.productKind ?? "physical",
             },
           },
         );
