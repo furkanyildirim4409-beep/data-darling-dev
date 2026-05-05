@@ -62,6 +62,7 @@ const PRODUCT_CREATE = `
       product {
         id
         handle
+        category { id name fullName }
         variants(first: 1) {
           nodes {
             id
