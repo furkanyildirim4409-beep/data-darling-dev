@@ -14,17 +14,35 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const BodySchema = z.object({
-  title: z.string().min(2).max(255),
-  descriptionHtml: z.string().max(50_000).optional(),
-  price: z.number().positive(),
-  imageUrl: z.string().url(),
-  category: z.string().max(255).optional(),
-  vendorName: z.string().max(255).optional(),
-  productType: z.enum(["physical", "digital"]).default("physical"),
-  trackInventory: z.boolean().default(false),
-  stockQuantity: z.number().int().min(0).max(1_000_000).nullable().optional(),
-});
+const BodySchema = z
+  .object({
+    title: z.string().min(2).max(255),
+    descriptionHtml: z.string().max(50_000).optional(),
+    price: z.number().positive(),
+    imageUrl: z.string().url(),
+    category: z.string().max(255).optional(),
+    vendorName: z.string().max(255).optional(),
+    productType: z.enum(["physical", "digital"]).default("physical"),
+    trackInventory: z.boolean().default(false),
+    stockQuantity: z.number().int().min(0).max(1_000_000).nullable().optional(),
+    /** Shopify Taxonomy GID (e.g. gid://shopify/TaxonomyCategory/sg-4-17-2-17) */
+    shopifyCategoryId: z
+      .string()
+      .regex(/^gid:\/\/shopify\/TaxonomyCategory\/[A-Za-z0-9-]+$/)
+      .nullable()
+      .optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.productType === "physical") {
+      if (val.stockQuantity === null || val.stockQuantity === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["stockQuantity"],
+          message: "Fiziksel ürünler için stok adedi zorunludur.",
+        });
+      }
+    }
+  });
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
