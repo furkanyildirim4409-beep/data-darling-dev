@@ -1,71 +1,77 @@
 ## Amaç
-Mevcut OAuth/token akışı, UI yapısı ve diğer özellikler değiştirilmeden:
-1. Shopify'da ürünün gerçekten **kategorize** edilmesi (resmi taksonomi ile).
-2. **Fiziksel** ürünlerde "Sınırsız Stok" seçeneğinin kaldırılması — stok adedi zorunlu olmalı.
-3. **Dijital** ürünlerde davranış aynı kalır (kargo yok, stok takibi yok).
+1. Mevcut ürünleri **düzenleyebilme** (başlık, açıklama, fiyat, kategori, stok adedi, görsel) — Shopify ile gerçek zamanlı senkron.
+2. Stoğu 0'a düşmüş (`stock_quantity === 0` veya pasifleştirilmiş) fiziksel ürünlerde kart üzerinde **"Tükendi"** rozeti göster.
+
+OAuth, scope, `useCreateProduct`, `useUpdateProductStatus`, dijital ürün davranışı **dokunulmadan** korunur.
 
 ---
 
-## 1) Edge Function — `supabase/functions/create-shopify-product/index.ts`
+## 1) Yeni Edge Function — `supabase/functions/update-shopify-product/index.ts`
 
-Sadece `productCreate` mutation'ına gerçek Shopify kategori atama alanı eklenecek. Token, scope, diğer adımlar (variant update, inventory, publish, media) **aynen korunur**.
+Mevcut `create-shopify-product` ile aynı auth/role/CORS yapısını kullanır.
 
-### Değişiklikler
+**Body schema (Zod):**
+- `productId` (DB id, uuid) — zorunlu
+- `title?`, `descriptionHtml?`, `price?`, `category?`, `stockQuantity?`, `imageUrl?` (yeni görsel yüklendiyse)
+- En az bir alan değişmiş olmalı
 
-- `BodySchema`'ya opsiyonel `categoryId` (Shopify Taxonomy GID, ör: `gid://shopify/TaxonomyCategory/sg-4-17-2-17`) alanı eklenecek. Geriye dönük uyumluluk için zorunlu değil.
-- Validasyon: `productType === "physical"` ise `stockQuantity` zorunlu (≥ 0) ve `trackInventory` otomatik `true` kabul edilir. Eksikse 400 döner.
-- `PRODUCT_CREATE` `ProductInput`'a:
-  - `category: $categoryId` (varsa) — bu Shopify'ın resmi taksonomi atamasıdır; "Products" panelinde "Category" alanını doldurur ve Markets/SEO/tax için kullanılır.
-  - `productType` alanı (serbest metin) korunur ama artık `category` (free-text label) yerine kullanıcının seçtiği taksonomiyi yansıtacak.
-- Tag'ler korunur (`type:physical|digital`, `category:<label>`).
+**Akış:**
+1. DB'den `coach_products` satırını çek (`coach_id === userId` olmalı, aksi 403). `shopify_product_id`, `shopify_variant_id`, `product_type`, mevcut `image_url` alınır.
+2. Shopify mutations (gerektiğinde):
+   - `productUpdate` — title/descriptionHtml/productType/tags güncelle.
+   - `productVariantsBulkUpdate` — fiyat değiştiyse.
+   - `inventorySetQuantities` — stok değiştiyse (sadece fiziksel; LOCATIONS_QUERY ile primary location, mevcut akıştaki gibi).
+   - `productCreateMedia` — yeni görsel yüklendiyse (eski medya silmeye gerek yok; best-effort).
+3. Hata haritası `mapShopifyError` (mevcut dosyadan kopya pattern).
+4. Başarı: DB satırını güncelle (`title`, `description`, `price`, `category`, `stock_quantity`, `image_url`).
 
-### Yeni hata yönetimi
-
-- `category` ID Shopify tarafında geçersizse `productCreate` userErrors döner — mevcut error handler bunu zaten 400 olarak yansıtıyor; ek değişiklik yok.
-
----
-
-## 2) Frontend — `src/pages/StoreManager.tsx`
-
-### a) "Sınırsız Stok" kaldırma (sadece fiziksel)
-- `unlimitedStock` state ve Switch UI'ı **kaldırılır**.
-- Fiziksel ürün seçildiğinde Stok Adedi input'u her zaman görünür ve **zorunlu** olur (boş submit edilemez).
-- Form geçerlilik (`canSubmit`) kuralı: fiziksel ise `stockQty !== "" && Number(stockQty) >= 0`.
-- Dijital için stok bloğu hiç render edilmez (mevcut davranış).
-
-### b) Gerçek Shopify kategori seçimi
-- Mevcut serbest metin "Kategori" input'u korunur ama yanına **Shopify Kategorisi** seçici eklenir (Combobox/Command):
-  - Yaygın fitness/coach kategorilerinden hazır kısa liste (label + `categoryId` GID), ör:
-    - Sporting Goods > Exercise & Fitness > Exercise Equipment
-    - Sporting Goods > Exercise & Fitness > Yoga & Pilates
-    - Health & Beauty > Health Care > Fitness & Nutrition > Nutritional Supplements
-    - Apparel & Accessories > Clothing > Activewear
-    - Media > Books / Digital Goods (dijital seçildiğinde önerilir)
-  - "Kategori seçilmedi" opsiyonu da kalır (geriye dönük).
-- Seçilen kategori `categoryId` payload'ına eklenir; serbest metin `category` etiket olarak kalır (UI badge için).
-
-### c) Ürün kartı
-- Stok rozetinin "∞" varyantı sadece **dijital** ürünlerde gösterilir; fiziksel ürünlerde her zaman sayısal gösterilir.
+**Güvenlik:** `coach` veya `admin` rolü zorunlu, satır sahipliği doğrulanır.
 
 ---
 
-## 3) Hook — `src/hooks/useStoreMutations.ts`
+## 2) Hook — `src/hooks/useStoreMutations.ts`
 
-- `CreateProductPayload` tipine `categoryId?: string` eklenir.
-- Edge function çağrısında ve DB insert'inde forward edilir (DB tarafında ek kolon yok — sadece edge function'a gider; istenirse ileride `coach_products.shopify_category_id` eklenebilir, bu plana dahil değil).
+Yeni mutation:
+```ts
+useUpdateProduct(): {
+  mutateAsync({
+    id, title?, description?, price?, category?,
+    stockQuantity?, imageFile?: File | null
+  })
+}
+```
+- Yeni `imageFile` varsa `products` bucket'a upload, public URL al, eski path opsiyonel olarak silinir.
+- `update-shopify-product` edge function çağrılır.
+- Başarıda `coach-products` query invalidate.
+- Hata mesajları mevcut `useCreateProduct` ile aynı pattern (ACCESS_DENIED/UNAUTHORIZED parse).
+
+---
+
+## 3) UI — `src/pages/StoreManager.tsx`
+
+### a) Düzenle akışı
+- Her ürün kartına **kalem ikonu** (Edit2) buton: tıklayınca **Dialog** açar (mevcut `@/components/ui/dialog`).
+- Dialog içerik: oluşturma formuyla aynı alanlar (görsel önizleme + opsiyonel yeni görsel yükleme, başlık, açıklama, fiyat, kategori, fiziksel ise stok adedi). Ürün tipi ve Shopify taksonomi alanları **read-only** gösterilir (kategoriyi değiştirmek farklı bir Shopify operasyonu; bu plana dahil değil).
+- "Kaydet" → `useUpdateProduct` çağırır → toast → dialog kapanır.
+
+### b) "Tükendi" rozeti
+- Ürün kartında, `product_type === "physical"` ve `stock_quantity === 0` ise kart sağ üst köşesine **kırmızı `Badge` "Tükendi"** (absolute pozisyon, görsel üzerine).
+- Stok satırındaki `{stock_quantity} adet` metni 0 ise `text-destructive` ile renklendir.
+- Dijital ürünlerde rozet gösterilmez (∞).
 
 ---
 
 ## 4) Veritabanı
-- Şema değişikliği **YOK**. (`stock_quantity` zaten var; artık fiziksel için NOT NULL davranışı uygulama katmanında zorlanır.)
+Şema değişikliği yok. Mevcut kolonlar (`title`, `description`, `price`, `category`, `stock_quantity`, `image_url`) güncellenir.
 
 ---
 
-## 5) OAuth / Secrets / Scopes
-- Hiçbiri değişmiyor. Mevcut `write_products` scope `category` alanı için yeterlidir.
+## 5) Scope/Secrets
+Mevcut `write_products` + `write_inventory` yeterli. Yeni secret yok.
 
 ---
 
 ## Teknik Notlar
-- Shopify Admin API `ProductInput.category` alanı `2024-04`+ sürümlerinde mevcut; mevcut `shopifyAdminGraphQL` helper'ı kullanılan API versiyonu uyumlu (kontrol edilecek; değilse `_shared/shopify-admin.ts` içindeki versiyon `2025-01`'e güncellenecek — sadece string).
-- Hazır kategori listesi koddan yönetilir (statik sabit), runtime'da Shopify Taxonomy API çağrısı yapılmaz (basitlik için).
+- `productUpdate` mutation Shopify Admin GraphQL `2025-01`+ ile uyumlu (mevcut `_shared/shopify-admin.ts` kullanılır).
+- Stok 0'a düşürmek "Tükendi" rozetini otomatik aktive eder; ayrıca pasifleştirme (is_active=false) durumunu **etkilemez** (zaten "Pasif" yazısı var).
+- Görsel değişikliği best-effort: `productCreateMedia` ile yeni görsel eklenir; eski medyanın Shopify tarafında silinmesi bu plana dahil değil (istenirse genişletilir).
