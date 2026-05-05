@@ -57,6 +57,18 @@ const VARIANTS_BULK_UPDATE = `
     }
   }`;
 
+const PRIMARY_LOCATION = `
+  query PrimaryLocation {
+    locations(first: 1) { nodes { id } }
+  }`;
+
+const INVENTORY_ADJUST = `
+  mutation inventorySetOnHand($input: InventorySetOnHandQuantitiesInput!) {
+    inventorySetOnHandQuantities(input: $input) {
+      userErrors { field message }
+    }
+  }`;
+
 const PRODUCT_CREATE_MEDIA = `
   mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
     productCreateMedia(productId: $productId, media: $media) {
