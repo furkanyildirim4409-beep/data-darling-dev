@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,6 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +23,7 @@ import {
 import {
   Box,
   Cloud,
+  Edit2,
   ImagePlus,
   Infinity as InfinityIcon,
   Loader2,
@@ -29,6 +37,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   useCoachProducts,
   useCreateProduct,
+  useUpdateProduct,
   useUpdateProductStatus,
 } from "@/hooks/useStoreMutations";
 
@@ -69,6 +78,7 @@ export default function StoreManager() {
   const { canManageStore } = usePermissions();
   const { data: products, isLoading } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
+  const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
 
   const [title, setTitle] = useState("");
@@ -82,6 +92,73 @@ export default function StoreManager() {
   const [stockQty, setStockQty] = useState<string>("");
   const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ----- Edit dialog state -----
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState<string>("");
+  const [editCategory, setEditCategory] = useState<string>("");
+  const [editStockQty, setEditStockQty] = useState<string>("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingProduct) {
+      setEditTitle(editingProduct.title ?? "");
+      setEditDescription(editingProduct.description ?? "");
+      setEditPrice(String(editingProduct.price ?? ""));
+      setEditCategory(editingProduct.category ?? "");
+      setEditStockQty(
+        editingProduct.stock_quantity !== null && editingProduct.stock_quantity !== undefined
+          ? String(editingProduct.stock_quantity)
+          : "",
+      );
+      setEditImageFile(null);
+      setEditImagePreview(null);
+    }
+  }, [editingProduct]);
+
+  const handleEditFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Sadece görsel dosyalar yüklenebilir.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Görsel 5 MB'dan büyük olamaz.");
+      return;
+    }
+    setEditImageFile(file);
+    setEditImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProduct) return;
+    const isEditDigital = editingProduct.product_type === "digital";
+    if (!editTitle.trim() || !editPrice || Number(editPrice) <= 0 || !editCategory) {
+      toast.error("Lütfen zorunlu alanları doldurun.");
+      return;
+    }
+    if (!isEditDigital && (editStockQty === "" || Number(editStockQty) < 0)) {
+      toast.error("Fiziksel ürünlerde stok adedi zorunludur.");
+      return;
+    }
+    try {
+      await updateProduct({
+        id: editingProduct.id,
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        price: Number(editPrice),
+        category: editCategory,
+        stockQuantity: isEditDigital ? null : Math.max(0, Number(editStockQty)),
+        imageFile: editImageFile,
+      });
+      setEditingProduct(null);
+    } catch {
+      /* toast handled in hook */
+    }
+  };
 
   const resetForm = () => {
     setTitle("");
@@ -445,18 +522,42 @@ export default function StoreManager() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.map((p: any) => (
+            {products.map((p: any) => {
+              const isPhysical = p.product_type !== "digital";
+              const isSoldOut =
+                isPhysical && p.track_inventory && Number(p.stock_quantity) === 0;
+              return (
               <div
                 key={p.id}
-                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors"
+                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors relative"
               >
-                <div className="aspect-square bg-muted overflow-hidden">
+                <div className="aspect-square bg-muted overflow-hidden relative">
                   <img
                     src={p.image_url}
                     alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                      isSoldOut ? "opacity-60 grayscale" : ""
+                    }`}
                     loading="lazy"
                   />
+                  {isSoldOut && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute top-2 left-2 text-[10px] uppercase tracking-wider shadow-md"
+                    >
+                      Tükendi
+                    </Badge>
+                  )}
+                  {canManageStore && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct(p)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Düzenle"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -486,7 +587,9 @@ export default function StoreManager() {
                         <Box className="w-3 h-3" /> Fiziksel
                         <span className="opacity-60">·</span>
                         {p.track_inventory && p.stock_quantity !== null ? (
-                          <span>{p.stock_quantity} adet</span>
+                          <span className={isSoldOut ? "text-destructive font-semibold" : ""}>
+                            {p.stock_quantity} adet
+                          </span>
                         ) : (
                           <InfinityIcon className="w-3 h-3" />
                         )}
@@ -507,10 +610,155 @@ export default function StoreManager() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={(o) => !o && setEditingProduct(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ürünü Düzenle</DialogTitle>
+          </DialogHeader>
+          {editingProduct && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Görsel
+                </Label>
+                <div
+                  onClick={() => editInputRef.current?.click()}
+                  className="mt-1.5 relative aspect-video rounded-xl border-2 border-dashed border-border bg-muted/30 hover:border-primary/50 cursor-pointer overflow-hidden flex items-center justify-center"
+                >
+                  {(editImagePreview || editingProduct.image_url) ? (
+                    <img
+                      src={editImagePreview || editingProduct.image_url}
+                      alt="Önizleme"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground p-3">
+                      <ImagePlus className="w-6 h-6 mb-1" />
+                      <p className="text-xs">Görsel ekle</p>
+                    </div>
+                  )}
+                  <input
+                    ref={editInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleEditFile(f);
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Yeni görsel seçmezseniz mevcut görsel korunur.
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Başlık
+                </Label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Açıklama
+                </Label>
+                <Textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="mt-1.5 min-h-[80px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Fiyat (₺)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Kategori
+                  </Label>
+                  <Select value={editCategory} onValueChange={setEditCategory}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Seçiniz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {editingProduct.product_type !== "digital" && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3">
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Stok Adedi <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editStockQty}
+                    onChange={(e) => setEditStockQty(e.target.value)}
+                    className="mt-1.5"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    0 girerseniz ürün "Tükendi" olarak işaretlenir.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Badge variant="outline" className="text-[10px]">
+                  {editingProduct.product_type === "digital" ? "Dijital" : "Fiziksel"}
+                </Badge>
+                <span>Ürün tipi değiştirilemez.</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProduct(null)} disabled={isUpdating}>
+              İptal
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Kaydediliyor...
+                </>
+              ) : (
+                "Kaydet ve Senkronize Et"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
