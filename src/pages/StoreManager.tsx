@@ -42,6 +42,8 @@ export default function StoreManager() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState<string>("");
   const [category, setCategory] = useState<string>("");
+  const [stock, setStock] = useState<string>("");
+  const [productKind, setProductKind] = useState<"physical" | "digital">("physical");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
