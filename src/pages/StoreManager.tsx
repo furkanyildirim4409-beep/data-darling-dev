@@ -249,6 +249,38 @@ export default function StoreManager() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Stok Adedi
+                  </Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    placeholder="Boş bırakırsanız sınırsız"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Ürün Tipi
+                  </Label>
+                  <Select value={productKind} onValueChange={(v) => setProductKind(v as "physical" | "digital")}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="physical">Fiziksel Ürün</SelectItem>
+                      <SelectItem value="digital">Dijital Ürün</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <Button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
