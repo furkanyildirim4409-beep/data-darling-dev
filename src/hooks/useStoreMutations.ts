@@ -162,6 +162,68 @@ export function useCreateProduct() {
   });
 }
 
+interface UpdateProductPayload {
+  id: string;
+  title?: string;
+  description?: string | null;
+  price?: number;
+  category?: string | null;
+  stockQuantity?: number | null;
+  imageFile?: File | null;
+}
+
+export function useUpdateProduct() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: UpdateProductPayload) => {
+      if (!user) throw new Error("Not authenticated");
+
+      let newImageUrl: string | null = null;
+      if (payload.imageFile) {
+        const safeName = payload.imageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-40);
+        const path = `${user.id}/${Date.now()}-${safeName}`;
+        const { error: upErr } = await supabase.storage
+          .from("products")
+          .upload(path, payload.imageFile, { cacheControl: "3600", upsert: false });
+        if (upErr) throw new Error(`Görsel yüklenemedi: ${upErr.message}`);
+        newImageUrl = supabase.storage.from("products").getPublicUrl(path).data.publicUrl;
+      }
+
+      const body: Record<string, unknown> = { productId: payload.id };
+      if (payload.title !== undefined) body.title = payload.title;
+      if (payload.description !== undefined) body.descriptionHtml = payload.description;
+      if (payload.price !== undefined) body.price = payload.price;
+      if (payload.category !== undefined) body.category = payload.category;
+      if (payload.stockQuantity !== undefined) body.stockQuantity = payload.stockQuantity;
+      if (newImageUrl) body.imageUrl = newImageUrl;
+
+      const { data, error } = await supabase.functions.invoke("update-shopify-product", { body });
+      if (error) {
+        const ctx: any = (error as any).context;
+        let detail = error.message;
+        try {
+          const respText = await ctx?.response?.text?.();
+          if (respText) {
+            const parsed = JSON.parse(respText);
+            detail = parsed?.message || parsed?.error || detail;
+          }
+        } catch {}
+        throw new Error(detail);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-products"] });
+      toast.success("Ürün güncellendi ve Shopify'a senkronize edildi.");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Ürün güncellenemedi.");
+    },
+  });
+}
+
 export function useUpdateProductStatus() {
   const { user } = useAuth();
   const qc = useQueryClient();
