@@ -21,6 +21,8 @@ const BodySchema = z.object({
   imageUrl: z.string().url(),
   category: z.string().max(255).optional(),
   vendorName: z.string().max(255).optional(),
+  stock: z.number().int().min(0).optional(),
+  productKind: z.enum(["physical", "digital"]).optional(),
 });
 
 function jsonResponse(body: unknown, status = 200) {
@@ -51,6 +53,18 @@ const VARIANTS_BULK_UPDATE = `
   mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
     productVariantsBulkUpdate(productId: $productId, variants: $variants) {
       productVariants { id price }
+      userErrors { field message }
+    }
+  }`;
+
+const PRIMARY_LOCATION = `
+  query PrimaryLocation {
+    locations(first: 1) { nodes { id } }
+  }`;
+
+const INVENTORY_ADJUST = `
+  mutation inventorySetOnHand($input: InventorySetOnHandQuantitiesInput!) {
+    inventorySetOnHandQuantities(input: $input) {
       userErrors { field message }
     }
   }`;
@@ -147,7 +161,8 @@ Deno.serve(async (req) => {
       400,
     );
   }
-  const { title, descriptionHtml, price, imageUrl, category, vendorName } = parsed.data;
+  const { title, descriptionHtml, price, imageUrl, category, vendorName, stock, productKind } = parsed.data;
+  const isDigital = productKind === "digital";
 
   try {
     // 1) productCreate
@@ -158,7 +173,11 @@ Deno.serve(async (req) => {
         status: "ACTIVE",
         productType: category ?? "",
         vendor: vendorName ?? "",
-        tags: [`coach:${userId}`, ...(category ? [`category:${category}`] : [])],
+        tags: [
+          `coach:${userId}`,
+          ...(category ? [`category:${category}`] : []),
+          isDigital ? "digital" : "physical",
+        ],
       },
     });
     const createErrors: ShopifyUserError[] = createData.productCreate.userErrors ?? [];
@@ -173,10 +192,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "No default variant returned by Shopify", productId }, 500);
     }
 
-    // 2) productVariantsBulkUpdate – set price on default variant
+    // 2) productVariantsBulkUpdate – set price + inventory tracking + shipping flag
     const priceData = await shopifyAdminGraphQL<any>(VARIANTS_BULK_UPDATE, {
       productId,
-      variants: [{ id: variantId, price: price.toFixed(2) }],
+      variants: [{
+        id: variantId,
+        price: price.toFixed(2),
+        inventoryItem: {
+          tracked: typeof stock === "number",
+          requiresShipping: !isDigital,
+        },
+      }],
     });
     const priceErrors: ShopifyUserError[] = priceData.productVariantsBulkUpdate.userErrors ?? [];
     if (priceErrors.length > 0) {
@@ -184,6 +210,31 @@ Deno.serve(async (req) => {
         { error: "productVariantsBulkUpdate failed", details: priceErrors, productId, variantId },
         400,
       );
+    }
+
+    // 2b) Set inventory on hand if stock provided
+    if (typeof stock === "number") {
+      try {
+        const fetched = await shopifyAdminGraphQL<any>(
+          `query($id: ID!) { productVariant(id: $id) { inventoryItem { id } } }`,
+          { id: variantId },
+        );
+        const invItemId = fetched.productVariant?.inventoryItem?.id;
+        const loc = await shopifyAdminGraphQL<any>(PRIMARY_LOCATION, {});
+        const locationId = loc.locations?.nodes?.[0]?.id;
+        if (invItemId && locationId) {
+          await shopifyAdminGraphQL<any>(INVENTORY_ADJUST, {
+            input: {
+              reason: "correction",
+              setQuantities: [
+                { inventoryItemId: invItemId, locationId, quantity: stock },
+              ],
+            },
+          });
+        }
+      } catch (invErr) {
+        console.error("Inventory set failed:", invErr);
+      }
     }
 
     // 3) productCreateMedia – attach image (best-effort)
