@@ -91,7 +91,9 @@ export default function StoreManager() {
   const { data: products, isLoading } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
+  const { mutateAsync: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
+  const [deletingProduct, setDeletingProduct] = useState<any | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
