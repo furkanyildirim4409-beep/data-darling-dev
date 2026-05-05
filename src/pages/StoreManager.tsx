@@ -324,7 +324,6 @@ export default function StoreManager() {
                     type="button"
                     onClick={() => {
                       setProductType("digital");
-                      setUnlimitedStock(true);
                     }}
                     className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                       productType === "digital"
