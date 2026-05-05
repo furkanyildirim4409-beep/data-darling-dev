@@ -615,6 +615,150 @@ export default function StoreManager() {
           </div>
         )}
       </div>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={(o) => !o && setEditingProduct(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ürünü Düzenle</DialogTitle>
+          </DialogHeader>
+          {editingProduct && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Görsel
+                </Label>
+                <div
+                  onClick={() => editInputRef.current?.click()}
+                  className="mt-1.5 relative aspect-video rounded-xl border-2 border-dashed border-border bg-muted/30 hover:border-primary/50 cursor-pointer overflow-hidden flex items-center justify-center"
+                >
+                  {(editImagePreview || editingProduct.image_url) ? (
+                    <img
+                      src={editImagePreview || editingProduct.image_url}
+                      alt="Önizleme"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground p-3">
+                      <ImagePlus className="w-6 h-6 mb-1" />
+                      <p className="text-xs">Görsel ekle</p>
+                    </div>
+                  )}
+                  <input
+                    ref={editInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleEditFile(f);
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Yeni görsel seçmezseniz mevcut görsel korunur.
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Başlık
+                </Label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Açıklama
+                </Label>
+                <Textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="mt-1.5 min-h-[80px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Fiyat (₺)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Kategori
+                  </Label>
+                  <Select value={editCategory} onValueChange={setEditCategory}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Seçiniz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {editingProduct.product_type !== "digital" && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3">
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Stok Adedi <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editStockQty}
+                    onChange={(e) => setEditStockQty(e.target.value)}
+                    className="mt-1.5"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    0 girerseniz ürün "Tükendi" olarak işaretlenir.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Badge variant="outline" className="text-[10px]">
+                  {editingProduct.product_type === "digital" ? "Dijital" : "Fiziksel"}
+                </Badge>
+                <span>Ürün tipi değiştirilemez.</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProduct(null)} disabled={isUpdating}>
+              İptal
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Kaydediliyor...
+                </>
+              ) : (
+                "Kaydet ve Senkronize Et"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
