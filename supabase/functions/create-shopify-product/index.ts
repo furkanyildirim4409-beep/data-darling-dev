@@ -21,6 +21,8 @@ const BodySchema = z.object({
   imageUrl: z.string().url(),
   category: z.string().max(255).optional(),
   vendorName: z.string().max(255).optional(),
+  stock: z.number().int().min(0).optional(),
+  productKind: z.enum(["physical", "digital"]).optional(),
 });
 
 function jsonResponse(body: unknown, status = 200) {
