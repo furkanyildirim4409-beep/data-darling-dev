@@ -78,6 +78,7 @@ export default function StoreManager() {
   const { canManageStore } = usePermissions();
   const { data: products, isLoading } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
+  const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
 
   const [title, setTitle] = useState("");
