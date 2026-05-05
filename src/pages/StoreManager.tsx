@@ -342,35 +342,55 @@ export default function StoreManager() {
                 </p>
               </div>
 
-              {/* Stock control (physical only) */}
+              {/* Stock control (physical only) — required, no unlimited option */}
               {!isDigital && (
                 <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <InfinityIcon className="w-4 h-4 text-muted-foreground" />
-                      <Label className="text-sm font-medium">Sınırsız Stok</Label>
-                    </div>
-                    <Switch checked={unlimitedStock} onCheckedChange={setUnlimitedStock} />
+                  <div>
+                    <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Stok Adedi <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={stockQty}
+                      onChange={(e) => setStockQty(e.target.value)}
+                      placeholder="Örn: 25"
+                      className="mt-1.5"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Fiziksel ürünlerde stok takibi zorunludur.
+                    </p>
                   </div>
-                  {!unlimitedStock && (
-                    <div>
-                      <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Stok Adedi
-                      </Label>
-                      <Input
-                        id="stock"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={stockQty}
-                        onChange={(e) => setStockQty(e.target.value)}
-                        placeholder="Örn: 25"
-                        className="mt-1.5"
-                      />
-                    </div>
-                  )}
                 </div>
               )}
+
+              {/* Shopify taxonomy category (optional) */}
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Shopify Kategorisi (opsiyonel)
+                </Label>
+                <Select
+                  value={shopifyCategoryId || "__none__"}
+                  onValueChange={(v) => setShopifyCategoryId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Shopify kategorisi seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Kategori atanmasın</SelectItem>
+                    {SHOPIFY_CATEGORIES.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Shopify'ın resmi taksonomisinde ürünü kategorize eder (SEO/Markets/vergi için).
+                </p>
+              </div>
 
               <Button
                 onClick={handleSubmit}
