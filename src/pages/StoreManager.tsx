@@ -54,6 +54,8 @@ export default function StoreManager() {
     setDescription("");
     setPrice("");
     setCategory("");
+    setStock("");
+    setProductKind("physical");
     setImageFile(null);
     setImagePreview(null);
     if (inputRef.current) inputRef.current.value = "";
