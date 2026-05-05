@@ -30,13 +30,25 @@ import {
   Package,
   ShieldAlert,
   Store,
+  Trash2,
   X,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   useCoachProducts,
   useCreateProduct,
+  useDeleteProduct,
   useUpdateProduct,
   useUpdateProductStatus,
 } from "@/hooks/useStoreMutations";
