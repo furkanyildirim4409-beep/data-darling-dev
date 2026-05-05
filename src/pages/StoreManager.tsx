@@ -33,6 +33,36 @@ import {
 } from "@/hooks/useStoreMutations";
 
 const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
+
+/** Common Shopify Taxonomy categories for coach products.
+ *  IDs are real Shopify Standard Product Taxonomy GIDs. */
+const SHOPIFY_CATEGORIES: { id: string; label: string }[] = [
+  {
+    id: "gid://shopify/TaxonomyCategory/sg-4-7-12",
+    label: "Sporting Goods › Exercise & Fitness › Exercise Equipment",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/sg-4-7-17",
+    label: "Sporting Goods › Exercise & Fitness › Yoga & Pilates",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/hb-2-3-3",
+    label: "Health & Beauty › Health Care › Nutritional Supplements",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/aa-1-13-1",
+    label: "Apparel & Accessories › Clothing › Activewear",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/me-1-3",
+    label: "Media › Books (Dijital İçerik)",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/me-2-1",
+    label: "Media › Online Courses (Dijital İçerik)",
+  },
+];
+
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export default function StoreManager() {
