@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,6 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +23,7 @@ import {
 import {
   Box,
   Cloud,
+  Edit2,
   ImagePlus,
   Infinity as InfinityIcon,
   Loader2,
@@ -29,6 +37,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   useCoachProducts,
   useCreateProduct,
+  useUpdateProduct,
   useUpdateProductStatus,
 } from "@/hooks/useStoreMutations";
 
