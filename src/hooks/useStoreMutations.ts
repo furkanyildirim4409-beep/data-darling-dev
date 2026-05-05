@@ -84,6 +84,8 @@ export function useCreateProduct() {
               imageUrl,
               category: payload.category,
               vendorName: profile?.name ?? "Dynabolic Coach",
+              stock: payload.stock,
+              productKind: payload.productKind ?? "physical",
             },
           },
         );
