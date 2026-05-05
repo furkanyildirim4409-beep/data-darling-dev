@@ -10,6 +10,8 @@ interface CreateProductPayload {
   price: number;
   category: string;
   imageFile: File;
+  stock?: number;
+  productKind?: "physical" | "digital";
 }
 
 interface UpdateProductStatusPayload {
