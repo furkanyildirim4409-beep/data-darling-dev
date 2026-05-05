@@ -863,9 +863,12 @@ export type Database = {
           image_url: string
           is_active: boolean | null
           price: number
+          product_type: string
           shopify_product_id: string | null
           shopify_variant_id: string | null
+          stock_quantity: number | null
           title: string
+          track_inventory: boolean
         }
         Insert: {
           category?: string | null
@@ -876,9 +879,12 @@ export type Database = {
           image_url: string
           is_active?: boolean | null
           price: number
+          product_type?: string
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
+          stock_quantity?: number | null
           title: string
+          track_inventory?: boolean
         }
         Update: {
           category?: string | null
@@ -889,9 +895,12 @@ export type Database = {
           image_url?: string
           is_active?: boolean | null
           price?: number
+          product_type?: string
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
+          stock_quantity?: number | null
           title?: string
+          track_inventory?: boolean
         }
         Relationships: [
           {
