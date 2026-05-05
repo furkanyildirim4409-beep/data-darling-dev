@@ -522,18 +522,42 @@ export default function StoreManager() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.map((p: any) => (
+            {products.map((p: any) => {
+              const isPhysical = p.product_type !== "digital";
+              const isSoldOut =
+                isPhysical && p.track_inventory && Number(p.stock_quantity) === 0;
+              return (
               <div
                 key={p.id}
-                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors"
+                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors relative"
               >
-                <div className="aspect-square bg-muted overflow-hidden">
+                <div className="aspect-square bg-muted overflow-hidden relative">
                   <img
                     src={p.image_url}
                     alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                      isSoldOut ? "opacity-60 grayscale" : ""
+                    }`}
                     loading="lazy"
                   />
+                  {isSoldOut && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute top-2 left-2 text-[10px] uppercase tracking-wider shadow-md"
+                    >
+                      Tükendi
+                    </Badge>
+                  )}
+                  {canManageStore && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct(p)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Düzenle"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -563,7 +587,9 @@ export default function StoreManager() {
                         <Box className="w-3 h-3" /> Fiziksel
                         <span className="opacity-60">·</span>
                         {p.track_inventory && p.stock_quantity !== null ? (
-                          <span>{p.stock_quantity} adet</span>
+                          <span className={isSoldOut ? "text-destructive font-semibold" : ""}>
+                            {p.stock_quantity} adet
+                          </span>
                         ) : (
                           <InfinityIcon className="w-3 h-3" />
                         )}
@@ -584,7 +610,8 @@ export default function StoreManager() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
