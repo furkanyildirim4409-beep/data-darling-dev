@@ -251,6 +251,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "No default variant returned by Shopify", productId }, 500);
     }
 
+    // 1b) Real category assignment: productType is metadata; collections are the visible Shopify category buckets.
+    let collectionId: string | null = null;
+    if (category) {
+      try {
+        collectionId = await ensureCategoryCollection(category);
+        const addData = await shopifyAdminGraphQL<any>(COLLECTION_ADD_PRODUCTS, {
+          id: collectionId,
+          productIds: [productId],
+        });
+        const addErrors: ShopifyUserError[] = addData.collectionAddProducts.userErrors ?? [];
+        if (addErrors.length > 0) {
+          console.error("collectionAddProducts failed:", addErrors);
+        }
+      } catch (collectionErr) {
+        console.error("Category collection assignment failed:", collectionErr);
+      }
+    }
+
     // 2) productVariantsBulkUpdate – set price + inventory tracking + shipping flag
     const priceData = await shopifyAdminGraphQL<any>(VARIANTS_BULK_UPDATE, {
       productId,
@@ -282,14 +300,20 @@ Deno.serve(async (req) => {
         const loc = await shopifyAdminGraphQL<any>(PRIMARY_LOCATION, {});
         const locationId = loc.locations?.nodes?.[0]?.id;
         if (invItemId && locationId) {
-          await shopifyAdminGraphQL<any>(INVENTORY_ADJUST, {
+          const inventoryData = await shopifyAdminGraphQL<any>(INVENTORY_ADJUST, {
             input: {
+              name: "available",
               reason: "correction",
+              ignoreCompareQuantity: true,
               setQuantities: [
                 { inventoryItemId: invItemId, locationId, quantity: stock },
               ],
             },
           });
+          const inventoryErrors: ShopifyUserError[] = inventoryData.inventorySetQuantities.userErrors ?? [];
+          if (inventoryErrors.length > 0) {
+            console.error("inventorySetQuantities failed:", inventoryErrors);
+          }
         }
       } catch (invErr) {
         console.error("Inventory set failed:", invErr);
@@ -315,6 +339,7 @@ Deno.serve(async (req) => {
             success: true,
             productId,
             variantId,
+            collectionId,
             warning: "Image attach failed",
             mediaErrors,
           },
@@ -327,13 +352,14 @@ Deno.serve(async (req) => {
           success: true,
           productId,
           variantId,
+          collectionId,
           warning: mediaErr instanceof Error ? mediaErr.message : "Image attach failed",
         },
         200,
       );
     }
 
-    return jsonResponse({ success: true, productId, variantId }, 200);
+    return jsonResponse({ success: true, productId, variantId, collectionId }, 200);
   } catch (err) {
     const e = err as ShopifyAdminError;
     if (e.status) return mapShopifyError(e);
