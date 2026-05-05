@@ -265,6 +265,77 @@ export default function StoreManager() {
                 </div>
               </div>
 
+              {/* Product type segmented buttons */}
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Ürün Tipi
+                </Label>
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProductType("physical")}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                      productType === "physical"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/30 text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    <Box className="w-4 h-4" />
+                    Fiziksel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductType("digital");
+                      setUnlimitedStock(true);
+                    }}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                      productType === "digital"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/30 text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    <Cloud className="w-4 h-4" />
+                    Dijital
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {isDigital
+                    ? "Dijital ürünler kargo gerektirmez, otomatik sınırsız stok."
+                    : "Fiziksel ürünler kargolanır ve stok takibi yapılabilir."}
+                </p>
+              </div>
+
+              {/* Stock control (physical only) */}
+              {!isDigital && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <InfinityIcon className="w-4 h-4 text-muted-foreground" />
+                      <Label className="text-sm font-medium">Sınırsız Stok</Label>
+                    </div>
+                    <Switch checked={unlimitedStock} onCheckedChange={setUnlimitedStock} />
+                  </div>
+                  {!unlimitedStock && (
+                    <div>
+                      <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Stok Adedi
+                      </Label>
+                      <Input
+                        id="stock"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={stockQty}
+                        onChange={(e) => setStockQty(e.target.value)}
+                        placeholder="Örn: 25"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
