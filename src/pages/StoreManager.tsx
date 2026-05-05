@@ -48,6 +48,9 @@ export default function StoreManager() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [productType, setProductType] = useState<"physical" | "digital">("physical");
+  const [unlimitedStock, setUnlimitedStock] = useState(true);
+  const [stockQty, setStockQty] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
@@ -57,6 +60,9 @@ export default function StoreManager() {
     setCategory("");
     setImageFile(null);
     setImagePreview(null);
+    setProductType("physical");
+    setUnlimitedStock(true);
+    setStockQty("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -80,8 +86,18 @@ export default function StoreManager() {
     if (file) handleFile(file);
   };
 
+  const isDigital = productType === "digital";
+  const trackInventory = !isDigital && !unlimitedStock;
+  const stockQuantity = trackInventory && stockQty !== "" ? Math.max(0, Number(stockQty)) : null;
+
   const canSubmit =
-    !!title.trim() && !!price && Number(price) > 0 && !!category && !!imageFile && !isCreating;
+    !!title.trim() &&
+    !!price &&
+    Number(price) > 0 &&
+    !!category &&
+    !!imageFile &&
+    !isCreating &&
+    (!trackInventory || (stockQty !== "" && Number(stockQty) >= 0));
 
   const handleSubmit = async () => {
     if (!canSubmit || !imageFile) return;
@@ -92,6 +108,9 @@ export default function StoreManager() {
         price: Number(price),
         category,
         imageFile,
+        productType,
+        trackInventory,
+        stockQuantity,
       });
       resetForm();
     } catch {
