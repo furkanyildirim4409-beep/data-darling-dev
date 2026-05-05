@@ -135,6 +135,9 @@ export function useCreateProduct() {
           category: payload.category,
           shopify_product_id: shopifyProductId,
           shopify_variant_id: shopifyVariantId,
+          product_type: payload.productType,
+          track_inventory: payload.trackInventory,
+          stock_quantity: payload.stockQuantity,
           is_active: true,
         })
         .select()
