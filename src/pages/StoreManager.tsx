@@ -30,13 +30,25 @@ import {
   Package,
   ShieldAlert,
   Store,
+  Trash2,
   X,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   useCoachProducts,
   useCreateProduct,
+  useDeleteProduct,
   useUpdateProduct,
   useUpdateProductStatus,
 } from "@/hooks/useStoreMutations";
@@ -79,7 +91,9 @@ export default function StoreManager() {
   const { data: products, isLoading } = useCoachProducts();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
+  const { mutateAsync: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutate: updateStatus } = useUpdateProductStatus();
+  const [deletingProduct, setDeletingProduct] = useState<any | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -549,14 +563,24 @@ export default function StoreManager() {
                     </Badge>
                   )}
                   {canManageStore && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingProduct(p)}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors opacity-0 group-hover:opacity-100"
-                      aria-label="Düzenle"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProduct(p)}
+                        className="w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                        aria-label="Düzenle"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingProduct(p)}
+                        className="w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                        aria-label="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="p-3 space-y-2">
@@ -759,6 +783,48 @@ export default function StoreManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deletingProduct}
+        onOpenChange={(o) => !o && !isDeleting && setDeletingProduct(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ürünü silmek istediğinize emin misiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{deletingProduct?.title}</span> adlı ürün
+              hem veritabanından hem de Shopify mağazanızdan kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deletingProduct) return;
+                try {
+                  await deleteProduct(deletingProduct.id);
+                  setDeletingProduct(null);
+                } catch {
+                  /* toast handled in hook */
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Siliniyor...
+                </>
+              ) : (
+                "Evet, Sil"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

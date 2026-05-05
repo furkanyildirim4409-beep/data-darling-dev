@@ -224,6 +224,40 @@ export function useUpdateProduct() {
   });
 }
 
+export function useDeleteProduct() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (productId: string) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data, error } = await supabase.functions.invoke("delete-shopify-product", {
+        body: { productId },
+      });
+      if (error) {
+        const ctx: any = (error as any).context;
+        let detail = error.message;
+        try {
+          const respText = await ctx?.response?.text?.();
+          if (respText) {
+            const parsed = JSON.parse(respText);
+            detail = parsed?.message || parsed?.error || detail;
+          }
+        } catch {}
+        throw new Error(detail);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coach-products"] });
+      toast.success("Ürün hem veritabanından hem de Shopify'dan silindi.");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Ürün silinemedi.");
+    },
+  });
+}
+
 export function useUpdateProductStatus() {
   const { user } = useAuth();
   const qc = useQueryClient();
