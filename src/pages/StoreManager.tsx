@@ -117,8 +117,14 @@ export default function StoreManager() {
   };
 
   const isDigital = productType === "digital";
-  const trackInventory = !isDigital && !unlimitedStock;
-  const stockQuantity = trackInventory && stockQty !== "" ? Math.max(0, Number(stockQty)) : null;
+  // Physical: always track inventory and require stock qty.
+  // Digital: never tracked (unlimited).
+  const trackInventory = !isDigital;
+  const stockQuantity = isDigital
+    ? null
+    : stockQty !== ""
+    ? Math.max(0, Number(stockQty))
+    : null;
 
   const canSubmit =
     !!title.trim() &&
@@ -127,7 +133,7 @@ export default function StoreManager() {
     !!category &&
     !!imageFile &&
     !isCreating &&
-    (!trackInventory || (stockQty !== "" && Number(stockQty) >= 0));
+    (isDigital || (stockQty !== "" && Number(stockQty) >= 0));
 
   const handleSubmit = async () => {
     if (!canSubmit || !imageFile) return;
@@ -141,6 +147,7 @@ export default function StoreManager() {
         productType,
         trackInventory,
         stockQuantity,
+        shopifyCategoryId: shopifyCategoryId || null,
       });
       resetForm();
     } catch {
