@@ -210,28 +210,36 @@ Deno.serve(async (req) => {
     category,
     vendorName,
     productType,
-    trackInventory,
+    trackInventory: trackInventoryRaw,
     stockQuantity,
+    shopifyCategoryId,
   } = parsed.data;
 
   const isDigital = productType === "digital";
+  // Physical products always track inventory; digital never do.
+  const trackInventory = isDigital ? false : true;
   const warnings: Record<string, unknown> = {};
 
   try {
-    // 1) productCreate
+    // 1) productCreate (with real Shopify Taxonomy category if provided)
+    const productInput: Record<string, unknown> = {
+      title,
+      descriptionHtml: descriptionHtml ?? "",
+      status: "ACTIVE",
+      productType: isDigital ? "Digital" : (category ?? "Physical"),
+      vendor: vendorName ?? "",
+      tags: [
+        `coach:${userId}`,
+        `type:${productType}`,
+        ...(category ? [`category:${category}`] : []),
+      ],
+    };
+    if (shopifyCategoryId) {
+      productInput.category = shopifyCategoryId;
+    }
+
     const createData = await shopifyAdminGraphQL<any>(PRODUCT_CREATE, {
-      input: {
-        title,
-        descriptionHtml: descriptionHtml ?? "",
-        status: "ACTIVE",
-        productType: isDigital ? "Digital" : (category ?? "Physical"),
-        vendor: vendorName ?? "",
-        tags: [
-          `coach:${userId}`,
-          `type:${productType}`,
-          ...(category ? [`category:${category}`] : []),
-        ],
-      },
+      input: productInput,
     });
     const createErrors: ShopifyUserError[] = createData.productCreate.userErrors ?? [];
     if (createErrors.length > 0) {
