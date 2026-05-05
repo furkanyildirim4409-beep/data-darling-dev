@@ -79,8 +79,8 @@ export default function StoreManager() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [productType, setProductType] = useState<"physical" | "digital">("physical");
-  const [unlimitedStock, setUnlimitedStock] = useState(true);
   const [stockQty, setStockQty] = useState<string>("");
+  const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
@@ -91,8 +91,8 @@ export default function StoreManager() {
     setImageFile(null);
     setImagePreview(null);
     setProductType("physical");
-    setUnlimitedStock(true);
     setStockQty("");
+    setShopifyCategoryId("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
