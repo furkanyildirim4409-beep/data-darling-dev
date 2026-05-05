@@ -418,6 +418,25 @@ export default function StoreManager() {
                       </Badge>
                     )}
                   </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {p.product_type === "digital" ? (
+                      <>
+                        <Cloud className="w-3 h-3" /> Dijital
+                        <span className="opacity-60">·</span>
+                        <InfinityIcon className="w-3 h-3" />
+                      </>
+                    ) : (
+                      <>
+                        <Box className="w-3 h-3" /> Fiziksel
+                        <span className="opacity-60">·</span>
+                        {p.track_inventory && p.stock_quantity !== null ? (
+                          <span>{p.stock_quantity} adet</span>
+                        ) : (
+                          <InfinityIcon className="w-3 h-3" />
+                        )}
+                      </>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border">
                     <span className="text-xs text-muted-foreground">
                       {p.is_active ? "Aktif" : "Pasif"}
