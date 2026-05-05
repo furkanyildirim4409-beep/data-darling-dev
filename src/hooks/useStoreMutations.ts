@@ -90,6 +90,7 @@ export function useCreateProduct() {
               productType: payload.productType,
               trackInventory: payload.trackInventory,
               stockQuantity: payload.stockQuantity,
+              shopifyCategoryId: payload.shopifyCategoryId ?? null,
             },
           },
         );
