@@ -18,6 +18,14 @@ export function invalidateShopifyAdminToken() {
 }
 
 export async function getShopifyAdminToken(forceRefresh = false): Promise<string> {
+  // Prefer a long-lived admin access token if provided — avoids the Cloudflare-protected
+  // OAuth token endpoint that intermittently returns 403 challenges from edge runtimes.
+  const directToken =
+    Deno.env.get("SHOPIFY_ADMIN_TOKEN") ?? Deno.env.get("SHOPIFY_ACCESS_TOKEN");
+  if (directToken && !forceRefresh) {
+    return directToken;
+  }
+
   if (!forceRefresh && cachedToken && Date.now() < cachedUntil - 60_000) {
     return cachedToken;
   }
