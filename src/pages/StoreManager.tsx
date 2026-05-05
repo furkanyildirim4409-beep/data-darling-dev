@@ -93,6 +93,8 @@ export default function StoreManager() {
         price: Number(price),
         category,
         imageFile,
+        stock: stock === "" ? undefined : Number(stock),
+        productKind,
       });
       resetForm();
     } catch {
