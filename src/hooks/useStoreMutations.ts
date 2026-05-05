@@ -13,6 +13,8 @@ interface CreateProductPayload {
   productType: "physical" | "digital";
   trackInventory: boolean;
   stockQuantity: number | null;
+  /** Shopify Taxonomy GID, e.g. gid://shopify/TaxonomyCategory/sg-4-17-2-17 */
+  shopifyCategoryId?: string | null;
 }
 
 interface UpdateProductStatusPayload {
@@ -88,6 +90,7 @@ export function useCreateProduct() {
               productType: payload.productType,
               trackInventory: payload.trackInventory,
               stockQuantity: payload.stockQuantity,
+              shopifyCategoryId: payload.shopifyCategoryId ?? null,
             },
           },
         );

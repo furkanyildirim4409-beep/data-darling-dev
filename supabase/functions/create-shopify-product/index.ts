@@ -14,17 +14,35 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const BodySchema = z.object({
-  title: z.string().min(2).max(255),
-  descriptionHtml: z.string().max(50_000).optional(),
-  price: z.number().positive(),
-  imageUrl: z.string().url(),
-  category: z.string().max(255).optional(),
-  vendorName: z.string().max(255).optional(),
-  productType: z.enum(["physical", "digital"]).default("physical"),
-  trackInventory: z.boolean().default(false),
-  stockQuantity: z.number().int().min(0).max(1_000_000).nullable().optional(),
-});
+const BodySchema = z
+  .object({
+    title: z.string().min(2).max(255),
+    descriptionHtml: z.string().max(50_000).optional(),
+    price: z.number().positive(),
+    imageUrl: z.string().url(),
+    category: z.string().max(255).optional(),
+    vendorName: z.string().max(255).optional(),
+    productType: z.enum(["physical", "digital"]).default("physical"),
+    trackInventory: z.boolean().default(false),
+    stockQuantity: z.number().int().min(0).max(1_000_000).nullable().optional(),
+    /** Shopify Taxonomy GID (e.g. gid://shopify/TaxonomyCategory/sg-4-17-2-17) */
+    shopifyCategoryId: z
+      .string()
+      .regex(/^gid:\/\/shopify\/TaxonomyCategory\/[A-Za-z0-9-]+$/)
+      .nullable()
+      .optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.productType === "physical") {
+      if (val.stockQuantity === null || val.stockQuantity === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["stockQuantity"],
+          message: "Fiziksel ürünler için stok adedi zorunludur.",
+        });
+      }
+    }
+  });
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -44,6 +62,7 @@ const PRODUCT_CREATE = `
       product {
         id
         handle
+        category { id name fullName }
         variants(first: 1) {
           nodes {
             id
@@ -191,28 +210,36 @@ Deno.serve(async (req) => {
     category,
     vendorName,
     productType,
-    trackInventory,
+    trackInventory: trackInventoryRaw,
     stockQuantity,
+    shopifyCategoryId,
   } = parsed.data;
 
   const isDigital = productType === "digital";
+  // Physical products always track inventory; digital never do.
+  const trackInventory = isDigital ? false : true;
   const warnings: Record<string, unknown> = {};
 
   try {
-    // 1) productCreate
+    // 1) productCreate (with real Shopify Taxonomy category if provided)
+    const productInput: Record<string, unknown> = {
+      title,
+      descriptionHtml: descriptionHtml ?? "",
+      status: "ACTIVE",
+      productType: isDigital ? "Digital" : (category ?? "Physical"),
+      vendor: vendorName ?? "",
+      tags: [
+        `coach:${userId}`,
+        `type:${productType}`,
+        ...(category ? [`category:${category}`] : []),
+      ],
+    };
+    if (shopifyCategoryId) {
+      productInput.category = shopifyCategoryId;
+    }
+
     const createData = await shopifyAdminGraphQL<any>(PRODUCT_CREATE, {
-      input: {
-        title,
-        descriptionHtml: descriptionHtml ?? "",
-        status: "ACTIVE",
-        productType: isDigital ? "Digital" : (category ?? "Physical"),
-        vendor: vendorName ?? "",
-        tags: [
-          `coach:${userId}`,
-          `type:${productType}`,
-          ...(category ? [`category:${category}`] : []),
-        ],
-      },
+      input: productInput,
     });
     const createErrors: ShopifyUserError[] = createData.productCreate.userErrors ?? [];
     if (createErrors.length > 0) {

@@ -33,6 +33,36 @@ import {
 } from "@/hooks/useStoreMutations";
 
 const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
+
+/** Common Shopify Taxonomy categories for coach products.
+ *  IDs are real Shopify Standard Product Taxonomy GIDs. */
+const SHOPIFY_CATEGORIES: { id: string; label: string }[] = [
+  {
+    id: "gid://shopify/TaxonomyCategory/sg-4-7-12",
+    label: "Sporting Goods › Exercise & Fitness › Exercise Equipment",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/sg-4-7-17",
+    label: "Sporting Goods › Exercise & Fitness › Yoga & Pilates",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/hb-2-3-3",
+    label: "Health & Beauty › Health Care › Nutritional Supplements",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/aa-1-13-1",
+    label: "Apparel & Accessories › Clothing › Activewear",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/me-1-3",
+    label: "Media › Books (Dijital İçerik)",
+  },
+  {
+    id: "gid://shopify/TaxonomyCategory/me-2-1",
+    label: "Media › Online Courses (Dijital İçerik)",
+  },
+];
+
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export default function StoreManager() {
@@ -49,8 +79,8 @@ export default function StoreManager() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [productType, setProductType] = useState<"physical" | "digital">("physical");
-  const [unlimitedStock, setUnlimitedStock] = useState(true);
   const [stockQty, setStockQty] = useState<string>("");
+  const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
@@ -61,8 +91,8 @@ export default function StoreManager() {
     setImageFile(null);
     setImagePreview(null);
     setProductType("physical");
-    setUnlimitedStock(true);
     setStockQty("");
+    setShopifyCategoryId("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -87,8 +117,14 @@ export default function StoreManager() {
   };
 
   const isDigital = productType === "digital";
-  const trackInventory = !isDigital && !unlimitedStock;
-  const stockQuantity = trackInventory && stockQty !== "" ? Math.max(0, Number(stockQty)) : null;
+  // Physical: always track inventory and require stock qty.
+  // Digital: never tracked (unlimited).
+  const trackInventory = !isDigital;
+  const stockQuantity = isDigital
+    ? null
+    : stockQty !== ""
+    ? Math.max(0, Number(stockQty))
+    : null;
 
   const canSubmit =
     !!title.trim() &&
@@ -97,7 +133,7 @@ export default function StoreManager() {
     !!category &&
     !!imageFile &&
     !isCreating &&
-    (!trackInventory || (stockQty !== "" && Number(stockQty) >= 0));
+    (isDigital || (stockQty !== "" && Number(stockQty) >= 0));
 
   const handleSubmit = async () => {
     if (!canSubmit || !imageFile) return;
@@ -111,6 +147,7 @@ export default function StoreManager() {
         productType,
         trackInventory,
         stockQuantity,
+        shopifyCategoryId: shopifyCategoryId || null,
       });
       resetForm();
     } catch {
@@ -287,7 +324,6 @@ export default function StoreManager() {
                     type="button"
                     onClick={() => {
                       setProductType("digital");
-                      setUnlimitedStock(true);
                     }}
                     className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                       productType === "digital"
@@ -306,35 +342,55 @@ export default function StoreManager() {
                 </p>
               </div>
 
-              {/* Stock control (physical only) */}
+              {/* Stock control (physical only) — required, no unlimited option */}
               {!isDigital && (
                 <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <InfinityIcon className="w-4 h-4 text-muted-foreground" />
-                      <Label className="text-sm font-medium">Sınırsız Stok</Label>
-                    </div>
-                    <Switch checked={unlimitedStock} onCheckedChange={setUnlimitedStock} />
+                  <div>
+                    <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Stok Adedi <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={stockQty}
+                      onChange={(e) => setStockQty(e.target.value)}
+                      placeholder="Örn: 25"
+                      className="mt-1.5"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Fiziksel ürünlerde stok takibi zorunludur.
+                    </p>
                   </div>
-                  {!unlimitedStock && (
-                    <div>
-                      <Label htmlFor="stock" className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Stok Adedi
-                      </Label>
-                      <Input
-                        id="stock"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={stockQty}
-                        onChange={(e) => setStockQty(e.target.value)}
-                        placeholder="Örn: 25"
-                        className="mt-1.5"
-                      />
-                    </div>
-                  )}
                 </div>
               )}
+
+              {/* Shopify taxonomy category (optional) */}
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Shopify Kategorisi (opsiyonel)
+                </Label>
+                <Select
+                  value={shopifyCategoryId || "__none__"}
+                  onValueChange={(v) => setShopifyCategoryId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Shopify kategorisi seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Kategori atanmasın</SelectItem>
+                    {SHOPIFY_CATEGORIES.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Shopify'ın resmi taksonomisinde ürünü kategorize eder (SEO/Markets/vergi için).
+                </p>
+              </div>
 
               <Button
                 onClick={handleSubmit}
