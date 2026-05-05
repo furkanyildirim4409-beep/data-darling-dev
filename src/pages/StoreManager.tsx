@@ -93,6 +93,73 @@ export default function StoreManager() {
   const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ----- Edit dialog state -----
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState<string>("");
+  const [editCategory, setEditCategory] = useState<string>("");
+  const [editStockQty, setEditStockQty] = useState<string>("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingProduct) {
+      setEditTitle(editingProduct.title ?? "");
+      setEditDescription(editingProduct.description ?? "");
+      setEditPrice(String(editingProduct.price ?? ""));
+      setEditCategory(editingProduct.category ?? "");
+      setEditStockQty(
+        editingProduct.stock_quantity !== null && editingProduct.stock_quantity !== undefined
+          ? String(editingProduct.stock_quantity)
+          : "",
+      );
+      setEditImageFile(null);
+      setEditImagePreview(null);
+    }
+  }, [editingProduct]);
+
+  const handleEditFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Sadece görsel dosyalar yüklenebilir.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Görsel 5 MB'dan büyük olamaz.");
+      return;
+    }
+    setEditImageFile(file);
+    setEditImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProduct) return;
+    const isEditDigital = editingProduct.product_type === "digital";
+    if (!editTitle.trim() || !editPrice || Number(editPrice) <= 0 || !editCategory) {
+      toast.error("Lütfen zorunlu alanları doldurun.");
+      return;
+    }
+    if (!isEditDigital && (editStockQty === "" || Number(editStockQty) < 0)) {
+      toast.error("Fiziksel ürünlerde stok adedi zorunludur.");
+      return;
+    }
+    try {
+      await updateProduct({
+        id: editingProduct.id,
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        price: Number(editPrice),
+        category: editCategory,
+        stockQuantity: isEditDigital ? null : Math.max(0, Number(editStockQty)),
+        imageFile: editImageFile,
+      });
+      setEditingProduct(null);
+    } catch {
+      /* toast handled in hook */
+    }
+  };
+
   const resetForm = () => {
     setTitle("");
     setDescription("");
