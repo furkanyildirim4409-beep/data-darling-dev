@@ -1,7 +1,13 @@
-// Shared Shopify Admin client — uses Dev Dashboard client_credentials grant.
-// Token is fetched on demand and cached in memory (per edge instance) until ~1min before expiry.
+// Shared Shopify Admin client.
+// Shopify Admin GraphQL must use X-Shopify-Access-Token; never Authorization: Bearer.
 
 const API_VERSION = "2025-07";
+
+type TokenCandidate = {
+  token: string;
+  source: string;
+  refreshable: boolean;
+};
 
 let cachedToken: string | null = null;
 let cachedUntil = 0;
@@ -12,22 +18,37 @@ function getShopHost(): string {
   return raw.replace(/^https?:\/\//, "").replace(/\/+$/, "");
 }
 
+function directTokenCandidates(): TokenCandidate[] {
+  const env = Deno.env.toObject();
+  const candidates: TokenCandidate[] = [];
+  const seen = new Set<string>();
+
+  const add = (token: string | undefined, source: string) => {
+    const trimmed = token?.trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    candidates.push({ token: trimmed, source, refreshable: false });
+  };
+
+  add(env.SHOPIFY_ADMIN_TOKEN, "SHOPIFY_ADMIN_TOKEN");
+  add(env.SHOPIFY_ACCESS_TOKEN, "SHOPIFY_ACCESS_TOKEN");
+
+  Object.keys(env)
+    .filter((key) => key.startsWith("SHOPIFY_ONLINE_ACCESS_TOKEN:"))
+    .sort()
+    .forEach((key) => add(env[key], key));
+
+  return candidates;
+}
+
 export function invalidateShopifyAdminToken() {
   cachedToken = null;
   cachedUntil = 0;
 }
 
-export async function getShopifyAdminToken(forceRefresh = false): Promise<string> {
-  // Prefer a long-lived admin access token if provided — avoids the Cloudflare-protected
-  // OAuth token endpoint that intermittently returns 403 challenges from edge runtimes.
-  const directToken =
-    Deno.env.get("SHOPIFY_ADMIN_TOKEN") ?? Deno.env.get("SHOPIFY_ACCESS_TOKEN");
-  if (directToken && !forceRefresh) {
-    return directToken;
-  }
-
+async function getClientCredentialsToken(forceRefresh = false): Promise<TokenCandidate> {
   if (!forceRefresh && cachedToken && Date.now() < cachedUntil - 60_000) {
-    return cachedToken;
+    return { token: cachedToken, source: "client_credentials grant", refreshable: true };
   }
 
   const clientId = Deno.env.get("SHOPIFY_CLIENT_ID");
@@ -65,13 +86,27 @@ export async function getShopifyAdminToken(forceRefresh = false): Promise<string
 
   cachedToken = parsed.access_token;
   cachedUntil = Date.now() + (parsed.expires_in ?? 86_400) * 1000;
-  return cachedToken;
+  return { token: cachedToken, source: "client_credentials grant", refreshable: true };
+}
+
+async function tokenCandidates(): Promise<TokenCandidate[]> {
+  const direct = directTokenCandidates();
+  if (direct.length > 0) return direct;
+  return [await getClientCredentialsToken(false)];
+}
+
+export async function getShopifyAdminToken(forceRefresh = false): Promise<string> {
+  const direct = directTokenCandidates()[0];
+  if (direct) return direct.token;
+  return (await getClientCredentialsToken(forceRefresh)).token;
 }
 
 export interface ShopifyAdminError extends Error {
   status?: number;
   shopifyMessage?: string;
   requiredAccess?: string;
+  tokenSource?: string;
+  attemptedTokenSources?: string[];
 }
 
 async function rawAdminGraphQL(token: string, query: string, variables: Record<string, unknown>) {
@@ -90,29 +125,54 @@ async function rawAdminGraphQL(token: string, query: string, variables: Record<s
   return { res, json };
 }
 
+function buildAdminError(res: Response, json: any, source: string, attempted: string[]): ShopifyAdminError {
+  const firstErr = json?.errors?.[0];
+  const err: ShopifyAdminError = new Error(
+    firstErr?.message ?? json?._raw ?? `Shopify Admin API ${res.status}`,
+  );
+  err.status = res.status;
+  err.shopifyMessage = firstErr?.message;
+  err.requiredAccess = firstErr?.extensions?.requiredAccess;
+  err.tokenSource = source;
+  err.attemptedTokenSources = attempted;
+  return err;
+}
+
+function isAuthOrAccessFailure(res: Response, json: any) {
+  const firstErr = json?.errors?.[0];
+  return (
+    res.status === 401 ||
+    res.status === 403 ||
+    firstErr?.extensions?.code === "ACCESS_DENIED" ||
+    Boolean(firstErr?.extensions?.requiredAccess)
+  );
+}
+
 export async function shopifyAdminGraphQL<T = any>(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<T> {
-  let token = await getShopifyAdminToken();
-  let { res, json } = await rawAdminGraphQL(token, query, variables);
+  const candidates = await tokenCandidates();
+  const attempted: string[] = [];
+  let lastErr: ShopifyAdminError | null = null;
 
-  // 401 → refresh once
-  if (res.status === 401) {
-    token = await getShopifyAdminToken(true);
-    ({ res, json } = await rawAdminGraphQL(token, query, variables));
+  for (const candidate of candidates) {
+    attempted.push(candidate.source);
+    let { res, json } = await rawAdminGraphQL(candidate.token, query, variables);
+
+    if (res.status === 401 && candidate.refreshable) {
+      const refreshed = await getClientCredentialsToken(true);
+      attempted.push(`${refreshed.source}:refresh`);
+      ({ res, json } = await rawAdminGraphQL(refreshed.token, query, variables));
+    }
+
+    if (res.ok && !json?.errors) {
+      return json.data as T;
+    }
+
+    lastErr = buildAdminError(res, json, candidate.source, attempted);
+    if (!isAuthOrAccessFailure(res, json)) break;
   }
 
-  if (!res.ok || json?.errors) {
-    const firstErr = json?.errors?.[0];
-    const err: ShopifyAdminError = new Error(
-      firstErr?.message ?? `Shopify Admin API ${res.status}`,
-    );
-    err.status = res.status;
-    err.shopifyMessage = firstErr?.message;
-    err.requiredAccess = firstErr?.extensions?.requiredAccess;
-    throw err;
-  }
-
-  return json.data as T;
+  throw lastErr ?? new Error("Shopify Admin request failed");
 }
