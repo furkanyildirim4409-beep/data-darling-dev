@@ -178,6 +178,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     if (isSquare) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragState.current = { startX: e.clientX, startY: e.clientY, baseX: cropOffset.x, baseY: cropOffset.y };
+    setIsDragging(true);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragState.current) return;
@@ -188,7 +189,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       y: clamp(dragState.current.baseY + dy, -maxOffsetY, maxOffsetY),
     });
   };
-  const onPointerUp = () => { dragState.current = null; };
+  const onPointerUp = () => { dragState.current = null; setIsDragging(false); };
 
   useEffect(() => {
     if (!frameRef.current) return;
