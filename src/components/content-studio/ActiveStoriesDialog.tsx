@@ -99,6 +99,17 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
   const sendInvite = useSendCoachingInvite();
   const { mutateAsync: updateCategory, isPending: catPending } = useUpdateStoryCategory();
   const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null; email: string | null } | null>(null);
+  const [deleteStoryId, setDeleteStoryId] = useState<string | null>(null);
+  const { mutateAsync: deleteStory, isPending: isDeletingStory } = useDeleteStory();
+
+  const handleDelete = async () => {
+    if (!deleteStoryId) return;
+    try {
+      await deleteStory(deleteStoryId);
+      if (viewingStory?.id === deleteStoryId) setViewingStory(null);
+      setDeleteStoryId(null);
+    } catch {}
+  };
 
   const handleCategoryChange = async (category: string | null) => {
     if (!viewingStory) return;
