@@ -75,36 +75,47 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {stories.map((story) => (
-                <button
+                <div
                   key={story.id}
-                  onClick={() => setViewingStory(story)}
                   className="relative group rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-all aspect-[9/16]"
                 >
-                  <img
-                    src={story.media_url}
-                    alt="Story"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5 flex flex-col gap-1">
-                    {story.category && (
-                      <span className="text-[10px] text-white/80 truncate">
-                        {story.category}
+                  <button
+                    onClick={() => setViewingStory(story)}
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <img
+                      src={story.media_url}
+                      alt="Story"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-1.5 left-1.5 right-1.5 flex flex-col gap-1 items-start">
+                      {story.category && (
+                        <span className="text-[10px] text-white/80 truncate">
+                          {story.category}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-white/70">
+                        {format(new Date(story.created_at), "d MMM yyyy", { locale: tr })}
                       </span>
-                    )}
-                    <span className="text-[10px] text-white/70">
-                      {format(new Date(story.created_at), "d MMM yyyy", { locale: tr })}
-                    </span>
-                  </div>
-                  <div className="absolute top-1.5 right-1.5">
-                    <Badge
-                      variant={isActive(story.expires_at) ? "default" : "secondary"}
-                      className="text-[9px] px-1.5 py-0"
-                    >
-                      {isActive(story.expires_at) ? "Aktif" : "Arşiv"}
-                    </Badge>
-                  </div>
-                </button>
+                    </div>
+                    <div className="absolute top-1.5 right-1.5">
+                      <Badge
+                        variant={isActive(story.expires_at) ? "default" : "secondary"}
+                        className="text-[9px] px-1.5 py-0"
+                      >
+                        {isActive(story.expires_at) ? "Aktif" : "Arşiv"}
+                      </Badge>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteStoryId(story.id); }}
+                    className="absolute bottom-1.5 right-1.5 z-10 p-1.5 rounded-full bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                    aria-label="Hikayeyi sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -114,12 +125,23 @@ export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogPro
       {/* Full-screen viewer */}
       <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
         <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-none">
-          <button
-            onClick={() => setViewingStory(null)}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+            {viewingStory && (
+              <button
+                onClick={() => setDeleteStoryId(viewingStory.id)}
+                className="p-1.5 rounded-full bg-destructive/80 text-destructive-foreground hover:bg-destructive transition-colors"
+                aria-label="Hikayeyi sil"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setViewingStory(null)}
+              className="p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           {viewingStory && (
             <>
               {viewingStory.media_url.match(/\.(mp4|webm|mov)$/i) ? (
