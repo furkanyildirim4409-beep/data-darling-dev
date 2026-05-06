@@ -153,7 +153,50 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [frameSize, setFrameSize] = useState(0);
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Computed: scale to "cover" the 1:1 frame
+  const coverScale = (() => {
+    if (!imgNatural || !frameSize) return 1;
+    return Math.max(frameSize / imgNatural.w, frameSize / imgNatural.h);
+  })();
+  const displayedW = imgNatural ? imgNatural.w * coverScale : 0;
+  const displayedH = imgNatural ? imgNatural.h * coverScale : 0;
+  const maxOffsetX = Math.max(0, (displayedW - frameSize) / 2);
+  const maxOffsetY = Math.max(0, (displayedH - frameSize) / 2);
+  const isSquare = imgNatural ? Math.abs(imgNatural.w - imgNatural.h) < 2 : true;
+
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (isSquare) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragState.current = { startX: e.clientX, startY: e.clientY, baseX: cropOffset.x, baseY: cropOffset.y };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    setCropOffset({
+      x: clamp(dragState.current.baseX + dx, -maxOffsetX, maxOffsetX),
+      y: clamp(dragState.current.baseY + dy, -maxOffsetY, maxOffsetY),
+    });
+  };
+  const onPointerUp = () => { dragState.current = null; };
+
+  useEffect(() => {
+    if (!frameRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) setFrameSize(entry.contentRect.width);
+    });
+    ro.observe(frameRef.current);
+    return () => ro.disconnect();
+  }, [filePreview]);
 
   const { user } = useAuth();
   const { data: livePosts, isLoading: isLoadingPosts } = useCoachPosts();
