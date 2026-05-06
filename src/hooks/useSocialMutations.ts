@@ -185,6 +185,8 @@ export function useDeleteStory() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["coach-stories"] });
+      qc.invalidateQueries({ queryKey: ["coach-stories-archive"] });
+      qc.invalidateQueries({ queryKey: ["coach-highlights"] });
       toast.success("Hikaye silindi.");
     },
     onError: (err: Error) => {
