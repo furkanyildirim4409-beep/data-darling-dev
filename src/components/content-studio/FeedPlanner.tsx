@@ -153,6 +153,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [frameSize, setFrameSize] = useState(0);
