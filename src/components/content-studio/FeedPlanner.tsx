@@ -153,7 +153,50 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [frameSize, setFrameSize] = useState(0);
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Computed: scale to "cover" the 1:1 frame
+  const coverScale = (() => {
+    if (!imgNatural || !frameSize) return 1;
+    return Math.max(frameSize / imgNatural.w, frameSize / imgNatural.h);
+  })();
+  const displayedW = imgNatural ? imgNatural.w * coverScale : 0;
+  const displayedH = imgNatural ? imgNatural.h * coverScale : 0;
+  const maxOffsetX = Math.max(0, (displayedW - frameSize) / 2);
+  const maxOffsetY = Math.max(0, (displayedH - frameSize) / 2);
+  const isSquare = imgNatural ? Math.abs(imgNatural.w - imgNatural.h) < 2 : true;
+
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (isSquare) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragState.current = { startX: e.clientX, startY: e.clientY, baseX: cropOffset.x, baseY: cropOffset.y };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    setCropOffset({
+      x: clamp(dragState.current.baseX + dx, -maxOffsetX, maxOffsetX),
+      y: clamp(dragState.current.baseY + dy, -maxOffsetY, maxOffsetY),
+    });
+  };
+  const onPointerUp = () => { dragState.current = null; };
+
+  useEffect(() => {
+    if (!frameRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) setFrameSize(entry.contentRect.width);
+    });
+    ro.observe(frameRef.current);
+    return () => ro.disconnect();
+  }, [filePreview]);
 
   const { user } = useAuth();
   const { data: livePosts, isLoading: isLoadingPosts } = useCoachPosts();
@@ -181,6 +224,8 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     if (file && file.type.startsWith("image/")) {
       setSelectedFile(file);
       setFilePreview(URL.createObjectURL(file));
+      setCropOffset({ x: 0, y: 0 });
+      setImgNatural(null);
     } else if (file) {
       toast.error("Lütfen geçerli bir görsel dosyası seçin.");
     }
@@ -189,6 +234,30 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const clearFile = () => {
     setSelectedFile(null);
     setFilePreview(null);
+    setImgNatural(null);
+    setCropOffset({ x: 0, y: 0 });
+  };
+
+  // Produce a 1:1 cropped Blob using current offsets
+  const cropTo1x1 = async (file: File): Promise<Blob> => {
+    if (!imgNatural || isSquare || !frameSize) return file;
+    const img = new window.Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const outSize = Math.min(imgNatural.w, imgNatural.h);
+    // Map pixel offset (in displayed/frame px) to source image px
+    const srcOffsetX = (cropOffset.x / coverScale);
+    const srcOffsetY = (cropOffset.y / coverScale);
+    const srcCenterX = imgNatural.w / 2 - srcOffsetX;
+    const srcCenterY = imgNatural.h / 2 - srcOffsetY;
+    const sx = Math.max(0, Math.min(imgNatural.w - outSize, srcCenterX - outSize / 2));
+    const sy = Math.max(0, Math.min(imgNatural.h - outSize, srcCenterY - outSize / 2));
+    const canvas = document.createElement("canvas");
+    canvas.width = outSize;
+    canvas.height = outSize;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, sx, sy, outSize, outSize, 0, 0, outSize, outSize);
+    return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.92));
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -215,11 +284,12 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       let imageUrl = "https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=300&h=300&fit=crop";
 
       if (selectedFile) {
-        const ext = selectedFile.name.split(".").pop() || "jpg";
+        const cropped = await cropTo1x1(selectedFile);
+        const ext = "jpg";
         const path = `${user.id}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("social-media")
-          .upload(path, selectedFile);
+          .upload(path, cropped, { contentType: "image/jpeg" });
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
@@ -321,13 +391,52 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
                   </div>
                 ) : (
                   <div className="mt-2 space-y-1.5">
-                    <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-square mx-auto max-w-xs">
-                      <img src={filePreview} alt="Preview" className="absolute inset-0 w-full h-full object-contain" />
+                    <div
+                      ref={frameRef}
+                      onPointerDown={onPointerDown}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerUp}
+                      className={cn(
+                        "relative rounded-xl overflow-hidden border border-border bg-black aspect-square mx-auto max-w-xs select-none touch-none",
+                        !isSquare && "cursor-grab active:cursor-grabbing"
+                      )}
+                    >
+                      {imgNatural && frameSize > 0 && (
+                        <img
+                          src={filePreview}
+                          alt="Preview"
+                          draggable={false}
+                          style={{
+                            position: "absolute",
+                            width: displayedW,
+                            height: displayedH,
+                            left: (frameSize - displayedW) / 2 + cropOffset.x,
+                            top: (frameSize - displayedH) / 2 + cropOffset.y,
+                            maxWidth: "none",
+                          }}
+                        />
+                      )}
+                      {/* Hidden img for natural size detection */}
+                      <img
+                        src={filePreview}
+                        alt=""
+                        className="hidden"
+                        onLoad={(e) => {
+                          const t = e.currentTarget;
+                          setImgNatural({ w: t.naturalWidth, h: t.naturalHeight });
+                          setCropOffset({ x: 0, y: 0 });
+                        }}
+                      />
                       <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 z-10" onClick={clearFile} disabled={isBusy}>
                         <X className="w-3.5 h-3.5" />
                       </Button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground text-center">Uygulamadaki gerçek 1:1 görünüm önizlemesi</p>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {isSquare
+                        ? "Uygulamadaki gerçek 1:1 görünüm"
+                        : "Görseli sürükleyerek 1:1 çerçevedeki konumunu ayarlayın"}
+                    </p>
                   </div>
                 )}
               </div>
