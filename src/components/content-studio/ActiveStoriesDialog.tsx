@@ -225,12 +225,23 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
       {/* Full-screen viewer with analytics */}
       <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
         <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-none">
-          <button
-            onClick={() => setViewingStory(null)}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+            {viewingStory && (
+              <button
+                onClick={() => setDeleteStoryId(viewingStory.id)}
+                className="p-1.5 rounded-full bg-destructive/80 text-destructive-foreground hover:bg-destructive transition-colors"
+                aria-label="Hikayeyi sil"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setViewingStory(null)}
+              className="p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           {viewingStory && (
             <>
               {viewingStory.media_url.match(/\.(mp4|webm|mov)$/i) ? (
