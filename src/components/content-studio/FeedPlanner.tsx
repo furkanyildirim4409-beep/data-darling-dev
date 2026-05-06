@@ -320,11 +320,14 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
                     <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG max 10MB</p>
                   </div>
                 ) : (
-                  <div className="mt-2 relative rounded-xl overflow-hidden border border-border">
-                    <img src={filePreview} alt="Preview" className="w-full h-40 object-cover" />
-                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={clearFile} disabled={isBusy}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
+                  <div className="mt-2 space-y-1.5">
+                    <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-square mx-auto max-w-xs">
+                      <img src={filePreview} alt="Preview" className="absolute inset-0 w-full h-full object-contain" />
+                      <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 z-10" onClick={clearFile} disabled={isBusy}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">Uygulamadaki gerçek 1:1 görünüm önizlemesi</p>
                   </div>
                 )}
               </div>
