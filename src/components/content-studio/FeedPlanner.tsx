@@ -303,15 +303,31 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         imageUrl = urlData.publicUrl;
       }
 
+      let scheduledIso: string | null = null;
+      if (scheduleDate) {
+        const timeStr = scheduleTime || "09:00";
+        const local = new Date(`${scheduleDate}T${timeStr}`);
+        if (isNaN(local.getTime())) {
+          throw new Error("Geçersiz zamanlama tarihi");
+        }
+        if (local.getTime() <= Date.now()) {
+          throw new Error("Zamanlama tarihi gelecekte olmalıdır");
+        }
+        scheduledIso = local.toISOString();
+      }
+
       await createPost({
         type: "text",
         content: newCaption || "Yeni gönderi",
         before_image_url: imageUrl,
+        scheduled_at: scheduledIso,
       });
 
       // Query invalidation in useCreatePost will refresh the grid
 
       setNewCaption("");
+      setScheduleDate("");
+      setScheduleTime("");
       clearFile();
       setIsCreateDialogOpen(false);
     } catch (err: any) {
