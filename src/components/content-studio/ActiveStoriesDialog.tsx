@@ -2,13 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Radio, X, Eye, ChevronDown, UserPlus } from "lucide-react";
+import { Radio, X, Eye, ChevronDown, UserPlus, Trash2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus, useSendCoachingInvite, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
+import { useCoachStoryArchive, useStoryAnalytics, useCheckViewerStatus, useSendCoachingInvite, useUpdateStoryCategory, useDeleteStory } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { CategoryCombobox } from "./CategoryCombobox";
 import { toast } from "sonner";
@@ -89,6 +99,17 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
   const sendInvite = useSendCoachingInvite();
   const { mutateAsync: updateCategory, isPending: catPending } = useUpdateStoryCategory();
   const [selectedLead, setSelectedLead] = useState<{ id: string; fullName: string; avatarUrl: string | null; email: string | null } | null>(null);
+  const [deleteStoryId, setDeleteStoryId] = useState<string | null>(null);
+  const { mutateAsync: deleteStory, isPending: isDeletingStory } = useDeleteStory();
+
+  const handleDelete = async () => {
+    if (!deleteStoryId) return;
+    try {
+      await deleteStory(deleteStoryId);
+      if (viewingStory?.id === deleteStoryId) setViewingStory(null);
+      setDeleteStoryId(null);
+    } catch {}
+  };
 
   const handleCategoryChange = async (category: string | null) => {
     if (!viewingStory) return;
@@ -159,31 +180,42 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {activeStories.map((story) => (
-                <button
+                <div
                   key={story.id}
-                  onClick={() => {
-                    setViewingStory(story);
-                    setShowViewers(false);
-                  }}
                   className="relative group rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-all aspect-[9/16]"
                 >
-                  <img
-                    src={story.media_url}
-                    alt="Story"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                    <span className="text-[10px] text-white/70">
-                      {timeRemaining(story.expires_at)} kaldı
-                    </span>
-                  </div>
-                  <div className="absolute top-1.5 right-1.5">
-                    <Badge className="text-[9px] px-1.5 py-0 bg-success text-success-foreground">
-                      Aktif
-                    </Badge>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => {
+                      setViewingStory(story);
+                      setShowViewers(false);
+                    }}
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <img
+                      src={story.media_url}
+                      alt="Story"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                      <span className="text-[10px] text-white/70">
+                        {timeRemaining(story.expires_at)} kaldı
+                      </span>
+                    </div>
+                    <div className="absolute top-1.5 right-1.5">
+                      <Badge className="text-[9px] px-1.5 py-0 bg-success text-success-foreground">
+                        Aktif
+                      </Badge>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteStoryId(story.id); }}
+                    className="absolute bottom-1.5 right-1.5 z-10 p-1.5 rounded-full bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                    aria-label="Hikayeyi sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -193,12 +225,23 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
       {/* Full-screen viewer with analytics */}
       <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
         <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-none">
-          <button
-            onClick={() => setViewingStory(null)}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+            {viewingStory && (
+              <button
+                onClick={() => setDeleteStoryId(viewingStory.id)}
+                className="p-1.5 rounded-full bg-destructive/80 text-destructive-foreground hover:bg-destructive transition-colors"
+                aria-label="Hikayeyi sil"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setViewingStory(null)}
+              className="p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           {viewingStory && (
             <>
               {viewingStory.media_url.match(/\.(mp4|webm|mov)$/i) ? (
@@ -277,6 +320,22 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteStoryId} onOpenChange={(o) => !o && setDeleteStoryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hikayeyi sil?</AlertDialogTitle>
+            <AlertDialogDescription>Bu hikaye kalıcı olarak silinecek. Bu işlem geri alınamaz.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingStory}>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeletingStory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeletingStory ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Siliniyor...</> : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
