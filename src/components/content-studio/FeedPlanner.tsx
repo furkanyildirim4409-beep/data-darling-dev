@@ -153,6 +153,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [frameSize, setFrameSize] = useState(0);
@@ -177,6 +178,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     if (isSquare) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragState.current = { startX: e.clientX, startY: e.clientY, baseX: cropOffset.x, baseY: cropOffset.y };
+    setIsDragging(true);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragState.current) return;
@@ -187,7 +189,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       y: clamp(dragState.current.baseY + dy, -maxOffsetY, maxOffsetY),
     });
   };
-  const onPointerUp = () => { dragState.current = null; };
+  const onPointerUp = () => { dragState.current = null; setIsDragging(false); };
 
   useEffect(() => {
     if (!frameRef.current) return;
@@ -431,6 +433,24 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
                       <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 z-10" onClick={clearFile} disabled={isBusy}>
                         <X className="w-3.5 h-3.5" />
                       </Button>
+                      {/* Rule-of-thirds grid overlay (visible while dragging) */}
+                      {!isSquare && (
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute inset-0 transition-opacity duration-150",
+                            isDragging ? "opacity-100" : "opacity-0"
+                          )}
+                        >
+                          {/* Outer frame */}
+                          <div className="absolute inset-0 border-2 border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.5)_inset]" />
+                          {/* Vertical thirds */}
+                          <div className="absolute top-0 bottom-0 left-1/3 w-px bg-white/70" />
+                          <div className="absolute top-0 bottom-0 left-2/3 w-px bg-white/70" />
+                          {/* Horizontal thirds */}
+                          <div className="absolute left-0 right-0 top-1/3 h-px bg-white/70" />
+                          <div className="absolute left-0 right-0 top-2/3 h-px bg-white/70" />
+                        </div>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground text-center">
                       {isSquare
