@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Archive, X } from "lucide-react";
+import { Archive, X, Trash2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCoachStoryArchive, useUpdateStoryCategory } from "@/hooks/useSocialMutations";
+import { useCoachStoryArchive, useUpdateStoryCategory, useDeleteStory } from "@/hooks/useSocialMutations";
 import { CategoryCombobox } from "./CategoryCombobox";
 import { toast } from "sonner";
 
