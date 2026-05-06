@@ -284,11 +284,12 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
       let imageUrl = "https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=300&h=300&fit=crop";
 
       if (selectedFile) {
-        const ext = selectedFile.name.split(".").pop() || "jpg";
+        const cropped = await cropTo1x1(selectedFile);
+        const ext = "jpg";
         const path = `${user.id}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("social-media")
-          .upload(path, selectedFile);
+          .upload(path, cropped, { contentType: "image/jpeg" });
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
