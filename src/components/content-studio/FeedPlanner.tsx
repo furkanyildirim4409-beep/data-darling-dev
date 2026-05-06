@@ -497,9 +497,35 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
               <div>
                 <Label className="text-xs text-muted-foreground">Zamanlama (Opsiyonel)</Label>
                 <div className="mt-2 flex items-center gap-2">
-                  <Input type="date" className="bg-background/50" />
-                  <Input type="time" className="bg-background/50 w-28" />
+                  <Input
+                    type="date"
+                    className="bg-background/50"
+                    value={scheduleDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                  />
+                  <Input
+                    type="time"
+                    className="bg-background/50 w-28"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                  />
+                  {(scheduleDate || scheduleTime) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setScheduleDate(""); setScheduleTime(""); }}
+                    >
+                      Temizle
+                    </Button>
+                  )}
                 </div>
+                {scheduleDate && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Bu gönderi {new Date(`${scheduleDate}T${scheduleTime || "09:00"}`).toLocaleString("tr-TR")} tarihinde otomatik yayınlanacak.
+                  </p>
+                )}
               </div>
 
               {/* Actions */}
