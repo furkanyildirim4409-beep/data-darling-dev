@@ -391,13 +391,52 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
                   </div>
                 ) : (
                   <div className="mt-2 space-y-1.5">
-                    <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-square mx-auto max-w-xs">
-                      <img src={filePreview} alt="Preview" className="absolute inset-0 w-full h-full object-contain" />
+                    <div
+                      ref={frameRef}
+                      onPointerDown={onPointerDown}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerUp}
+                      className={cn(
+                        "relative rounded-xl overflow-hidden border border-border bg-black aspect-square mx-auto max-w-xs select-none touch-none",
+                        !isSquare && "cursor-grab active:cursor-grabbing"
+                      )}
+                    >
+                      {imgNatural && frameSize > 0 && (
+                        <img
+                          src={filePreview}
+                          alt="Preview"
+                          draggable={false}
+                          style={{
+                            position: "absolute",
+                            width: displayedW,
+                            height: displayedH,
+                            left: (frameSize - displayedW) / 2 + cropOffset.x,
+                            top: (frameSize - displayedH) / 2 + cropOffset.y,
+                            maxWidth: "none",
+                          }}
+                        />
+                      )}
+                      {/* Hidden img for natural size detection */}
+                      <img
+                        src={filePreview}
+                        alt=""
+                        className="hidden"
+                        onLoad={(e) => {
+                          const t = e.currentTarget;
+                          setImgNatural({ w: t.naturalWidth, h: t.naturalHeight });
+                          setCropOffset({ x: 0, y: 0 });
+                        }}
+                      />
                       <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 z-10" onClick={clearFile} disabled={isBusy}>
                         <X className="w-3.5 h-3.5" />
                       </Button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground text-center">Uygulamadaki gerçek 1:1 görünüm önizlemesi</p>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {isSquare
+                        ? "Uygulamadaki gerçek 1:1 görünüm"
+                        : "Görseli sürükleyerek 1:1 çerçevedeki konumunu ayarlayın"}
+                    </p>
                   </div>
                 )}
               </div>
