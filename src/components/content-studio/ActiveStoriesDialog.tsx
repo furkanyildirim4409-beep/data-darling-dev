@@ -180,31 +180,42 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {activeStories.map((story) => (
-                <button
+                <div
                   key={story.id}
-                  onClick={() => {
-                    setViewingStory(story);
-                    setShowViewers(false);
-                  }}
                   className="relative group rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-all aspect-[9/16]"
                 >
-                  <img
-                    src={story.media_url}
-                    alt="Story"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                    <span className="text-[10px] text-white/70">
-                      {timeRemaining(story.expires_at)} kaldı
-                    </span>
-                  </div>
-                  <div className="absolute top-1.5 right-1.5">
-                    <Badge className="text-[9px] px-1.5 py-0 bg-success text-success-foreground">
-                      Aktif
-                    </Badge>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => {
+                      setViewingStory(story);
+                      setShowViewers(false);
+                    }}
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <img
+                      src={story.media_url}
+                      alt="Story"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                      <span className="text-[10px] text-white/70">
+                        {timeRemaining(story.expires_at)} kaldı
+                      </span>
+                    </div>
+                    <div className="absolute top-1.5 right-1.5">
+                      <Badge className="text-[9px] px-1.5 py-0 bg-success text-success-foreground">
+                        Aktif
+                      </Badge>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteStoryId(story.id); }}
+                    className="absolute bottom-1.5 right-1.5 z-10 p-1.5 rounded-full bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                    aria-label="Hikayeyi sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
