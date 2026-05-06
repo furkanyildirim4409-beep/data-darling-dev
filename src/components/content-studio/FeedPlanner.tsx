@@ -36,7 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Image, Calendar, Heart, MessageCircle, MoreHorizontal, GripVertical, Edit2, Trash2, Save, Upload, X, Loader2, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCreatePost, useCoachPosts } from "@/hooks/useSocialMutations";
+import { useCreatePost, useCoachPosts, useDeletePost } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -158,6 +158,7 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const { user } = useAuth();
   const { data: livePosts, isLoading: isLoadingPosts } = useCoachPosts();
   const { mutateAsync: createPost, isPending: isCreatingPost } = useCreatePost();
+  const { mutateAsync: deletePostMutation, isPending: isDeletingPost } = useDeletePost();
 
   const isBusy = isUploading || isCreatingPost;
 
@@ -262,11 +263,14 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     toast.success("Açıklama başarıyla değiştirildi.");
   };
 
-  const handleDeletePost = () => {
+  const handleDeletePost = async () => {
     if (!deletePostId) return;
-    setPosts((prev) => prev.filter((p) => p.id !== deletePostId));
-    setDeletePostId(null);
-    toast.success("Gönderi başarıyla kaldırıldı.");
+    try {
+      await deletePostMutation(deletePostId);
+      setDeletePostId(null);
+    } catch {
+      // toast handled in mutation
+    }
   };
 
   const activePost = posts.find((p) => p.id === activeId);
@@ -464,8 +468,10 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
             <AlertDialogDescription>Bu gönderi kalıcı olarak silinecek. Bu işlem geri alınamaz.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePost} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sil</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeletingPost}>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePost} disabled={isDeletingPost} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeletingPost ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Siliniyor...</> : "Sil"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
