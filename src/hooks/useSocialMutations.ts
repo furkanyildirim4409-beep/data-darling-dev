@@ -29,6 +29,7 @@ interface CreatePostPayload {
   after_image_url?: string;
   video_url?: string;
   video_thumbnail_url?: string;
+  scheduled_at?: string | null;
 }
 
 interface CreateStoryPayload {
