@@ -149,6 +149,8 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [newCaption, setNewCaption] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
   const [editCaption, setEditCaption] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -210,13 +212,14 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   // Sync live posts into local state for DnD reordering
   useEffect(() => {
     if (livePosts) {
-      const mapped: Post[] = livePosts.map((p) => ({
+      const mapped: Post[] = livePosts.map((p: any) => ({
         id: p.id,
         image: p.before_image_url || p.video_thumbnail_url || "/placeholder.svg",
         caption: p.content || "",
+        scheduledDate: p.scheduled_at || undefined,
         likes: 0,
         comments: 0,
-        status: "published" as const,
+        status: (p.status as Post["status"]) || "published",
       }));
       setPosts(mapped);
     }
@@ -300,15 +303,31 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
         imageUrl = urlData.publicUrl;
       }
 
+      let scheduledIso: string | null = null;
+      if (scheduleDate) {
+        const timeStr = scheduleTime || "09:00";
+        const local = new Date(`${scheduleDate}T${timeStr}`);
+        if (isNaN(local.getTime())) {
+          throw new Error("Geçersiz zamanlama tarihi");
+        }
+        if (local.getTime() <= Date.now()) {
+          throw new Error("Zamanlama tarihi gelecekte olmalıdır");
+        }
+        scheduledIso = local.toISOString();
+      }
+
       await createPost({
         type: "text",
         content: newCaption || "Yeni gönderi",
         before_image_url: imageUrl,
+        scheduled_at: scheduledIso,
       });
 
       // Query invalidation in useCreatePost will refresh the grid
 
       setNewCaption("");
+      setScheduleDate("");
+      setScheduleTime("");
       clearFile();
       setIsCreateDialogOpen(false);
     } catch (err: any) {
@@ -478,9 +497,35 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
               <div>
                 <Label className="text-xs text-muted-foreground">Zamanlama (Opsiyonel)</Label>
                 <div className="mt-2 flex items-center gap-2">
-                  <Input type="date" className="bg-background/50" />
-                  <Input type="time" className="bg-background/50 w-28" />
+                  <Input
+                    type="date"
+                    className="bg-background/50"
+                    value={scheduleDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                  />
+                  <Input
+                    type="time"
+                    className="bg-background/50 w-28"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                  />
+                  {(scheduleDate || scheduleTime) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setScheduleDate(""); setScheduleTime(""); }}
+                    >
+                      Temizle
+                    </Button>
+                  )}
                 </div>
+                {scheduleDate && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Bu gönderi {new Date(`${scheduleDate}T${scheduleTime || "09:00"}`).toLocaleString("tr-TR")} tarihinde otomatik yayınlanacak.
+                  </p>
+                )}
               </div>
 
               {/* Actions */}

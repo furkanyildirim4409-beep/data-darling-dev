@@ -2127,6 +2127,8 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          scheduled_at: string | null
+          status: string
           type: string
           video_thumbnail_url: string | null
           video_url: string | null
@@ -2139,6 +2141,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          scheduled_at?: string | null
+          status?: string
           type: string
           video_thumbnail_url?: string | null
           video_url?: string | null
@@ -2151,6 +2155,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          scheduled_at?: string | null
+          status?: string
           type?: string
           video_thumbnail_url?: string | null
           video_url?: string | null
@@ -2818,6 +2824,7 @@ export type Database = {
         Args: { _athlete_email: string; _coach_id: string }
         Returns: Json
       }
+      publish_due_social_posts: { Args: never; Returns: number }
       resolve_dispute: {
         Args: {
           p_challenge_id: string

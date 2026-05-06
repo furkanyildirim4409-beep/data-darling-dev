@@ -29,6 +29,7 @@ interface CreatePostPayload {
   after_image_url?: string;
   video_url?: string;
   video_thumbnail_url?: string;
+  scheduled_at?: string | null;
 }
 
 interface CreateStoryPayload {
@@ -44,6 +45,7 @@ export function useCreatePost() {
   return useMutation({
     mutationFn: async (payload: CreatePostPayload) => {
       if (!user) throw new Error("Not authenticated");
+      const isScheduled = !!payload.scheduled_at && new Date(payload.scheduled_at).getTime() > Date.now();
       const { data, error } = await supabase
         .from("social_posts")
         .insert({
@@ -54,15 +56,17 @@ export function useCreatePost() {
           after_image_url: payload.after_image_url ?? null,
           video_url: payload.video_url ?? null,
           video_thumbnail_url: payload.video_thumbnail_url ?? null,
-        })
+          scheduled_at: isScheduled ? payload.scheduled_at : null,
+          status: isScheduled ? "scheduled" : "published",
+        } as any)
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["social-posts"] });
-      toast.success("Gönderi başarıyla oluşturuldu.");
+      toast.success(data?.status === "scheduled" ? "Gönderi zamanlandı." : "Gönderi başarıyla oluşturuldu.");
     },
     onError: (err: Error) => {
       toast.error(`Gönderi oluşturulamadı: ${err.message}`);
