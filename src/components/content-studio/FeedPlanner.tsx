@@ -212,13 +212,14 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   // Sync live posts into local state for DnD reordering
   useEffect(() => {
     if (livePosts) {
-      const mapped: Post[] = livePosts.map((p) => ({
+      const mapped: Post[] = livePosts.map((p: any) => ({
         id: p.id,
         image: p.before_image_url || p.video_thumbnail_url || "/placeholder.svg",
         caption: p.content || "",
+        scheduledDate: p.scheduled_at || undefined,
         likes: 0,
         comments: 0,
-        status: "published" as const,
+        status: (p.status as Post["status"]) || "published",
       }));
       setPosts(mapped);
     }
