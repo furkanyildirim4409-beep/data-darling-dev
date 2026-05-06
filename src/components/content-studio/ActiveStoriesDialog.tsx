@@ -320,6 +320,22 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteStoryId} onOpenChange={(o) => !o && setDeleteStoryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hikayeyi sil?</AlertDialogTitle>
+            <AlertDialogDescription>Bu hikaye kalıcı olarak silinecek. Bu işlem geri alınamaz.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingStory}>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeletingStory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeletingStory ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Siliniyor...</> : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
