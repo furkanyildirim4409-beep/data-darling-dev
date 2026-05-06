@@ -224,6 +224,8 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
     if (file && file.type.startsWith("image/")) {
       setSelectedFile(file);
       setFilePreview(URL.createObjectURL(file));
+      setCropOffset({ x: 0, y: 0 });
+      setImgNatural(null);
     } else if (file) {
       toast.error("Lütfen geçerli bir görsel dosyası seçin.");
     }
@@ -232,6 +234,30 @@ export function FeedPlanner({ canManage = true }: FeedPlannerProps) {
   const clearFile = () => {
     setSelectedFile(null);
     setFilePreview(null);
+    setImgNatural(null);
+    setCropOffset({ x: 0, y: 0 });
+  };
+
+  // Produce a 1:1 cropped Blob using current offsets
+  const cropTo1x1 = async (file: File): Promise<Blob> => {
+    if (!imgNatural || isSquare || !frameSize) return file;
+    const img = new window.Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const outSize = Math.min(imgNatural.w, imgNatural.h);
+    // Map pixel offset (in displayed/frame px) to source image px
+    const srcOffsetX = (cropOffset.x / coverScale);
+    const srcOffsetY = (cropOffset.y / coverScale);
+    const srcCenterX = imgNatural.w / 2 - srcOffsetX;
+    const srcCenterY = imgNatural.h / 2 - srcOffsetY;
+    const sx = Math.max(0, Math.min(imgNatural.w - outSize, srcCenterX - outSize / 2));
+    const sy = Math.max(0, Math.min(imgNatural.h - outSize, srcCenterY - outSize / 2));
+    const canvas = document.createElement("canvas");
+    canvas.width = outSize;
+    canvas.height = outSize;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, sx, sy, outSize, outSize, 0, 0, outSize, outSize);
+    return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.92));
   };
 
   const handleDragStart = (event: DragStartEvent) => {
