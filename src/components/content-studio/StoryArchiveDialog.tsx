@@ -27,7 +27,18 @@ interface StoryArchiveDialogProps {
 export function StoryArchiveDialog({ open, onOpenChange }: StoryArchiveDialogProps) {
   const { data: stories, isLoading } = useCoachStoryArchive();
   const [viewingStory, setViewingStory] = useState<any | null>(null);
+  const [deleteStoryId, setDeleteStoryId] = useState<string | null>(null);
   const { mutateAsync: updateCategory, isPending } = useUpdateStoryCategory();
+  const { mutateAsync: deleteStory, isPending: isDeletingStory } = useDeleteStory();
+
+  const handleDelete = async () => {
+    if (!deleteStoryId) return;
+    try {
+      await deleteStory(deleteStoryId);
+      if (viewingStory?.id === deleteStoryId) setViewingStory(null);
+      setDeleteStoryId(null);
+    } catch {}
+  };
 
   const isActive = (expiresAt: string) => new Date(expiresAt) > new Date();
 
