@@ -662,6 +662,15 @@ export function ProgramLibrary({
       {/* Detail Modal */}
       <ExerciseDetailModal item={detailItem} open={detailOpen} onClose={() => { setDetailOpen(false); setDetailItem(null); }} />
 
+      {/* Food Portion Dialog */}
+      <FoodPortionDialog
+        open={portionDialog.open}
+        onOpenChange={(v) => setPortionDialog((p) => ({ ...p, open: v }))}
+        foodName={portionDialog.foodName}
+        servings={portionDialog.servings}
+        onConfirm={handlePortionConfirm}
+      />
+
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
