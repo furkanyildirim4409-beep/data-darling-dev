@@ -43,6 +43,7 @@ const mealSections = [
 ];
 
 function calcFactor(item: NutritionItem) {
+  if (item.serving_size) return item.amount; // per-portion: macros already scaled to 1 portion
   return item.unit === "adet" ? item.amount : item.amount / 100;
 }
 
