@@ -475,7 +475,7 @@ export function ProgramLibrary({
         const items: any[] = Array.isArray(data) ? data : data?.items || [];
         setNutritionResults(
           items.slice(0, 20).map((item: any, i: number) => ({
-            id: `api-${Date.now()}-${i}`,
+            id: `api-${item.food_id ?? item.id ?? i}-${i}`,
             name: item.name || item.food_name || "",
             category: item.brand || "API",
             type: "nutrition",
@@ -483,6 +483,7 @@ export function ProgramLibrary({
             protein: Math.round(item.protein || 0),
             carbs: Math.round(item.carbs || 0),
             fats: Math.round(item.fat || 0),
+            api_food_id: String(item.food_id ?? item.id ?? ""),
           }))
         );
       } catch {
