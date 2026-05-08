@@ -57,7 +57,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
     return amt === 100 && (unit === "g" || unit === "ml");
   }, [selected]);
 
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<string>("1");
 
   // Reset when dialog opens or serving changes
   useEffect(() => {
@@ -66,7 +66,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   }, [open, servings]);
 
   useEffect(() => {
-    setQuantity(is100Mode ? 100 : 1);
+    setQuantity(is100Mode ? "100" : "1");
   }, [is100Mode, idx]);
 
   if (!selected) {
@@ -88,11 +88,12 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   const per1Carbs = is100Mode ? num(selected.carbohydrate) / 100 : num(selected.carbohydrate);
   const per1Fat = is100Mode ? num(selected.fat) / 100 : num(selected.fat);
 
+  const qtyNum = parseFloat(quantity) || 0;
   // Live preview (visual only) — multiplier × per1
-  const kcal = Math.round(per1Kcal * quantity);
-  const protein = Math.round(per1Protein * quantity);
-  const carbs = Math.round(per1Carbs * quantity);
-  const fat = Math.round(per1Fat * quantity);
+  const kcal = Math.round(per1Kcal * qtyNum);
+  const protein = Math.round(per1Protein * qtyNum);
+  const carbs = Math.round(per1Carbs * qtyNum);
+  const fat = Math.round(per1Fat * qtyNum);
 
   const rawUnit = String(
     is100Mode
@@ -107,7 +108,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   const label = is100Mode ? "Miktar (g/ml)" : "Miktar";
 
   const handleConfirm = () => {
-    if (!quantity || quantity <= 0) return;
+    if (qtyNum <= 0) return;
     onConfirm({
       kcal: per1Kcal,
       protein: per1Protein,
@@ -115,7 +116,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
       fat: per1Fat,
       serving_size,
       unit,
-      selected_quantity: quantity,
+      selected_quantity: qtyNum,
     });
     onOpenChange(false);
   };
@@ -154,11 +155,10 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
             <Label className="text-xs text-muted-foreground">{label}</Label>
             <div className="flex items-center gap-2">
               <Input
-                type="number"
-                min={0}
-                step={step}
+                type="text"
+                inputMode="decimal"
                 value={quantity}
-                onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setQuantity(e.target.value)}
                 className="bg-background/50"
               />
               <span className="text-xs text-muted-foreground whitespace-nowrap">× {unit}</span>
@@ -185,8 +185,8 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>İptal</Button>
-            <Button onClick={handleConfirm} disabled={!quantity || quantity <= 0}>
-              Ekle ({quantity} × {serving_size})
+            <Button onClick={handleConfirm} disabled={qtyNum <= 0}>
+              Ekle ({qtyNum} × {serving_size})
             </Button>
           </div>
         </div>
