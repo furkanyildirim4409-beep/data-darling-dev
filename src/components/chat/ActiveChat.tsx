@@ -40,6 +40,19 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const { isMuted, toggleMute } = useMutedChats();
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<null | 'approve' | 'decline'>(null);
+
+  const isPending = athlete?.room_type === 'direct' && athlete?.room_status === 'pending';
+
+  const handleRespond = async (action: 'approve' | 'decline') => {
+    if (!athlete || !onRespondToRequest || pendingAction) return;
+    setPendingAction(action);
+    try {
+      await onRespondToRequest(athlete.id, action);
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   const isValidHttpUrl = (url: unknown): url is string => {
     if (typeof url !== "string" || !url.trim()) return false;
