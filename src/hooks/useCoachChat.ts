@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type ChatRoomType = 'assigned' | 'direct';
-export type ChatRoomStatus = 'pending' | 'accepted' | 'declined' | 'approved' | 'rejected';
+export type ChatRoomStatus = 'pending' | 'accepted' | 'declined';
 
 export interface ChatAthlete {
   id: string;
