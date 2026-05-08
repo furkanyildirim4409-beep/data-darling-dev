@@ -233,14 +233,14 @@ export function NutritionBuilder({
 
                         <div className="flex items-center gap-2 mb-2">
                           <Input
-                            type="number"
-                            min={1}
-                            value={item.amount}
-                            onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.amount as any}
+                            onChange={(e) => onUpdateItem(item.id, "amount", e.target.value)}
                             className="h-7 w-16 text-xs text-center bg-background/50"
                           />
                           <span className="text-[10px] text-muted-foreground">
-                            {item.serving_size ? `× ${item.serving_size}` : item.unit}
+                            {item.serving_size || item.unit}
                           </span>
                         </div>
 
