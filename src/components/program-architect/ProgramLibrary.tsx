@@ -622,19 +622,22 @@ export function ProgramLibrary({
   const handlePortionConfirm = useCallback((result: PortionResult) => {
     const src = portionDialog.sourceItem;
     if (!src) return;
-    const enriched: LibraryItem = {
+    const qty = Number(result.selected_quantity) || 1;
+    const enriched: LibraryItem & { _tempAmount?: number } = {
       ...src,
+      // Macros stored per 1 base unit (g / ml / 1 serving)
       kcal: result.kcal,
       protein: result.protein,
       carbs: result.carbs,
       fats: result.fat,
-      serving_size: result.serving_size,
-      amount: result.amount,
-      unit: result.unit,
+      serving_size: result.serving_size, // clean: "g" | "1 large"
+      unit: result.serving_size,
+      amount: 1,
+      _tempAmount: qty,
     };
     onAddItem(enriched);
     persistFoodItem(enriched);
-    toast.success(`${src.name} ${result.serving_size} olarak eklendi`);
+    toast.success(`${src.name} ${qty} × ${result.serving_size} olarak eklendi`);
   }, [portionDialog.sourceItem, onAddItem, persistFoodItem]);
 
   const filteredNutrition = debouncedSearch.length >= 2
