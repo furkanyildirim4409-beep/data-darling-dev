@@ -148,18 +148,21 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail, isLoading }: LibraryI
         <Button
           variant="ghost"
           size="icon"
+          disabled={isLoading}
           className={cn(
             "h-7 w-7 shrink-0 transition-all",
-            isAdded 
-              ? "opacity-0 pointer-events-none" 
-              : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
+            isAdded
+              ? "opacity-0 pointer-events-none"
+              : isLoading
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
           )}
           onClick={(e) => {
             e.stopPropagation();
             onAdd(item);
           }}
         >
-          <Plus className="w-4 h-4" />
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         </Button>
       </div>
     </div>
