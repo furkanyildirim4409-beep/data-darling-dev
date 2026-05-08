@@ -236,11 +236,15 @@ export default function Programs() {
         );
       } else {
         const hasPortion = !!item.serving_size;
+        const tempAmt = Number((item as any)._tempAmount);
+        const initialAmount = hasPortion
+          ? (Number.isFinite(tempAmt) && tempAmt > 0 ? tempAmt : 1)
+          : 100;
         const newNutrition: NutritionItem = {
           ...item,
           id: `${item.id}-${Date.now()}`,
-          amount: hasPortion ? 1 : 100,
-          unit: hasPortion ? (item.unit || "porsiyon") : (item.name.includes("(Adet)") ? "adet" : "g"),
+          amount: initialAmount,
+          unit: item.serving_size || (item.name.includes("(Adet)") ? "adet" : "g"),
           serving_size: item.serving_size,
           mealId: activeMealId,
           dayIndex: activeNutritionDay,
