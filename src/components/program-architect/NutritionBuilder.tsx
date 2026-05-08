@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 
 export interface NutritionItem extends LibraryItem {
-  amount: number;
+  amount: number | string; // free-form for input UX, coerced via Number() at math/save boundaries
   unit: string;
   mealId: string;
   dayIndex: number;
