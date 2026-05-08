@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 
 export interface NutritionItem extends LibraryItem {
-  amount: number;
+  amount: number | string; // free-form for input UX, coerced via Number() at math/save boundaries
   unit: string;
   mealId: string;
   dayIndex: number;
@@ -42,9 +42,14 @@ const mealSections = [
   { id: "meal-5", name: "Akşam Yemeği", icon: "🌙", time: "19:00" },
 ];
 
-function calcFactor(item: NutritionItem) {
-  if (item.serving_size) return item.amount; // per-portion: macros already scaled to 1 portion
-  return item.unit === "adet" ? item.amount : item.amount / 100;
+export function calcFactor(item: NutritionItem) {
+  const amt = Number(item.amount) || 0;
+  // Legacy DB rows that stored macros for the entire 100g/100ml chunk
+  if (item.serving_size && /^100\s?(g|ml)$/i.test(item.serving_size)) return amt / 100;
+  // New per-1-base-unit rows: amount IS the multiplier
+  if (item.serving_size) return amt;
+  // Pure raw fallback (no serving_size)
+  return item.unit === "adet" ? amt : amt / 100;
 }
 
 function calcMacro(item: NutritionItem, key: "kcal" | "protein" | "carbs" | "fats") {
@@ -228,14 +233,14 @@ export function NutritionBuilder({
 
                         <div className="flex items-center gap-2 mb-2">
                           <Input
-                            type="number"
-                            min={1}
-                            value={item.amount}
-                            onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.amount as any}
+                            onChange={(e) => onUpdateItem(item.id, "amount", e.target.value)}
                             className="h-7 w-16 text-xs text-center bg-background/50"
                           />
                           <span className="text-[10px] text-muted-foreground">
-                            {item.serving_size ? `× ${item.serving_size}` : item.unit}
+                            {item.serving_size || item.unit}
                           </span>
                         </div>
 

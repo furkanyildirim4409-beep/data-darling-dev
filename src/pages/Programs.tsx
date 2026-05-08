@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData, ProgramType } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
 import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
-import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
+import { NutritionBuilder, NutritionItem, calcFactor } from "@/components/program-architect/NutritionBuilder";
 import { SupplementBuilder, SupplementBuilderItem } from "@/components/program-architect/SupplementBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
@@ -101,22 +101,27 @@ export default function Programs() {
       };
 
       const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
-        const servingMatch = (f.serving_size || "100g").match(/^(\d+\.?\d*)(.*)/);
-        const amount = servingMatch ? parseFloat(servingMatch[1]) : 100;
-        const unit = servingMatch && servingMatch[2]?.trim() ? servingMatch[2].trim() : "g";
-        const factor = unit === "adet" ? amount : amount / 100;
+        const raw = (f.serving_size || "100g").trim();
+        // Prefer "<num> <label>" (with space) → split, else fall back to "<num><g|ml|adet>"
+        const m = raw.match(/^(\d+\.?\d*)\s+(.*)$/) || raw.match(/^(\d+\.?\d*)(g|ml|adet)$/i);
+        const amount = m ? parseFloat(m[1]) : 1;
+        const unitLabel = m ? String(m[2] || "").trim() : raw;
+
+        const isLegacy100 = /^100\s?(g|ml)$/i.test(raw);
+        const div = isLegacy100 ? 100 : (m ? amount : 1);
 
         return {
           id: f.id,
           name: f.food_name,
           category: "Genel",
           type: "nutrition",
-          kcal: factor > 0 ? Math.round((f.calories || 0) / factor) : 0,
-          protein: factor > 0 ? Math.round((f.protein || 0) / factor) : 0,
-          carbs: factor > 0 ? Math.round((f.carbs || 0) / factor) : 0,
-          fats: factor > 0 ? Math.round((f.fat || 0) / factor) : 0,
-          amount,
-          unit,
+          kcal: div > 0 ? Math.round((f.calories || 0) / div) : 0,
+          protein: div > 0 ? Math.round((f.protein || 0) / div) : 0,
+          carbs: div > 0 ? Math.round((f.carbs || 0) / div) : 0,
+          fats: div > 0 ? Math.round((f.fat || 0) / div) : 0,
+          amount: Number(amount) || 1,
+          unit: unitLabel || "g",
+          serving_size: unitLabel || "g",
           mealId: reverseMealMap[f.meal_type] || "meal-2",
           dayIndex: (f.day_number || 1) - 1,
         };
@@ -231,11 +236,15 @@ export default function Programs() {
         );
       } else {
         const hasPortion = !!item.serving_size;
+        const tempAmt = Number((item as any)._tempAmount);
+        const initialAmount = hasPortion
+          ? (Number.isFinite(tempAmt) && tempAmt > 0 ? tempAmt : 1)
+          : 100;
         const newNutrition: NutritionItem = {
           ...item,
           id: `${item.id}-${Date.now()}`,
-          amount: hasPortion ? 1 : 100,
-          unit: hasPortion ? (item.unit || "porsiyon") : (item.name.includes("(Adet)") ? "adet" : "g"),
+          amount: initialAmount,
+          unit: item.serving_size || (item.name.includes("(Adet)") ? "adet" : "g"),
           serving_size: item.serving_size,
           mealId: activeMealId,
           dayIndex: activeNutritionDay,
@@ -551,8 +560,7 @@ export default function Programs() {
         };
 
         const totalCals = selectedNutrition.reduce((sum, item) => {
-          const factor = item.unit === "adet" ? item.amount : item.amount / 100;
-          return sum + (item.kcal || 0) * factor;
+          return sum + (item.kcal || 0) * calcFactor(item);
         }, 0);
         const daysWithItems = new Set(selectedNutrition.map(i => i.dayIndex)).size;
         const avgDailyCals = daysWithItems > 0 ? Math.round(totalCals / daysWithItems) : 0;
@@ -597,17 +605,22 @@ export default function Programs() {
 
         const foodRows = selectedNutrition
           .filter((item) => item.name.trim())
-          .map((item) => ({
-            template_id: templateId,
-            day_number: item.dayIndex + 1,
-            meal_type: mealTypeMap[item.mealId] || "snack",
-            food_name: item.name.trim(),
-            serving_size: `${item.amount}${item.unit}`,
-            calories: Math.round((item.kcal || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            protein: Math.round((item.protein || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            carbs: Math.round((item.carbs || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            fat: Math.round((item.fats || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-          }));
+          .map((item) => {
+            const amt = Number(item.amount) || 0;
+            const factor = calcFactor(item);
+            return {
+              template_id: templateId,
+              day_number: item.dayIndex + 1,
+              meal_type: mealTypeMap[item.mealId] || "snack",
+              food_name: item.name.trim(),
+              // TWEAK 1: mandatory single space between amount and unit (anti "51 large" corruption)
+              serving_size: `${amt} ${item.unit}`.trim(),
+              calories: Math.round((item.kcal || 0) * factor),
+              protein: Math.round((item.protein || 0) * factor),
+              carbs: Math.round((item.carbs || 0) * factor),
+              fat: Math.round((item.fats || 0) * factor),
+            };
+          });
 
         if (foodRows.length > 0) {
           const { error: fErr } = await supabase.from("diet_template_foods").insert(foodRows);
