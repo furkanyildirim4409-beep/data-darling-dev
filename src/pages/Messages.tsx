@@ -64,6 +64,7 @@ export default function Messages() {
             onLoadOlder={loadOlderMessages}
             onBack={handleBack}
             showBackButton
+            onRespondToRequest={respondToRequest}
           />
         </div>
       );
