@@ -57,7 +57,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
     return amt === 100 && (unit === "g" || unit === "ml");
   }, [selected]);
 
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<string>("1");
 
   // Reset when dialog opens or serving changes
   useEffect(() => {
@@ -66,7 +66,7 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   }, [open, servings]);
 
   useEffect(() => {
-    setQuantity(is100Mode ? 100 : 1);
+    setQuantity(is100Mode ? "100" : "1");
   }, [is100Mode, idx]);
 
   if (!selected) {
