@@ -185,8 +185,8 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>İptal</Button>
-            <Button onClick={handleConfirm} disabled={!quantity || quantity <= 0}>
-              Ekle ({quantity} × {serving_size})
+            <Button onClick={handleConfirm} disabled={qtyNum <= 0}>
+              Ekle ({qtyNum} × {serving_size})
             </Button>
           </div>
         </div>
