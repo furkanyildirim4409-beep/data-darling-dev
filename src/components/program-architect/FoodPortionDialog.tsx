@@ -20,13 +20,14 @@ export interface ApiServing {
 }
 
 export interface PortionResult {
+  // Macros for EXACTLY 1 base unit (1g / 1ml / 1 serving)
   kcal: number;
   protein: number;
   carbs: number;
   fat: number;
-  serving_size: string;
-  amount: number;
-  unit: string;
+  serving_size: string;       // "g" | "ml" | "1 large" — clean unit label
+  unit: string;               // mirrors serving_size
+  selected_quantity: number;  // user's chosen quantity (e.g. 5 or 50)
 }
 
 interface Props {
