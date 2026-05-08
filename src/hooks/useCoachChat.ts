@@ -203,8 +203,8 @@ export function useCoachChat() {
           room_id: room?.id ?? null,
         };
       })
-      // Hide declined/rejected rooms from the inbox entirely
-      .filter(a => a.room_status !== 'declined' && a.room_status !== 'rejected');
+      // Hide declined rooms from the inbox entirely
+      .filter(a => a.room_status !== 'declined');
 
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
