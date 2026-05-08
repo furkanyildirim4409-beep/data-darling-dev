@@ -91,9 +91,10 @@ interface LibraryItemCardProps {
   onAdd: (item: LibraryItem) => void;
   isAdded: boolean;
   onDetail: (item: LibraryItem) => void;
+  isLoading?: boolean;
 }
 
-function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProps) {
+function LibraryItemCard({ item, onAdd, isAdded, onDetail, isLoading }: LibraryItemCardProps) {
   return (
     <div
       className={cn(
