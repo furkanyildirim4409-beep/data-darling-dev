@@ -82,23 +82,39 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
     );
   }
 
-  const multiplier = is100Mode ? quantity / 100 : quantity;
-  const kcal = Math.round(num(selected.calories) * multiplier);
-  const protein = Math.round(num(selected.protein) * multiplier);
-  const carbs = Math.round(num(selected.carbohydrate) * multiplier);
-  const fat = Math.round(num(selected.fat) * multiplier);
+  // Per-1-base-unit macros (canonical storage shape)
+  const per1Kcal = is100Mode ? num(selected.calories) / 100 : num(selected.calories);
+  const per1Protein = is100Mode ? num(selected.protein) / 100 : num(selected.protein);
+  const per1Carbs = is100Mode ? num(selected.carbohydrate) / 100 : num(selected.carbohydrate);
+  const per1Fat = is100Mode ? num(selected.fat) / 100 : num(selected.fat);
 
-  const unit = is100Mode
-    ? (selected.metric_serving_unit || "g")
-    : (selected.serving_description || "Porsiyon");
-  const serving_size = `${quantity} × ${unit}`;
+  // Live preview (visual only) — multiplier × per1
+  const kcal = Math.round(per1Kcal * quantity);
+  const protein = Math.round(per1Protein * quantity);
+  const carbs = Math.round(per1Carbs * quantity);
+  const fat = Math.round(per1Fat * quantity);
+
+  const unit = String(
+    is100Mode
+      ? (selected.metric_serving_unit || "g")
+      : (selected.serving_description || "Porsiyon")
+  ).trim();
+  const serving_size = unit; // canonical clean label
 
   const step = is100Mode ? 10 : 0.5;
   const label = is100Mode ? "Miktar (g/ml)" : "Miktar";
 
   const handleConfirm = () => {
     if (!quantity || quantity <= 0) return;
-    onConfirm({ kcal, protein, carbs, fat, serving_size, amount: quantity, unit: String(unit) });
+    onConfirm({
+      kcal: per1Kcal,
+      protein: per1Protein,
+      carbs: per1Carbs,
+      fat: per1Fat,
+      serving_size,
+      unit,
+      selected_quantity: quantity,
+    });
     onOpenChange(false);
   };
 
