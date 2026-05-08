@@ -903,6 +903,14 @@ export function ProgramLibrary({
           }
         </p>
       </div>
+
+      <FoodPortionDialog
+        open={portionOpen}
+        onClose={() => setPortionOpen(false)}
+        food={portionFood}
+        servings={portionServings}
+        onConfirm={handlePortionConfirm}
+      />
     </div>
   );
 }
