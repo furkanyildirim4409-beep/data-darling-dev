@@ -605,17 +605,22 @@ export default function Programs() {
 
         const foodRows = selectedNutrition
           .filter((item) => item.name.trim())
-          .map((item) => ({
-            template_id: templateId,
-            day_number: item.dayIndex + 1,
-            meal_type: mealTypeMap[item.mealId] || "snack",
-            food_name: item.name.trim(),
-            serving_size: `${item.amount}${item.unit}`,
-            calories: Math.round((item.kcal || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            protein: Math.round((item.protein || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            carbs: Math.round((item.carbs || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-            fat: Math.round((item.fats || 0) * (item.unit === "adet" ? item.amount : item.amount / 100)),
-          }));
+          .map((item) => {
+            const amt = Number(item.amount) || 0;
+            const factor = calcFactor(item);
+            return {
+              template_id: templateId,
+              day_number: item.dayIndex + 1,
+              meal_type: mealTypeMap[item.mealId] || "snack",
+              food_name: item.name.trim(),
+              // TWEAK 1: mandatory single space between amount and unit (anti "51 large" corruption)
+              serving_size: `${amt} ${item.unit}`.trim(),
+              calories: Math.round((item.kcal || 0) * factor),
+              protein: Math.round((item.protein || 0) * factor),
+              carbs: Math.round((item.carbs || 0) * factor),
+              fat: Math.round((item.fats || 0) * factor),
+            };
+          });
 
         if (foodRows.length > 0) {
           const { error: fErr } = await supabase.from("diet_template_foods").insert(foodRows);
