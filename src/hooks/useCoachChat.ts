@@ -480,6 +480,7 @@ export function useCoachChat() {
     selectAthlete,
     sendMessage,
     loadOlderMessages,
+    respondToRequest,
     refetch: fetchAthletes,
   };
 }
