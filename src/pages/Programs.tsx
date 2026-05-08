@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { ProgramDashboard, ProgramData, ProgramType } from "@/components/program-architect/ProgramDashboard";
 import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program-architect/ProgramLibrary";
 import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
-import { NutritionBuilder, NutritionItem } from "@/components/program-architect/NutritionBuilder";
+import { NutritionBuilder, NutritionItem, calcFactor } from "@/components/program-architect/NutritionBuilder";
 import { SupplementBuilder, SupplementBuilderItem } from "@/components/program-architect/SupplementBuilder";
 import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
