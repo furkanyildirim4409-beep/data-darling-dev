@@ -560,8 +560,7 @@ export default function Programs() {
         };
 
         const totalCals = selectedNutrition.reduce((sum, item) => {
-          const factor = item.unit === "adet" ? item.amount : item.amount / 100;
-          return sum + (item.kcal || 0) * factor;
+          return sum + (item.kcal || 0) * calcFactor(item);
         }, 0);
         const daysWithItems = new Set(selectedNutrition.map(i => i.dayIndex)).size;
         const avgDailyCals = daysWithItems > 0 ? Math.round(totalCals / daysWithItems) : 0;
