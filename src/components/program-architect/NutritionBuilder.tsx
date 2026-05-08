@@ -11,6 +11,7 @@ export interface NutritionItem extends LibraryItem {
   unit: string;
   mealId: string;
   dayIndex: number;
+  serving_size?: string;
 }
 
 interface NutritionBuilderProps {
@@ -42,6 +43,7 @@ const mealSections = [
 ];
 
 function calcFactor(item: NutritionItem) {
+  if (item.serving_size) return item.amount; // per-portion: macros already scaled to 1 portion
   return item.unit === "adet" ? item.amount : item.amount / 100;
 }
 
@@ -232,7 +234,9 @@ export function NutritionBuilder({
                             onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
                             className="h-7 w-16 text-xs text-center bg-background/50"
                           />
-                          <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {item.serving_size ? `× ${item.serving_size}` : item.unit}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1 flex-wrap">

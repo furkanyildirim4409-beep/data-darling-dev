@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 import { usePermissions } from "@/hooks/usePermissions";
+import { FoodPortionDialog, ApiServing, PortionResult } from "./FoodPortionDialog";
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
@@ -69,6 +70,10 @@ export interface LibraryItem {
   carbs?: number;
   fats?: number;
   gifUrl?: string;
+  api_food_id?: string;
+  serving_size?: string;
+  amount?: number;
+  unit?: string;
 }
 
 export interface SavedTemplate {
@@ -88,9 +93,10 @@ interface LibraryItemCardProps {
   onAdd: (item: LibraryItem) => void;
   isAdded: boolean;
   onDetail: (item: LibraryItem) => void;
+  isLoading?: boolean;
 }
 
-function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProps) {
+function LibraryItemCard({ item, onAdd, isAdded, onDetail, isLoading }: LibraryItemCardProps) {
   return (
     <div
       className={cn(
@@ -144,18 +150,21 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
         <Button
           variant="ghost"
           size="icon"
+          disabled={isLoading}
           className={cn(
             "h-7 w-7 shrink-0 transition-all",
             isAdded 
               ? "opacity-0 pointer-events-none" 
-              : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
+              : isLoading
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
           )}
           onClick={(e) => {
             e.stopPropagation();
-            onAdd(item);
+            if (!isLoading) onAdd(item);
           }}
         >
-          <Plus className="w-4 h-4" />
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         </Button>
       </div>
     </div>
@@ -467,7 +476,7 @@ export function ProgramLibrary({
         const items: any[] = Array.isArray(data) ? data : data?.items || [];
         setNutritionResults(
           items.slice(0, 20).map((item: any, i: number) => ({
-            id: `api-${Date.now()}-${i}`,
+            id: `api-${item.food_id ?? item.id ?? i}-${i}`,
             name: item.name || item.food_name || "",
             category: item.brand || "API",
             type: "nutrition",
@@ -475,6 +484,7 @@ export function ProgramLibrary({
             protein: Math.round(item.protein || 0),
             carbs: Math.round(item.carbs || 0),
             fats: Math.round(item.fat || 0),
+            api_food_id: String(item.food_id ?? item.id ?? ""),
           }))
         );
       } catch {
@@ -546,39 +556,86 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchSupplementLibrary]);
 
-  // Auto-sync API food to food_items on add
-  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
-    // Call original onAddItem immediately
-    onAddItem(item);
+  // Portion dialog state for API foods
+  const [portionLoadingId, setPortionLoadingId] = useState<string | null>(null);
+  const [portionDialog, setPortionDialog] = useState<{
+    open: boolean;
+    foodName: string;
+    servings: ApiServing[];
+    sourceItem: LibraryItem | null;
+  }>({ open: false, foodName: "", servings: [], sourceItem: null });
 
-    // If it's a nutrition item from API, upsert to food_items
-    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
-      try {
-        const { data } = await supabase
-          .from("food_items")
-          .upsert({
-            name: item.name,
-            category: item.category === "API" ? "Genel" : item.category,
-            calories: item.kcal || 0,
-            protein: item.protein || 0,
-            carbs: item.carbs || 0,
-            fat: item.fats || 0,
-            serving_size: "100g",
-            coach_id: activeCoachId!,
-          }, { onConflict: "name,coach_id" })
-          .select("id")
-          .single();
-
-        if (data) {
-          toast.success("Besin kütüphaneye eklendi");
-          // Refresh coach foods list
-          fetchCoachFoods();
-        }
-      } catch {
-        // Non-blocking, ignore errors
-      }
+  const persistFoodItem = useCallback(async (item: LibraryItem) => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from("food_items")
+        .upsert({
+          name: item.name,
+          category: item.category === "API" ? "Genel" : item.category,
+          calories: item.kcal || 0,
+          protein: item.protein || 0,
+          carbs: item.carbs || 0,
+          fat: item.fats || 0,
+          serving_size: item.serving_size || "100g",
+          coach_id: activeCoachId!,
+        }, { onConflict: "name,coach_id" })
+        .select("id")
+        .single();
+      if (data) fetchCoachFoods();
+    } catch {
+      // non-blocking
     }
-  }, [onAddItem, user, fetchCoachFoods]);
+  }, [user, activeCoachId, fetchCoachFoods]);
+
+  // Add handler — opens portion dialog for API items, otherwise direct add
+  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    const isApiNutrition = item.type === "nutrition" && item.id.startsWith("api-") && !!item.api_food_id;
+
+    if (!isApiNutrition) {
+      onAddItem(item);
+      return;
+    }
+
+    setPortionLoadingId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-food", {
+        body: { food_id: item.api_food_id },
+      });
+      if (error) throw error;
+      const servings: ApiServing[] = Array.isArray(data?.servings) ? data.servings : [];
+      if (!servings.length) {
+        // Fallback: add as-is
+        onAddItem(item);
+        await persistFoodItem(item);
+        toast.success(`${item.name} eklendi`);
+        return;
+      }
+      setPortionDialog({ open: true, foodName: item.name, servings, sourceItem: item });
+    } catch (e: any) {
+      toast.error("Porsiyon bilgisi alınamadı");
+    } finally {
+      setPortionLoadingId(null);
+    }
+  }, [onAddItem, persistFoodItem]);
+
+  const handlePortionConfirm = useCallback((result: PortionResult) => {
+    const src = portionDialog.sourceItem;
+    if (!src) return;
+    const enriched: LibraryItem = {
+      ...src,
+      kcal: result.kcal,
+      protein: result.protein,
+      carbs: result.carbs,
+      fats: result.fat,
+      serving_size: result.serving_size,
+      amount: result.amount,
+      unit: result.unit,
+    };
+    onAddItem(enriched);
+    persistFoodItem(enriched);
+    toast.success(`${src.name} ${result.serving_size} olarak eklendi`);
+  }, [portionDialog.sourceItem, onAddItem, persistFoodItem]);
 
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
@@ -604,6 +661,15 @@ export function ProgramLibrary({
     <div className="glass rounded-xl border border-border h-full flex flex-col">
       {/* Detail Modal */}
       <ExerciseDetailModal item={detailItem} open={detailOpen} onClose={() => { setDetailOpen(false); setDetailItem(null); }} />
+
+      {/* Food Portion Dialog */}
+      <FoodPortionDialog
+        open={portionDialog.open}
+        onOpenChange={(v) => setPortionDialog((p) => ({ ...p, open: v }))}
+        foodName={portionDialog.foodName}
+        servings={portionDialog.servings}
+        onConfirm={handlePortionConfirm}
+      />
 
       {/* Header */}
       <div className="p-4 border-b border-border">
@@ -737,6 +803,7 @@ export function ProgramLibrary({
                         onAdd={handleAddWithSync}
                         isAdded={addedItemIds.includes(item.id)}
                         onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                        isLoading={portionLoadingId === item.id}
                       />
                     ))
                   )}

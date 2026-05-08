@@ -230,11 +230,13 @@ export default function Programs() {
           )
         );
       } else {
+        const hasPortion = !!item.serving_size;
         const newNutrition: NutritionItem = {
           ...item,
           id: `${item.id}-${Date.now()}`,
-          amount: 100,
-          unit: item.name.includes("(Adet)") ? "adet" : "g",
+          amount: hasPortion ? 1 : 100,
+          unit: hasPortion ? (item.unit || "porsiyon") : (item.name.includes("(Adet)") ? "adet" : "g"),
+          serving_size: item.serving_size,
           mealId: activeMealId,
           dayIndex: activeNutritionDay,
         };
