@@ -558,13 +558,13 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchSupplementLibrary]);
 
-  // Auto-sync API food to food_items on add
+  // Auto-sync API food to food_items on add (uses chosen serving when present)
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
     // Call original onAddItem immediately
     onAddItem(item);
 
-    // If it's a nutrition item from API, upsert to food_items
-    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
+    // Persist to coach's food_items library when from API or already API-derived
+    if (item.type === "nutrition" && (item.id.startsWith("api-") || item.api_food_id) && user && activeCoachId) {
       try {
         const { data } = await supabase
           .from("food_items")
@@ -575,22 +575,73 @@ export function ProgramLibrary({
             protein: item.protein || 0,
             carbs: item.carbs || 0,
             fat: item.fats || 0,
-            serving_size: "100g",
-            coach_id: activeCoachId!,
-          }, { onConflict: "name,coach_id" })
+            serving_size: item.serving_size || "100g",
+            api_food_id: item.api_food_id || null,
+            coach_id: activeCoachId,
+          } as any, { onConflict: "name,coach_id" })
           .select("id")
           .single();
 
         if (data) {
           toast.success("Besin kütüphaneye eklendi");
-          // Refresh coach foods list
           fetchCoachFoods();
         }
       } catch {
-        // Non-blocking, ignore errors
+        // Non-blocking
       }
     }
-  }, [onAddItem, user, fetchCoachFoods]);
+  }, [onAddItem, user, activeCoachId, fetchCoachFoods]);
+
+  // Open the portion dialog for a nutrition item — fetches servings via search-food
+  const openPortionFlow = useCallback(async (item: LibraryItem) => {
+    if (!item.api_food_id) {
+      // Legacy / custom DB food without FatSecret id — add directly
+      handleAddWithSync(item);
+      return;
+    }
+    setPortionLoadingId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-food", {
+        body: { food_id: item.api_food_id },
+      });
+      if (error) throw error;
+      const servings: Serving[] = Array.isArray(data?.servings) ? data.servings : [];
+      if (!servings.length) {
+        toast.error("Bu besin için porsiyon bilgisi bulunamadı.");
+        return;
+      }
+      setPortionFood({
+        food_id: String(data.food_id ?? item.api_food_id),
+        name: data.name || item.name,
+        brand: data.brand,
+      });
+      setPortionServings(servings);
+      setPendingNutritionItem(item);
+      setPortionOpen(true);
+    } catch (err: any) {
+      toast.error(`Porsiyon bilgisi alınamadı: ${err?.message || "hata"}`);
+    } finally {
+      setPortionLoadingId(null);
+    }
+  }, [handleAddWithSync]);
+
+  const handlePortionConfirm = useCallback((p: { name: string; api_food_id: string; serving_size: string; kcal: number; protein: number; carbs: number; fats: number; }) => {
+    if (!pendingNutritionItem) return;
+    const finalItem: LibraryItem = {
+      ...pendingNutritionItem,
+      id: `api-${p.api_food_id}-${Date.now()}`,
+      name: p.name,
+      api_food_id: p.api_food_id,
+      serving_size: p.serving_size,
+      kcal: p.kcal,
+      protein: p.protein,
+      carbs: p.carbs,
+      fats: p.fats,
+    };
+    handleAddWithSync(finalItem);
+    setPendingNutritionItem(null);
+  }, [pendingNutritionItem, handleAddWithSync]);
+
 
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
