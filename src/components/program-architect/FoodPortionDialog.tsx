@@ -94,11 +94,13 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   const carbs = Math.round(per1Carbs * quantity);
   const fat = Math.round(per1Fat * quantity);
 
-  const unit = String(
+  const rawUnit = String(
     is100Mode
       ? (selected.metric_serving_unit || "g")
       : (selected.serving_description || "Porsiyon")
   ).trim();
+  // Strip leading "1 " / "1.0 " so "1 large" → "large", "1 cup" → "cup". Keep "g", "ml" as-is.
+  const unit = rawUnit.replace(/^1(\.0+)?\s+/i, "");
   const serving_size = unit; // canonical clean label
 
   const step = is100Mode ? 10 : 0.5;
