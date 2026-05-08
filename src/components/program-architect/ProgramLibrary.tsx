@@ -556,39 +556,86 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchSupplementLibrary]);
 
-  // Auto-sync API food to food_items on add
-  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
-    // Call original onAddItem immediately
-    onAddItem(item);
+  // Portion dialog state for API foods
+  const [portionLoadingId, setPortionLoadingId] = useState<string | null>(null);
+  const [portionDialog, setPortionDialog] = useState<{
+    open: boolean;
+    foodName: string;
+    servings: ApiServing[];
+    sourceItem: LibraryItem | null;
+  }>({ open: false, foodName: "", servings: [], sourceItem: null });
 
-    // If it's a nutrition item from API, upsert to food_items
-    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
-      try {
-        const { data } = await supabase
-          .from("food_items")
-          .upsert({
-            name: item.name,
-            category: item.category === "API" ? "Genel" : item.category,
-            calories: item.kcal || 0,
-            protein: item.protein || 0,
-            carbs: item.carbs || 0,
-            fat: item.fats || 0,
-            serving_size: "100g",
-            coach_id: activeCoachId!,
-          }, { onConflict: "name,coach_id" })
-          .select("id")
-          .single();
-
-        if (data) {
-          toast.success("Besin kütüphaneye eklendi");
-          // Refresh coach foods list
-          fetchCoachFoods();
-        }
-      } catch {
-        // Non-blocking, ignore errors
-      }
+  const persistFoodItem = useCallback(async (item: LibraryItem) => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from("food_items")
+        .upsert({
+          name: item.name,
+          category: item.category === "API" ? "Genel" : item.category,
+          calories: item.kcal || 0,
+          protein: item.protein || 0,
+          carbs: item.carbs || 0,
+          fat: item.fats || 0,
+          serving_size: item.serving_size || "100g",
+          coach_id: activeCoachId!,
+        }, { onConflict: "name,coach_id" })
+        .select("id")
+        .single();
+      if (data) fetchCoachFoods();
+    } catch {
+      // non-blocking
     }
-  }, [onAddItem, user, fetchCoachFoods]);
+  }, [user, activeCoachId, fetchCoachFoods]);
+
+  // Add handler — opens portion dialog for API items, otherwise direct add
+  const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    const isApiNutrition = item.type === "nutrition" && item.id.startsWith("api-") && !!item.api_food_id;
+
+    if (!isApiNutrition) {
+      onAddItem(item);
+      return;
+    }
+
+    setPortionLoadingId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-food", {
+        body: { food_id: item.api_food_id },
+      });
+      if (error) throw error;
+      const servings: ApiServing[] = Array.isArray(data?.servings) ? data.servings : [];
+      if (!servings.length) {
+        // Fallback: add as-is
+        onAddItem(item);
+        await persistFoodItem(item);
+        toast.success(`${item.name} eklendi`);
+        return;
+      }
+      setPortionDialog({ open: true, foodName: item.name, servings, sourceItem: item });
+    } catch (e: any) {
+      toast.error("Porsiyon bilgisi alınamadı");
+    } finally {
+      setPortionLoadingId(null);
+    }
+  }, [onAddItem, persistFoodItem]);
+
+  const handlePortionConfirm = useCallback((result: PortionResult) => {
+    const src = portionDialog.sourceItem;
+    if (!src) return;
+    const enriched: LibraryItem = {
+      ...src,
+      kcal: result.kcal,
+      protein: result.protein,
+      carbs: result.carbs,
+      fats: result.fat,
+      serving_size: result.serving_size,
+      amount: result.amount,
+      unit: result.unit,
+    };
+    onAddItem(enriched);
+    persistFoodItem(enriched);
+    toast.success(`${src.name} ${result.serving_size} olarak eklendi`);
+  }, [portionDialog.sourceItem, onAddItem, persistFoodItem]);
 
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
