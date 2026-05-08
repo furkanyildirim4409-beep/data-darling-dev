@@ -479,7 +479,7 @@ export function useCoachChat() {
         (payload) => {
           const row = payload.new as { id: string; athlete_id: string; status: string; room_type: string };
           if (!row) return;
-          if (row.status === 'declined' || row.status === 'rejected') {
+          if (row.status === 'declined') {
             setAthletes(prev => prev.filter(a => a.id !== row.athlete_id));
             return;
           }
