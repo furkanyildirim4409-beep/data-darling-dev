@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 import { usePermissions } from "@/hooks/usePermissions";
+import { FoodPortionDialog, type Serving } from "./FoodPortionDialog";
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
