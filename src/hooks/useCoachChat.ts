@@ -335,11 +335,11 @@ export function useCoachChat() {
     const target = athletes.find(a => a.id === athleteId);
     if (!target?.room_id) return;
 
-    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    const newStatus: ChatRoomStatus = action === 'approve' ? 'accepted' : 'declined';
 
     if (action === 'approve') {
       setAthletes(prev =>
-        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'approved' } : a))
+        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'accepted' } : a))
       );
     } else {
       setAthletes(prev => prev.filter(a => a.id !== athleteId));
@@ -351,7 +351,7 @@ export function useCoachChat() {
 
     const { error } = await supabase
       .from('chat_rooms')
-      .update({ status: newStatus })
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', target.room_id);
 
     if (error) {
