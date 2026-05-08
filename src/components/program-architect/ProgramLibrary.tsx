@@ -797,9 +797,10 @@ export function ProgramLibrary({
                       <LibraryItemCard
                         key={item.id}
                         item={item}
-                        onAdd={handleAddWithSync}
+                        onAdd={builderMode === "nutrition" ? openPortionFlow : handleAddWithSync}
                         isAdded={addedItemIds.includes(item.id)}
                         onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                        isLoading={portionLoadingId === item.id}
                       />
                     ))
                   )}
