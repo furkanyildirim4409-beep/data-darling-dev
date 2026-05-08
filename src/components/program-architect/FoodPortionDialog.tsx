@@ -155,11 +155,10 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
             <Label className="text-xs text-muted-foreground">{label}</Label>
             <div className="flex items-center gap-2">
               <Input
-                type="number"
-                min={0}
-                step={step}
+                type="text"
+                inputMode="decimal"
                 value={quantity}
-                onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setQuantity(e.target.value)}
                 className="bg-background/50"
               />
               <span className="text-xs text-muted-foreground whitespace-nowrap">× {unit}</span>
