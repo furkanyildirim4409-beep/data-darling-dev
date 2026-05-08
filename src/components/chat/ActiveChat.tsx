@@ -25,10 +25,11 @@ interface ActiveChatProps {
   onLoadOlder?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
+  onRespondToRequest?: (athleteId: string, action: 'approve' | 'decline') => Promise<void> | void;
 }
 
 
-export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
+export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
   const [input, setInput] = useState("");
   const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
