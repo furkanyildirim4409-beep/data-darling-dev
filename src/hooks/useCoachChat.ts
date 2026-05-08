@@ -49,15 +49,10 @@ export function useCoachChat() {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selectedAthleteIdRef = useRef<string | null>(null);
-  const athletesRef = useRef<ChatAthlete[]>([]);
 
   useEffect(() => {
     selectedAthleteIdRef.current = selectedAthleteId;
   }, [selectedAthleteId]);
-
-  useEffect(() => {
-    athletesRef.current = athletes;
-  }, [athletes]);
 
   // Helper: get preview text for a message
   const getPreviewText = (content: string, mediaType?: string | null) => {
@@ -362,9 +357,17 @@ export function useCoachChat() {
   // Realtime subscription
   useEffect(() => {
     if (!coachId) return;
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
 
     const channel = supabase
-      .channel(`coach-inbox-realtime:${coachId}:${Date.now()}`)
+      .channel(`coach-inbox-realtime:${coachId}:${channelId}`)
       .on(
         'postgres_changes',
         {
