@@ -92,9 +92,10 @@ interface LibraryItemCardProps {
   onAdd: (item: LibraryItem) => void;
   isAdded: boolean;
   onDetail: (item: LibraryItem) => void;
+  isLoading?: boolean;
 }
 
-function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProps) {
+function LibraryItemCard({ item, onAdd, isAdded, onDetail, isLoading }: LibraryItemCardProps) {
   return (
     <div
       className={cn(
@@ -148,18 +149,21 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
         <Button
           variant="ghost"
           size="icon"
+          disabled={isLoading}
           className={cn(
             "h-7 w-7 shrink-0 transition-all",
             isAdded 
               ? "opacity-0 pointer-events-none" 
-              : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
+              : isLoading
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
           )}
           onClick={(e) => {
             e.stopPropagation();
-            onAdd(item);
+            if (!isLoading) onAdd(item);
           }}
         >
-          <Plus className="w-4 h-4" />
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         </Button>
       </div>
     </div>
