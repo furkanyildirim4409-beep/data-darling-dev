@@ -320,6 +320,35 @@ export function useCoachChat() {
     }
   }, [coachId, selectedAthleteId]);
 
+  // Approve / decline a pending message request
+  const respondToRequest = useCallback(async (athleteId: string, action: 'approve' | 'decline') => {
+    const target = athletes.find(a => a.id === athleteId);
+    if (!target?.room_id) return;
+
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+    if (action === 'approve') {
+      setAthletes(prev =>
+        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'approved' } : a))
+      );
+    } else {
+      setAthletes(prev => prev.filter(a => a.id !== athleteId));
+      if (selectedAthleteId === athleteId) {
+        setSelectedAthleteId(null);
+        setMessages([]);
+      }
+    }
+
+    const { error } = await supabase
+      .from('chat_rooms')
+      .update({ status: newStatus })
+      .eq('id', target.room_id);
+
+    if (error) {
+      fetchAthletes();
+    }
+  }, [athletes, selectedAthleteId, fetchAthletes]);
+
   // Realtime subscription
   useEffect(() => {
     if (!coachId) return;
