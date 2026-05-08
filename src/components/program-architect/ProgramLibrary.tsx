@@ -258,6 +258,12 @@ export function ProgramLibrary({
   const [detailItem, setDetailItem] = useState<LibraryItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  // Food portion dialog
+  const [portionOpen, setPortionOpen] = useState(false);
+  const [portionLoadingId, setPortionLoadingId] = useState<string | null>(null);
+  const [portionFood, setPortionFood] = useState<{ food_id: string; name: string; brand?: string } | null>(null);
+  const [portionServings, setPortionServings] = useState<Serving[]>([]);
+  const [pendingNutritionItem, setPendingNutritionItem] = useState<LibraryItem | null>(null);
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
