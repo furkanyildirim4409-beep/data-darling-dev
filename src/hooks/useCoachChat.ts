@@ -483,13 +483,15 @@ export function useCoachChat() {
           setAthletes(prev =>
             prev.map(a =>
               a.id === row.athlete_id
-                ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
+              ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
                 : a
             )
           );
         }
       )
       .subscribe();
+
+    channelRef.current = channel;
 
     return () => {
       channelRef.current = null;
