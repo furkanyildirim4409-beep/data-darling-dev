@@ -42,9 +42,14 @@ const mealSections = [
   { id: "meal-5", name: "Akşam Yemeği", icon: "🌙", time: "19:00" },
 ];
 
-function calcFactor(item: NutritionItem) {
-  if (item.serving_size) return item.amount; // per-portion: macros already scaled to 1 portion
-  return item.unit === "adet" ? item.amount : item.amount / 100;
+export function calcFactor(item: NutritionItem) {
+  const amt = Number(item.amount) || 0;
+  // Legacy DB rows that stored macros for the entire 100g/100ml chunk
+  if (item.serving_size && /^100\s?(g|ml)$/i.test(item.serving_size)) return amt / 100;
+  // New per-1-base-unit rows: amount IS the multiplier
+  if (item.serving_size) return amt;
+  // Pure raw fallback (no serving_size)
+  return item.unit === "adet" ? amt : amt / 100;
 }
 
 function calcMacro(item: NutritionItem, key: "kcal" | "protein" | "carbs" | "fats") {
