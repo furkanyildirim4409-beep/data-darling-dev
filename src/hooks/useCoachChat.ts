@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type ChatRoomType = 'assigned' | 'direct';
-export type ChatRoomStatus = 'pending' | 'approved' | 'rejected';
+export type ChatRoomStatus = 'pending' | 'accepted' | 'declined';
 
 export interface ChatAthlete {
   id: string;
@@ -48,6 +48,11 @@ export function useCoachChat() {
   const [totalUnread, setTotalUnread] = useState(0);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const selectedAthleteIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedAthleteIdRef.current = selectedAthleteId;
+  }, [selectedAthleteId]);
 
   // Helper: get preview text for a message
   const getPreviewText = (content: string, mediaType?: string | null) => {
@@ -174,7 +179,7 @@ export function useCoachChat() {
         const room = roomMap.get(p.id);
         const isRoster = rosterIds.has(p.id);
         const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
-        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'approved';
+        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'accepted';
         return {
           id: p.id,
           full_name: p.full_name,
@@ -193,8 +198,8 @@ export function useCoachChat() {
           room_id: room?.id ?? null,
         };
       })
-      // Hide rejected rooms from the inbox entirely
-      .filter(a => a.room_status !== 'rejected');
+      // Hide declined rooms from the inbox entirely
+      .filter(a => a.room_status !== 'declined');
 
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
@@ -325,11 +330,11 @@ export function useCoachChat() {
     const target = athletes.find(a => a.id === athleteId);
     if (!target?.room_id) return;
 
-    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    const newStatus: ChatRoomStatus = action === 'approve' ? 'accepted' : 'declined';
 
     if (action === 'approve') {
       setAthletes(prev =>
-        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'approved' } : a))
+        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'accepted' } : a))
       );
     } else {
       setAthletes(prev => prev.filter(a => a.id !== athleteId));
@@ -341,7 +346,7 @@ export function useCoachChat() {
 
     const { error } = await supabase
       .from('chat_rooms')
-      .update({ status: newStatus })
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', target.room_id);
 
     if (error) {
@@ -352,9 +357,17 @@ export function useCoachChat() {
   // Realtime subscription
   useEffect(() => {
     if (!coachId) return;
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
 
     const channel = supabase
-      .channel(`coach-inbox-realtime:${coachId}:${Date.now()}`)
+      .channel(`coach-inbox-realtime:${coachId}:${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -379,7 +392,7 @@ export function useCoachChat() {
             setTimeout(() => fetchAthletes(), 0);
           }
 
-          if (senderId === selectedAthleteId) {
+          if (senderId === selectedAthleteIdRef.current) {
             setMessages(prev => [...prev, newMsg]);
             supabase
               .from('messages')
@@ -466,14 +479,14 @@ export function useCoachChat() {
         (payload) => {
           const row = payload.new as { id: string; athlete_id: string; status: string; room_type: string };
           if (!row) return;
-          if (row.status === 'rejected') {
+          if (row.status === 'declined') {
             setAthletes(prev => prev.filter(a => a.id !== row.athlete_id));
             return;
           }
           setAthletes(prev =>
             prev.map(a =>
               a.id === row.athlete_id
-                ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
+              ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
                 : a
             )
           );
@@ -484,9 +497,10 @@ export function useCoachChat() {
     channelRef.current = channel;
 
     return () => {
+      channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [coachId, activeCoachId, selectedAthleteId, fetchAthletes]);
+  }, [coachId, activeCoachId, fetchAthletes]);
 
   useEffect(() => {
     fetchAthletes();

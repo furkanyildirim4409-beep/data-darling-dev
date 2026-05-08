@@ -40,7 +40,7 @@ export function CoachInbox({ athletes, selectedAthleteId, onSelectAthlete, isLoa
   const activeList = filtered.filter(a => a.room_type === "assigned");
   const directList = filtered.filter(a => a.room_type === "direct");
   const pendingList = directList.filter(a => a.room_status === "pending");
-  const approvedList = directList.filter(a => a.room_status === "approved");
+  const approvedList = directList.filter(a => a.room_status === "accepted");
 
   // Badge count uses ALL athletes (not search-filtered) so the tab pill stays meaningful
   const pendingTotal = athletes.filter(
