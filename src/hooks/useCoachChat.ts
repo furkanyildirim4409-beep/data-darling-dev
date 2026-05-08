@@ -389,7 +389,7 @@ export function useCoachChat() {
             setTimeout(() => fetchAthletes(), 0);
           }
 
-          if (senderId === selectedAthleteId) {
+          if (senderId === selectedAthleteIdRef.current) {
             setMessages(prev => [...prev, newMsg]);
             supabase
               .from('messages')
@@ -476,7 +476,7 @@ export function useCoachChat() {
         (payload) => {
           const row = payload.new as { id: string; athlete_id: string; status: string; room_type: string };
           if (!row) return;
-          if (row.status === 'rejected') {
+          if (row.status === 'declined' || row.status === 'rejected') {
             setAthletes(prev => prev.filter(a => a.id !== row.athlete_id));
             return;
           }
@@ -491,12 +491,11 @@ export function useCoachChat() {
       )
       .subscribe();
 
-    channelRef.current = channel;
-
     return () => {
+      channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [coachId, activeCoachId, selectedAthleteId, fetchAthletes]);
+  }, [coachId, activeCoachId, fetchAthletes]);
 
   useEffect(() => {
     fetchAthletes();
