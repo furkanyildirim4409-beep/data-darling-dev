@@ -100,6 +100,7 @@ export default function Messages() {
         hasMoreMessages={hasMoreMessages}
         onSendMessage={sendMessage}
         onLoadOlder={loadOlderMessages}
+        onRespondToRequest={respondToRequest}
       />
     </div>
   );
