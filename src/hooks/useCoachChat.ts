@@ -168,31 +168,33 @@ export function useCoachChat() {
       }
     }
 
-    const mapped: ChatAthlete[] = allProfiles.map(p => {
-      const latest = latestMap.get(p.id);
-      const room = roomMap.get(p.id);
-      // Default: rostered profile = assigned/approved; non-rostered (extra sender) = direct/approved
-      const isRoster = rosterIds.has(p.id);
-      const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
-      const room_status: ChatRoomStatus = room?.status ?? 'approved';
-      return {
-        id: p.id,
-        full_name: p.full_name,
-        avatar_url: p.avatar_url,
-        latestMessage: latest
-          ? {
-              content: getPreviewText(latest.content, latest.media_type),
-              created_at: latest.created_at,
-              sender_id: latest.sender_id,
-              media_type: latest.media_type,
-            }
-          : null,
-        unreadCount: unreadMap.get(p.id) || 0,
-        room_type,
-        room_status,
-        room_id: room?.id ?? null,
-      };
-    });
+    const mapped: ChatAthlete[] = allProfiles
+      .map(p => {
+        const latest = latestMap.get(p.id);
+        const room = roomMap.get(p.id);
+        const isRoster = rosterIds.has(p.id);
+        const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
+        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'approved';
+        return {
+          id: p.id,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+          latestMessage: latest
+            ? {
+                content: getPreviewText(latest.content, latest.media_type),
+                created_at: latest.created_at,
+                sender_id: latest.sender_id,
+                media_type: latest.media_type,
+              }
+            : null,
+          unreadCount: unreadMap.get(p.id) || 0,
+          room_type,
+          room_status,
+          room_id: room?.id ?? null,
+        };
+      })
+      // Hide rejected rooms from the inbox entirely
+      .filter(a => a.room_status !== 'rejected');
 
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
