@@ -234,7 +234,9 @@ export function NutritionBuilder({
                             onChange={(e) => onUpdateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
                             className="h-7 w-16 text-xs text-center bg-background/50"
                           />
-                          <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {item.serving_size ? `× ${item.serving_size}` : item.unit}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1 flex-wrap">
