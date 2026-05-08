@@ -803,6 +803,7 @@ export function ProgramLibrary({
                         onAdd={handleAddWithSync}
                         isAdded={addedItemIds.includes(item.id)}
                         onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                        isLoading={portionLoadingId === item.id}
                       />
                     ))
                   )}
