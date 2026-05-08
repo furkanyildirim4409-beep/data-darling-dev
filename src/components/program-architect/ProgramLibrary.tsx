@@ -72,7 +72,7 @@ export interface LibraryItem {
   gifUrl?: string;
   api_food_id?: string;
   serving_size?: string;
-  amount?: number;
+  amount?: number | string;
   unit?: string;
 }
 
