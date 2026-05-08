@@ -509,6 +509,8 @@ export function ProgramLibrary({
         protein: r.protein || 0,
         carbs: r.carbs || 0,
         fats: r.fat || 0,
+        api_food_id: r.api_food_id || undefined,
+        serving_size: r.serving_size || undefined,
       })));
     }
     setLoadingCoachFoods(false);
