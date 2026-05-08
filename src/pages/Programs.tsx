@@ -101,22 +101,27 @@ export default function Programs() {
       };
 
       const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
-        const servingMatch = (f.serving_size || "100g").match(/^(\d+\.?\d*)(.*)/);
-        const amount = servingMatch ? parseFloat(servingMatch[1]) : 100;
-        const unit = servingMatch && servingMatch[2]?.trim() ? servingMatch[2].trim() : "g";
-        const factor = unit === "adet" ? amount : amount / 100;
+        const raw = (f.serving_size || "100g").trim();
+        // Prefer "<num> <label>" (with space) → split, else fall back to "<num><g|ml|adet>"
+        const m = raw.match(/^(\d+\.?\d*)\s+(.*)$/) || raw.match(/^(\d+\.?\d*)(g|ml|adet)$/i);
+        const amount = m ? parseFloat(m[1]) : 1;
+        const unitLabel = m ? String(m[2] || "").trim() : raw;
+
+        const isLegacy100 = /^100\s?(g|ml)$/i.test(raw);
+        const div = isLegacy100 ? 100 : (m ? amount : 1);
 
         return {
           id: f.id,
           name: f.food_name,
           category: "Genel",
           type: "nutrition",
-          kcal: factor > 0 ? Math.round((f.calories || 0) / factor) : 0,
-          protein: factor > 0 ? Math.round((f.protein || 0) / factor) : 0,
-          carbs: factor > 0 ? Math.round((f.carbs || 0) / factor) : 0,
-          fats: factor > 0 ? Math.round((f.fat || 0) / factor) : 0,
-          amount,
-          unit,
+          kcal: div > 0 ? Math.round((f.calories || 0) / div) : 0,
+          protein: div > 0 ? Math.round((f.protein || 0) / div) : 0,
+          carbs: div > 0 ? Math.round((f.carbs || 0) / div) : 0,
+          fats: div > 0 ? Math.round((f.fat || 0) / div) : 0,
+          amount: Number(amount) || 1,
+          unit: unitLabel || "g",
+          serving_size: unitLabel || "g",
           mealId: reverseMealMap[f.meal_type] || "meal-2",
           dayIndex: (f.day_number || 1) - 1,
         };
