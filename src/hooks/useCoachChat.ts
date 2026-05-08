@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type ChatRoomType = 'assigned' | 'direct';
-export type ChatRoomStatus = 'pending' | 'approved';
+export type ChatRoomStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ChatAthlete {
   id: string;
@@ -168,31 +168,33 @@ export function useCoachChat() {
       }
     }
 
-    const mapped: ChatAthlete[] = allProfiles.map(p => {
-      const latest = latestMap.get(p.id);
-      const room = roomMap.get(p.id);
-      // Default: rostered profile = assigned/approved; non-rostered (extra sender) = direct/approved
-      const isRoster = rosterIds.has(p.id);
-      const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
-      const room_status: ChatRoomStatus = room?.status ?? 'approved';
-      return {
-        id: p.id,
-        full_name: p.full_name,
-        avatar_url: p.avatar_url,
-        latestMessage: latest
-          ? {
-              content: getPreviewText(latest.content, latest.media_type),
-              created_at: latest.created_at,
-              sender_id: latest.sender_id,
-              media_type: latest.media_type,
-            }
-          : null,
-        unreadCount: unreadMap.get(p.id) || 0,
-        room_type,
-        room_status,
-        room_id: room?.id ?? null,
-      };
-    });
+    const mapped: ChatAthlete[] = allProfiles
+      .map(p => {
+        const latest = latestMap.get(p.id);
+        const room = roomMap.get(p.id);
+        const isRoster = rosterIds.has(p.id);
+        const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
+        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'approved';
+        return {
+          id: p.id,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+          latestMessage: latest
+            ? {
+                content: getPreviewText(latest.content, latest.media_type),
+                created_at: latest.created_at,
+                sender_id: latest.sender_id,
+                media_type: latest.media_type,
+              }
+            : null,
+          unreadCount: unreadMap.get(p.id) || 0,
+          room_type,
+          room_status,
+          room_id: room?.id ?? null,
+        };
+      })
+      // Hide rejected rooms from the inbox entirely
+      .filter(a => a.room_status !== 'rejected');
 
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
@@ -317,6 +319,35 @@ export function useCoachChat() {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     }
   }, [coachId, selectedAthleteId]);
+
+  // Approve / decline a pending message request
+  const respondToRequest = useCallback(async (athleteId: string, action: 'approve' | 'decline') => {
+    const target = athletes.find(a => a.id === athleteId);
+    if (!target?.room_id) return;
+
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+    if (action === 'approve') {
+      setAthletes(prev =>
+        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'approved' } : a))
+      );
+    } else {
+      setAthletes(prev => prev.filter(a => a.id !== athleteId));
+      if (selectedAthleteId === athleteId) {
+        setSelectedAthleteId(null);
+        setMessages([]);
+      }
+    }
+
+    const { error } = await supabase
+      .from('chat_rooms')
+      .update({ status: newStatus })
+      .eq('id', target.room_id);
+
+    if (error) {
+      fetchAthletes();
+    }
+  }, [athletes, selectedAthleteId, fetchAthletes]);
 
   // Realtime subscription
   useEffect(() => {
@@ -449,6 +480,7 @@ export function useCoachChat() {
     selectAthlete,
     sendMessage,
     loadOlderMessages,
+    respondToRequest,
     refetch: fetchAthletes,
   };
 }

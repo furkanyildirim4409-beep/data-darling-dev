@@ -1,82 +1,55 @@
-# Coach Inbox Restructuring — Part 1/2
+# Message Request Approval UI — Coach Part 2/2
 
-Separate paying clients from prospects so they never mix in the coach's chat sidebar. Introduces a tabbed sidebar driven by the existing `chat_rooms` table (`room_type` ∈ {assigned, direct}, `status` ∈ {pending, approved}).
+Wire up Approve / Decline for pending `chat_rooms` so a coach must explicitly accept a prospect before two-way messaging opens.
 
-## Final sidebar structure
+## Behavior
 
-```
-┌───────────────────────────────┐
-│ [ Ekip ]   [ Sporcular ]      │ ← top tabs (Messages.tsx)
-├───────────────────────────────┤
-│  (Sporcular active)           │
-│  [ Aktif ]   [ Direct (3) ]   │ ← sub-tabs in CoachInbox
-├───────────────────────────────┤
-│ AKTİF view:                   │
-│   • Assigned athletes list    │   (room_type='assigned')
-│                               │
-│ DIRECT view:                  │
-│   ─ İstekler (3) ─────────    │   (status='pending') with badge
-│     • prospect A   [Kabul][X] │
-│   ─ Mesajlar ────────────     │   (status='approved')
-│     • prospect B               │
-└───────────────────────────────┘
-```
-
-## Scope
-
-- Restructure sidebar UI only (Part 1/2).
-- Approve/Decline actions, prospect message view and "Part 2" coach-side wiring will be handled in the follow-up.
-- No DB migration required — `chat_rooms` already has `room_type` and `status`.
-
-## Steps
-
-### 1. Data layer — extend `useCoachChat`
-
-`src/hooks/useCoachChat.ts`
-
-- Fetch `chat_rooms` for `coach_id = activeCoachId` and join with `profiles` for the athlete side.
-- Annotate each `ChatAthlete` with:
-  - `room_type: 'assigned' | 'direct'`
-  - `status: 'pending' | 'approved'`
-  - `room_id: string`
-- Keep current assignment-scoping rules for restricted sub-coaches (assigned-only sub-coaches see `room_type='assigned'` only — Direct tab is hidden for them).
-- Existing latest-message + unread aggregation logic stays; we just attach room metadata.
-
-### 2. Sidebar component — `CoachInbox.tsx`
-
-- Add internal `view` state: `'active' | 'direct'`.
-- Render a sub-tab bar (Tabs from `@/components/ui/tabs`) under the search input:
-  - "Aktif" — count of `room_type='assigned'`
-  - "Direct" — count of pending requests as a destructive badge
-- Filter the existing list according to `view`:
-  - `active`: rows where `room_type === 'assigned'`
-  - `direct`: rows where `room_type === 'direct'`, split into two labelled sections:
-    - "İstekler" → `status === 'pending'` (small ping/badge style, muted background)
-    - "Mesajlar" → `status === 'approved'`
-- Keep current row UI (avatar, name, latest message, unread dot).
-- Empty states per view ("Henüz aktif sporcu yok", "Bekleyen istek yok", "Henüz direkt mesaj yok").
-
-### 3. Page wiring — `Messages.tsx`
-
-- No change to top-level Ekip / Sporcular tabs (already exist).
-- Pass through new fields from `useCoachChat`.
-- When user clicks a pending request row, still open `ActiveChat` in read-only/preview state; the Approve/Decline UI will be added in Part 2 (out of scope here, but the row click must not crash).
-
-## Technical notes
-
-- `chat_rooms` columns confirmed: `id, athlete_id, coach_id, room_type, status, created_at, updated_at`.
-- Restricted sub-coaches: hide the "Direct" sub-tab entirely (they cannot manage prospects per IP/roster rules).
-- Realtime: subscribe to `chat_rooms` inserts/updates filtered by `coach_id` so new requests appear live and the badge increments instantly.
-- No semantic-token violations: badge uses `bg-destructive`, section labels use `text-muted-foreground`.
+- When `athlete.room_type === 'direct'` AND `athlete.room_status === 'pending'`:
+  - Replace the message input area entirely with a sticky bottom action bar.
+  - Action bar copy: "Bu sporcu sana mesaj göndermek istiyor."
+  - Two full-width buttons: `Reddet` (outline + destructive text) and `Kabul Et` (primary).
+  - Subtle slide-up entrance animation.
+- Approve → update `chat_rooms.status = 'approved'`. Local state flips instantly so the standard input box renders immediately.
+- Decline → update `chat_rooms.status = 'rejected'`. Sidebar removes the row; `ActiveChat` clears selection and shows the empty state.
+- While an action is in flight, both buttons show a spinner and are disabled.
+- Coach can still scroll/read the prospect's existing messages; only the input is gated.
 
 ## Files touched
 
-- `src/hooks/useCoachChat.ts` — add room metadata + realtime subscription.
-- `src/components/chat/CoachInbox.tsx` — sub-tabs, sectioning, badges.
-- `src/pages/Messages.tsx` — minor prop pass-through if needed.
+### 1. `src/hooks/useCoachChat.ts`
+- Extend `ChatRoomStatus` to include `'rejected'`.
+- Add `respondToRequest(athleteId: string, action: 'approve' | 'decline')`:
+  - Look up the athlete's `room_id` from current state.
+  - `update chat_rooms set status = 'approved' | 'rejected' where id = room_id`.
+  - On approve: mutate local `athletes` to flip `room_status` and keep selection.
+  - On decline: drop the athlete from local `athletes`, clear `selectedAthleteId`, clear `messages`.
+- Filter rejected rooms out of the inbox in `fetchAthletes` (don't show them in either list).
+- Export `respondToRequest`.
 
-## Out of scope (Part 2)
+### 2. `src/pages/Messages.tsx`
+- Pull `respondToRequest` from `useCoachChat` and pass it to `ActiveChat`.
 
-- Approve / Decline RPC + buttons.
-- Prospect-side request inbox.
-- Auto-promotion of `direct` → `assigned` once a package is purchased.
+### 3. `src/components/chat/ActiveChat.tsx`
+- Add prop `onRespondToRequest?: (athleteId: string, action: 'approve' | 'decline') => Promise<void> | void`.
+- Compute `isPending = athlete?.room_type === 'direct' && athlete?.room_status === 'pending'`.
+- When `isPending`:
+  - Don't render the recording / file / input form block at all.
+  - Render the new `<RequestActionBar />` in its place.
+- New inline `RequestActionBar`:
+  - Sticky to bottom, glassmorphic: `bg-card/80 backdrop-blur-md border-t border-border`.
+  - Title row with `Inbox` icon + the prompt text.
+  - Two buttons: `Reddet` (variant `outline` + `text-destructive border-destructive/40 hover:bg-destructive/10`), `Kabul Et` (variant `default`, full bleed).
+  - Loading: `Loader2` spinner inside the clicked button, both disabled.
+  - Animation: `animate-in slide-in-from-bottom-4 fade-in duration-300`.
+
+## Technical notes
+
+- `chat_rooms.status` text column already exists; no migration needed for the value `'rejected'`.
+- RLS: coach can update their own room (existing policy on `chat_rooms` covers `coach_id = auth.uid()` or active team member). If RLS update fails we will surface a toast but no migration in this part.
+- Sub-coaches with restricted permission don't see Direct tab at all (handled in Part 1), so they won't reach this UI.
+- No semantic-token violations: action bar uses `bg-card/80`, `border-border`, `text-destructive`, `bg-primary`.
+
+## Out of scope
+
+- Auto-promotion of a `direct` room to `assigned` after a package purchase (already handled by the existing `handle_coaching_order_paid` trigger updating `profiles.coach_id`; the room remains `direct` which is acceptable).
+- Athlete-side request inbox / sending UI.

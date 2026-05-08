@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink, ImageOff, Reply, Check, CheckCheck } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink, ImageOff, Reply, Check, CheckCheck, Inbox } from "lucide-react";
 import { storyCategories } from "@/data/storyCategories";
 import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
@@ -25,10 +25,11 @@ interface ActiveChatProps {
   onLoadOlder?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
+  onRespondToRequest?: (athleteId: string, action: 'approve' | 'decline') => Promise<void> | void;
 }
 
 
-export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton }: ActiveChatProps) {
+export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
   const [input, setInput] = useState("");
   const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
@@ -39,6 +40,19 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
   const { isMuted, toggleMute } = useMutedChats();
   const prevScrollHeightRef = useRef<number>(0);
   const initialScrollDoneRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<null | 'approve' | 'decline'>(null);
+
+  const isPending = athlete?.room_type === 'direct' && athlete?.room_status === 'pending';
+
+  const handleRespond = async (action: 'approve' | 'decline') => {
+    if (!athlete || !onRespondToRequest || pendingAction) return;
+    setPendingAction(action);
+    try {
+      await onRespondToRequest(athlete.id, action);
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   const isValidHttpUrl = (url: unknown): url is string => {
     if (typeof url !== "string" || !url.trim()) return false;
@@ -353,63 +367,91 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
         }}
       />
 
-      {/* Input area */}
-      <div className="p-3 border-t border-border bg-card">
-        {isRecording ? (
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={cancelRecording} className="h-9 w-9 text-destructive">
-              <X className="w-4 h-4" />
-            </Button>
-            <div className="flex-1 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm font-mono text-foreground">{formatDuration(recordingDuration)}</span>
-              <span className="text-xs text-muted-foreground">Kayıt yapılıyor...</span>
-            </div>
-            <Button size="icon" onClick={stopRecording} className="h-9 w-9 bg-primary text-primary-foreground">
-              <Square className="w-4 h-4" />
-            </Button>
+      {/* Input area or pending request action bar */}
+      {isPending ? (
+        <div className="p-4 border-t border-border bg-card/80 backdrop-blur-md animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="flex items-center gap-2 mb-3 text-sm text-foreground">
+            <Inbox className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="font-medium">Bu sporcu sana mesaj göndermek istiyor.</span>
           </div>
-        ) : (
-          <form
-            onSubmit={e => { e.preventDefault(); handleSend(); }}
-            className="flex items-center gap-2"
-          >
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground flex-shrink-0"
+              variant="outline"
+              onClick={() => handleRespond('decline')}
+              disabled={!!pendingAction}
+              className="flex-1 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
             >
-              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+              {pendingAction === 'decline' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reddet'}
             </Button>
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Mesaj yaz..."
-              className="flex-1 bg-muted/50 border-border"
-              disabled={isUploading}
-            />
-            {input.trim() ? (
-              <Button type="submit" size="icon" disabled={isUploading} className="flex-shrink-0 h-9 w-9">
-                <Send className="w-4 h-4" />
+            <Button
+              type="button"
+              onClick={() => handleRespond('approve')}
+              disabled={!!pendingAction}
+              className="flex-1"
+            >
+              {pendingAction === 'approve' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Kabul Et'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 border-t border-border bg-card">
+          {isRecording ? (
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={cancelRecording} className="h-9 w-9 text-destructive">
+                <X className="w-4 h-4" />
               </Button>
-            ) : (
+              <div className="flex-1 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                <span className="text-sm font-mono text-foreground">{formatDuration(recordingDuration)}</span>
+                <span className="text-xs text-muted-foreground">Kayıt yapılıyor...</span>
+              </div>
+              <Button size="icon" onClick={stopRecording} className="h-9 w-9 bg-primary text-primary-foreground">
+                <Square className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <form
+              onSubmit={e => { e.preventDefault(); handleSend(); }}
+              className="flex items-center gap-2"
+            >
               <Button
                 type="button"
+                variant="ghost"
                 size="icon"
-                onClick={startRecording}
+                onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="flex-shrink-0 h-9 w-9"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground flex-shrink-0"
               >
-                <Mic className="w-4 h-4" />
+                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
               </Button>
-            )}
-          </form>
-        )}
-      </div>
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Mesaj yaz..."
+                className="flex-1 bg-muted/50 border-border"
+                disabled={isUploading}
+              />
+              {input.trim() ? (
+                <Button type="submit" size="icon" disabled={isUploading} className="flex-shrink-0 h-9 w-9">
+                  <Send className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={startRecording}
+                  disabled={isUploading}
+                  className="flex-shrink-0 h-9 w-9"
+                >
+                  <Mic className="w-4 h-4" />
+                </Button>
+              )}
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Story reply preview dialog */}
       <Dialog open={!!storyPreview} onOpenChange={(open) => !open && setStoryPreview(null)}>
