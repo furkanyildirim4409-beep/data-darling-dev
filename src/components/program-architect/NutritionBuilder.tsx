@@ -42,11 +42,7 @@ const mealSections = [
 ];
 
 function calcFactor(item: NutritionItem) {
-  // Items added via the FatSecret portion dialog already carry per-portion macros
-  // and a `serving_size` (e.g. "50 × g" or "2 × Adet"). Scale by amount only.
-  const isPerPortion =
-    !!(item as any).serving_size || item.unit === "adet" || item.unit?.includes("×");
-  return isPerPortion ? item.amount : item.amount / 100;
+  return item.unit === "adet" ? item.amount : item.amount / 100;
 }
 
 function calcMacro(item: NutritionItem, key: "kcal" | "protein" | "carbs" | "fats") {
