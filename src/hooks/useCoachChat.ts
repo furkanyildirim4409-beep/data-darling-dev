@@ -411,6 +411,19 @@ export function useCoachChat() {
           );
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_rooms',
+          filter: `coach_id=eq.${activeCoachId ?? coachId}`,
+        },
+        () => {
+          // Any new request / status change should refresh the inbox
+          setTimeout(() => fetchAthletes(), 0);
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;
