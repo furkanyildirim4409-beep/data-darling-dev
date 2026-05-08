@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+export type ChatRoomType = 'assigned' | 'direct';
+export type ChatRoomStatus = 'pending' | 'approved';
+
 export interface ChatAthlete {
   id: string;
   full_name: string | null;
@@ -14,6 +17,9 @@ export interface ChatAthlete {
     media_type?: string | null;
   } | null;
   unreadCount: number;
+  room_type: ChatRoomType;
+  room_status: ChatRoomStatus;
+  room_id: string | null;
 }
 
 export interface ChatMessage {
