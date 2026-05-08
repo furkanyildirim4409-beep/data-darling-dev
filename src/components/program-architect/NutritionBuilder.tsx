@@ -11,6 +11,7 @@ export interface NutritionItem extends LibraryItem {
   unit: string;
   mealId: string;
   dayIndex: number;
+  serving_size?: string;
 }
 
 interface NutritionBuilderProps {
