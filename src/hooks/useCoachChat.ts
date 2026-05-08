@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+export type ChatRoomType = 'assigned' | 'direct';
+export type ChatRoomStatus = 'pending' | 'approved';
+
 export interface ChatAthlete {
   id: string;
   full_name: string | null;
@@ -14,6 +17,9 @@ export interface ChatAthlete {
     media_type?: string | null;
   } | null;
   unreadCount: number;
+  room_type: ChatRoomType;
+  room_status: ChatRoomStatus;
+  room_id: string | null;
 }
 
 export interface ChatMessage {
@@ -122,6 +128,22 @@ export function useCoachChat() {
 
     const athleteIds = allProfiles.map(p => p.id);
 
+    // Fetch chat_rooms metadata for these participants (coach side)
+    const { data: roomsData } = await supabase
+      .from('chat_rooms')
+      .select('id, athlete_id, room_type, status')
+      .eq('coach_id', activeCoachId)
+      .in('athlete_id', athleteIds);
+
+    const roomMap = new Map<string, { id: string; room_type: ChatRoomType; status: ChatRoomStatus }>();
+    for (const r of (roomsData || []) as any[]) {
+      roomMap.set(r.athlete_id, { id: r.id, room_type: r.room_type, status: r.status });
+    }
+
+    const rosterIds = new Set<string>(
+      (profiles || []).map(p => p.id) // these came from coach_id=activeCoachId, i.e. paying clients
+    );
+
     const { data: allMessages } = await supabase
       .from('messages')
       .select('*')
@@ -148,6 +170,11 @@ export function useCoachChat() {
 
     const mapped: ChatAthlete[] = allProfiles.map(p => {
       const latest = latestMap.get(p.id);
+      const room = roomMap.get(p.id);
+      // Default: rostered profile = assigned/approved; non-rostered (extra sender) = direct/approved
+      const isRoster = rosterIds.has(p.id);
+      const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
+      const room_status: ChatRoomStatus = room?.status ?? 'approved';
       return {
         id: p.id,
         full_name: p.full_name,
@@ -161,6 +188,9 @@ export function useCoachChat() {
             }
           : null,
         unreadCount: unreadMap.get(p.id) || 0,
+        room_type,
+        room_status,
+        room_id: room?.id ?? null,
       };
     });
 
@@ -381,6 +411,19 @@ export function useCoachChat() {
           );
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_rooms',
+          filter: `coach_id=eq.${activeCoachId ?? coachId}`,
+        },
+        () => {
+          // Any new request / status change should refresh the inbox
+          setTimeout(() => fetchAthletes(), 0);
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -388,7 +431,7 @@ export function useCoachChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coachId, selectedAthleteId, fetchAthletes]);
+  }, [coachId, activeCoachId, selectedAthleteId, fetchAthletes]);
 
   useEffect(() => {
     fetchAthletes();
