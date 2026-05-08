@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 import { usePermissions } from "@/hooks/usePermissions";
+import { FoodPortionDialog, type Serving } from "./FoodPortionDialog";
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
@@ -69,6 +70,8 @@ export interface LibraryItem {
   carbs?: number;
   fats?: number;
   gifUrl?: string;
+  api_food_id?: string;
+  serving_size?: string;
 }
 
 export interface SavedTemplate {
@@ -88,9 +91,10 @@ interface LibraryItemCardProps {
   onAdd: (item: LibraryItem) => void;
   isAdded: boolean;
   onDetail: (item: LibraryItem) => void;
+  isLoading?: boolean;
 }
 
-function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProps) {
+function LibraryItemCard({ item, onAdd, isAdded, onDetail, isLoading }: LibraryItemCardProps) {
   return (
     <div
       className={cn(
@@ -144,18 +148,21 @@ function LibraryItemCard({ item, onAdd, isAdded, onDetail }: LibraryItemCardProp
         <Button
           variant="ghost"
           size="icon"
+          disabled={isLoading}
           className={cn(
             "h-7 w-7 shrink-0 transition-all",
-            isAdded 
-              ? "opacity-0 pointer-events-none" 
-              : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
+            isAdded
+              ? "opacity-0 pointer-events-none"
+              : isLoading
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
           )}
           onClick={(e) => {
             e.stopPropagation();
             onAdd(item);
           }}
         >
-          <Plus className="w-4 h-4" />
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         </Button>
       </div>
     </div>
@@ -255,6 +262,12 @@ export function ProgramLibrary({
   const [detailItem, setDetailItem] = useState<LibraryItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  // Food portion dialog
+  const [portionOpen, setPortionOpen] = useState(false);
+  const [portionLoadingId, setPortionLoadingId] = useState<string | null>(null);
+  const [portionFood, setPortionFood] = useState<{ food_id: string; name: string; brand?: string } | null>(null);
+  const [portionServings, setPortionServings] = useState<Serving[]>([]);
+  const [pendingNutritionItem, setPendingNutritionItem] = useState<LibraryItem | null>(null);
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -467,7 +480,7 @@ export function ProgramLibrary({
         const items: any[] = Array.isArray(data) ? data : data?.items || [];
         setNutritionResults(
           items.slice(0, 20).map((item: any, i: number) => ({
-            id: `api-${Date.now()}-${i}`,
+            id: `api-${item.food_id ?? i}-${Date.now()}`,
             name: item.name || item.food_name || "",
             category: item.brand || "API",
             type: "nutrition",
@@ -475,6 +488,7 @@ export function ProgramLibrary({
             protein: Math.round(item.protein || 0),
             carbs: Math.round(item.carbs || 0),
             fats: Math.round(item.fat || 0),
+            api_food_id: item.food_id ? String(item.food_id) : undefined,
           }))
         );
       } catch {
@@ -505,6 +519,8 @@ export function ProgramLibrary({
         protein: r.protein || 0,
         carbs: r.carbs || 0,
         fats: r.fat || 0,
+        api_food_id: r.api_food_id || undefined,
+        serving_size: r.serving_size || undefined,
       })));
     }
     setLoadingCoachFoods(false);
@@ -546,13 +562,13 @@ export function ProgramLibrary({
     }
   }, [builderMode, fetchSupplementLibrary]);
 
-  // Auto-sync API food to food_items on add
+  // Auto-sync API food to food_items on add (uses chosen serving when present)
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
     // Call original onAddItem immediately
     onAddItem(item);
 
-    // If it's a nutrition item from API, upsert to food_items
-    if (item.type === "nutrition" && item.id.startsWith("api-") && user) {
+    // Persist to coach's food_items library when from API or already API-derived
+    if (item.type === "nutrition" && (item.id.startsWith("api-") || item.api_food_id) && user && activeCoachId) {
       try {
         const { data } = await supabase
           .from("food_items")
@@ -563,22 +579,73 @@ export function ProgramLibrary({
             protein: item.protein || 0,
             carbs: item.carbs || 0,
             fat: item.fats || 0,
-            serving_size: "100g",
-            coach_id: activeCoachId!,
-          }, { onConflict: "name,coach_id" })
+            serving_size: item.serving_size || "100g",
+            api_food_id: item.api_food_id || null,
+            coach_id: activeCoachId,
+          } as any, { onConflict: "name,coach_id" })
           .select("id")
           .single();
 
         if (data) {
           toast.success("Besin kütüphaneye eklendi");
-          // Refresh coach foods list
           fetchCoachFoods();
         }
       } catch {
-        // Non-blocking, ignore errors
+        // Non-blocking
       }
     }
-  }, [onAddItem, user, fetchCoachFoods]);
+  }, [onAddItem, user, activeCoachId, fetchCoachFoods]);
+
+  // Open the portion dialog for a nutrition item — fetches servings via search-food
+  const openPortionFlow = useCallback(async (item: LibraryItem) => {
+    if (!item.api_food_id) {
+      // Legacy / custom DB food without FatSecret id — add directly
+      handleAddWithSync(item);
+      return;
+    }
+    setPortionLoadingId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-food", {
+        body: { food_id: item.api_food_id },
+      });
+      if (error) throw error;
+      const servings: Serving[] = Array.isArray(data?.servings) ? data.servings : [];
+      if (!servings.length) {
+        toast.error("Bu besin için porsiyon bilgisi bulunamadı.");
+        return;
+      }
+      setPortionFood({
+        food_id: String(data.food_id ?? item.api_food_id),
+        name: data.name || item.name,
+        brand: data.brand,
+      });
+      setPortionServings(servings);
+      setPendingNutritionItem(item);
+      setPortionOpen(true);
+    } catch (err: any) {
+      toast.error(`Porsiyon bilgisi alınamadı: ${err?.message || "hata"}`);
+    } finally {
+      setPortionLoadingId(null);
+    }
+  }, [handleAddWithSync]);
+
+  const handlePortionConfirm = useCallback((p: { name: string; api_food_id: string; serving_size: string; kcal: number; protein: number; carbs: number; fats: number; }) => {
+    if (!pendingNutritionItem) return;
+    const finalItem: LibraryItem = {
+      ...pendingNutritionItem,
+      id: `api-${p.api_food_id}-${Date.now()}`,
+      name: p.name,
+      api_food_id: p.api_food_id,
+      serving_size: p.serving_size,
+      kcal: p.kcal,
+      protein: p.protein,
+      carbs: p.carbs,
+      fats: p.fats,
+    };
+    handleAddWithSync(finalItem);
+    setPendingNutritionItem(null);
+  }, [pendingNutritionItem, handleAddWithSync]);
+
 
   const filteredNutrition = debouncedSearch.length >= 2
     ? nutritionResults
@@ -734,9 +801,10 @@ export function ProgramLibrary({
                       <LibraryItemCard
                         key={item.id}
                         item={item}
-                        onAdd={handleAddWithSync}
+                        onAdd={builderMode === "nutrition" ? openPortionFlow : handleAddWithSync}
                         isAdded={addedItemIds.includes(item.id)}
                         onDetail={(it) => { setDetailItem(it); setDetailOpen(true); }}
+                        isLoading={portionLoadingId === item.id}
                       />
                     ))
                   )}
@@ -835,6 +903,14 @@ export function ProgramLibrary({
           }
         </p>
       </div>
+
+      <FoodPortionDialog
+        open={portionOpen}
+        onClose={() => setPortionOpen(false)}
+        food={portionFood}
+        servings={portionServings}
+        onConfirm={handlePortionConfirm}
+      />
     </div>
   );
 }
