@@ -83,9 +83,11 @@ export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onCo
   }
 
   // Per-1-base-unit macros (canonical storage shape)
+  // Edge function returns `carbs`; FatSecret raw API uses `carbohydrate` — accept either.
+  const rawCarbs = selected.carbohydrate ?? (selected as any).carbs;
   const per1Kcal = is100Mode ? num(selected.calories) / 100 : num(selected.calories);
   const per1Protein = is100Mode ? num(selected.protein) / 100 : num(selected.protein);
-  const per1Carbs = is100Mode ? num(selected.carbohydrate) / 100 : num(selected.carbohydrate);
+  const per1Carbs = is100Mode ? num(rawCarbs) / 100 : num(rawCarbs);
   const per1Fat = is100Mode ? num(selected.fat) / 100 : num(selected.fat);
 
   const qtyNum = parseFloat(quantity) || 0;
