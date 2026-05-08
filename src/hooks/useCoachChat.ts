@@ -445,14 +445,38 @@ export function useCoachChat() {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'chat_rooms',
           filter: `coach_id=eq.${activeCoachId ?? coachId}`,
         },
         () => {
-          // Any new request / status change should refresh the inbox
+          // Only new incoming requests warrant a refetch; status updates are merged inline below
           setTimeout(() => fetchAthletes(), 0);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_rooms',
+          filter: `coach_id=eq.${activeCoachId ?? coachId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id: string; athlete_id: string; status: string; room_type: string };
+          if (!row) return;
+          if (row.status === 'rejected') {
+            setAthletes(prev => prev.filter(a => a.id !== row.athlete_id));
+            return;
+          }
+          setAthletes(prev =>
+            prev.map(a =>
+              a.id === row.athlete_id
+                ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
+                : a
+            )
+          );
         }
       )
       .subscribe();
