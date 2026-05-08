@@ -69,6 +69,8 @@ export interface LibraryItem {
   carbs?: number;
   fats?: number;
   gifUrl?: string;
+  api_food_id?: string;
+  serving_size?: string;
 }
 
 export interface SavedTemplate {
