@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type ChatRoomType = 'assigned' | 'direct';
-export type ChatRoomStatus = 'pending' | 'approved' | 'rejected';
+export type ChatRoomStatus = 'pending' | 'accepted' | 'declined' | 'approved' | 'rejected';
 
 export interface ChatAthlete {
   id: string;
@@ -48,6 +48,16 @@ export function useCoachChat() {
   const [totalUnread, setTotalUnread] = useState(0);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const selectedAthleteIdRef = useRef<string | null>(null);
+  const athletesRef = useRef<ChatAthlete[]>([]);
+
+  useEffect(() => {
+    selectedAthleteIdRef.current = selectedAthleteId;
+  }, [selectedAthleteId]);
+
+  useEffect(() => {
+    athletesRef.current = athletes;
+  }, [athletes]);
 
   // Helper: get preview text for a message
   const getPreviewText = (content: string, mediaType?: string | null) => {
@@ -174,7 +184,7 @@ export function useCoachChat() {
         const room = roomMap.get(p.id);
         const isRoster = rosterIds.has(p.id);
         const room_type: ChatRoomType = room?.room_type ?? (isRoster ? 'assigned' : 'direct');
-        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'approved';
+        const room_status: ChatRoomStatus = (room?.status as ChatRoomStatus) ?? 'accepted';
         return {
           id: p.id,
           full_name: p.full_name,
@@ -193,8 +203,8 @@ export function useCoachChat() {
           room_id: room?.id ?? null,
         };
       })
-      // Hide rejected rooms from the inbox entirely
-      .filter(a => a.room_status !== 'rejected');
+      // Hide declined/rejected rooms from the inbox entirely
+      .filter(a => a.room_status !== 'declined' && a.room_status !== 'rejected');
 
     mapped.sort((a, b) => {
       if (!a.latestMessage && !b.latestMessage) return 0;
