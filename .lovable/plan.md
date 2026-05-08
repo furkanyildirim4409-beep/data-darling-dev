@@ -1,77 +1,92 @@
-## Amaç
-1. Mevcut ürünleri **düzenleyebilme** (başlık, açıklama, fiyat, kategori, stok adedi, görsel) — Shopify ile gerçek zamanlı senkron.
-2. Stoğu 0'a düşmüş (`stock_quantity === 0` veya pasifleştirilmiş) fiziksel ürünlerde kart üzerinde **"Tükendi"** rozeti göster.
+## Goal
 
-OAuth, scope, `useCreateProduct`, `useUpdateProductStatus`, dijital ürün davranışı **dokunulmadan** korunur.
+Bring "Dynamic Food Portions & Gram Mode" to the Coach Panel's Nutrition Builder. Frontend only — the existing `search-food` edge function (which already returns `{ servings: [...] }` for `{ food_id }`) is left untouched.
 
----
+## Files
 
-## 1) Yeni Edge Function — `supabase/functions/update-shopify-product/index.ts`
+### 1. NEW — `src/components/program-architect/FoodPortionDialog.tsx`
 
-Mevcut `create-shopify-product` ile aynı auth/role/CORS yapısını kullanır.
+Radix `<Dialog>` that opens after a food search result is clicked. Props:
 
-**Body schema (Zod):**
-- `productId` (DB id, uuid) — zorunlu
-- `title?`, `descriptionHtml?`, `price?`, `category?`, `stockQuantity?`, `imageUrl?` (yeni görsel yüklendiyse)
-- En az bir alan değişmiş olmalı
-
-**Akış:**
-1. DB'den `coach_products` satırını çek (`coach_id === userId` olmalı, aksi 403). `shopify_product_id`, `shopify_variant_id`, `product_type`, mevcut `image_url` alınır.
-2. Shopify mutations (gerektiğinde):
-   - `productUpdate` — title/descriptionHtml/productType/tags güncelle.
-   - `productVariantsBulkUpdate` — fiyat değiştiyse.
-   - `inventorySetQuantities` — stok değiştiyse (sadece fiziksel; LOCATIONS_QUERY ile primary location, mevcut akıştaki gibi).
-   - `productCreateMedia` — yeni görsel yüklendiyse (eski medya silmeye gerek yok; best-effort).
-3. Hata haritası `mapShopifyError` (mevcut dosyadan kopya pattern).
-4. Başarı: DB satırını güncelle (`title`, `description`, `price`, `category`, `stock_quantity`, `image_url`).
-
-**Güvenlik:** `coach` veya `admin` rolü zorunlu, satır sahipliği doğrulanır.
-
----
-
-## 2) Hook — `src/hooks/useStoreMutations.ts`
-
-Yeni mutation:
 ```ts
-useUpdateProduct(): {
-  mutateAsync({
-    id, title?, description?, price?, category?,
-    stockQuantity?, imageFile?: File | null
-  })
+{
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  foodName: string;
+  servings: ApiServing[];          // raw array from edge function
+  onConfirm: (result: PortionResult) => void;
 }
 ```
-- Yeni `imageFile` varsa `products` bucket'a upload, public URL al, eski path opsiyonel olarak silinir.
-- `update-shopify-product` edge function çağrılır.
-- Başarıda `coach-products` query invalidate.
-- Hata mesajları mevcut `useCreateProduct` ile aynı pattern (ACCESS_DENIED/UNAUTHORIZED parse).
 
----
+Behavior:
+- Servings dropdown (`<Select>`) — default = first serving.
+- Detect 100g/100ml metric mode:
+  ```ts
+  const is100Mode =
+    /^(100\s?g|100\s?ml)$/i.test(selected?.serving_description ?? "") ||
+    (Number(selected?.metric_serving_amount) === 100 &&
+      ["g", "ml"].includes(String(selected?.metric_serving_unit).toLowerCase()));
+  ```
+- Quantity `<Input type="number">`:
+  - `is100Mode` → default `100`, step `10`, label "Miktar (g/ml)".
+  - else → default `1`, step `0.5`, label "Miktar".
+- `multiplier = is100Mode ? quantity / 100 : quantity`.
+- Live macro preview (kcal / P / C / F) with the same color tokens used elsewhere in builder.
+- On confirm, build:
+  ```ts
+  const unit = is100Mode
+    ? (selected.metric_serving_unit || "g")
+    : (selected.serving_description || "Adet");
+  const serving_size = `${quantity} × ${unit}`;
+  ```
+  and emit `{ kcal, protein, carbs, fat, serving_size, amount: quantity, unit }`.
 
-## 3) UI — `src/pages/StoreManager.tsx`
+### 2. UPDATE — `src/components/program-architect/ProgramLibrary.tsx`
 
-### a) Düzenle akışı
-- Her ürün kartına **kalem ikonu** (Edit2) buton: tıklayınca **Dialog** açar (mevcut `@/components/ui/dialog`).
-- Dialog içerik: oluşturma formuyla aynı alanlar (görsel önizleme + opsiyonel yeni görsel yükleme, başlık, açıklama, fiyat, kategori, fiziksel ise stok adedi). Ürün tipi ve Shopify taksonomi alanları **read-only** gösterilir (kategoriyi değiştirmek farklı bir Shopify operasyonu; bu plana dahil değil).
-- "Kaydet" → `useUpdateProduct` çağırır → toast → dialog kapanır.
+- Extend `LibraryItem` (locally) with optional `api_food_id?: string` and `serving_size?: string`.
+- In the nutrition search mapper (lines ~468–479), preserve `api_food_id: item.food_id ?? item.id`.
+- New state: `portionLoadingId`, `portionDialog: { open, foodName, servings } | null`.
+- Replace direct call path for API items inside `handleAddWithSync`:
+  - If `item.id.startsWith("api-")` and has `api_food_id`:
+    1. set `portionLoadingId = item.id` → row shows `<Loader2 />` instead of `+`.
+    2. `await supabase.functions.invoke("search-food", { body: { food_id: item.api_food_id } })`.
+    3. Open `FoodPortionDialog` with `data.servings`.
+    4. On confirm, build the enriched item:
+       ```ts
+       const enriched = {
+         ...item,
+         kcal: result.kcal,
+         protein: result.protein,
+         carbs: result.carbs,
+         fats: result.fat,
+         serving_size: result.serving_size,
+       };
+       ```
+       then call existing sync logic (`onAddItem(enriched)` + `food_items` upsert with `serving_size: result.serving_size`).
+- Coach foods that are not API-sourced keep current behavior (no dialog).
+- Pass `portionLoadingId` into `LibraryItemCard` so it can swap `+` → `Loader2`.
 
-### b) "Tükendi" rozeti
-- Ürün kartında, `product_type === "physical"` ve `stock_quantity === 0` ise kart sağ üst köşesine **kırmızı `Badge` "Tükendi"** (absolute pozisyon, görsel üzerine).
-- Stok satırındaki `{stock_quantity} adet` metni 0 ise `text-destructive` ile renklendir.
-- Dijital ürünlerde rozet gösterilmez (∞).
+### 3. UPDATE — `src/components/program-architect/NutritionBuilder.tsx`
 
----
+Avoid double-scaling for items already prorated by the dialog.
 
-## 4) Veritabanı
-Şema değişikliği yok. Mevcut kolonlar (`title`, `description`, `price`, `category`, `stock_quantity`, `image_url`) güncellenir.
+- Extend `NutritionItem` with `serving_size?: string`.
+- New `calcFactor`:
+  ```ts
+  function calcFactor(item: NutritionItem) {
+    if (item.serving_size) return item.amount;          // per-portion: amount is the multiplier of "1 serving"
+    return item.unit === "adet" ? item.amount : item.amount / 100;
+  }
+  ```
+  When the dialog set `amount = quantity` and macros are already for that quantity, we want `multiplier = 1` per row by default. To stay consistent with the editable amount input, set `amount = 1` on insert and store the `quantity × unit` string in `serving_size`. Update insertion in ProgramLibrary accordingly.
+- Render the unit label cleanly: if `item.serving_size` exists, show it next to amount input (e.g. "× 50 g") and hide the raw `unit` text.
 
----
+### 4. Acknowledgement
 
-## 5) Scope/Secrets
-Mevcut `write_products` + `write_inventory` yeterli. Yeni secret yok.
+No edge functions modified. `supabase/functions/search-food/index.ts` remains untouched.
 
----
+## Technical Notes
 
-## Teknik Notlar
-- `productUpdate` mutation Shopify Admin GraphQL `2025-01`+ ile uyumlu (mevcut `_shared/shopify-admin.ts` kullanılır).
-- Stok 0'a düşürmek "Tükendi" rozetini otomatik aktive eder; ayrıca pasifleştirme (is_active=false) durumunu **etkilemez** (zaten "Pasif" yazısı var).
-- Görsel değişikliği best-effort: `productCreateMedia` ile yeni görsel eklenir; eski medyanın Shopify tarafında silinmesi bu plana dahil değil (istenirse genişletilir).
+- Servings array shape assumed: `{ serving_id, serving_description, metric_serving_amount, metric_serving_unit, calories, protein, carbohydrate, fat }`. Map `carbohydrate → carbs`.
+- Toast on dialog confirm: "Besin {quantity}{unit} olarak eklendi".
+- All colors via existing semantic tokens (warning / success / blue-500 / purple-500) already used in the builder.
