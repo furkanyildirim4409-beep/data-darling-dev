@@ -716,6 +716,36 @@ export type Database = {
           },
         ]
       }
+      chat_rooms: {
+        Row: {
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          room_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          room_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          room_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       checkin_edit_logs: {
         Row: {
           checkin_id: string
