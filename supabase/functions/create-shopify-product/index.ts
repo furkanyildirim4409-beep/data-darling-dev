@@ -216,8 +216,13 @@ Deno.serve(async (req) => {
   } = parsed.data;
 
   const isDigital = productType === "digital";
-  // Physical products always track inventory; digital never do.
-  const trackInventory = isDigital ? false : true;
+  // Physical products always track inventory and require shipping; digital never do.
+  const trackInventory = !isDigital;
+  const requiresShipping = !isDigital;
+  // Default stock for physical products if client did not specify.
+  const effectiveStock = isDigital
+    ? null
+    : (stockQuantity ?? 999);
   const warnings: Record<string, unknown> = {};
 
   try {
@@ -277,52 +282,52 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3) Set inventory quantity (only when tracked + qty provided)
-    if (trackInventory && stockQuantity !== null && stockQuantity !== undefined && inventoryItemId) {
-      try {
-        const locData = await shopifyAdminGraphQL<any>(LOCATIONS_QUERY, {});
-        const locationId: string | undefined = locData?.locations?.nodes?.[0]?.id;
-        if (locationId) {
-          const invData = await shopifyAdminGraphQL<any>(INVENTORY_SET_QUANTITIES, {
-            input: {
-              name: "available",
-              reason: "correction",
-              ignoreCompareQuantity: true,
-              quantities: [
-                {
-                  inventoryItemId,
-                  locationId,
-                  quantity: stockQuantity,
-                },
-              ],
-            },
-          });
-          const invErrors: ShopifyUserError[] =
-            invData?.inventorySetQuantities?.userErrors ?? [];
-          if (invErrors.length > 0) warnings.inventory = invErrors;
-        } else {
-          warnings.inventory = "No location found";
-        }
-      } catch (invErr) {
-        warnings.inventory = invErr instanceof Error ? invErr.message : "Inventory update failed";
+    // 3) Set inventory quantity (always for physical products; default 999 if unspecified)
+    if (!isDigital && inventoryItemId && effectiveStock !== null) {
+      const locData = await shopifyAdminGraphQL<any>(LOCATIONS_QUERY, {});
+      const locationId: string | undefined = locData?.locations?.nodes?.[0]?.id;
+      if (!locationId) {
+        return jsonResponse(
+          { error: "No Shopify location found to set inventory", productId, variantId },
+          502,
+        );
+      }
+      const invData = await shopifyAdminGraphQL<any>(INVENTORY_SET_QUANTITIES, {
+        input: {
+          name: "available",
+          reason: "correction",
+          ignoreCompareQuantity: true,
+          quantities: [{ inventoryItemId, locationId, quantity: effectiveStock }],
+        },
+      });
+      const invErrors: ShopifyUserError[] =
+        invData?.inventorySetQuantities?.userErrors ?? [];
+      if (invErrors.length > 0) {
+        return jsonResponse(
+          { error: "inventorySetQuantities failed", details: invErrors, productId, variantId },
+          400,
+        );
       }
     }
 
-    // 4) Publish to all sales channels (publications)
-    try {
-      const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
-      const pubs: Array<{ id: string }> = pubData?.publications?.nodes ?? [];
-      if (pubs.length > 0) {
-        const publishData = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
-          id: productId,
-          input: pubs.map((p) => ({ publicationId: p.id })),
-        });
-        const pubErrors: ShopifyUserError[] =
-          publishData?.publishablePublish?.userErrors ?? [];
-        if (pubErrors.length > 0) warnings.publications = pubErrors;
+    // 4) Publish to all sales channels (publications) — hard-fail if it errors
+    const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
+    const pubs: Array<{ id: string }> = pubData?.publications?.nodes ?? [];
+    if (pubs.length === 0) {
+      warnings.publications = "No publications/sales channels found on this store";
+    } else {
+      const publishData = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
+        id: productId,
+        input: pubs.map((p) => ({ publicationId: p.id })),
+      });
+      const pubErrors: ShopifyUserError[] =
+        publishData?.publishablePublish?.userErrors ?? [];
+      if (pubErrors.length > 0) {
+        return jsonResponse(
+          { error: "publishablePublish failed", details: pubErrors, productId, variantId },
+          400,
+        );
       }
-    } catch (pubErr) {
-      warnings.publications = pubErr instanceof Error ? pubErr.message : "Publish failed";
     }
 
     // 5) productCreateMedia – attach image (best-effort)
