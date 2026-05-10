@@ -76,6 +76,18 @@ const INVENTORY_SET_QUANTITIES = `
     }
   }`;
 
+const PUBLICATIONS_QUERY = `
+  query publications {
+    publications(first: 25) { nodes { id name } }
+  }`;
+
+const PUBLISHABLE_PUBLISH = `
+  mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+    publishablePublish(id: $id, input: $input) {
+      userErrors { field message }
+    }
+  }`;
+
 function mapShopifyError(err: ShopifyAdminError) {
   const msg = err.message ?? "";
   if (err.status === 403 || /access denied|required access/i.test(msg)) {
