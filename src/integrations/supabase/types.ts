@@ -2237,6 +2237,54 @@ export type Database = {
           },
         ]
       }
+      stripe_transactions: {
+        Row: {
+          amount_total: number
+          athlete_id: string | null
+          cart_payload: Json
+          coach_ids: string[]
+          created_at: string
+          currency: string
+          id: string
+          raw_event: Json
+          shopify_order_id: string | null
+          shopify_order_name: string | null
+          status: string
+          stripe_payment_intent: string | null
+          stripe_session_id: string
+        }
+        Insert: {
+          amount_total: number
+          athlete_id?: string | null
+          cart_payload: Json
+          coach_ids?: string[]
+          created_at?: string
+          currency?: string
+          id?: string
+          raw_event: Json
+          shopify_order_id?: string | null
+          shopify_order_name?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id: string
+        }
+        Update: {
+          amount_total?: number
+          athlete_id?: string | null
+          cart_payload?: Json
+          coach_ids?: string[]
+          created_at?: string
+          currency?: string
+          id?: string
+          raw_event?: Json
+          shopify_order_id?: string | null
+          shopify_order_name?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string
+        }
+        Relationships: []
+      }
       supplement_template_items: {
         Row: {
           dosage: string | null
