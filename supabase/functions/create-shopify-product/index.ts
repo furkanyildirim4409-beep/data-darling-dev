@@ -216,8 +216,13 @@ Deno.serve(async (req) => {
   } = parsed.data;
 
   const isDigital = productType === "digital";
-  // Physical products always track inventory; digital never do.
-  const trackInventory = isDigital ? false : true;
+  // Physical products always track inventory and require shipping; digital never do.
+  const trackInventory = !isDigital;
+  const requiresShipping = !isDigital;
+  // Default stock for physical products if client did not specify.
+  const effectiveStock = isDigital
+    ? null
+    : (stockQuantity ?? 999);
   const warnings: Record<string, unknown> = {};
 
   try {
