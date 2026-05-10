@@ -188,6 +188,51 @@ Deno.serve(async (req) => {
       if (errs.length > 0) return jsonResponse({ error: "price update failed", details: errs }, 400);
     }
 
+    // 2b) Self-heal: ensure status ACTIVE + variant tracked & requiresShipping for physical
+    if (row.shopify_product_id) {
+      try {
+        await shopifyAdminGraphQL<any>(PRODUCT_UPDATE, {
+          input: { id: row.shopify_product_id, status: "ACTIVE" },
+        });
+      } catch (e) {
+        warnings.statusHeal = e instanceof Error ? e.message : "status heal failed";
+      }
+    }
+    if (!isDigital && row.shopify_product_id && row.shopify_variant_id) {
+      try {
+        await shopifyAdminGraphQL<any>(VARIANTS_BULK_UPDATE, {
+          productId: row.shopify_product_id,
+          variants: [
+            {
+              id: row.shopify_variant_id,
+              inventoryPolicy: "DENY",
+              inventoryItem: { tracked: true, requiresShipping: true },
+            },
+          ],
+        });
+      } catch (e) {
+        warnings.variantHeal = e instanceof Error ? e.message : "variant heal failed";
+      }
+    }
+
+    // 2c) Best-effort republish to all sales channels
+    if (row.shopify_product_id) {
+      try {
+        const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
+        const pubs: Array<{ id: string }> = pubData?.publications?.nodes ?? [];
+        if (pubs.length > 0) {
+          const pubRes = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
+            id: row.shopify_product_id,
+            input: pubs.map((p) => ({ publicationId: p.id })),
+          });
+          const errs: ShopifyUserError[] = pubRes?.publishablePublish?.userErrors ?? [];
+          if (errs.length > 0) warnings.publications = errs;
+        }
+      } catch (e) {
+        warnings.publications = e instanceof Error ? e.message : "publish heal failed";
+      }
+    }
+
     // 3) Stock update (physical only)
     if (!isDigital && row.shopify_variant_id && stockQuantity !== undefined && stockQuantity !== null) {
       try {
