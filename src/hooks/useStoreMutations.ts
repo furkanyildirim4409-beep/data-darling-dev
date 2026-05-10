@@ -214,9 +214,10 @@ export function useUpdateProduct() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["coach-products"] });
       toast.success("Ürün güncellendi ve Shopify'a senkronize edildi.");
+      if (data?.warnings) toast.warning(`Shopify uyarıları: ${JSON.stringify(data.warnings)}`);
     },
     onError: (err: Error) => {
       toast.error(err.message || "Ürün güncellenemedi.");
