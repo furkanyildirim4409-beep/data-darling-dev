@@ -310,24 +310,56 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4) Publish to all sales channels (publications) — hard-fail if it errors
-    const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
-    const pubs: Array<{ id: string }> = pubData?.publications?.nodes ?? [];
-    if (pubs.length === 0) {
-      warnings.publications = "No publications/sales channels found on this store";
-    } else {
-      const publishData = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
-        id: productId,
-        input: pubs.map((p) => ({ publicationId: p.id })),
-      });
-      const pubErrors: ShopifyUserError[] =
-        publishData?.publishablePublish?.userErrors ?? [];
-      if (pubErrors.length > 0) {
-        return jsonResponse(
-          { error: "publishablePublish failed", details: pubErrors, productId, variantId },
-          400,
-        );
+    // 4) Publish to ALL sales channels (publications) — publish per-publication so
+    //    one failing channel does not block the others. Surface per-channel results.
+    try {
+      const pubData = await shopifyAdminGraphQL<any>(PUBLICATIONS_QUERY, {});
+      const pubs: Array<{ id: string; name: string }> = pubData?.publications?.nodes ?? [];
+      console.log(`[publish] found ${pubs.length} publications:`, pubs.map((p) => p.name).join(", "));
+
+      if (pubs.length === 0) {
+        warnings.publications = "No publications/sales channels found on this store. Grant write_publications scope.";
+      } else {
+        const publishedTo: string[] = [];
+        const failedTo: Array<{ name: string; errors: ShopifyUserError[] | string }> = [];
+        for (const pub of pubs) {
+          try {
+            const publishData = await shopifyAdminGraphQL<any>(PUBLISHABLE_PUBLISH, {
+              id: productId,
+              input: [{ publicationId: pub.id }],
+            });
+            const pubErrors: ShopifyUserError[] = publishData?.publishablePublish?.userErrors ?? [];
+            if (pubErrors.length > 0) {
+              failedTo.push({ name: pub.name, errors: pubErrors });
+              console.warn(`[publish] ${pub.name} failed:`, pubErrors);
+            } else {
+              publishedTo.push(pub.name);
+              console.log(`[publish] ${pub.name} OK`);
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "unknown";
+            failedTo.push({ name: pub.name, errors: msg });
+            console.warn(`[publish] ${pub.name} threw:`, msg);
+          }
+        }
+        if (publishedTo.length === 0) {
+          return jsonResponse(
+            {
+              error: "publishablePublish failed for all sales channels",
+              details: failedTo,
+              productId,
+              variantId,
+            },
+            400,
+          );
+        }
+        if (failedTo.length > 0) warnings.publications = { publishedTo, failedTo };
+        else warnings.publishedTo = publishedTo;
       }
+    } catch (pubErr) {
+      const msg = pubErr instanceof Error ? pubErr.message : "publications query failed";
+      console.error("[publish] publications query threw:", msg);
+      warnings.publications = msg;
     }
 
     // 5) productCreateMedia – attach image (best-effort)
