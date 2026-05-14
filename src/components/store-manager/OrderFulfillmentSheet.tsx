@@ -118,14 +118,15 @@ export default function OrderFulfillmentSheet({
     }
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: "shipped",
-          tracking_number: trackingNumber.trim(),
-          tracking_url: trackingUrl.trim() || null,
-        })
-        .eq("id", order.id);
+      const { error } = await supabase.functions.invoke("handle-universal-orders", {
+        body: {
+          action: "ship",
+          orderId: order.id,
+          trackingNumber: trackingNumber.trim(),
+          trackingUrl: trackingUrl.trim() || null,
+          carrierName: order.carrier_name || "Other",
+        },
+      });
       if (error) throw error;
       toast.success("Sipariş başarıyla kargolandı!");
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
@@ -141,10 +142,12 @@ export default function OrderFulfillmentSheet({
   const handleMarkDelivered = async () => {
     setIsCompleting(true);
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "completed" })
-        .eq("id", order.id);
+      const { error } = await supabase.functions.invoke("handle-universal-orders", {
+        body: {
+          action: "deliver",
+          orderId: order.id,
+        },
+      });
       if (error) throw error;
       toast.success("Sipariş teslim edildi olarak işaretlendi!");
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
