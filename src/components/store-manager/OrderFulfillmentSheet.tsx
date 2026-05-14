@@ -68,6 +68,19 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: "İade Edildi",
 };
 
+const getFunctionErrorMessage = async (error: any) => {
+  const fallback = error?.message ?? "Bilinmeyen hata";
+  try {
+    const response = error?.context?.response;
+    const text = await response?.text?.();
+    if (!text) return fallback;
+    const parsed = JSON.parse(text);
+    return parsed?.message || parsed?.error || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export default function OrderFulfillmentSheet({
   order,
   open,
@@ -118,20 +131,21 @@ export default function OrderFulfillmentSheet({
     }
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: "shipped",
-          tracking_number: trackingNumber.trim(),
-          tracking_url: trackingUrl.trim() || null,
-        })
-        .eq("id", order.id);
+      const { error } = await supabase.functions.invoke("handle-universal-orders", {
+        body: {
+          action: "ship",
+          orderId: order.id,
+          trackingNumber: trackingNumber.trim(),
+          trackingUrl: trackingUrl.trim() || null,
+          carrierName: order.carrier_name || "Other",
+        },
+      });
       if (error) throw error;
       toast.success("Sipariş başarıyla kargolandı!");
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
       onOpenChange(false);
     } catch (e: any) {
-      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+      toast.error("İşlem başarısız: " + await getFunctionErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -141,16 +155,18 @@ export default function OrderFulfillmentSheet({
   const handleMarkDelivered = async () => {
     setIsCompleting(true);
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "completed" })
-        .eq("id", order.id);
+      const { error } = await supabase.functions.invoke("handle-universal-orders", {
+        body: {
+          action: "deliver",
+          orderId: order.id,
+        },
+      });
       if (error) throw error;
       toast.success("Sipariş teslim edildi olarak işaretlendi!");
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
       onOpenChange(false);
     } catch (e: any) {
-      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+      toast.error("İşlem başarısız: " + await getFunctionErrorMessage(e));
     } finally {
       setIsCompleting(false);
     }
