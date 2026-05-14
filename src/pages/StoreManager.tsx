@@ -53,6 +53,8 @@ import {
   useUpdateProduct,
   useUpdateProductStatus,
 } from "@/hooks/useStoreMutations";
+import { useStoreOrders } from "@/hooks/useStoreOrders";
+import StoreOrdersList from "@/components/store-manager/StoreOrdersList";
 
 const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
 
