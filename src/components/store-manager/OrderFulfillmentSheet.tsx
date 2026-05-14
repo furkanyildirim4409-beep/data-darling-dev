@@ -68,6 +68,19 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: "İade Edildi",
 };
 
+const getFunctionErrorMessage = async (error: any) => {
+  const fallback = error?.message ?? "Bilinmeyen hata";
+  try {
+    const response = error?.context?.response;
+    const text = await response?.text?.();
+    if (!text) return fallback;
+    const parsed = JSON.parse(text);
+    return parsed?.message || parsed?.error || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export default function OrderFulfillmentSheet({
   order,
   open,
@@ -132,7 +145,7 @@ export default function OrderFulfillmentSheet({
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
       onOpenChange(false);
     } catch (e: any) {
-      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+      toast.error("İşlem başarısız: " + await getFunctionErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +166,7 @@ export default function OrderFulfillmentSheet({
       await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
       onOpenChange(false);
     } catch (e: any) {
-      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+      toast.error("İşlem başarısız: " + await getFunctionErrorMessage(e));
     } finally {
       setIsCompleting(false);
     }
