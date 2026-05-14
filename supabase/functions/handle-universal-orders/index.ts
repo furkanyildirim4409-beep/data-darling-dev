@@ -14,7 +14,10 @@ const DirectActionSchema = z.discriminatedUnion("action", [
     action: z.literal("ship"),
     orderId: z.string().uuid(),
     trackingNumber: z.string().min(1).max(255),
-    trackingUrl: z.string().url().max(2_000).nullable().optional(),
+    trackingUrl: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z.string().url().max(2_000).nullable().optional(),
+    ),
     carrierName: z.string().min(1).max(120).default("Other"),
   }),
   z.object({
