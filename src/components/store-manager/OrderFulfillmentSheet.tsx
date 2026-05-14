@@ -137,7 +137,6 @@ export default function OrderFulfillmentSheet({
     }
   };
 
-  const [isCompleting, setIsCompleting] = useState(false);
 
   const handleMarkDelivered = async () => {
     setIsCompleting(true);
