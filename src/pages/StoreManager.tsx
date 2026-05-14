@@ -264,8 +264,15 @@ export default function StoreManager() {
         </div>
       </div>
 
-      {/* Upload Form */}
-      {canManageStore ? (
+      <Tabs defaultValue="products" className="space-y-6">
+        <TabsList className="glass border border-border">
+          <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
+          <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="products" className="space-y-6 mt-0">
+          {/* Upload Form */}
+          {canManageStore ? (
         <div className="glass rounded-xl border border-border p-6">
           <h2 className="text-lg font-semibold text-foreground mb-5">
             Yeni Ürün Yükle
