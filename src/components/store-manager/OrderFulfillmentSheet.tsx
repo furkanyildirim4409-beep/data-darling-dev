@@ -91,8 +91,20 @@ export default function OrderFulfillmentSheet({
   const coachName = profile?.full_name ?? "Dynabolic Coach";
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [urlError, setUrlError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+
+  const isValidShopifyUrl = (val: string) => {
+    const v = val.trim();
+    if (!v) return true;
+    try {
+      const u = new URL(v);
+      return u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
 
   const handlePrint = () => {
     requestAnimationFrame(() => window.print());
@@ -127,6 +139,12 @@ export default function OrderFulfillmentSheet({
   const handleSubmit = async () => {
     if (!trackingNumber.trim()) {
       toast.error("Lütfen kargo takip numarası girin.");
+      return;
+    }
+    if (!isValidShopifyUrl(trackingUrl)) {
+      setUrlError(true);
+      toast.error("Lütfen kargo linkinin https:// ile başladığından emin ol.");
+      setTimeout(() => setUrlError(false), 500);
       return;
     }
     setIsSubmitting(true);
@@ -312,10 +330,20 @@ export default function OrderFulfillmentSheet({
                 </Label>
                 <Input
                   value={trackingUrl}
-                  onChange={(e) => setTrackingUrl(e.target.value)}
+                  onChange={(e) => {
+                    setTrackingUrl(e.target.value);
+                    if (urlError) setUrlError(false);
+                  }}
                   placeholder="https://..."
-                  className="bg-background/60"
+                  className={`bg-background/60 transition-colors ${
+                    urlError ? "border-destructive ring-2 ring-destructive/40 animate-shake" : ""
+                  }`}
                 />
+                {urlError && (
+                  <p className="text-xs text-destructive animate-fade-in">
+                    Lütfen kargo linkinin <strong>https://</strong> ile başladığından emin ol.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <Button
