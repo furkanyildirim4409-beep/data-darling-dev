@@ -18,10 +18,13 @@ import {
   MapPin,
   Truck,
   ExternalLink,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import PackingSlipPrintView from "./PackingSlipPrintView";
 
 interface OrderItem {
   id: string;
@@ -271,23 +274,34 @@ export default function OrderFulfillmentSheet({
                   className="bg-background/60"
                 />
               </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    İşleniyor...
-                  </>
-                ) : (
-                  <>
-                    <Truck className="w-4 h-4 mr-2" />
-                    Kargoya Verildi Olarak İşaretle
-                  </>
-                )}
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-4 h-4 mr-2" />
+                      Kargoya Verildi Olarak İşaretle
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrint}
+                  className="w-full sm:w-auto"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Kargo Fişi Yazdır
+                </Button>
+              </div>
             </section>
           ) : hasTracking ? (
             <section className="bg-background/40 backdrop-blur-md border border-white/5 rounded-xl p-4 space-y-3">
@@ -310,9 +324,31 @@ export default function OrderFulfillmentSheet({
                   Kargoyu Takip Et <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrint}
+                className="w-full"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Kargo Fişi Yazdır
+              </Button>
             </section>
-          ) : null}
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePrint}
+              className="w-full"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Kargo Fişi Yazdır
+            </Button>
+          )}
         </div>
+
+        {/* Hidden print-only view */}
+        <PackingSlipPrintView order={order} coachName={coachName} />
       </SheetContent>
     </Sheet>
   );
