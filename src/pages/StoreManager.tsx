@@ -647,6 +647,17 @@ export default function StoreManager() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="orders" className="space-y-6 mt-0">
+          <div
+            id="orders-container"
+            className="glass rounded-xl border border-border p-10 text-center text-muted-foreground"
+          >
+            Siparişler Yükleniyor...
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Product Dialog */}
       <Dialog open={!!editingProduct} onOpenChange={(o) => !o && setEditingProduct(null)}>
