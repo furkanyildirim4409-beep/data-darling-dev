@@ -19,6 +19,7 @@ import {
   Truck,
   ExternalLink,
   Printer,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,6 +133,26 @@ export default function OrderFulfillmentSheet({
       toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const handleMarkDelivered = async () => {
+    setIsCompleting(true);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "completed" })
+        .eq("id", order.id);
+      if (error) throw error;
+      toast.success("Sipariş teslim edildi olarak işaretlendi!");
+      await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -339,6 +360,26 @@ export default function OrderFulfillmentSheet({
                 <Printer className="w-4 h-4 mr-2" />
                 Kargo Fişi Yazdır
               </Button>
+              {order.status === "shipped" && (
+                <Button
+                  type="button"
+                  onClick={handleMarkDelivered}
+                  disabled={isCompleting}
+                  className="w-full"
+                >
+                  {isCompleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Teslim Edildi Olarak İşaretle
+                    </>
+                  )}
+                </Button>
+              )}
             </section>
           ) : (
             <Button
