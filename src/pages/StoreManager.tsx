@@ -92,6 +92,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export default function StoreManager() {
   const { canManageStore } = usePermissions();
   const { data: products, isLoading } = useCoachProducts();
+  const { orders, isLoading: isOrdersLoading } = useStoreOrders();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { mutateAsync: deleteProduct, isPending: isDeleting } = useDeleteProduct();
@@ -652,12 +653,7 @@ export default function StoreManager() {
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-6 mt-0">
-          <div
-            id="orders-container"
-            className="glass rounded-xl border border-border p-10 text-center text-muted-foreground"
-          >
-            Siparişler Yükleniyor...
-          </div>
+          <StoreOrdersList orders={orders} isLoading={isOrdersLoading} />
         </TabsContent>
       </Tabs>
 
