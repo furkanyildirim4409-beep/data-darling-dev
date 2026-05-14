@@ -73,9 +73,15 @@ export default function OrderFulfillmentSheet({
   onOpenChange,
 }: Props) {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const coachName = profile?.full_name ?? "Dynabolic Coach";
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePrint = () => {
+    requestAnimationFrame(() => window.print());
+  };
 
   useEffect(() => {
     if (order) {
