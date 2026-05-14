@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Calendar, MapPin, User } from "lucide-react";
+import OrderFulfillmentSheet from "./OrderFulfillmentSheet";
 
 interface OrderItem {
   id: string;
@@ -96,6 +98,9 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default function StoreOrdersList({ orders, isLoading }: Props) {
+  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -130,53 +135,69 @@ export default function StoreOrdersList({ orders, isLoading }: Props) {
   }
 
   return (
-    <div className="space-y-3">
-      {orders.map((order) => {
-        const addr = order.shipping_address ?? {};
-        const fullName =
-          [addr.firstName, addr.lastName].filter(Boolean).join(" ") ||
-          "Bilinmeyen Müşteri";
-        const location =
-          [addr.city, addr.province].filter(Boolean).join(" / ") || "—";
+    <>
+      <div className="space-y-3">
+        {orders.map((order) => {
+          const addr = order.shipping_address ?? {};
+          const fullName =
+            [addr.firstName, addr.lastName].filter(Boolean).join(" ") ||
+            "Bilinmeyen Müşteri";
+          const location =
+            [addr.city, addr.province].filter(Boolean).join(" / ") || "—";
 
-        return (
-          <div
-            key={order.id}
-            className="bg-background/40 backdrop-blur-md border border-white/5 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[1.2fr_1.4fr_1fr] gap-4 md:items-center hover:border-primary/30 hover:bg-background/60 transition-all duration-200 group"
-          >
-            {/* Left: Order ID + Date */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-sm font-bold text-primary tracking-wider">
-                {shortId(order.id)}
-              </span>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{formatDate(order.created_at)}</span>
+          return (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() => {
+                setSelectedOrder(order);
+                setSheetOpen(true);
+              }}
+              className="w-full text-left bg-background/40 backdrop-blur-md border border-white/5 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[1.2fr_1.4fr_1fr] gap-4 md:items-center hover:border-primary/30 hover:bg-background/60 transition-all duration-200 group cursor-pointer"
+            >
+              {/* Left: Order ID + Date */}
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono text-sm font-bold text-primary tracking-wider">
+                  {shortId(order.id)}
+                </span>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{formatDate(order.created_at)}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Mid: Customer */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <User className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>{fullName}</span>
+              {/* Mid: Customer */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span>{fullName}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>{location}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>{location}</span>
-              </div>
-            </div>
 
-            {/* Right: Total + Status */}
-            <div className="flex md:flex-col md:items-end items-center justify-between gap-2">
-              <span className="text-lg font-bold text-foreground tracking-tight">
-                {formatPrice(order.total_price)}
-              </span>
-              <StatusBadge status={order.status} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+              {/* Right: Total + Status */}
+              <div className="flex md:flex-col md:items-end items-center justify-between gap-2">
+                <span className="text-lg font-bold text-foreground tracking-tight">
+                  {formatPrice(order.total_price)}
+                </span>
+                <StatusBadge status={order.status} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <OrderFulfillmentSheet
+        order={selectedOrder}
+        open={sheetOpen}
+        onOpenChange={(o) => {
+          setSheetOpen(o);
+          if (!o) setSelectedOrder(null);
+        }}
+      />
+    </>
   );
 }
