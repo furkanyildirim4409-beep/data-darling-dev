@@ -267,10 +267,10 @@ export default function StoreManager() {
         </div>
       </div>
 
-      <Tabs defaultValue="products" className="space-y-6">
+      <Tabs defaultValue="orders" className="space-y-6">
         <TabsList className="glass border border-border">
-          <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
           <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
+          <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6 mt-0">
