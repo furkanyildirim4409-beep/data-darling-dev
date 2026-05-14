@@ -293,3 +293,27 @@
     display: none;
   }
 }
+/* ============ Print: Packing Slip ============ */
+@media screen {
+  #printable-packing-slip { display: none; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #printable-packing-slip,
+  #printable-packing-slip * {
+    visibility: visible;
+    color: #000 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border-color: #000 !important;
+  }
+  #printable-packing-slip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 16mm;
+  }
+  @page { margin: 0; }
+}
