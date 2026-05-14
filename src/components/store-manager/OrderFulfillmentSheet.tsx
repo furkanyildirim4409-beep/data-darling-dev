@@ -91,8 +91,20 @@ export default function OrderFulfillmentSheet({
   const coachName = profile?.full_name ?? "Dynabolic Coach";
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [urlError, setUrlError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+
+  const isValidShopifyUrl = (val: string) => {
+    const v = val.trim();
+    if (!v) return true;
+    try {
+      const u = new URL(v);
+      return u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
 
   const handlePrint = () => {
     requestAnimationFrame(() => window.print());
