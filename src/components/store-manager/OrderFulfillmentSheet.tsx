@@ -79,6 +79,7 @@ export default function OrderFulfillmentSheet({
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const handlePrint = () => {
     requestAnimationFrame(() => window.print());
