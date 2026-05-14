@@ -330,10 +330,20 @@ export default function OrderFulfillmentSheet({
                 </Label>
                 <Input
                   value={trackingUrl}
-                  onChange={(e) => setTrackingUrl(e.target.value)}
+                  onChange={(e) => {
+                    setTrackingUrl(e.target.value);
+                    if (urlError) setUrlError(false);
+                  }}
                   placeholder="https://..."
-                  className="bg-background/60"
+                  className={`bg-background/60 transition-colors ${
+                    urlError ? "border-destructive ring-2 ring-destructive/40 animate-shake" : ""
+                  }`}
                 />
+                {urlError && (
+                  <p className="text-xs text-destructive animate-fade-in">
+                    Lütfen kargo linkinin <strong>https://</strong> ile başladığından emin ol.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <Button
