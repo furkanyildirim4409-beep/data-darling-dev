@@ -131,12 +131,19 @@ export default function OrderFulfillmentSheet({
     }
     setIsSubmitting(true);
     try {
+      const rawUrl = trackingUrl.trim();
+      const normalizedUrl = rawUrl
+        ? rawUrl.startsWith("http://") || rawUrl.startsWith("https://")
+          ? rawUrl
+          : `https://${rawUrl}`
+        : null;
+
       const { error } = await supabase.functions.invoke("handle-universal-orders", {
         body: {
           action: "ship",
           orderId: order.id,
           trackingNumber: trackingNumber.trim(),
-          trackingUrl: trackingUrl.trim() || null,
+          trackingUrl: normalizedUrl,
           carrierName: order.carrier_name || "Other",
         },
       });
