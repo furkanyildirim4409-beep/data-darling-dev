@@ -141,6 +141,12 @@ export default function OrderFulfillmentSheet({
       toast.error("Lütfen kargo takip numarası girin.");
       return;
     }
+    if (!isValidShopifyUrl(trackingUrl)) {
+      setUrlError(true);
+      toast.error("Lütfen kargo linkinin https:// ile başladığından emin ol.");
+      setTimeout(() => setUrlError(false), 500);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { error } = await supabase.functions.invoke("handle-universal-orders", {
