@@ -136,6 +136,26 @@ export default function OrderFulfillmentSheet({
     }
   };
 
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const handleMarkDelivered = async () => {
+    setIsCompleting(true);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "completed" })
+        .eq("id", order.id);
+      if (error) throw error;
+      toast.success("Sipariş teslim edildi olarak işaretlendi!");
+      await queryClient.invalidateQueries({ queryKey: ["store-orders"] });
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error("İşlem başarısız: " + (e?.message ?? "Bilinmeyen hata"));
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   const isProcessing = order.status === "processing";
   const hasTracking = !!order.tracking_number;
 
