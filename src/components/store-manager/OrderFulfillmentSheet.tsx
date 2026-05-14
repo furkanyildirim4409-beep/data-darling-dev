@@ -360,6 +360,26 @@ export default function OrderFulfillmentSheet({
                 <Printer className="w-4 h-4 mr-2" />
                 Kargo Fişi Yazdır
               </Button>
+              {order.status === "shipped" && (
+                <Button
+                  type="button"
+                  onClick={handleMarkDelivered}
+                  disabled={isCompleting}
+                  className="w-full"
+                >
+                  {isCompleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Teslim Edildi Olarak İşaretle
+                    </>
+                  )}
+                </Button>
+              )}
             </section>
           ) : (
             <Button
