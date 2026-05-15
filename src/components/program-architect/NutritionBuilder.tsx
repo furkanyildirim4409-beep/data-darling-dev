@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Apple, X, Clock } from "lucide-react";
+import { Trash2, Apple, X, Clock, Copy, ClipboardPaste } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 
