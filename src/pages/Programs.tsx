@@ -115,10 +115,12 @@ export default function Programs() {
           name: f.food_name,
           category: "Genel",
           type: "nutrition",
-          kcal: div > 0 ? Math.round((f.calories || 0) / div) : 0,
-          protein: div > 0 ? Math.round((f.protein || 0) / div) : 0,
-          carbs: div > 0 ? Math.round((f.carbs || 0) / div) : 0,
-          fats: div > 0 ? Math.round((f.fat || 0) / div) : 0,
+          // Per-1-base-unit floats — DO NOT round here (small per-unit macros like 0.17g protein/g
+          // would collapse to 0 and re-save would zero them out, then inflate carbs etc.)
+          kcal: div > 0 ? (f.calories || 0) / div : 0,
+          protein: div > 0 ? (f.protein || 0) / div : 0,
+          carbs: div > 0 ? (f.carbs || 0) / div : 0,
+          fats: div > 0 ? (f.fat || 0) / div : 0,
           amount: Number(amount) || 1,
           unit: unitLabel || "g",
           serving_size: unitLabel || "g",
