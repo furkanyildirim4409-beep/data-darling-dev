@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Apple, X, Clock } from "lucide-react";
+import { Trash2, Apple, X, Clock, Copy, ClipboardPaste } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LibraryItem } from "./ProgramLibrary";
 
@@ -23,6 +24,7 @@ interface NutritionBuilderProps {
   setActiveMealId: (id: string) => void;
   activeNutritionDay: number;
   setActiveNutritionDay: (day: number) => void;
+  onPasteDay?: (targetDay: number, sourceItems: NutritionItem[]) => void;
 }
 
 const dayLabels = [
@@ -65,9 +67,12 @@ export function NutritionBuilder({
   setActiveMealId,
   activeNutritionDay,
   setActiveNutritionDay,
+  onPasteDay,
 }: NutritionBuilderProps) {
+  const [copiedDay, setCopiedDay] = useState<number | null>(null);
   // Items for the current day
   const dayItems = selectedItems.filter((item) => item.dayIndex === activeNutritionDay);
+  const copiedItems = copiedDay !== null ? selectedItems.filter((i) => i.dayIndex === copiedDay) : [];
 
   // Get items for a specific meal section
   const getMealItems = (section: typeof mealSections[0]) => {
@@ -141,13 +146,40 @@ export function NutritionBuilder({
 
       {/* Day Title & Total Counter */}
       <div className="px-4 py-2.5 bg-muted/30 border-b border-border">
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1.5 gap-2">
           <span className="font-semibold text-sm text-foreground">
             {dayLabels[activeNutritionDay].full}
           </span>
-          <span className="text-[10px] text-muted-foreground">
-            Haftalık Ort: {weekAvgKcal} kcal/gün
-          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCopiedDay(activeNutritionDay)}
+              disabled={dayItems.length === 0}
+              className="h-6 px-2 text-[10px]"
+              title="Bu günü kopyala"
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              Kopyala
+            </Button>
+            {copiedDay !== null && copiedDay !== activeNutritionDay && copiedItems.length > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  onPasteDay?.(activeNutritionDay, copiedItems);
+                }}
+                className="h-6 px-2 text-[10px] bg-primary text-primary-foreground"
+                title={`${dayLabels[copiedDay].full} gününü buraya yapıştır`}
+              >
+                <ClipboardPaste className="w-3 h-3 mr-1" />
+                Yapıştır ({dayLabels[copiedDay].short})
+              </Button>
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              Haft. Ort: {weekAvgKcal} kcal
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning border-warning/30">
