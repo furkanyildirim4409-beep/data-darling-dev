@@ -22,6 +22,15 @@ type ViewMode = "dashboard" | "builder";
 const createEmptyWeek = (): DayPlan[] =>
   Array.from({ length: 7 }, (_, i) => ({ day: i + 1, label: "", notes: "", blockType: "none" as BlockType, exercises: [] }));
 
+const parseNutritionServing = (servingSize?: string | null) => {
+  const raw = (servingSize || "100g").trim().replace(/\s*×\s*/g, " ");
+  const match = raw.match(/^(\d+\.?\d*)\s+(.*)$/) || raw.match(/^(\d+\.?\d*)(g|ml|adet)$/i);
+  const amount = match ? parseFloat(match[1]) : 1;
+  const unit = match ? String(match[2] || "").trim() : raw;
+  const divisor = match && amount > 0 ? amount : 1;
+  return { amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit: unit || "g", divisor };
+};
+
 export default function Programs() {
   const { user } = useAuth();
   const { validExerciseNames, exerciseLookup } = useValidExercises();
@@ -101,29 +110,20 @@ export default function Programs() {
       };
 
       const nutritionItems: NutritionItem[] = (foods ?? []).map((f) => {
-        const raw = (f.serving_size || "100g").trim();
-        // Prefer "<num> <label>" (with space) → split, else fall back to "<num><g|ml|adet>"
-        const m = raw.match(/^(\d+\.?\d*)\s+(.*)$/) || raw.match(/^(\d+\.?\d*)(g|ml|adet)$/i);
-        const amount = m ? parseFloat(m[1]) : 1;
-        const unitLabel = m ? String(m[2] || "").trim() : raw;
-
-        const isLegacy100 = /^100\s?(g|ml)$/i.test(raw);
-        const div = isLegacy100 ? 100 : (m ? amount : 1);
+        const { amount, unit, divisor } = parseNutritionServing(f.serving_size);
 
         return {
           id: f.id,
           name: f.food_name,
           category: "Genel",
           type: "nutrition",
-          // Per-1-base-unit floats — DO NOT round here (small per-unit macros like 0.17g protein/g
-          // would collapse to 0 and re-save would zero them out, then inflate carbs etc.)
-          kcal: div > 0 ? (f.calories || 0) / div : 0,
-          protein: div > 0 ? (f.protein || 0) / div : 0,
-          carbs: div > 0 ? (f.carbs || 0) / div : 0,
-          fats: div > 0 ? (f.fat || 0) / div : 0,
-          amount: Number(amount) || 1,
-          unit: unitLabel || "g",
-          serving_size: unitLabel || "g",
+          kcal: divisor > 0 ? Number(f.calories || 0) / divisor : 0,
+          protein: divisor > 0 ? Number(f.protein || 0) / divisor : 0,
+          carbs: divisor > 0 ? Number(f.carbs || 0) / divisor : 0,
+          fats: divisor > 0 ? Number(f.fat || 0) / divisor : 0,
+          amount,
+          unit,
+          serving_size: unit,
           mealId: reverseMealMap[f.meal_type] || "meal-2",
           dayIndex: (f.day_number || 1) - 1,
         };
@@ -239,14 +239,15 @@ export default function Programs() {
       } else {
         const hasPortion = !!item.serving_size;
         const tempAmt = Number((item as any)._tempAmount);
+        const savedAmount = Number((item as any).amount);
         const initialAmount = hasPortion
-          ? (Number.isFinite(tempAmt) && tempAmt > 0 ? tempAmt : 1)
+          ? (Number.isFinite(tempAmt) && tempAmt > 0 ? tempAmt : (Number.isFinite(savedAmount) && savedAmount > 0 ? savedAmount : 1))
           : 100;
         const newNutrition: NutritionItem = {
           ...item,
           id: `${item.id}-${Date.now()}`,
           amount: initialAmount,
-          unit: item.serving_size || (item.name.includes("(Adet)") ? "adet" : "g"),
+          unit: item.unit || item.serving_size || (item.name.includes("(Adet)") ? "adet" : "g"),
           serving_size: item.serving_size,
           mealId: activeMealId,
           dayIndex: activeNutritionDay,
