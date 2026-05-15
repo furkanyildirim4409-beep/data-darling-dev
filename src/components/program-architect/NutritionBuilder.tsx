@@ -24,6 +24,7 @@ interface NutritionBuilderProps {
   setActiveMealId: (id: string) => void;
   activeNutritionDay: number;
   setActiveNutritionDay: (day: number) => void;
+  onPasteDay?: (targetDay: number, sourceItems: NutritionItem[]) => void;
 }
 
 const dayLabels = [
