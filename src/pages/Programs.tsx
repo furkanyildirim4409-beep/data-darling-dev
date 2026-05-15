@@ -1016,6 +1016,7 @@ export default function Programs() {
               setActiveMealId={setActiveMealId}
               activeNutritionDay={activeNutritionDay}
               setActiveNutritionDay={setActiveNutritionDay}
+              onPasteDay={handlePasteNutritionDay}
             />
           ) : (
             <SupplementBuilder
