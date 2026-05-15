@@ -46,11 +46,9 @@ const mealSections = [
 
 export function calcFactor(item: NutritionItem) {
   const amt = Number(item.amount) || 0;
-  // Legacy DB rows that stored macros for the entire 100g/100ml chunk
-  if (item.serving_size && /^100\s?(g|ml)$/i.test(item.serving_size)) return amt / 100;
-  // New per-1-base-unit rows: amount IS the multiplier
+  // Nutrition items are normalized to per-1 displayed unit when added or loaded.
   if (item.serving_size) return amt;
-  // Pure raw fallback (no serving_size)
+  // Pure raw fallback from old local library rows with per-100g macros.
   return item.unit === "adet" ? amt : amt / 100;
 }
 
