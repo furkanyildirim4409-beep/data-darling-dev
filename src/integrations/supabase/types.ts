@@ -1791,6 +1791,8 @@ export type Database = {
           comment: string | null
           created_at: string
           id: string
+          image_url: string | null
+          is_approved: boolean
           product_id: string
           rating: number
           user_id: string
@@ -1799,6 +1801,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
+          is_approved?: boolean
           product_id: string
           rating: number
           user_id: string
@@ -1807,6 +1811,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
+          is_approved?: boolean
           product_id?: string
           rating?: number
           user_id?: string
@@ -2901,6 +2907,15 @@ export type Database = {
       link_athlete_to_coach: {
         Args: { _athlete_email: string; _coach_id: string }
         Returns: Json
+      }
+      process_challenge_resolution: {
+        Args: {
+          _challenge_id: string
+          _loser_id: string
+          _wager: number
+          _winner_id: string
+        }
+        Returns: undefined
       }
       publish_due_social_posts: { Args: never; Returns: number }
       resolve_dispute: {
