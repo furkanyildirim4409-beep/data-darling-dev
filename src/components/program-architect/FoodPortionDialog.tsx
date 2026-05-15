@@ -44,7 +44,54 @@ const num = (v: any) => {
 };
 
 export function FoodPortionDialog({ open, onOpenChange, foodName, servings, onConfirm }: Props) {
-  const safeServings = servings?.length ? servings : [];
+  // Enrich: if the API only returned descriptive servings (e.g. "1 cup" with metric grams),
+  // synthesize per-100g/ml and per-1g/ml options so users can always scale by mass/volume.
+  const safeServings = useMemo<ApiServing[]>(() => {
+    const base = servings?.length ? [...servings] : [];
+    if (!base.length) return base;
+
+    // Find a reference serving with valid metric grams/ml to derive scaling
+    const ref = base.find((s) => {
+      const amt = num(s.metric_serving_amount);
+      const unit = String(s.metric_serving_unit ?? "").toLowerCase();
+      return amt > 0 && (unit === "g" || unit === "ml");
+    });
+    if (!ref) return base;
+
+    const refAmt = num(ref.metric_serving_amount);
+    const refUnit = String(ref.metric_serving_unit ?? "").toLowerCase();
+    const refCarbs = ref.carbohydrate ?? (ref as any).carbs;
+
+    // per-1 unit values
+    const per1Kcal = num(ref.calories) / refAmt;
+    const per1P = num(ref.protein) / refAmt;
+    const per1C = num(refCarbs) / refAmt;
+    const per1F = num(ref.fat) / refAmt;
+
+    const has100 = base.some((s) => {
+      const d = String(s.serving_description ?? "").trim();
+      const amt = num(s.metric_serving_amount);
+      const unit = String(s.metric_serving_unit ?? "").toLowerCase();
+      return /^(100\s?g|100\s?ml)$/i.test(d) || (amt === 100 && unit === refUnit);
+    });
+
+    const synthetic: ApiServing[] = [];
+    if (!has100) {
+      synthetic.push({
+        serving_id: `synthetic-100-${refUnit}`,
+        serving_description: `100 ${refUnit}`,
+        metric_serving_amount: 100,
+        metric_serving_unit: refUnit,
+        calories: +(per1Kcal * 100).toFixed(2),
+        protein: +(per1P * 100).toFixed(2),
+        carbohydrate: +(per1C * 100).toFixed(2),
+        carbs: +(per1C * 100).toFixed(2),
+        fat: +(per1F * 100).toFixed(2),
+      } as ApiServing);
+    }
+    return [...base, ...synthetic];
+  }, [servings]);
+
   const [idx, setIdx] = useState(0);
   const selected = safeServings[idx];
 
