@@ -67,9 +67,12 @@ export function NutritionBuilder({
   setActiveMealId,
   activeNutritionDay,
   setActiveNutritionDay,
+  onPasteDay,
 }: NutritionBuilderProps) {
+  const [copiedDay, setCopiedDay] = useState<number | null>(null);
   // Items for the current day
   const dayItems = selectedItems.filter((item) => item.dayIndex === activeNutritionDay);
+  const copiedItems = copiedDay !== null ? selectedItems.filter((i) => i.dayIndex === copiedDay) : [];
 
   // Get items for a specific meal section
   const getMealItems = (section: typeof mealSections[0]) => {
