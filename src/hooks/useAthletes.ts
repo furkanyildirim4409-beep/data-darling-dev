@@ -115,30 +115,39 @@ export function useAthletes(): UseAthletesReturn {
     fetchAthletes();
   }, [fetchAthletes]);
 
+  // Keep latest fetcher in a ref so the realtime effect doesn't re-subscribe
+  const fetchAthletesRef = useRef(fetchAthletes);
+  useEffect(() => {
+    fetchAthletesRef.current = fetchAthletes;
+  }, [fetchAthletes]);
+
   // Realtime subscription with unique channel name
   useEffect(() => {
     if (!user || !activeCoachId) return;
 
-    const channel = supabase
-      .channel(`athletes-realtime-${activeCoachId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `coach_id=eq.${activeCoachId}`,
-        },
-        () => {
-          fetchAthletes();
-        }
-      )
-      .subscribe();
+    const channel = supabase.channel(
+      `athletes-realtime-${activeCoachId}-${Math.random().toString(36).slice(2, 8)}`
+    );
+
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "profiles",
+        filter: `coach_id=eq.${activeCoachId}`,
+      },
+      () => {
+        fetchAthletesRef.current();
+      }
+    );
+
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, activeCoachId, fetchAthletes]);
+  }, [user, activeCoachId]);
 
   return { athletes, isLoading, error, refetch: fetchAthletes };
 }
