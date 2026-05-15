@@ -285,6 +285,22 @@ export default function Programs() {
     []
   );
 
+  const handlePasteNutritionDay = useCallback(
+    (targetDay: number, sourceItems: NutritionItem[]) => {
+      setSelectedNutrition((prev) => {
+        const cleared = prev.filter((n) => n.dayIndex !== targetDay);
+        const pasted = sourceItems.map((item) => ({
+          ...item,
+          id: `${item.id.split("-")[0]}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          dayIndex: targetDay,
+        }));
+        return [...cleared, ...pasted];
+      });
+      toast.success("Gün kopyalandı.");
+    },
+    []
+  );
+
   const handleUpdateNutrition = useCallback(
     (id: string, field: keyof NutritionItem, value: number | string) => {
       setSelectedNutrition((prev) =>
