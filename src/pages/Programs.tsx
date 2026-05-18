@@ -716,7 +716,7 @@ export default function Programs() {
             coach_id: user.id,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
-            spotify_url: (editingProgram as any)?.spotify_url ?? null,
+            spotify_url: meta.spotifyUrl || null,
           })
           .select()
           .single();
