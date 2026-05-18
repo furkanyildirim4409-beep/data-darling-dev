@@ -1055,6 +1055,7 @@ export default function Programs() {
           description: editingProgram.description,
           difficulty: editingProgram.difficulty,
           targetGoal: editingProgram.targetGoal,
+          spotifyUrl: editingProgram.spotifyUrl,
         } : null}
       />
 
