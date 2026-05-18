@@ -130,6 +130,25 @@ export function SaveTemplateDialog({
           </div>
 
           {mode === "exercise" && (
+            <div className="space-y-2">
+              <Label htmlFor="program-spotify" className="flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5 text-[#1DB954]" />
+                Spotify Playlist Linki (Opsiyonel)
+              </Label>
+              <div className="relative">
+                <Music className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1DB954]/70 pointer-events-none" />
+                <Input
+                  id="program-spotify"
+                  type="url"
+                  inputMode="url"
+                  placeholder="Örn: https://open.spotify.com/playlist/..."
+                  value={spotifyUrl}
+                  onChange={(e) => setSpotifyUrl(e.target.value)}
+                  className="pl-9 bg-background/40 backdrop-blur-sm border-border/60 focus-visible:ring-[#1DB954]/40"
+                />
+              </div>
+            </div>
+          )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Zorluk</Label>
