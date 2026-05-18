@@ -53,6 +53,26 @@ export interface AssignedProgram {
   day: string;
   exercises: ProgramExercise[];
   coachNote?: string;
+  spotifyUrl?: string | null;
+}
+
+// Per-day workout instance assigned to an athlete (maps to public.assigned_workouts).
+export interface Workout {
+  id: string;
+  workout_name: string;
+  exercises: ProgramExercise[];
+  scheduled_date?: string;
+  day_of_week?: string;
+  spotify_url?: string | null;
+}
+
+// Saved workout blueprint (maps to public.workout_templates).
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  routine_days: unknown;
+  spotify_url?: string | null;
 }
 
 export interface CoachStory {
