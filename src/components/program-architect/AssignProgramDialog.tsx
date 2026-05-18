@@ -268,6 +268,7 @@ export function AssignProgramDialog({
             exercises: exercisesJson as Json,
             status: "pending",
             assignment_batch_id: batchId,
+            spotify_url: (program as any)?.spotify_url ?? null,
           });
         }
       }
