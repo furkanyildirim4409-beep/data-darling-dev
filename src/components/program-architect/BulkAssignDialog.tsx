@@ -202,6 +202,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
         day_notes: string;
         exercises: Json;
         status: string;
+        spotify_url: string | null;
       }> = [];
 
       for (const programId of selectedProgramIds) {
