@@ -189,7 +189,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
       // Fetch all exercises and configs for selected programs in parallel
       const [{ data: allExercises }, { data: allPrograms }] = await Promise.all([
         supabase.from("exercises").select("*").in("program_id", selectedProgramIds),
-        supabase.from("programs").select("id, week_config").in("id", selectedProgramIds),
+        supabase.from("programs").select("id, week_config, spotify_url").in("id", selectedProgramIds),
       ]);
 
       const payload: Array<{
