@@ -125,6 +125,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
       createdAt: new Date(p.created_at ?? Date.now()),
       difficulty: p.difficulty ?? undefined,
       targetGoal: p.target_goal ?? undefined,
+      spotifyUrl: (p as any).spotify_url ?? null,
       blockType: p.target_goal === "hypertrophy"
         ? "hypertrophy"
         : p.target_goal === "strength"
