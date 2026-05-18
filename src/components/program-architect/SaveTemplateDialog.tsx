@@ -41,6 +41,7 @@ export function SaveTemplateDialog({
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [targetGoal, setTargetGoal] = useState("");
+  const [spotifyUrl, setSpotifyUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isEditing = !!editingProgram;
@@ -52,6 +53,7 @@ export function SaveTemplateDialog({
       setDescription(editingProgram.description);
       setDifficulty(editingProgram.difficulty ?? "");
       setTargetGoal(editingProgram.targetGoal ?? "");
+      setSpotifyUrl(editingProgram.spotifyUrl ?? "");
     }
   });
 
@@ -62,11 +64,13 @@ export function SaveTemplateDialog({
       setDescription(editingProgram.description);
       setDifficulty(editingProgram.difficulty ?? "");
       setTargetGoal(editingProgram.targetGoal ?? "");
+      setSpotifyUrl(editingProgram.spotifyUrl ?? "");
     } else if (newOpen && !editingProgram) {
       setTitle("");
       setDescription("");
       setDifficulty("");
       setTargetGoal("");
+      setSpotifyUrl("");
     }
     onOpenChange(newOpen);
   };
@@ -75,11 +79,12 @@ export function SaveTemplateDialog({
     if (!title.trim() || itemCount === 0) return;
     setSaving(true);
     try {
-      await onSave({ title: title.trim(), description: description.trim(), difficulty, targetGoal });
+      await onSave({ title: title.trim(), description: description.trim(), difficulty, targetGoal, spotifyUrl: spotifyUrl.trim() });
       setTitle("");
       setDescription("");
       setDifficulty("");
       setTargetGoal("");
+      setSpotifyUrl("");
       onOpenChange(false);
     } finally {
       setSaving(false);
