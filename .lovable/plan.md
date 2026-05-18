@@ -1,98 +1,79 @@
-## Printable Packing Slip & Barcode — Part 4/4
+# Plan: Add `spotify_url` to Workout Schema (Coach App, Part 1/2)
 
-### Goal
-Add a print-ready packing slip / shipping label coaches can print directly from the `OrderFulfillmentSheet`. Black & white, minimalist, thermal-printer friendly, with a barcode visual derived from the order ID.
+## Schema Reality Check
 
----
+The brief references tables `workouts` and `workout_templates`. In this database:
 
-### Step A: `PackingSlipPrintView.tsx` (new)
+- `workouts` — **does not exist**
+- `workout_templates` — exists (`id`, `coach_id`, `name`, `description`, `routine_days jsonb`, `created_at`)
+- `assigned_workouts` — per-day workout instance for an athlete (`workout_name`, `exercises jsonb`, `scheduled_date`, …)
+- `programs` — multi-week program container with `is_template` flag and `week_config jsonb`
 
-**File:** `src/components/store-manager/PackingSlipPrintView.tsx`
+The closest equivalent to "a workout" in this codebase is `assigned_workouts` (and conceptually `programs` for the parent plan). `workout_templates` matches directly.
 
-**Props:**
+## Step A — Database Migration
+
+Add nullable `spotify_url TEXT` to the three workout-related tables:
+
+```sql
+ALTER TABLE public.assigned_workouts ADD COLUMN spotify_url TEXT;
+ALTER TABLE public.workout_templates ADD COLUMN spotify_url TEXT;
+ALTER TABLE public.programs          ADD COLUMN spotify_url TEXT;
+```
+
+No RLS changes needed — existing policies cover the new column. No default; the field is optional.
+
+After migration, `src/integrations/supabase/types.ts` auto-regenerates with the new column.
+
+## Step B — Shared Models
+
+`src/types/shared-models.ts` does not currently model `Workout` or `WorkoutTemplate` directly. The closest interface is `AssignedProgram`. Add an optional Spotify field there, and introduce two new interfaces so future code has a typed surface:
+
 ```ts
-interface Props {
-  order: OrderItem;
-  coachName?: string;
+export interface AssignedProgram {
+  // ...existing fields
+  spotifyUrl?: string | null;  // NEW
+}
+
+export interface Workout {
+  id: string;
+  workout_name: string;
+  exercises: ProgramExercise[];
+  scheduled_date?: string;
+  spotify_url?: string | null;
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  routine_days: unknown;
+  spotify_url?: string | null;
 }
 ```
 
-**Structure:** Root `<div id="printable-packing-slip">`. Always rendered when an order is present, but hidden in normal viewing via global print CSS.
+## Step C — Save Mutations
 
-**Layout:**
-1. **Header band**
-   - Left: bold "DYNABOLIC LOGISTICS" wordmark + smaller "Packing Slip / Kargo Fişi"
-   - Right: Order date + short order ID (`#ORD-XXXX`)
-2. **Barcode block** — Pure SVG generated from order ID:
-   - Hash the cleaned order ID into a deterministic series of bar widths (1–3px) across ~80 bars.
-   - Render as black `<rect>` elements inside an SVG, with the full UUID printed monospace below.
-3. **From / To grid (2 columns)**
-   - **Gönderen (From):** Coach name (or "Dynabolic Coach"), system address line.
-   - **Alıcı (To):** Customer full name, phone, full address (street, zip, city, province, country).
-4. **Contents table** — minimal `<table>` with columns: `#`, `Ürün`, `Adet`. Maps `order.items` (skip price for label simplicity, but include qty totals at bottom).
-5. **Footer** — "Toplam Adet: N" + "Bu fiş Dynabolic tarafından üretilmiştir." + reprint timestamp.
+Workout creation/update is **not** in `useStoreMutations.ts` (that file is for the e-commerce store). The real save paths are:
 
-**Visual rules (inline styles + classes):**
-- Pure black on white. No glass, no neon. `font-family: ui-sans-serif, system-ui`. Strong borders.
-- Width capped at `100mm` for thermal-friendly preview, expands to full page in print.
+- `src/components/program-architect/WorkoutBuilder.tsx` + `src/pages/Programs.tsx` — program/workout authoring → writes to `programs` / `exercises` / `assigned_workouts`
+- `src/components/program-architect/AssignProgramDialog.tsx` + `src/utils/dietAssignment.ts`-style helpers — bulk inserts into `assigned_workouts`
+- `src/components/program-architect/SaveTemplateDialog.tsx` — writes to `workout_templates`
 
-### Step B: Global Print CSS
+I will plumb `spotify_url` through these payloads so it round-trips on create/update without altering existing exercise/program logic.
 
-**File:** `src/index.css` — append a print block:
-```css
-@media print {
-  body * { visibility: hidden; }
-  #printable-packing-slip,
-  #printable-packing-slip * {
-    visibility: visible;
-    color: black !important;
-    background: white !important;
-    box-shadow: none !important;
-    border-color: black !important;
-  }
-  #printable-packing-slip {
-    position: absolute;
-    left: 0; top: 0;
-    width: 100%;
-    padding: 16mm;
-  }
-  @page { margin: 0; }
-}
+## Out of Scope (Part 2)
 
-/* Hide the print view during normal browsing */
-@media screen {
-  #printable-packing-slip { display: none; }
-}
-```
+- UI input for the Spotify URL in WorkoutBuilder/SaveTemplateDialog
+- URL format validation (`open.spotify.com/...` / `spotify:` schemes)
+- Mobile-side deep-link rendering
 
-This guarantees the slip is invisible on screen, visible on print, and overrides the dark theme so output is pure B&W.
+## One Confirmation Before I Run the Migration
 
-### Step C: Trigger in `OrderFulfillmentSheet.tsx`
+The brief lists `workouts` (doesn't exist here) and `workout_templates`. Which mapping do you want?
 
-- Import `Printer` icon and `PackingSlipPrintView`.
-- Fetch coach name lazily — pass `order.shipping_address.coachName` if available, otherwise the current authenticated user's display name from `useAuth` (fallback "Dynabolic Coach"). No new DB calls.
-- Add a **secondary outline button**: "Kargo Fişi Yazdır" with `<Printer />` icon, placed:
-  - For `processing` orders: next to the existing "Kargoya Verildi Olarak İşaretle" submit (use a 2-button row, primary fills, print is `variant="outline"`).
-  - For `shipped` / `completed` orders with tracking: appended below the read-only tracking block.
-- `onClick` handler:
-  ```ts
-  const handlePrint = () => {
-    // Defer one tick so the hidden node is in DOM before print dialog opens.
-    requestAnimationFrame(() => window.print());
-  };
-  ```
-- Mount `<PackingSlipPrintView order={order} coachName={coachName} />` near the bottom of the sheet (still inside the Sheet content). Because of the print CSS, it stays hidden on screen.
+- **A (recommended):** add column to all three — `assigned_workouts`, `workout_templates`, `programs`. Coach can attach a playlist at any layer (program-wide, template, or single scheduled day).
+- **B:** `workout_templates` + `assigned_workouts` only.
+- **C:** `workout_templates` + `programs` only (template-level only, no per-day override).
 
-### Verification Checklist
-- [ ] In normal view, no packing slip is visible anywhere on the page.
-- [ ] Clicking "Kargo Fişi Yazdır" opens the browser print dialog.
-- [ ] Print preview shows ONLY the packing slip — no app chrome, no sheet, no dark background.
-- [ ] All text is black on white (works on a thermal printer).
-- [ ] Barcode block renders deterministically per order ID.
-- [ ] From / To blocks show correct coach + customer info.
-- [ ] Item table lists every order item with quantities.
-
-### Files
-- `src/components/store-manager/PackingSlipPrintView.tsx` (new)
-- `src/components/store-manager/OrderFulfillmentSheet.tsx` (add button + mount print view)
-- `src/index.css` (append `@media print` block)
+Reply with A / B / C and I'll execute.

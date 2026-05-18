@@ -196,6 +196,7 @@ export type Database = {
           id: string
           program_id: string | null
           scheduled_date: string | null
+          spotify_url: string | null
           status: string | null
           workout_name: string
         }
@@ -210,6 +211,7 @@ export type Database = {
           id?: string
           program_id?: string | null
           scheduled_date?: string | null
+          spotify_url?: string | null
           status?: string | null
           workout_name?: string
         }
@@ -224,6 +226,7 @@ export type Database = {
           id?: string
           program_id?: string | null
           scheduled_date?: string | null
+          spotify_url?: string | null
           status?: string | null
           workout_name?: string
         }
@@ -1994,6 +1997,7 @@ export type Database = {
           id: string
           is_template: boolean
           parent_program_id: string | null
+          spotify_url: string | null
           target_goal: string | null
           title: string
           week_config: Json | null
@@ -2008,6 +2012,7 @@ export type Database = {
           id?: string
           is_template?: boolean
           parent_program_id?: string | null
+          spotify_url?: string | null
           target_goal?: string | null
           title: string
           week_config?: Json | null
@@ -2022,6 +2027,7 @@ export type Database = {
           id?: string
           is_template?: boolean
           parent_program_id?: string | null
+          spotify_url?: string | null
           target_goal?: string | null
           title?: string
           week_config?: Json | null
@@ -2788,6 +2794,7 @@ export type Database = {
           id: string
           name: string
           routine_days: Json
+          spotify_url: string | null
         }
         Insert: {
           coach_id?: string | null
@@ -2796,6 +2803,7 @@ export type Database = {
           id?: string
           name: string
           routine_days?: Json
+          spotify_url?: string | null
         }
         Update: {
           coach_id?: string | null
@@ -2804,6 +2812,7 @@ export type Database = {
           id?: string
           name?: string
           routine_days?: Json
+          spotify_url?: string | null
         }
         Relationships: []
       }
