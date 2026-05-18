@@ -69,7 +69,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
       setLoading(true);
       const { data: progs } = await supabase
         .from("programs")
-        .select("id, title, description")
+        .select("id, title, description, spotify_url")
         .eq("coach_id", activeCoachId)
         .eq("is_template", true)
         .order("created_at", { ascending: false });
@@ -92,6 +92,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
           id: p.id,
           title: p.title,
           description: p.description,
+          spotifyUrl: (p as any).spotify_url ?? null,
           exerciseCount: exs.length,
           dayCount: days.size,
         };
