@@ -23,6 +23,7 @@ interface ProgramOption {
   id: string;
   title: string;
   description: string | null;
+  spotifyUrl: string | null;
   exerciseCount: number;
   dayCount: number;
 }
