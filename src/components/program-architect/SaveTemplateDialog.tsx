@@ -18,15 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BookMarked, Dumbbell, Apple, Pill, Loader2 } from "lucide-react";
+import { BookMarked, Dumbbell, Apple, Pill, Loader2, Music } from "lucide-react";
 
 interface SaveTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
+  onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string; spotifyUrl: string }) => Promise<void>;
   mode: "exercise" | "nutrition" | "supplement";
   itemCount: number;
-  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
+  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string; spotifyUrl?: string | null } | null;
 }
 
 export function SaveTemplateDialog({
