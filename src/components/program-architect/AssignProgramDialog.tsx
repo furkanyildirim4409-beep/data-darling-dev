@@ -165,7 +165,7 @@ export function AssignProgramDialog({
       const [{ data: exercises, error: exErr }, { data: program, error: pErr }] =
         await Promise.all([
           supabase.from("exercises").select("*").eq("program_id", programId),
-          supabase.from("programs").select("week_config").eq("id", programId).single(),
+          supabase.from("programs").select("week_config, spotify_url").eq("id", programId).single(),
         ]);
 
       if (exErr || pErr) throw new Error(exErr?.message || pErr?.message);
