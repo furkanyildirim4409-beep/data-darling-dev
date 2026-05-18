@@ -159,6 +159,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
             video_url: e.video_url,
           })),
           status: "pending",
+          spotify_url: prog.spotifyUrl ?? null,
         });
       });
     }
