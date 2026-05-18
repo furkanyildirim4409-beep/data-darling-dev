@@ -260,6 +260,7 @@ export function BulkAssignDialog({ open, onOpenChange }: BulkAssignDialogProps) 
               day_notes: dayNotes,
               exercises: exercisesJson as Json,
               status: "pending",
+              spotify_url: (progData as any)?.spotify_url ?? null,
             });
           }
         }
