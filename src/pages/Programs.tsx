@@ -515,6 +515,7 @@ export default function Programs() {
       description: editingProgram?.description || null,
       coach_id: user.id,
       routine_days: routineDays as any,
+      spotify_url: (editingProgram as any)?.spotify_url ?? null,
     });
 
     if (error) {
