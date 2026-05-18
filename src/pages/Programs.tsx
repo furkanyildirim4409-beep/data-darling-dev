@@ -695,6 +695,7 @@ export default function Programs() {
             target_goal: meta.targetGoal || null,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
+            spotify_url: (editingProgram as any)?.spotify_url ?? null,
           })
           .eq("id", editingProgram.id);
 
