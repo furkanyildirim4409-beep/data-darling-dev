@@ -62,6 +62,7 @@ export interface ProgramData {
   targetCalories?: number;
   foodCount?: number;
   itemCount?: number;
+  spotifyUrl?: string | null;
 }
 
 interface ProgramDashboardProps {
