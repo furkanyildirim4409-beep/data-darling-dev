@@ -150,7 +150,7 @@ export default function Programs() {
 
     const { data: progData } = await supabase
       .from("programs")
-      .select("automation_rules, week_config")
+      .select("automation_rules, week_config, spotify_url")
       .eq("id", program.id)
       .single();
 
