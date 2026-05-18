@@ -527,7 +527,7 @@ export default function Programs() {
 
   // ─── Supabase atomic save ───
   const handleSaveProgram = useCallback(
-    async (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => {
+    async (meta: { title: string; description: string; difficulty: string; targetGoal: string; spotifyUrl: string }) => {
       if (!user) {
         toast.error("Kaydetmek için giriş yapmalısınız.");
         return;
