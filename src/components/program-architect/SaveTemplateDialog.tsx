@@ -18,15 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BookMarked, Dumbbell, Apple, Pill, Loader2 } from "lucide-react";
+import { BookMarked, Dumbbell, Apple, Pill, Loader2, Music } from "lucide-react";
 
 interface SaveTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => Promise<void>;
+  onSave: (meta: { title: string; description: string; difficulty: string; targetGoal: string; spotifyUrl: string }) => Promise<void>;
   mode: "exercise" | "nutrition" | "supplement";
   itemCount: number;
-  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string } | null;
+  editingProgram?: { name: string; description: string; difficulty?: string; targetGoal?: string; spotifyUrl?: string | null } | null;
 }
 
 export function SaveTemplateDialog({
@@ -41,6 +41,7 @@ export function SaveTemplateDialog({
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [targetGoal, setTargetGoal] = useState("");
+  const [spotifyUrl, setSpotifyUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isEditing = !!editingProgram;
@@ -52,6 +53,7 @@ export function SaveTemplateDialog({
       setDescription(editingProgram.description);
       setDifficulty(editingProgram.difficulty ?? "");
       setTargetGoal(editingProgram.targetGoal ?? "");
+      setSpotifyUrl(editingProgram.spotifyUrl ?? "");
     }
   });
 
@@ -62,11 +64,13 @@ export function SaveTemplateDialog({
       setDescription(editingProgram.description);
       setDifficulty(editingProgram.difficulty ?? "");
       setTargetGoal(editingProgram.targetGoal ?? "");
+      setSpotifyUrl(editingProgram.spotifyUrl ?? "");
     } else if (newOpen && !editingProgram) {
       setTitle("");
       setDescription("");
       setDifficulty("");
       setTargetGoal("");
+      setSpotifyUrl("");
     }
     onOpenChange(newOpen);
   };
@@ -75,11 +79,12 @@ export function SaveTemplateDialog({
     if (!title.trim() || itemCount === 0) return;
     setSaving(true);
     try {
-      await onSave({ title: title.trim(), description: description.trim(), difficulty, targetGoal });
+      await onSave({ title: title.trim(), description: description.trim(), difficulty, targetGoal, spotifyUrl: spotifyUrl.trim() });
       setTitle("");
       setDescription("");
       setDifficulty("");
       setTargetGoal("");
+      setSpotifyUrl("");
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -123,6 +128,27 @@ export function SaveTemplateDialog({
               rows={2}
             />
           </div>
+
+          {mode === "exercise" && (
+            <div className="space-y-2">
+              <Label htmlFor="program-spotify" className="flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5 text-[#1DB954]" />
+                Spotify Playlist Linki (Opsiyonel)
+              </Label>
+              <div className="relative">
+                <Music className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1DB954]/70 pointer-events-none" />
+                <Input
+                  id="program-spotify"
+                  type="url"
+                  inputMode="url"
+                  placeholder="Örn: https://open.spotify.com/playlist/..."
+                  value={spotifyUrl}
+                  onChange={(e) => setSpotifyUrl(e.target.value)}
+                  className="pl-9 bg-background/40 backdrop-blur-sm border-border/60 focus-visible:ring-[#1DB954]/40"
+                />
+              </div>
+            </div>
+          )}
 
           {mode === "exercise" && (
             <div className="grid grid-cols-2 gap-3">

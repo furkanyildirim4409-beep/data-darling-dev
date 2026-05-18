@@ -150,7 +150,7 @@ export default function Programs() {
 
     const { data: progData } = await supabase
       .from("programs")
-      .select("automation_rules, week_config")
+      .select("automation_rules, week_config, spotify_url")
       .eq("id", program.id)
       .single();
 
@@ -515,7 +515,7 @@ export default function Programs() {
       description: editingProgram?.description || null,
       coach_id: user.id,
       routine_days: routineDays as any,
-      spotify_url: (editingProgram as any)?.spotify_url ?? null,
+      spotify_url: editingProgram?.spotifyUrl ?? null,
     });
 
     if (error) {
@@ -527,7 +527,7 @@ export default function Programs() {
 
   // ─── Supabase atomic save ───
   const handleSaveProgram = useCallback(
-    async (meta: { title: string; description: string; difficulty: string; targetGoal: string }) => {
+    async (meta: { title: string; description: string; difficulty: string; targetGoal: string; spotifyUrl: string }) => {
       if (!user) {
         toast.error("Kaydetmek için giriş yapmalısınız.");
         return;
@@ -695,7 +695,7 @@ export default function Programs() {
             target_goal: meta.targetGoal || null,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
-            spotify_url: (editingProgram as any)?.spotify_url ?? null,
+            spotify_url: meta.spotifyUrl || null,
           })
           .eq("id", editingProgram.id);
 
@@ -716,7 +716,7 @@ export default function Programs() {
             coach_id: user.id,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
-            spotify_url: (editingProgram as any)?.spotify_url ?? null,
+            spotify_url: meta.spotifyUrl || null,
           })
           .select()
           .single();
@@ -869,7 +869,7 @@ export default function Programs() {
       description: program.description || null,
       coach_id: user.id,
       routine_days: routineDays as any,
-      spotify_url: (program as any)?.spotify_url ?? null,
+      spotify_url: program?.spotifyUrl ?? null,
     });
 
     if (error) {
@@ -1055,6 +1055,7 @@ export default function Programs() {
           description: editingProgram.description,
           difficulty: editingProgram.difficulty,
           targetGoal: editingProgram.targetGoal,
+          spotifyUrl: editingProgram.spotifyUrl,
         } : null}
       />
 
