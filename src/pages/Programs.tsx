@@ -515,6 +515,7 @@ export default function Programs() {
       description: editingProgram?.description || null,
       coach_id: user.id,
       routine_days: routineDays as any,
+      spotify_url: (editingProgram as any)?.spotify_url ?? null,
     });
 
     if (error) {
@@ -694,6 +695,7 @@ export default function Programs() {
             target_goal: meta.targetGoal || null,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
+            spotify_url: (editingProgram as any)?.spotify_url ?? null,
           })
           .eq("id", editingProgram.id);
 
@@ -714,6 +716,7 @@ export default function Programs() {
             coach_id: user.id,
             automation_rules: automationRules as any,
             week_config: weekConfig as any,
+            spotify_url: (editingProgram as any)?.spotify_url ?? null,
           })
           .select()
           .single();
@@ -866,6 +869,7 @@ export default function Programs() {
       description: program.description || null,
       coach_id: user.id,
       routine_days: routineDays as any,
+      spotify_url: (program as any)?.spotify_url ?? null,
     });
 
     if (error) {
