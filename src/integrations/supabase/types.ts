@@ -188,6 +188,7 @@ export type Database = {
         Row: {
           assignment_batch_id: string | null
           athlete_id: string | null
+          client_spotify_url: string | null
           coach_id: string | null
           created_at: string | null
           day_notes: string | null
@@ -203,6 +204,7 @@ export type Database = {
         Insert: {
           assignment_batch_id?: string | null
           athlete_id?: string | null
+          client_spotify_url?: string | null
           coach_id?: string | null
           created_at?: string | null
           day_notes?: string | null
@@ -218,6 +220,7 @@ export type Database = {
         Update: {
           assignment_batch_id?: string | null
           athlete_id?: string | null
+          client_spotify_url?: string | null
           coach_id?: string | null
           created_at?: string | null
           day_notes?: string | null
@@ -392,6 +395,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      athlete_spotify_pool: {
+        Row: {
+          created_at: string
+          id: string
+          spotify_url: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          spotify_url: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          spotify_url?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       auto_login_tokens: {
         Row: {
@@ -2219,6 +2246,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      spotify_click_events: {
+        Row: {
+          assignment_id: string | null
+          athlete_id: string
+          clicked_at: string
+          coach_id: string | null
+          id: string
+          platform: string | null
+          spotify_url: string
+          user_agent: string | null
+          workout_name: string | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          athlete_id: string
+          clicked_at?: string
+          coach_id?: string | null
+          id?: string
+          platform?: string | null
+          spotify_url: string
+          user_agent?: string | null
+          workout_name?: string | null
+        }
+        Update: {
+          assignment_id?: string | null
+          athlete_id?: string
+          clicked_at?: string
+          coach_id?: string | null
+          id?: string
+          platform?: string | null
+          spotify_url?: string
+          user_agent?: string | null
+          workout_name?: string | null
+        }
+        Relationships: []
       }
       story_views: {
         Row: {
