@@ -269,6 +269,9 @@ export default function Business() {
         </div>
       </div>
 
+      {/* Coaching Packages Manager */}
+      <CoachingPackagesManager />
+
       {/* Dialogs */}
       <NewPaymentDialog
         open={paymentDialogOpen}
