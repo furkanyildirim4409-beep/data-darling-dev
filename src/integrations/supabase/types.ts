@@ -128,14 +128,18 @@ export type Database = {
       assigned_supplements: {
         Row: {
           athlete_id: string
-          coach_id: string
+          coach_id: string | null
           created_at: string
+          created_by: string
           dosage: string | null
           icon: string
           id: string
           is_active: boolean
+          last_taken_date: string | null
           name_and_dosage: string
           servings_left: number
+          servings_per_use: number
+          servings_taken_today: number
           shopify_product_id: string | null
           shopify_variant_id: string | null
           source_insight_id: string | null
@@ -144,14 +148,18 @@ export type Database = {
         }
         Insert: {
           athlete_id: string
-          coach_id: string
+          coach_id?: string | null
           created_at?: string
+          created_by?: string
           dosage?: string | null
           icon?: string
           id?: string
           is_active?: boolean
+          last_taken_date?: string | null
           name_and_dosage: string
           servings_left?: number
+          servings_per_use?: number
+          servings_taken_today?: number
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
           source_insight_id?: string | null
@@ -160,14 +168,18 @@ export type Database = {
         }
         Update: {
           athlete_id?: string
-          coach_id?: string
+          coach_id?: string | null
           created_at?: string
+          created_by?: string
           dosage?: string | null
           icon?: string
           id?: string
           is_active?: boolean
+          last_taken_date?: string | null
           name_and_dosage?: string
           servings_left?: number
+          servings_per_use?: number
+          servings_taken_today?: number
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
           source_insight_id?: string | null
@@ -1023,6 +1035,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coaching_packages: {
+        Row: {
+          coach_id: string
+          created_at: string
+          description: string | null
+          duration_months: number
+          features: Json
+          id: string
+          is_active: boolean
+          price: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          duration_months: number
+          features?: Json
+          id?: string
+          is_active?: boolean
+          price: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          duration_months?: number
+          features?: Json
+          id?: string
+          is_active?: boolean
+          price?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       consumed_foods: {
         Row: {
