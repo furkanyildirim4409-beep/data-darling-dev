@@ -10,6 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
+import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -267,6 +268,9 @@ export default function Business() {
           </div>
         </div>
       </div>
+
+      {/* Coaching Packages Manager */}
+      <CoachingPackagesManager />
 
       {/* Dialogs */}
       <NewPaymentDialog
