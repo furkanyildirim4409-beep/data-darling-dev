@@ -217,6 +217,11 @@ export default function AthleteDetail() {
                 {athlete.current_weight && <span>{athlete.current_weight} kg</span>}
                 {athlete.streak && <><span>•</span><span>🔥 {athlete.streak} gün seri</span></>}
               </div>
+              {athlete.fitness_goal && (
+                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider shadow-lg select-none flex-shrink-0 whitespace-nowrap mt-1.5">
+                  🎯 Hedef: {GOAL_LABELS[athlete.fitness_goal] ?? athlete.fitness_goal}
+                </span>
+              )}
               <div className="flex items-center gap-4 mt-3 text-sm">
                 {athlete.email && (
                   <div className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer">
