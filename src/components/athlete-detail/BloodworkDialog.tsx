@@ -95,7 +95,6 @@ function HormonalComparisonChart({
       );
       if (!prev) return null;
       const changePct = prev.value !== 0 ? ((cur.value - prev.value) / prev.value) * 100 : 0;
-      const changePct = prev.value !== 0 ? ((cur.value - prev.value) / prev.value) * 100 : 0;
       return {
         name: cur.name.length > 12 ? cur.name.substring(0, 12) + "…" : cur.name,
         fullName: cur.name,
