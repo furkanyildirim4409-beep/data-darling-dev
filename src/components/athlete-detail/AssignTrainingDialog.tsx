@@ -226,7 +226,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={(d) => d && setStartDate(d)}
+                onSelect={(d) => d && setStartDate(normalizeToMonday(d))}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
               />
