@@ -1,37 +1,43 @@
-# Dialog Scroll Fix + Live Template Previews
+# Supplement Card Unification + Daily-Average Macros
 
-## 1. Scroll repair (both dialogs)
+> Note: the supplement & nutrition cards actually live in `src/components/athlete-detail/ActiveBlocks.tsx`, not `ProgramTab.tsx`. Work happens there.
 
-In `AssignTrainingDialog.tsx` and `AssignDietTemplateDialog.tsx`, replace the current `<ScrollArea className="flex-1 pr-2 -mr-2">` wrapper around the template list with:
+## 1. Daily-average diet macros
 
-```tsx
-<ScrollArea className="h-[440px] max-h-[50vh] w-full pr-2">
-  <div className="grid grid-cols-1 gap-3 pb-4">
-    {/* existing item cards */}
-  </div>
-</ScrollArea>
-```
+In `ActiveBlocks.tsx` around lines 270–308, the diet macro totals reduce across every `diet_template_foods` row, so a 7-day plan shows cumulative weekly values instead of a daily average.
 
-This gives the list a guaranteed scrollable height instead of relying on the flex parent, fixing the "only 4 items visible" clipping. Keep the loading / empty branches inside the same container so they render in place.
+Fix:
+- Extend the food select to include `day_number`: `select("template_id, day_number, calories, protein, carbs, fat")`.
+- For each template, compute `activeDaysCount = new Set(tf.map(f => f.day_number).filter(n => n != null)).size || 1`.
+- Replace each `totalX` with `Math.round(totalX / activeDaysCount)` to yield daily averages.
+- Keep the `isPrimary` override behavior, but make the fallback use the averaged value (when `nutrition_targets.daily_calories` / `protein_g` / `carbs_g` / `fat_g` are null). Guard every division so `activeDaysCount` is never zero.
 
-## 2. Click-to-preview Sheet on each card
+The labels at lines 605–607 already render in the format `{cal} kcal · {p}g P · {c}g K · {f}g Y`, so once the source is averaged they automatically show daily values. No string changes needed.
 
-### Training dialog
-- Add a new `previewProgram: ProgramOption | null` state plus `previewExercises` cache keyed by `program_id`.
-- Make the entire card clickable (`role="button"`, `onClick`) — clicking opens the preview sheet. The existing "Ata" button gets `onClick={(e) => { e.stopPropagation(); handleAssign(prog); }}` so it doesn't trigger the preview.
-- On open, fetch exercises for that `program_id` from the `exercises` table (`name, sets, reps, rir, rest_time, notes, order_index`) ordered by `order_index`. Group by `Math.floor(order_index / 100)` → "Gün 1 / Gün 2 / ...".
-- Render a `<Sheet side="right" className="w-full sm:max-w-md">` with header (title + close button via `SheetClose`), then for each day a collapsible block listing exercises: name, `{sets} x {reps}`, `RIR {rir}` badge, `Dinlenme: {rest_time}`, plus notes if present. Wrap the body in a native scroll container `h-[calc(100vh-120px)] overflow-y-auto`.
+## 2. Supplement card visual + behavior parity
 
-### Diet dialog
-- Same pattern: `previewTemplate` state + cached fetch from `diet_template_foods` filtered by `template_id`, selecting `meal_name, meal_order, food_name, portion, unit, calories, protein, carbs, fat, coach_notes` (whatever columns exist — verify via a quick view), ordered by `meal_order, id`.
-- Group rows by `meal_name` (or `Öğün ${meal_order}` fallback). Each meal section shows food rows with portion + macro chips (kcal yellow, P blue, C green, F purple — per project memory) and any `coach_notes` rendered below the meal title.
-- Same right-side Sheet with `SheetClose` in the header.
+Restructure the supplement section (lines 626–710) to mirror Training/Diet:
 
-### Shared notes
-- Use shadcn `<Sheet>` from `@/components/ui/sheet` (already in repo).
-- Preview Sheet sits inside the same component tree as the Dialog; mounting both is fine — Radix layers handle z-index.
-- Cards get `cursor-pointer hover:border-primary/40 transition-colors` to signal click affordance.
+- Outer row uses `rounded-lg p-3 hover:bg-secondary/40 transition-colors cursor-pointer` and is clickable.
+- Left cluster: `w-8 h-8 rounded-md bg-purple-500/15` square with `<Pill>` icon, then `text-sm font-semibold` title (`name_and_dosage`) and `text-[11px] text-muted-foreground` subtitle (`{timing} · {dosage}` when present).
+- Right cluster: timing badge + `servings_left/total_servings` badge + a `DropdownMenu` (3-dot `MoreVertical`) with items:
+  - `Power / PowerOff` toggle (Aktif/Pasif),
+  - `Trash2` Kaldır (gated by `canDeleteAthletes`).
+  - Each item calls `e.stopPropagation()`.
+- Below row: `Progress` bar (purple) showing `servings_left / total_servings` with `%` mono text — same layout as the training progress row.
+
+Click on the row opens a new `<Sheet side="right" className="w-full sm:max-w-md">` (`supplementSheet` state holding the `SupplementData`). Sheet content shows:
+- Header: emoji icon + name, close button (`SheetClose`).
+- Detail grid: Timing badge, Dosage, Servings per use, Servings left / total, Last taken date (`last_taken_date` formatted tr-TR), Today's intake (`servings_taken_today`).
+- Progress bar.
+
+Empty state stays as-is.
+
+## 3. Type updates
+
+Extend `SupplementData` with the optional fields needed in the Sheet: `dosage: string | null`, `servings_per_use: number | null`, `servings_taken_today: number | null`, `last_taken_date: string | null`. Update the `assigned_supplements` select to include them.
 
 ## Out of scope
-- No changes to assignment logic, Monday snap, or DB schema.
-- No changes to `ProgramTab.tsx` or other consumers.
+- No DB migrations.
+- No changes to AssignSupplementDialog / Diet assignment logic.
+- No edits to ProgramTab.tsx (the supplement UI doesn't live there).
