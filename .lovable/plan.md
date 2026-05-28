@@ -1,63 +1,52 @@
-# Athlete Decay Motor + Timestamp Localization
+# Roster Filter Matrix — Real DB Wiring
 
-Refactor `src/hooks/useAthletes.ts` so the roster grid reflects activity-based decay and human-readable timestamps.
+Hook the four filter chips on the roster to live data from `daily_checkins`, decayed readiness, and paid coaching `orders`.
 
-## 1. Activity signal source
+## 1. Data: enrich `useAthletes` with check-in and subscription signals
 
-Profiles don't store a denormalized `last_activity_date`. Compute it from the two real activity tables:
+`src/hooks/useAthletes.ts`:
+- Separate the existing 60-day `daily_checkins` query result into a `lastCheckinAt` map (most-recent `created_at` per `user_id`). Keep the combined activity map for decay/lastActive.
+- Add a third parallel query: `orders` where `user_id IN athleteIds AND status='paid' AND order_type='coaching'`, selecting `user_id, expires_at, created_at`. Reduce to a `subscriptionExpiry` map per athlete (max `expires_at`, fallback null).
+- Extend `mapProfileToAthlete(row, lastActivityIso, lastCheckinIso, expiryIso)`:
+  - `lastCheckinAt = lastCheckinIso` (ISO, ungormatted — used for filter math)
+  - `subscriptionExpiry = expiryIso ?? ""` (ISO; UI formats as needed)
 
-- `daily_checkins.created_at` (per `user_id`)
-- `workout_logs.completed_at` (per `user_id`)
+## 2. Type extension
 
-After the profiles query, run two parallel queries scoped to the fetched `athleteIds` (last 60 days) and reduce to `Map<athleteId, lastActivityISO>` taking the max of the two streams. Fallback: `profiles.updated_at`.
-
-## 2. Decay formula (applied in mapper)
-
-For each athlete, compute `elapsedDays = floor((Date.now() - lastActivity) / 86_400_000)`:
-
-- `elapsedDays <= 3` → no change.
-- `3 < elapsedDays < 14` → `readiness = max(0, baseReadiness − (elapsedDays − 3) × 10)`; `compliance = max(0, baseCompliance − (elapsedDays − 3) × 10)`.
-- `elapsedDays >= 14` → `readiness = 0`, `compliance = 0`, `injuryRisk = "Inactive"`.
-
-Promote `injuryRisk` to `"High"` if not inactive but `readiness < 40`.
-
-## 3. Type widening
-
-`src/types/shared-models.ts` — extend `UserProfile.injuryRisk` union:
+`src/types/shared-models.ts` — add to `Athlete`:
 ```ts
-injuryRisk: "Low" | "Medium" | "High" | "Inactive";
+lastCheckinAt?: string | null;
 ```
-Existing consumers already render via string switches; "Inactive" will fall through to their default badge styling, which we'll patch only if a runtime issue surfaces (out of scope for this pass).
+`subscriptionExpiry` already exists on `UserProfile`.
 
-## 4. Timestamp beautifier
+## 3. Filter logic
 
-Add a local helper:
+`src/components/athletes/AthleteRoster.tsx` — replace the existing filter predicates with real-DB-backed checks:
 
+- **High Risk**: `a.injuryRisk === "High" || a.injuryRisk === "Inactive" || a.readiness < 40`
+- **Missed Check-in**: `!a.lastCheckinAt || (Date.now() - new Date(a.lastCheckinAt).getTime()) > 48 * 3600 * 1000`. Time math runs in epoch ms, which is timezone-agnostic — equivalent to "48 h ago" in Istanbul or any locale.
+- **Süresi Dolanlar** (expired): `a.subscriptionExpiry && new Date(a.subscriptionExpiry).getTime() < Date.now()`. Replace the previous "Süresi Doluyor" badge label and filter id (`expiring` → `expired`) so the chip explicitly surfaces expired subscriptions only.
+- **All**: unchanged.
+
+Counts above each chip recompute from the same predicates via `useMemo` so they stay in sync with `filteredAthletes` after refetch.
+
+## 4. Page-level attention banner
+
+`src/pages/Athletes.tsx` — replace the `athletesNeedingAttention` predicate to match the high-risk + missed-checkin filters above:
 ```ts
-const fmt = new Intl.DateTimeFormat("tr-TR", {
-  day: "2-digit", month: "2-digit", year: "numeric",
-  hour: "2-digit", minute: "2-digit", hour12: false,
-});
-function formatTs(iso?: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  return fmt.format(d).replace(",", "");
-}
+const needs = athletes.filter(a =>
+  a.injuryRisk === "High" || a.injuryRisk === "Inactive" || a.readiness < 40 ||
+  !a.lastCheckinAt || (Date.now() - new Date(a.lastCheckinAt).getTime()) > 48 * 3600 * 1000
+);
 ```
 
-Apply to `joinDate` (from `created_at`) and `lastActive` (from resolved last-activity date) inside `mapProfileToAthlete`. Output shape: `26.05.2026 08:15`.
+## 5. Realtime
 
-## 5. Realtime invalidation
-
-Add two extra subscriptions on the existing realtime channel so decay refreshes when activity changes:
-
-- `INSERT` on `daily_checkins`
-- `INSERT` on `workout_logs`
-
-Both call `fetchAthletesRef.current()`.
+`useAthletes` already subscribes to `daily_checkins INSERT`; add `INSERT` on `orders` so paid-purchase refresh propagates to expiry counts.
 
 ## Files touched
 
-- `src/hooks/useAthletes.ts` — activity fetch, decay, timestamp format, realtime additions.
-- `src/types/shared-models.ts` — widen `injuryRisk` union with `"Inactive"`.
+- `src/hooks/useAthletes.ts`
+- `src/types/shared-models.ts`
+- `src/components/athletes/AthleteRoster.tsx`
+- `src/pages/Athletes.tsx`

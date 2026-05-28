@@ -24,9 +24,11 @@ export default function Athletes() {
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const athletesNeedingAttention = athletes.filter(
-    (a) => a.injuryRisk === "High" || a.checkInStatus === "missed" || a.compliance < 60
-  );
+  const athletesNeedingAttention = athletes.filter((a) => {
+    const lastChk = a.lastCheckinAt ? new Date(a.lastCheckinAt).getTime() : 0;
+    const missed = !a.lastCheckinAt || Date.now() - lastChk > 48 * 60 * 60 * 1000;
+    return a.injuryRisk === "High" || a.injuryRisk === "Inactive" || a.readiness < 40 || missed;
+  });
 
   const handleLinkAthlete = async () => {
     if (!linkEmail.trim() || !user) {

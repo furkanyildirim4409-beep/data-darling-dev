@@ -9,7 +9,15 @@ import { QuickChatPopover } from "./QuickChatPopover";
 import { useUnansweredChats } from "@/hooks/useUnansweredChats";
 import { Search, AlertTriangle, Clock, Calendar, X } from "lucide-react";
 
-type FilterType = "all" | "high-risk" | "missed-checkin" | "expiring";
+type FilterType = "all" | "high-risk" | "missed-checkin" | "expired";
+
+const MISSED_CHECKIN_MS = 48 * 60 * 60 * 1000;
+const isHighRisk = (a: Athlete) =>
+  a.injuryRisk === "High" || a.injuryRisk === "Inactive" || a.readiness < 40;
+const isMissedCheckin = (a: Athlete) =>
+  !a.lastCheckinAt || Date.now() - new Date(a.lastCheckinAt).getTime() > MISSED_CHECKIN_MS;
+const isExpired = (a: Athlete) =>
+  !!a.subscriptionExpiry && new Date(a.subscriptionExpiry).getTime() < Date.now();
 
 interface AthleteRosterProps {
   athletes: Athlete[];
@@ -45,31 +53,27 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
   const athleteIds = useMemo(() => athletes.map(a => a.id), [athletes]);
   const unansweredIds = useUnansweredChats(athleteIds);
 
-  const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = [
+  const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = useMemo(() => [
     { id: "all", label: "Tüm Sporcular", icon: null, count: athletes.length },
     {
       id: "high-risk",
       label: "Yüksek Risk",
       icon: <AlertTriangle className="w-3 h-3" />,
-      count: athletes.filter((a) => a.injuryRisk === "High").length,
+      count: athletes.filter(isHighRisk).length,
     },
     {
       id: "missed-checkin",
       label: "Kaçırılan Check-in",
       icon: <Clock className="w-3 h-3" />,
-      count: athletes.filter((a) => a.checkInStatus === "missed").length,
+      count: athletes.filter(isMissedCheckin).length,
     },
     {
-      id: "expiring",
-      label: "Süresi Doluyor",
+      id: "expired",
+      label: "Süresi Dolanlar",
       icon: <Calendar className="w-3 h-3" />,
-      count: athletes.filter((a) => {
-        const expiry = new Date(a.subscriptionExpiry);
-        const diffDays = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
-        return diffDays <= 3 && diffDays > 0;
-      }).length,
+      count: athletes.filter(isExpired).length,
     },
-  ];
+  ], [athletes]);
 
   const filteredAthletes = useMemo(() => {
     let result = athletes;
@@ -81,16 +85,13 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
     }
     switch (activeFilter) {
       case "high-risk":
-        result = result.filter((a) => a.injuryRisk === "High");
+        result = result.filter(isHighRisk);
         break;
       case "missed-checkin":
-        result = result.filter((a) => a.checkInStatus === "missed");
+        result = result.filter(isMissedCheckin);
         break;
-      case "expiring":
-        result = result.filter((a) => {
-          const diffDays = Math.ceil((new Date(a.subscriptionExpiry).getTime() - Date.now()) / 86400000);
-          return diffDays <= 3 && diffDays > 0;
-        });
+      case "expired":
+        result = result.filter(isExpired);
         break;
     }
     return result;
@@ -130,7 +131,7 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
                     ? "bg-destructive/10 text-destructive border-destructive/30"
                     : filter.id === "missed-checkin"
                     ? "bg-warning/10 text-warning border-warning/30"
-                    : filter.id === "expiring"
+                    : filter.id === "expired"
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                     : "bg-primary/10 text-primary border-primary/30"
                   : "hover:bg-secondary"
