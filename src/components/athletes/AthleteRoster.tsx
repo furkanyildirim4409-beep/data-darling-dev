@@ -131,7 +131,7 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
                     ? "bg-destructive/10 text-destructive border-destructive/30"
                     : filter.id === "missed-checkin"
                     ? "bg-warning/10 text-warning border-warning/30"
-                    : filter.id === "expiring"
+                    : filter.id === "expired"
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                     : "bg-primary/10 text-primary border-primary/30"
                   : "hover:bg-secondary"
