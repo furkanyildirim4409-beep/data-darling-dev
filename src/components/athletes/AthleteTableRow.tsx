@@ -147,7 +147,12 @@ export function AthleteTableRow({ athlete, onMessage, hasUnanswered }: AthleteTa
 
       {/* Actions */}
       <td className="py-3 px-4">
-        <div className="flex items-center gap-2 transition-opacity whitespace-nowrap opacity-100">
+        <div
+          className={cn(
+            "flex items-center gap-2 transition-opacity whitespace-nowrap",
+            hasUnanswered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
           <Button
             variant="ghost"
             size="sm"
