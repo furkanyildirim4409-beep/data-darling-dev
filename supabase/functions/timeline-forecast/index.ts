@@ -34,7 +34,12 @@ Deno.serve(async (req) => {
     since.setDate(since.getDate() - 28);
     const sinceIso = since.toISOString();
 
-    const [bm, wl, nl, nt, dc, sup] = await Promise.all([
+    const [profileRes, bm, wl, nl, nt, dc, sup] = await Promise.all([
+      supa
+        .from("profiles")
+        .select("fitness_goal, coach_id, full_name")
+        .eq("id", athleteId)
+        .maybeSingle(),
       supa
         .from("body_measurements")
         .select("logged_at, body_fat_pct, muscle_mass_kg, waist, chest")
@@ -68,6 +73,10 @@ Deno.serve(async (req) => {
         .eq("athlete_id", athleteId),
     ]);
 
+    const profile = profileRes.data as any | null;
+    const fitnessGoal: string = (profile?.fitness_goal as string) || "Belirtilmemiş";
+    const coachId: string | null = profile?.coach_id ?? null;
+
     const measurements = bm.data ?? [];
     const workouts = wl.data ?? [];
     const meals = nl.data ?? [];
@@ -75,7 +84,6 @@ Deno.serve(async (req) => {
     const checkins = dc.data ?? [];
     const supplements = sup.data ?? [];
 
-    // Aggregations
     const avgCalories =
       meals.length > 0
         ? Math.round(meals.reduce((s: number, m: any) => s + (m.total_calories ?? 0), 0) / meals.length)
@@ -95,6 +103,7 @@ Deno.serve(async (req) => {
         : null;
 
     const ctx = {
+      athlete_goal: fitnessGoal,
       window_days: 28,
       measurements_first: measurements[0] ?? null,
       measurements_last: measurements[measurements.length - 1] ?? null,
@@ -117,11 +126,13 @@ Deno.serve(async (req) => {
       supplements_count: supplements.length,
     };
 
-    const systemPrompt = `Sen elit bir spor bilimi tahmin motorusun. Sporcunun son 4 haftalık verisinden 4 haftalık ileriye dönük performans projeksiyonu üret.
+    const systemPrompt = `🎯 SPORCUNUN ANA HEDEFİ: Bu sporcunun platformdaki birincil fitness/sağlık hedefi ${fitnessGoal} olarak belirlenmiştir. Yapacağın tüm gelişim tahminlerini, makro kalori uyum analizlerini, dikey tape ölçüm varyasyonlarını ve 4 haftalık hipertrofi projeksiyonlarını kesinlikle bu hedef doğrultusunda ağırlıklandırarak hesapla.
+
+Sen elit bir spor bilimi tahmin motorusun. Sporcunun son 4 haftalık verisinden 4 haftalık ileriye dönük performans projeksiyonu üret.
 
 Türkçe markdown ile yanıt ver. ZORUNLU bölüm başlıkları:
 ### 📊 Mevcut Durum Özeti
-### 🎯 Korelasyon Analizi
+### 🎯 Korelasyon Analizi (hedef: ${fitnessGoal})
 ### 🔮 Gelecek Dönem Gelişim & Hipertrofi Tahmini
 
 Son bölümde mutlaka 4 haftalık ileriye dönük tahmin tablosu olsun: kilo, yağ %, kas kütlesi, tonaj, beslenme uyumu, disiplin skoru. Sayısal değerleri tek ondalık basamağa yuvarla.`;
@@ -135,7 +146,7 @@ Son bölümde mutlaka 4 haftalık ileriye dönük tahmin tablosu olsun: kilo, ya
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -152,8 +163,30 @@ Son bölümde mutlaka 4 haftalık ileriye dönük tahmin tablosu olsun: kilo, ya
     }
 
     const payload = await aiResp.json();
-    const markdown = payload?.choices?.[0]?.message?.content ?? "";
-    return json(200, { markdown, context: ctx });
+    const markdown: string = payload?.choices?.[0]?.message?.content ?? "";
+
+    let logId: string | null = null;
+    if (coachId && markdown) {
+      const { data: logRow, error: logErr } = await supa
+        .from("athlete_ai_status_logs")
+        .insert({
+          athlete_id: athleteId,
+          coach_id: coachId,
+          analysis_type: "holistic_forecast",
+          analysis_text: markdown,
+          student_goal_snapshot: fitnessGoal,
+          context_snapshot: ctx,
+        })
+        .select("id")
+        .maybeSingle();
+      if (logErr) {
+        console.error("Failed to persist AI log:", logErr);
+      } else {
+        logId = logRow?.id ?? null;
+      }
+    }
+
+    return json(200, { markdown, goal: fitnessGoal, logId, context: ctx });
   } catch (e) {
     console.error("timeline-forecast error:", e);
     return json(500, { error: e instanceof Error ? e.message : "Unknown error" });

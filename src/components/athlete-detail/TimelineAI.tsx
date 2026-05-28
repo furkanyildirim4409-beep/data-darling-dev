@@ -4,9 +4,35 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, TrendingUp, TrendingDown, Clock, Loader2, Wand2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  Loader2,
+  Wand2,
+  History,
+  ChevronDown,
+  ChevronUp,
+  Target,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface AiStatusLog {
+  id: string;
+  analysis_type: string | null;
+  analysis_text: string;
+  student_goal_snapshot: string | null;
+  created_at: string;
+}
 
 interface TimelineAIProps {
   athleteId: string;
@@ -32,6 +58,29 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
   const [hasData, setHasData] = useState(false);
   const [forecast, setForecast] = useState<string | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [logs, setLogs] = useState<AiStatusLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const fetchLogs = useCallback(async () => {
+    setLogsLoading(true);
+    const { data, error } = await supabase
+      .from("athlete_ai_status_logs")
+      .select("id, analysis_type, analysis_text, student_goal_snapshot, created_at")
+      .eq("athlete_id", athleteId)
+      .order("created_at", { ascending: false });
+    setLogsLoading(false);
+    if (error) {
+      toast.error(error.message || "AI geçmişi yüklenemedi");
+      return;
+    }
+    setLogs((data ?? []) as AiStatusLog[]);
+  }, [athleteId]);
+
+  useEffect(() => {
+    if (historyOpen) fetchLogs();
+  }, [historyOpen, fetchLogs]);
 
   const fetchRealData = useCallback(async () => {
     setIsLoading(true);
@@ -188,6 +237,7 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
       return;
     }
     setForecast((data as any)?.markdown ?? "");
+    fetchLogs();
   };
 
   if (isLoading) {
@@ -309,35 +359,128 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
         </div>
       )}
 
-      <div className="mt-4">
-        <Button
-          onClick={runForecast}
-          disabled={forecastLoading}
-          variant="outline"
-          size="sm"
-          className="w-full border-primary/30 hover:bg-primary/10"
-        >
-          {forecastLoading ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-              AI 4-Haftalık Tahmin Üretiyor...
-            </>
-          ) : (
-            <>
-              <Wand2 className="w-3.5 h-3.5 mr-2" />
-              AI Holistik Tahmin Üret
-            </>
-          )}
-        </Button>
+      <div className="mt-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+          <Button
+            onClick={runForecast}
+            disabled={forecastLoading}
+            variant="outline"
+            size="sm"
+            className="border-primary/30 hover:bg-primary/10"
+          >
+            {forecastLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                AI 4-Haftalık Tahmin Üretiyor...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-3.5 h-3.5 mr-2" />
+                AI Holistik Tahmin Üret
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={() => setHistoryOpen(true)}
+            variant="outline"
+            size="sm"
+            className="border-white/10 bg-background/40 hover:bg-background/60 text-foreground"
+          >
+            <History className="w-3.5 h-3.5 mr-2" />
+            AI Durum Analizi
+          </Button>
+        </div>
 
         {forecast && (
-          <div className="mt-3 p-4 rounded-lg bg-background/60 border border-primary/20 max-h-96 overflow-y-auto">
+          <div className="p-4 rounded-lg bg-background/60 border border-primary/20 max-h-96 overflow-y-auto">
             <div className="prose prose-sm prose-invert max-w-none text-xs whitespace-pre-wrap leading-relaxed text-foreground">
               {forecast}
             </div>
           </div>
         )}
       </div>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-3xl bg-background/95 backdrop-blur-xl border border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <History className="w-5 h-5 text-primary" />
+              AI Durum Analizi Geçmişi
+            </DialogTitle>
+            <DialogDescription>
+              {logsLoading
+                ? "Yükleniyor..."
+                : `Toplam ${logs.length} kayıtlı AI holistik analiz raporu.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {logsLoading ? (
+            <div className="py-10 flex items-center justify-center text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Henüz kayıtlı AI analizi yok. "AI Holistik Tahmin Üret" butonunu kullanın.
+            </div>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto scrollbar-hide space-y-3 pr-1">
+              {logs.map((log) => {
+                const isExpanded = expandedId === log.id;
+                const preview =
+                  log.analysis_text.length > 220 && !isExpanded
+                    ? log.analysis_text.slice(0, 220) + "…"
+                    : log.analysis_text;
+                const dateLabel = new Date(log.created_at).toLocaleString("tr-TR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-white/10 bg-background/50 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                      <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5" />
+                        {dateLabel}
+                      </div>
+                      {log.student_goal_snapshot && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                          <Target className="w-3 h-3" />
+                          {log.student_goal_snapshot}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs whitespace-pre-wrap leading-relaxed text-foreground/90">
+                      {preview}
+                    </div>
+                    {log.analysis_text.length > 220 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronUp className="w-3 h-3" /> Daralt
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3 h-3" /> Tamamını gör
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

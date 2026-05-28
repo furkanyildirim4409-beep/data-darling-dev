@@ -340,6 +340,39 @@ export type Database = {
           },
         ]
       }
+      athlete_ai_status_logs: {
+        Row: {
+          analysis_text: string
+          analysis_type: string
+          athlete_id: string
+          coach_id: string
+          context_snapshot: Json | null
+          created_at: string
+          id: string
+          student_goal_snapshot: string | null
+        }
+        Insert: {
+          analysis_text: string
+          analysis_type?: string
+          athlete_id: string
+          coach_id: string
+          context_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          student_goal_snapshot?: string | null
+        }
+        Update: {
+          analysis_text?: string
+          analysis_type?: string
+          athlete_id?: string
+          coach_id?: string
+          context_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          student_goal_snapshot?: string | null
+        }
+        Relationships: []
+      }
       athlete_badges: {
         Row: {
           athlete_id: string

@@ -37,7 +37,21 @@ interface AthleteProfile {
   level: number | null;
   streak: number | null;
   bio: string | null;
+  fitness_goal: string | null;
 }
+
+const GOAL_LABELS: Record<string, string> = {
+  hypertrophy: "Hipertrofi / Kas Kazanımı",
+  muscle_gain: "Hipertrofi / Kas Kazanımı",
+  fat_loss: "Yağ Yakımı & Definasyon",
+  weight_loss: "Yağ Yakımı & Definasyon",
+  strength: "Maksimal Kuvvet",
+  endurance: "Dayanıklılık",
+  recomp: "Rekomp / Eşzamanlı Dönüşüm",
+  recomposition: "Rekomp / Eşzamanlı Dönüşüm",
+  health: "Sağlık & Yaşam Kalitesi",
+  general_fitness: "Genel Fitness",
+};
 
 interface CheckInData {
   mood: number | null;
@@ -106,6 +120,7 @@ export default function AthleteDetail() {
         level: p.level,
         streak: p.streak,
         bio: p.bio,
+        fitness_goal: p.fitness_goal ?? null,
       });
     }
 
@@ -202,6 +217,11 @@ export default function AthleteDetail() {
                 {athlete.current_weight && <span>{athlete.current_weight} kg</span>}
                 {athlete.streak && <><span>•</span><span>🔥 {athlete.streak} gün seri</span></>}
               </div>
+              {athlete.fitness_goal && (
+                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider shadow-lg select-none flex-shrink-0 whitespace-nowrap mt-1.5">
+                  🎯 Hedef: {GOAL_LABELS[athlete.fitness_goal] ?? athlete.fitness_goal}
+                </span>
+              )}
               <div className="flex items-center gap-4 mt-3 text-sm">
                 {athlete.email && (
                   <div className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer">
