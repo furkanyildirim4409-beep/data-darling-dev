@@ -297,40 +297,28 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div>
-        {filterBar}
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!logs.length) {
-    return (
-      <div>
-        {filterBar}
-        <div className="glass rounded-xl border border-border p-12 text-center">
-          <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-muted-foreground">
-            {quickRange !== "all" ? "Bu tarih aralığında antrenman kaydı bulunamadı." : "Henüz tamamlanmış antrenman kaydı yok."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3">
+    <div>
       {filterBar}
-      {logs.map(log => {
-        const isOpen = openIds.has(log.id);
-        const exercises = log.details ?? [];
-        const groupIds = [...new Set(exercises.map(e => e.groupId).filter(Boolean))] as string[];
+      <div className="w-full min-h-[460px] flex flex-col relative transition-all duration-300">
+        {loading && (
+          <div className="absolute inset-0 bg-background/20 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {!loading && logs.length === 0 ? (
+          <div className="glass rounded-xl border border-border p-12 text-center flex-1 flex flex-col items-center justify-center">
+            <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-muted-foreground">
+              {quickRange !== "all" ? "Bu tarih aralığında antrenman kaydı bulunamadı." : "Henüz tamamlanmış antrenman kaydı yok."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {logs.map(log => {
+              const isOpen = openIds.has(log.id);
+              const exercises = log.details ?? [];
+              const groupIds = [...new Set(exercises.map(e => e.groupId).filter(Boolean))] as string[];
 
         return (
           <Collapsible key={log.id} open={isOpen} onOpenChange={() => toggle(log.id)}>
@@ -517,27 +505,30 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
             </div>
           </Collapsible>
         );
-      })}
+            })}
 
-      {hasMore && (
-        <div className="flex justify-center pt-2 pb-4">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="text-sm"
-          >
-            {loadingMore ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Yükleniyor...
-              </>
-            ) : (
-              "Daha Fazla Göster"
+            {hasMore && (
+              <div className="flex justify-center pt-2 pb-4">
+                <Button
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="text-sm"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Yükleniyor...
+                    </>
+                  ) : (
+                    "Daha Fazla Göster"
+                  )}
+                </Button>
+              </div>
             )}
-          </Button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

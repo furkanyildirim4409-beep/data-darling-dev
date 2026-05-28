@@ -23,7 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Dumbbell, Calendar, Clock, StickyNote, Zap, Loader2, Trash2, History, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { AssignTrainingDialog } from "@/components/athlete-detail/AssignTrainingDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -101,6 +102,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [allPrograms, setAllPrograms] = useState<ProgramInfo[]>([]);
+  const [assignTrainingOpen, setAssignTrainingOpen] = useState(false);
   const [activeProgramId, setActiveProgramId] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<AssignedWorkout[]>([]);
@@ -425,13 +427,13 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <Dumbbell className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">Atanmış program yok</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Atanmış Bir Antrenman Bulunmuyor</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Bu sporcuya henüz bir antrenman programı atanmadı
           </p>
-          <Button onClick={() => navigate("/programs")} className="bg-primary text-primary-foreground">
-            <Dumbbell className="w-4 h-4 mr-2" />
-            Program Mimarı'na Git
+          <Button onClick={() => setAssignTrainingOpen(true)} className="bg-primary text-primary-foreground">
+            <Plus className="w-4 h-4 mr-2" />
+            Antrenman Programı Ata
           </Button>
         </div>
         <HistoryDialog
@@ -446,6 +448,12 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           historyLoadingMore={historyLoadingMore}
           onLoadMoreHistory={loadMoreHistory}
           athleteId={athleteId}
+        />
+        <AssignTrainingDialog
+          open={assignTrainingOpen}
+          onOpenChange={setAssignTrainingOpen}
+          athleteId={athleteId}
+          onAssigned={() => { setAssignTrainingOpen(false); fetchPrograms(); }}
         />
       </div>
     );
