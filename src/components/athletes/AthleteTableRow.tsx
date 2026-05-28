@@ -147,31 +147,29 @@ export function AthleteTableRow({ athlete, onMessage, hasUnanswered }: AthleteTa
 
       {/* Actions */}
       <td className="py-3 px-4">
-        <div className="flex items-center gap-2 transition-opacity whitespace-nowrap opacity-100">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="flex items-center gap-2 whitespace-nowrap opacity-100">
+          <button
+            type="button"
             onClick={() => onMessage?.(athlete)}
-            className="h-8 px-2 text-muted-foreground hover:text-primary relative"
+            className="relative inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/5 bg-white/[0.02] text-foreground text-xs font-semibold tracking-wide transition-all duration-200 hover:bg-primary/10 hover:border-primary/40 hover:text-primary cursor-pointer select-none"
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-4 h-4 transition-colors duration-200" />
             {hasUnanswered && (
               <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-warning" />
               </span>
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+          </button>
+          <button
+            type="button"
             onClick={() => navigate(`/athletes/${athlete.id}`)}
-            className="h-8 px-3 text-muted-foreground hover:text-primary"
+            className="relative inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/5 bg-white/[0.02] text-foreground text-xs font-semibold tracking-wide transition-all duration-200 hover:bg-primary/10 hover:border-primary/40 hover:text-primary cursor-pointer select-none"
           >
-            <User className="w-4 h-4 mr-1" />
-            Görüntüle
-            <ChevronRight className="w-3 h-3 ml-1" />
-          </Button>
+            <User className="w-4 h-4 transition-colors duration-200" />
+            <span className="transition-colors duration-200">Görüntüle</span>
+            <ChevronRight className="w-3 h-3 transition-colors duration-200" />
+          </button>
         </div>
       </td>
     </tr>
