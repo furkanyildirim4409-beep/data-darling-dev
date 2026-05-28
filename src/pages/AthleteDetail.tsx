@@ -152,10 +152,8 @@ export default function AthleteDetail() {
 
   const name = athlete.full_name || "İsimsiz";
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase();
-  const energyLevel = athlete.readiness_score ?? 75;
   const missedWorkouts = workoutSummary.total - workoutSummary.completed;
   const totalWorkouts = workoutSummary.total || 1;
-  const isVaultSecure = missedWorkouts <= 2;
 
   const wellnessData = {
     sleep: latestCheckIn?.sleep ?? null,
@@ -218,8 +216,8 @@ export default function AthleteDetail() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <EnergyBank percentage={energyLevel} />
-            <SmartContract isSecure={isVaultSecure} missedWorkouts={missedWorkouts} totalWorkouts={totalWorkouts} />
+            <EnergyBank athleteId={athlete.id} />
+            <SmartContract athleteId={athlete.id} missedWorkouts={missedWorkouts} totalWorkouts={totalWorkouts} />
           </div>
         </div>
       </div>
