@@ -9,7 +9,9 @@ export interface DashboardAthlete {
   email: string | null;
   avatar_url: string | null;
   streak: number | null;
+  calculated_risk_level: "Low" | "Medium" | "High";
 }
+
 
 export interface RiskDistribution {
   low: { count: number; label: string };
