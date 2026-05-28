@@ -9,7 +9,9 @@ export interface DashboardAthlete {
   email: string | null;
   avatar_url: string | null;
   streak: number | null;
+  calculated_risk_level: "Low" | "Medium" | "High";
 }
+
 
 export interface RiskDistribution {
   low: { count: number; label: string };
@@ -127,7 +129,12 @@ export function useDashboardData() {
 
     const { data: athletesData } = await profilesQuery;
 
-    const athleteList: DashboardAthlete[] = athletesData ?? [];
+
+    const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({
+      ...a,
+      calculated_risk_level: "Low" as "Low" | "Medium" | "High",
+    }));
+
     if (athleteList.length === 0) {
       setAthletes([]);
       setRiskDistribution({ low: { count: 0, label: "Düşük Risk" }, medium: { count: 0, label: "Orta Risk" }, high: { count: 0, label: "Yüksek Risk" } });
@@ -251,6 +258,11 @@ export function useDashboardData() {
 
       const isHighRisk = missed >= 3 || nutGap >= 5;
       const isMediumRisk = missed >= 2 || nutGap >= 3;
+
+      let derivedLevel: "Low" | "Medium" | "High" = "Low";
+      if (isHighRisk) derivedLevel = "High";
+      else if (isMediumRisk) derivedLevel = "Medium";
+      a.calculated_risk_level = derivedLevel;
 
       if (isHighRisk) {
         dist.high.count++;

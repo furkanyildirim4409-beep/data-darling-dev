@@ -23,13 +23,6 @@ interface RiskRadarProps {
   isLoading: boolean;
 }
 
-function classifyRisk(readiness: number | null): "Low" | "Medium" | "High" {
-  const score = readiness ?? 75;
-  if (score >= 70) return "Low";
-  if (score >= 50) return "Medium";
-  return "High";
-}
-
 interface RiskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,7 +32,10 @@ interface RiskDialogProps {
 
 function RiskDialog({ open, onOpenChange, riskLevel, athletes }: RiskDialogProps) {
   const navigate = useNavigate();
-  const filtered = athletes.filter((a) => classifyRisk(a.readiness_score) === riskLevel);
+  // Synchronized target filter: enforces 100% parity with riskDistribution counts
+  const filtered = athletes.filter(
+    (a) => a.calculated_risk_level?.toLowerCase() === riskLevel.toLowerCase(),
+  );
 
   const levelConfig = {
     Low: { label: "Düşük Risk", icon: ShieldCheck, color: "success" },
@@ -98,7 +94,7 @@ function RiskDialog({ open, onOpenChange, riskLevel, athletes }: RiskDialogProps
                 </div>
                 <div>
                   <p className="font-medium text-foreground">{athlete.full_name || "İsimsiz"}</p>
-                  <p className="text-xs text-muted-foreground">Hazırlık: {athlete.readiness_score ?? 75}</p>
+                  <p className="text-xs text-muted-foreground">{config.label}</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -267,7 +263,7 @@ export function RiskRadar({ athletes, riskDistribution, criticalAthletes, isLoad
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 md:mb-6">
           <div>
             <h3 className="text-base md:text-lg font-semibold text-foreground">Risk Radarı</h3>
-            <p className="text-xs md:text-sm text-muted-foreground">Sporcu hazırlık skoru dağılımı</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Davranışsal risk dağılımı</p>
           </div>
           <div className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-primary/10 border border-primary/30 self-start sm:self-auto">
             <span className="text-[10px] md:text-xs font-medium text-primary">Canlı İzleme</span>
