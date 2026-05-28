@@ -134,6 +134,9 @@ export function useAthletes(): UseAthletesReturn {
       if (activeCoachIdRef.current !== coachIdAtRequest) return;
       if (fetchError) throw fetchError;
 
+      const rows = data || [];
+      const athleteIds = rows.map((r: any) => r.id);
+
       // Last activity + last check-in + paid coaching expiry from real data streams
       const lastActivity = new Map<string, string>();
       const lastCheckin = new Map<string, string>();
