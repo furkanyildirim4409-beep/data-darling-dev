@@ -1,32 +1,17 @@
-# Part 3/3 — Avatar Unification & Compliance Pulse Audit
+# Risk Radar — Show risk reasons in drill-down dialog
 
-## 1. TopBar avatar wiring (real fix)
+Replace the generic "Yüksek Risk" / "Orta Risk" subtitle under each athlete name in the Risk Radar drill-down dialog with the concrete reason (e.g. "3 Antrenman Kaçırdı • 5 Gün Beslenme Kaydı Yok").
 
-**File:** `src/components/layout/TopBar.tsx` (line 223)
+## Changes
 
-Replace the hardcoded placeholder with the authenticated coach's avatar from `useAuth().profile`:
+### `src/hooks/useDashboardData.ts`
+- Add optional `risk_reason: string | null` to `DashboardAthlete`.
+- In the per-athlete loop, build the same `issues` string already produced for `CriticalAthlete.issue` and attach it to the athlete object (null for low-risk).
+  - High: `${missed} Antrenman Kaçırdı`, `${nutGap} Gün Beslenme Kaydı Yok` (thresholds ≥3 / ≥5).
+  - Medium: same fields at ≥2 / ≥3 thresholds.
+  - Low: `null`.
 
-```tsx
-<AvatarImage
-  src={profile?.avatar_url || "/placeholder.svg"}
-  className="object-cover"
-/>
-```
+### `src/components/dashboard/RiskRadar.tsx` (RiskDialog)
+- In each athlete row inside the dialog, replace the static `{config.label}` line under the name with `athlete.risk_reason ?? config.label`. Low-risk dialog keeps the friendly "Düşük Risk" copy since there's nothing to flag.
 
-`profile` is already destructured from `useAuth()` on line 44 — no new imports, no context changes. `AvatarFallback` initials logic stays intact for users without an uploaded avatar.
-
-## 2. Compliance Pulse + Critical Stats audit (no changes required)
-
-Verified the live data path is already production-clean — no static counters or placeholders remain:
-
-- **`stats.criticalAlerts`** (`useDashboardData.ts` line 309) → derived from `critical.length`, the behavioral-risk array built in Part 2 (missed workouts + nutrition gap).
-- **`compliance.workoutCompliance`** (line 209) → `weekCompleted / weekWorkouts.length` from `assigned_workouts` rows where `coach_id = activeCoachId`, `scheduled_date` between Monday–Sunday of the current week, scoped to the athlete roster.
-- **`compliance.checkinCompliance`** (line 216) → distinct `user_id` count from `daily_checkins` in the last 48 h divided by roster size.
-- **`CompliancePulse.tsx`** consumes those two props directly and renders donuts — no mock fallback, no hardcoded numbers.
-- **`CommandCenter.tsx`** passes the live `compliance` + `stats` objects straight through to `CompliancePulse` and `StatCard`.
-
-No edits needed in `CompliancePulse.tsx`, `CommandCenter.tsx`, or `useDashboardData.ts` — the live wiring requested in Part 3 was already completed in Parts 1/2.
-
-## Files touched
-
-- `src/components/layout/TopBar.tsx` — single-line AvatarImage src swap.
+No other files touched; gauge counts, critical-alerts panel, and tooltip logic are unchanged.

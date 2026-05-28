@@ -10,6 +10,7 @@ export interface DashboardAthlete {
   avatar_url: string | null;
   streak: number | null;
   calculated_risk_level: "Low" | "Medium" | "High";
+  risk_reason: string | null;
 }
 
 
@@ -133,6 +134,7 @@ export function useDashboardData() {
     const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({
       ...a,
       calculated_risk_level: "Low" as "Low" | "Medium" | "High",
+      risk_reason: null as string | null,
     }));
 
     if (athleteList.length === 0) {
@@ -269,11 +271,13 @@ export function useDashboardData() {
         const issues: string[] = [];
         if (missed >= 3) issues.push(`${missed} Antrenman Kaçırdı`);
         if (nutGap >= 5) issues.push(`${nutGap} Gün Beslenme Kaydı Yok`);
+        const reason = issues.join(" • ");
+        a.risk_reason = reason;
         critical.push({
           id: a.id,
           name: a.full_name || "İsimsiz",
           risk: Math.min(100, missed * 20 + nutGap * 10),
-          issue: issues.join(" • "),
+          issue: reason,
           riskLevel: "high",
         });
       } else if (isMediumRisk) {
@@ -281,17 +285,18 @@ export function useDashboardData() {
         const issues: string[] = [];
         if (missed >= 2) issues.push(`${missed} Antrenman Kaçırdı`);
         if (nutGap >= 3) issues.push(`${nutGap} Gün Beslenme Kaydı Yok`);
+        const reason = issues.join(" • ");
+        a.risk_reason = reason;
         critical.push({
           id: a.id,
           name: a.full_name || "İsimsiz",
           risk: Math.min(80, missed * 15 + nutGap * 8),
-          issue: issues.join(" • "),
+          issue: reason,
           riskLevel: "medium",
         });
       } else {
         dist.low.count++;
       }
-    }
 
     // Sort: high risk first, then by risk score desc
     critical.sort((a, b) => {

@@ -94,7 +94,7 @@ function RiskDialog({ open, onOpenChange, riskLevel, athletes }: RiskDialogProps
                 </div>
                 <div>
                   <p className="font-medium text-foreground">{athlete.full_name || "İsimsiz"}</p>
-                  <p className="text-xs text-muted-foreground">{config.label}</p>
+                  <p className="text-xs text-muted-foreground">{athlete.risk_reason ?? config.label}</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
