@@ -328,7 +328,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
     // Fetch supplements
     const { data: supData } = await supabase
       .from("assigned_supplements")
-      .select("id, name_and_dosage, timing, icon, is_active, servings_left, total_servings")
+      .select("id, name_and_dosage, timing, icon, is_active, servings_left, total_servings, dosage, servings_per_use, servings_taken_today, last_taken_date")
       .eq("athlete_id", athleteId)
       .order("created_at", { ascending: false });
     setSupplements((supData as SupplementData[]) || []);
