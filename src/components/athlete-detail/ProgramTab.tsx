@@ -458,8 +458,6 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
       </div>
     );
   }
-    );
-  }
 
   return (
     <>
