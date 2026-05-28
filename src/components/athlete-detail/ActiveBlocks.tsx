@@ -282,26 +282,36 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
       // Get macro totals from foods
       const { data: foods } = await supabase
         .from("diet_template_foods")
-        .select("template_id, calories, protein, carbs, fat")
+        .select("template_id, day_number, calories, protein, carbs, fat")
         .in("template_id", Array.from(dietTemplateIds));
 
       const ntData = ntRes.data as any;
       dietList = (templates || []).map((t) => {
         const tf = (foods || []).filter((f) => f.template_id === t.id);
-        const totalCal = tf.reduce((s, f) => s + (f.calories || 0), 0);
+        const totalCal = tf.reduce((s, f) => s + (Number(f.calories) || 0), 0);
         const totalP = tf.reduce((s, f) => s + (Number(f.protein) || 0), 0);
         const totalC = tf.reduce((s, f) => s + (Number(f.carbs) || 0), 0);
         const totalF = tf.reduce((s, f) => s + (Number(f.fat) || 0), 0);
+
+        const dayKeys = new Set(
+          tf.map((f: any) => f.day_number).filter((n: any) => n !== null && n !== undefined)
+        );
+        const activeDaysCount = Math.max(1, dayKeys.size);
+
+        const avgCal = Math.round(totalCal / activeDaysCount);
+        const avgP = Math.round(totalP / activeDaysCount);
+        const avgC = Math.round(totalC / activeDaysCount);
+        const avgF = Math.round(totalF / activeDaysCount);
 
         const isPrimary = t.id === primaryTemplateId;
         return {
           templateId: t.id,
           templateName: t.title,
           description: t.description,
-          calories: isPrimary ? (ntRes.data?.daily_calories || totalCal) : totalCal,
-          protein: isPrimary ? (ntRes.data?.protein_g || Math.round(totalP)) : Math.round(totalP),
-          carbs: isPrimary ? (ntRes.data?.carbs_g || Math.round(totalC)) : Math.round(totalC),
-          fat: isPrimary ? (ntRes.data?.fat_g || Math.round(totalF)) : Math.round(totalF),
+          calories: isPrimary ? (ntRes.data?.daily_calories || avgCal) : avgCal,
+          protein: isPrimary ? (ntRes.data?.protein_g || avgP) : avgP,
+          carbs: isPrimary ? (ntRes.data?.carbs_g || avgC) : avgC,
+          fat: isPrimary ? (ntRes.data?.fat_g || avgF) : avgF,
           startDate: isPrimary ? (ntData?.diet_start_date || null) : null,
           durationWeeks: isPrimary ? (ntData?.diet_duration_weeks || null) : null,
           parentTemplateId: (t as any).parent_template_id ?? null,
