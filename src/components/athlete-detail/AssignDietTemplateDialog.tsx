@@ -215,7 +215,7 @@ export function AssignDietTemplateDialog({
           </Select>
         </div>
 
-        <ScrollArea className="flex-1 pr-2 -mr-2">
+        <ScrollArea className="h-[440px] max-h-[50vh] w-full pr-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -226,15 +226,19 @@ export function AssignDietTemplateDialog({
               <p className="text-sm text-muted-foreground">Henüz diyet şablonu oluşturmadınız.</p>
             </div>
           ) : (
-            <div className="space-y-3 pb-2">
+            <div className="grid grid-cols-1 gap-3 pb-4">
               {templates.map((tpl) => {
                 const isActive = activeTemplateId === tpl.id;
                 return (
                   <div
                     key={tpl.id}
-                    className={`rounded-xl border p-4 transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openPreview(tpl)}
+                    onKeyDown={(e) => { if (e.key === "Enter") openPreview(tpl); }}
+                    className={`rounded-xl border p-4 transition-colors cursor-pointer ${
                       isActive
-                        ? "border-success/40 bg-success/5 opacity-60"
+                        ? "border-success/40 bg-success/5"
                         : "border-border hover:border-success/40"
                     }`}
                   >
@@ -263,26 +267,37 @@ export function AssignDietTemplateDialog({
                         </div>
                       ))}
                     </div>
-                    <Button
-                      size="sm"
-                      className="w-full bg-success text-success-foreground hover:bg-success/90"
-                      disabled={assigning === tpl.id || isActive}
-                      onClick={() => handleAssign(tpl)}
-                    >
-                      {isActive ? (
-                        <>
-                          <Check className="w-4 h-4 mr-1.5" />
-                          Aktif Program
-                        </>
-                      ) : assigning === tpl.id ? (
-                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4 mr-1.5" />
-                          Ata
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={(e) => { e.stopPropagation(); openPreview(tpl); }}
+                      >
+                        <Eye className="w-4 h-4 mr-1.5" />
+                        Önizleme
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-success text-success-foreground hover:bg-success/90"
+                        disabled={assigning === tpl.id || isActive}
+                        onClick={(e) => { e.stopPropagation(); handleAssign(tpl); }}
+                      >
+                        {isActive ? (
+                          <>
+                            <Check className="w-4 h-4 mr-1.5" />
+                            Aktif
+                          </>
+                        ) : assigning === tpl.id ? (
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 mr-1.5" />
+                            Ata
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -290,6 +305,68 @@ export function AssignDietTemplateDialog({
           )}
         </ScrollArea>
       </DialogContent>
+
+      <Sheet open={!!previewTemplate} onOpenChange={(o) => !o && setPreviewTemplate(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b border-border flex flex-row items-center justify-between space-y-0">
+            <div className="min-w-0">
+              <SheetTitle className="truncate flex items-center gap-2">
+                <Apple className="w-4 h-4 text-success" />
+                {previewTemplate?.title}
+              </SheetTitle>
+              {previewTemplate?.description && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{previewTemplate.description}</p>
+              )}
+            </div>
+            <SheetClose className="rounded-md p-1 hover:bg-muted">
+              <X className="w-4 h-4" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : previewTemplate && (previewFoods[previewTemplate.id]?.length ?? 0) === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-12">Bu şablonda besin yok.</p>
+            ) : previewTemplate && (() => {
+              const foods = previewFoods[previewTemplate.id] ?? [];
+              const groups = new Map<string, any[]>();
+              foods.forEach((f) => {
+                const key = `${f.day_number ? `Gün ${f.day_number} — ` : ""}${f.meal_type || "Öğün"}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(f);
+              });
+              return [...groups.entries()].map(([meal, items]) => (
+                <div key={meal} className="space-y-2">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{meal}</h5>
+                  <div className="space-y-2">
+                    {items.map((f, i) => (
+                      <div key={i} className="rounded-lg border border-border p-3 bg-card">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-foreground">{f.food_name}</p>
+                            {f.serving_size && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{f.serving_size}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge className="text-[10px] bg-yellow-500/10 text-yellow-600 border-yellow-500/20 hover:bg-yellow-500/10">{f.calories ?? 0} kcal</Badge>
+                          <Badge className="text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/10">{Math.round(Number(f.protein) || 0)}g P</Badge>
+                          <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/10">{Math.round(Number(f.carbs) || 0)}g C</Badge>
+                          <Badge className="text-[10px] bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500/10">{Math.round(Number(f.fat) || 0)}g F</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Dialog>
   );
+}
 }
