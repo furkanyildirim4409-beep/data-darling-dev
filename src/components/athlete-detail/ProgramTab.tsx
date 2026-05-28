@@ -422,6 +422,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
             <History className="w-4 h-4 mr-1.5" />
             Program Geçmişi
           </Button>
+        </div>
         <div className="glass rounded-xl border border-border p-12 text-center">
           <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <Dumbbell className="w-8 h-8 text-muted-foreground" />
