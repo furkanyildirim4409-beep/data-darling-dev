@@ -218,8 +218,8 @@ export default function AthleteDetail() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <EnergyBank percentage={energyLevel} />
-            <SmartContract isSecure={isVaultSecure} missedWorkouts={missedWorkouts} totalWorkouts={totalWorkouts} />
+            <EnergyBank athleteId={athlete.id} />
+            <SmartContract athleteId={athlete.id} missedWorkouts={missedWorkouts} totalWorkouts={totalWorkouts} />
           </div>
         </div>
       </div>
