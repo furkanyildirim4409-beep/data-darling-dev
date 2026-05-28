@@ -276,18 +276,42 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
                         })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span
+                        title={`Enerji Skoru: %${computeEnergy(c)}`}
+                        className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono cursor-help"
+                      >
                         ⚡ {computeEnergy(c)}%
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono">
+                      <span
+                        title={`Ruh Hali (1-5): ${c.mood ?? "veri yok"}`}
+                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
+                      >
                         😊 {c.mood ?? "—"}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono">
+                      <span
+                        title={`Uyku Süresi: ${c.sleep_hours ?? "veri yok"} saat`}
+                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
+                      >
                         💤 {c.sleep_hours ?? "—"}s
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono">
+                      <span
+                        title={`Stres Seviyesi (1-5, düşük iyi): ${c.stress ?? "veri yok"}`}
+                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
+                      >
                         😰 {c.stress ?? "—"}
+                      </span>
+                      <span
+                        title={`Kas Ağrısı (1-5, düşük iyi): ${c.soreness ?? "veri yok"}`}
+                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
+                      >
+                        💪 {c.soreness ?? "—"}
+                      </span>
+                      <span
+                        title={`Sindirim (1-5, yüksek iyi): ${c.digestion ?? "veri yok"}`}
+                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
+                      >
+                        🍽️ {c.digestion ?? "—"}
                       </span>
                     </div>
                   </div>
