@@ -1,58 +1,46 @@
-# 27 May Pass — Timeline Decimals, AI Forecast, Bloodwork Sanitize
+## EnergyBank Refactor — 6 Biometric Pillars + Shadcn Tooltips
 
-## 1. TimelineAI — kill floating-point decimal leaks
+### Scope
+Single file: `src/components/athlete-detail/EnergyBank.tsx`. No backend / schema changes.
 
-`src/components/athlete-detail/TimelineAI.tsx`
+### Data mapping
+`daily_checkins` currently exposes: `mood`, `sleep_hours`, `soreness`, `stress`, `digestion`. There is no dedicated "sleep quality" or "energy level" raw column, so we derive them:
 
-- Add a helper `const fmt = (n: number, d = 1) => Number.isFinite(n) ? Number(n).toFixed(d) : "—";`
-- In `renderStatChange`: render `{fmt(projected, label === "Kas Kütlesi" ? 1 : 0)}{unit}` for the projected value and the strike-through `{fmt(currentVal, 1)}{unit}` so values never blow past one decimal.
-- Round delta with `fmt(change, 1)` instead of `Number((projected - currentVal).toFixed(1))` raw output.
-- Round all `projections` numeric outputs at build time (Math.round / toFixed(1)) so the slider math can't emit `14.8999…`.
-- "Başlangıçtan Bu Yana" block: format with the same `fmt` helper for `(startStats.bodyFat - currentStats.bodyFat)`, the kg delta, and the `%` progress.
-- Add `truncate`/`tabular-nums` typography classes to the metric value spans so long numbers can't break card borders.
+| Pillar | Source | Display |
+|---|---|---|
+| Ruh Hali | `mood` | `n/5` |
+| Uyku Kalitesi | `min(sleep_hours/8,1) * 5` rounded | `n/5` |
+| Enerji Seviyesi | `computeEnergy(checkin)` | `%n` |
+| Kas Ağrısı | `soreness` | `n/5` (düşük iyi) |
+| Stres | `stress` | `n/5` (düşük iyi) |
+| Uyku Süresi | `sleep_hours` | `n sa` |
 
-## 2. AI weekly forecast — new edge function + TimelineAI hook
+(`digestion` is dropped from the UI per the spec's 6-pillar list; it stays in `computeEnergy` so the aggregate score is unchanged.)
 
-Create `supabase/functions/timeline-forecast/index.ts` (Lovable AI Gateway, `google/gemini-3-flash-preview`, non-streaming JSON):
+### Step A — Pillar config array
+Introduce a `PILLARS` array of `{ key, label, icon, tooltip, accentClass, getValue(c), formatValue(v) }` using Lucide `Smile`, `Moon`, `Zap`, `Flame`, `Brain`, `Clock`. Tooltip strings exactly as specified in the brief.
 
-- Accept `{ athleteId }`. Use the caller's JWT (verify_jwt=true) and query Supabase with service role.
-- Aggregate the last 4 weeks of:
-  - `body_measurements` (weight / body_fat / muscle_mass progression)
-  - `workout_logs` (tonnage, duration → progressive overload velocity)
-  - `nutrition_logs` vs `nutrition_targets` (macro/calorie compliance 0–100)
-  - `daily_checkins` (consistency + readiness)
-  - `athlete_supplements` (adherence ratio)
-- System prompt instructs Gemini to act as a sports-science forecasting engine and respond in Turkish markdown, **must** include a section exactly titled `### 🔮 Gelecek Dönem Gelişim & Hipertrofi Tahmini` with a 4-week forward projection across: kilo, yağ %, kas kütlesi, tonaj, beslenme uyumu, disiplin. Return `{ markdown }`.
-- Handle 429 / 402 with explicit error payloads.
-- Register in `supabase/config.toml`.
-
-Wire into `TimelineAI.tsx`:
-- Add a "AI Tahmini" button under the projected stats grid. On click → `supabase.functions.invoke("timeline-forecast", { body: { athleteId } })`, render returned markdown in a styled dark-glass panel (reuse `react-markdown` if already in deps; otherwise simple line-split).
-- Show loading skeleton + toast on 429/402.
-
-## 3. Sanitize BloodworkPanel — no phantom T/C rows
-
-`src/components/athlete-detail/BloodworkPanel.tsx`
-
-- Remove the hardcoded Testosteron + Kortizol quick-stat cards and the T:C ratio block.
-- Replace with a dynamic loop:
-  ```ts
-  const latestBio = Array.isArray(latest.extracted_data) ? latest.extracted_data : [];
-  const available = latestBio.filter(b => b && b.value !== null && b.value !== undefined);
+### Step B — Shadcn Tooltip wrapping
+- Import `Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider` from `@/components/ui/tooltip`.
+- Wrap the whole dialog badge region in a single `<TooltipProvider delayDuration={120}>`.
+- Each badge becomes:
+  ```tsx
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className="...badge..."><Icon/> {formatted}</span>
+    </TooltipTrigger>
+    <TooltipContent className="bg-popover/95 backdrop-blur-md border border-white/10 p-2.5 max-w-[280px] rounded-xl text-xs font-medium text-foreground shadow-2xl tracking-wide select-none animate-in fade-in zoom-in-95 duration-150">
+      <p className="font-semibold mb-0.5">{label}</p>
+      <p className="text-muted-foreground">{tooltip}</p>
+    </TooltipContent>
+  </Tooltip>
   ```
-  Render up to the first 4 available biomarkers as quick-stat tiles with status-driven colors (`optimal` → success, `warning` → warning, `low|high` → destructive).
-- T:C ratio: only render if **both** keywords resolve to numbers in the current row (already conditional, keep but only inside the dynamic section).
-- Chart: build `chartData` from the union of biomarker names that actually appear in ≥ 2 tests; render one `<Line>` per such marker (cap at 4 to avoid clutter). If no marker has ≥ 2 timepoints, hide the chart entirely instead of an empty axis.
-- Tooltip rewritten to iterate payload entries instead of hardcoded T/C labels.
-- Sub-title becomes the dynamic biomarker count, not "Testosteron / Kortizol Oranı".
+- Remove the legacy native `title=""` attributes (replaced by tooltips).
 
-`src/components/athlete-detail/BloodworkDialog.tsx` already iterates `biomarkers` dynamically — verify nothing renders for empty rows (it does: `biomarkers.length === 0` branch already shows the empty state). No structural change needed beyond filtering out entries where `value == null`:
-- In the biomarker grid `.map`, prepend `.filter(b => b && b.value !== null && b.value !== undefined)`.
-- Same filter inside `HormonalComparisonChart` so phantom rows can't sneak into the bar chart.
+### Step C — Historical dialog grid
+Inside the `history.map(...)` row, replace the current 6-chip flex with a 6-column responsive grid (`grid grid-cols-3 sm:grid-cols-6 gap-1.5`) that always renders all six pillars side-by-side, never truncating. Each cell uses the same Tooltip wrapper from Step B so hovering any historical entry reveals the same definitions.
 
-## Technical notes
-
-- No new dependencies. Reuse existing `lucide-react`, `recharts`, `sonner`.
-- Edge function uses `Deno.env.get("LOVABLE_API_KEY")` (already in secrets) and `SUPABASE_SERVICE_ROLE_KEY` for the data aggregation queries.
-- All numeric outputs in TimelineAI pass through the `fmt` helper — no raw `toFixed` chains, no `Number(x.toFixed(1))` round-trips that re-introduce float noise.
-- Files touched: edit 3 (`TimelineAI.tsx`, `BloodworkPanel.tsx`, `BloodworkDialog.tsx`), edit 1 (`config.toml`), create 1 (`timeline-forecast/index.ts`).
+### Out of scope
+- Outer card layout (3-dot vs title overlap) — already addressed in the prior pass.
+- `computeEnergy` formula, decay logic, realtime subscriptions, dropdown menu — untouched.
+- No new dependencies.

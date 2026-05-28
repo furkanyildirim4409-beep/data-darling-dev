@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Battery,
   BatteryLow,
   BatteryMedium,
   BatteryFull,
@@ -11,6 +10,12 @@ import {
   TrendingUp,
   CalendarDays,
   Zap,
+  Smile,
+  Moon,
+  Flame,
+  Brain,
+  Clock,
+  type LucideIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,12 +31,18 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
   ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   CartesianGrid,
 } from "recharts";
 
@@ -61,8 +72,6 @@ function computeEnergy(c: CheckIn | null): number {
   return Math.max(0, Math.min(100, Math.round(((avg - 1) / 4) * 100)));
 }
 
-// Mirrors applyDecay() in src/hooks/useAthletes.ts so the EnergyBank value
-// matches the "Hazırlık" (readiness) score on the athlete roster page.
 function applyReadinessDecay(base: number, lastActivityIso: string | null): number {
   if (!lastActivityIso) return 0;
   const elapsedDays = Math.floor((Date.now() - new Date(lastActivityIso).getTime()) / DAY_MS);
@@ -70,6 +79,79 @@ function applyReadinessDecay(base: number, lastActivityIso: string | null): numb
   if (elapsedDays > 3) return Math.max(0, base - (elapsedDays - 3) * 10);
   return base;
 }
+
+interface Pillar {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  tooltip: string;
+  accentClass: string;
+  getValue: (c: CheckIn) => string;
+}
+
+const PILLARS: Pillar[] = [
+  {
+    key: "mood",
+    label: "Ruh Hali",
+    icon: Smile,
+    tooltip:
+      "Ruh Hali: Sporcunun günlük motivasyon, zihinsel odak ve psikolojik hazırlık durumu.",
+    accentClass: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+    getValue: (c) => (c.mood != null ? `${c.mood}/5` : "—"),
+  },
+  {
+    key: "sleep_quality",
+    label: "Uyku Kalitesi",
+    icon: Moon,
+    tooltip:
+      "Uyku Kalitesi: Gece boyunca alınan derin uyku verimliliği ve yenilenme yüzdesi.",
+    accentClass: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
+    getValue: (c) => {
+      if (c.sleep_hours == null) return "—";
+      const q = Math.round(Math.min(c.sleep_hours / 8, 1) * 5);
+      return `${q}/5`;
+    },
+  },
+  {
+    key: "energy",
+    label: "Enerji Seviyesi",
+    icon: Zap,
+    tooltip:
+      "Enerji Seviyesi: Hücresel uyanıklık ve merkezi sinir sistemi antrenman ateşleme gücü.",
+    accentClass: "bg-primary/10 text-primary border-primary/20",
+    getValue: (c) => `%${computeEnergy(c)}`,
+  },
+  {
+    key: "soreness",
+    label: "Kas Ağrısı",
+    icon: Flame,
+    tooltip:
+      "Kas Ağrısı: Geçmiş overload setlerinden kalan aktif kas yorgunluğu ve doku hasarı takibi.",
+    accentClass: "bg-rose-500/10 text-rose-300 border-rose-500/20",
+    getValue: (c) => (c.soreness != null ? `${c.soreness}/5` : "—"),
+  },
+  {
+    key: "stress",
+    label: "Stres",
+    icon: Brain,
+    tooltip:
+      "Stres Seviyesi: Günlük kortizol baskısı, antrenman dışı zihinsel yük ve anksiyete katsayısı.",
+    accentClass: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
+    getValue: (c) => (c.stress != null ? `${c.stress}/5` : "—"),
+  },
+  {
+    key: "sleep_hours",
+    label: "Uyku Süresi",
+    icon: Clock,
+    tooltip:
+      "Uyku Süresi: Sporcunun saat cinsinden aldığı toplam net dinlenme ve anabolik uyku periyodu.",
+    accentClass: "bg-sky-500/10 text-sky-300 border-sky-500/20",
+    getValue: (c) => (c.sleep_hours != null ? `${c.sleep_hours} sa` : "—"),
+  },
+];
+
+const TOOLTIP_CLASS =
+  "bg-popover/95 backdrop-blur-md border border-white/10 p-2.5 max-w-[280px] rounded-xl text-xs font-medium text-foreground shadow-2xl tracking-wide select-none animate-in fade-in zoom-in-95 duration-150";
 
 export function EnergyBank({ athleteId }: EnergyBankProps) {
   const [baseReadiness, setBaseReadiness] = useState<number>(75);
@@ -168,9 +250,6 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
         .map((c) => ({
           date: new Date(c.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" }),
           energy: computeEnergy(c),
-          mood: c.mood,
-          stress: c.stress,
-          sleep: c.sleep_hours,
         })),
     [history]
   );
@@ -189,9 +268,13 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider truncate">Enerji Bankası</p>
-          <p className={cn("text-2xl font-bold font-mono", colorClass)}>%{percentage}</p>
+        <div className="flex-1 min-w-0 pr-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+            Enerji Bankası
+          </p>
+          <p className={cn("text-2xl font-bold font-mono leading-tight", colorClass)}>
+            %{percentage}
+          </p>
           {isStale && (
             <p className="text-[10px] text-destructive/80 uppercase tracking-wider">Check-in atlandı</p>
           )}
@@ -216,14 +299,14 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="glass border-border max-w-3xl backdrop-blur-xl">
+        <DialogContent className="glass border-border max-w-4xl backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <Zap className="w-5 h-5 text-primary" />
               Enerji Rezervi & Davranış Geçmişi
             </DialogTitle>
             <DialogDescription>
-              Son {history.length} check-in kaydından türetilmiş günlük enerji skoru.
+              Son {history.length} check-in kaydından türetilmiş 6 biyometrik gösterge.
             </DialogDescription>
           </DialogHeader>
 
@@ -232,14 +315,14 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
               Henüz check-in verisi yok.
             </div>
           ) : (
-            <>
+            <TooltipProvider delayDuration={120}>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 10, right: 16, left: -16, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                     <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{
                         background: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
@@ -258,13 +341,13 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
                 </ResponsiveContainer>
               </div>
 
-              <div className="max-h-48 overflow-y-auto scrollbar-hide space-y-2 mt-2">
+              <div className="max-h-72 overflow-y-auto scrollbar-hide space-y-2 mt-2 pr-1">
                 {history.map((c, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs"
+                    className="rounded-lg border border-border bg-secondary/30 px-3 py-2.5"
                   >
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
                       <CalendarDays className="w-3.5 h-3.5" />
                       <span className="font-mono">
                         {new Date(c.created_at).toLocaleString("tr-TR", {
@@ -276,48 +359,34 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
                         })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                      <span
-                        title={`Enerji Skoru: %${computeEnergy(c)}`}
-                        className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono cursor-help"
-                      >
-                        ⚡ {computeEnergy(c)}%
-                      </span>
-                      <span
-                        title={`Ruh Hali (1-5): ${c.mood ?? "veri yok"}`}
-                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
-                      >
-                        😊 {c.mood ?? "—"}
-                      </span>
-                      <span
-                        title={`Uyku Süresi: ${c.sleep_hours ?? "veri yok"} saat`}
-                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
-                      >
-                        💤 {c.sleep_hours ?? "—"}s
-                      </span>
-                      <span
-                        title={`Stres Seviyesi (1-5, düşük iyi): ${c.stress ?? "veri yok"}`}
-                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
-                      >
-                        😰 {c.stress ?? "—"}
-                      </span>
-                      <span
-                        title={`Kas Ağrısı (1-5, düşük iyi): ${c.soreness ?? "veri yok"}`}
-                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
-                      >
-                        💪 {c.soreness ?? "—"}
-                      </span>
-                      <span
-                        title={`Sindirim (1-5, yüksek iyi): ${c.digestion ?? "veri yok"}`}
-                        className="px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono cursor-help"
-                      >
-                        🍽️ {c.digestion ?? "—"}
-                      </span>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                      {PILLARS.map((p) => {
+                        const PIcon = p.icon;
+                        return (
+                          <Tooltip key={p.key}>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border font-mono text-[11px] cursor-help transition-transform hover:-translate-y-0.5",
+                                  p.accentClass,
+                                )}
+                              >
+                                <PIcon className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate">{p.getValue(c)}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className={TOOLTIP_CLASS}>
+                              <p className="font-semibold mb-0.5">{p.label}</p>
+                              <p className="text-muted-foreground">{p.tooltip}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
-            </>
+            </TooltipProvider>
           )}
         </DialogContent>
       </Dialog>
