@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface ProgramOption {
