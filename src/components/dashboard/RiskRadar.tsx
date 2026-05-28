@@ -263,7 +263,7 @@ export function RiskRadar({ athletes, riskDistribution, criticalAthletes, isLoad
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 md:mb-6">
           <div>
             <h3 className="text-base md:text-lg font-semibold text-foreground">Risk Radarı</h3>
-            <p className="text-xs md:text-sm text-muted-foreground">Sporcu hazırlık skoru dağılımı</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Davranışsal risk dağılımı</p>
           </div>
           <div className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-primary/10 border border-primary/30 self-start sm:self-auto">
             <span className="text-[10px] md:text-xs font-medium text-primary">Canlı İzleme</span>
