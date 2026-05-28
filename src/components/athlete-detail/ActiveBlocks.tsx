@@ -181,6 +181,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
   const [supplements, setSupplements] = useState<SupplementData[]>([]);
   const [togglingSupId, setTogglingSupId] = useState<string | null>(null);
   const [assignSupplementOpen, setAssignSupplementOpen] = useState(false);
+  const [supplementSheet, setSupplementSheet] = useState<SupplementData | null>(null);
 
   // Detail dialog state
   const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
