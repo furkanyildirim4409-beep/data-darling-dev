@@ -70,6 +70,23 @@ export function AssignDietTemplateDialog({
   const [assigning, setAssigning] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<Date>(getNextMonday());
   const [durationWeeks, setDurationWeeks] = useState("4");
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateWithMacros | null>(null);
+  const [previewFoods, setPreviewFoods] = useState<Record<string, any[]>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const openPreview = async (tpl: TemplateWithMacros) => {
+    setPreviewTemplate(tpl);
+    if (previewFoods[tpl.id]) return;
+    setPreviewLoading(true);
+    const { data } = await supabase
+      .from("diet_template_foods")
+      .select("meal_type, food_name, serving_size, calories, protein, carbs, fat, day_number")
+      .eq("template_id", tpl.id)
+      .order("day_number")
+      .order("meal_type");
+    setPreviewFoods((prev) => ({ ...prev, [tpl.id]: data ?? [] }));
+    setPreviewLoading(false);
+  };
 
   useEffect(() => {
     if (!open || !user || !activeCoachId) return;
