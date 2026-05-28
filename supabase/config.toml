@@ -44,4 +44,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.cron-retention-reminders]
+[functions.cron-retention-reminders]
 verify_jwt = false
+
+[functions.radar-dispatcher]
+verify_jwt = false
+
+[functions.radar-worker]
+verify_jwt = false
+

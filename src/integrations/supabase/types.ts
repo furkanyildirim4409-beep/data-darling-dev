@@ -56,6 +56,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_radar_agent_queue: {
+        Row: {
+          agent_assigned_id: string
+          athlete_id: string
+          batch_id: number
+          coach_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          locked_at: string | null
+          processing_status: string
+          run_started_at: string
+        }
+        Insert: {
+          agent_assigned_id: string
+          athlete_id: string
+          batch_id: number
+          coach_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          locked_at?: string | null
+          processing_status?: string
+          run_started_at?: string
+        }
+        Update: {
+          agent_assigned_id?: string
+          athlete_id?: string
+          batch_id?: number
+          coach_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          locked_at?: string | null
+          processing_status?: string
+          run_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_radar_agent_queue_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_radar_agent_queue_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_weekly_analyses: {
         Row: {
           actions: Json | null
@@ -537,6 +594,8 @@ export type Database = {
           extracted_data: Json | null
           file_name: string
           id: string
+          is_stale_for_ai: boolean
+          last_analyzed_at: string | null
           status: string
           user_id: string
         }
@@ -548,6 +607,8 @@ export type Database = {
           extracted_data?: Json | null
           file_name: string
           id?: string
+          is_stale_for_ai?: boolean
+          last_analyzed_at?: string | null
           status?: string
           user_id: string
         }
@@ -559,6 +620,8 @@ export type Database = {
           extracted_data?: Json | null
           file_name?: string
           id?: string
+          is_stale_for_ai?: boolean
+          last_analyzed_at?: string | null
           status?: string
           user_id?: string
         }
@@ -3079,6 +3142,28 @@ export type Database = {
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
         Returns: Json
+      }
+      claim_radar_queue_batch: {
+        Args: { _agent_id: string; _limit: number }
+        Returns: {
+          agent_assigned_id: string
+          athlete_id: string
+          batch_id: number
+          coach_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          locked_at: string | null
+          processing_status: string
+          run_started_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ai_radar_agent_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
