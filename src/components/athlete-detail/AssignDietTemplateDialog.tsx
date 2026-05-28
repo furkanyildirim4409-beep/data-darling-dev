@@ -369,4 +369,3 @@ export function AssignDietTemplateDialog({
     </Dialog>
   );
 }
-}
