@@ -116,6 +116,22 @@ export default function AthleteDetail() {
   const [aiScanning, setAiScanning] = useState(false);
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
 
+  // Subscription lifecycle dialogs
+  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [freezeDuration, setFreezeDuration] = useState<"1_week" | "2_weeks" | "1_month">("1_week");
+  const [freezeReason, setFreezeReason] = useState("");
+  const [freezeLoading, setFreezeLoading] = useState(false);
+
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [terminateLoading, setTerminateLoading] = useState(false);
+
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundKind, setRefundKind] = useState<"partial" | "full">("full");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundLoading, setRefundLoading] = useState(false);
+
+
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
     setAiScanning(true);
