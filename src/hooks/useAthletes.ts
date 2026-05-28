@@ -134,15 +134,14 @@ export function useAthletes(): UseAthletesReturn {
       if (activeCoachIdRef.current !== coachIdAtRequest) return;
       if (fetchError) throw fetchError;
 
-      const rows = data || [];
-      const athleteIds = rows.map((r: any) => r.id);
-
-      // Last activity resolution from real activity streams (last 60 days window)
+      // Last activity + last check-in + paid coaching expiry from real data streams
       const lastActivity = new Map<string, string>();
+      const lastCheckin = new Map<string, string>();
+      const subscriptionExpiry = new Map<string, string>();
 
       if (athleteIds.length > 0) {
         const sinceIso = new Date(Date.now() - 60 * 86_400_000).toISOString();
-        const [checkinsRes, workoutsRes] = await Promise.all([
+        const [checkinsRes, workoutsRes, ordersRes] = await Promise.all([
           supabase
             .from("daily_checkins")
             .select("user_id, created_at")
@@ -153,26 +152,45 @@ export function useAthletes(): UseAthletesReturn {
             .select("user_id, logged_at")
             .in("user_id", athleteIds)
             .gte("logged_at", sinceIso),
+          supabase
+            .from("orders")
+            .select("user_id, expires_at, created_at")
+            .in("user_id", athleteIds)
+            .eq("status", "paid")
+            .eq("order_type", "coaching"),
         ]);
 
         if (activeCoachIdRef.current !== coachIdAtRequest) return;
 
         for (const c of checkinsRes.data ?? []) {
-          if (!c.created_at) continue;
-          const prev = lastActivity.get(c.user_id);
-          if (!prev || c.created_at > prev) lastActivity.set(c.user_id, c.created_at);
+          if (!c.created_at || !c.user_id) continue;
+          const prevAct = lastActivity.get(c.user_id);
+          if (!prevAct || c.created_at > prevAct) lastActivity.set(c.user_id, c.created_at);
+          const prevChk = lastCheckin.get(c.user_id);
+          if (!prevChk || c.created_at > prevChk) lastCheckin.set(c.user_id, c.created_at);
         }
         for (const w of workoutsRes.data ?? []) {
           if (!w.logged_at || !w.user_id) continue;
           const prev = lastActivity.get(w.user_id);
           if (!prev || w.logged_at > prev) lastActivity.set(w.user_id, w.logged_at);
         }
+        for (const o of ordersRes.data ?? []) {
+          if (!o.user_id || !o.expires_at) continue;
+          const prev = subscriptionExpiry.get(o.user_id);
+          if (!prev || o.expires_at > prev) subscriptionExpiry.set(o.user_id, o.expires_at);
+        }
       }
 
       setAthletes(
         rows.map((r: any) =>
-          mapProfileToAthlete(r, lastActivity.get(r.id) ?? r.updated_at ?? null),
+          mapProfileToAthlete(
+            r,
+            lastActivity.get(r.id) ?? r.updated_at ?? null,
+            lastCheckin.get(r.id) ?? null,
+            subscriptionExpiry.get(r.id) ?? null,
+          ),
         ),
+      );
       );
     } catch (err: any) {
       if (activeCoachIdRef.current === coachIdAtRequest) {
