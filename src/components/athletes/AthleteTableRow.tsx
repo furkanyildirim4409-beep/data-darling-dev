@@ -3,9 +3,8 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { MessageSquare, User, ChevronRight, MessageCircleWarning } from "lucide-react";
-import { Athlete } from "@/data/athletes";
+import { MessageSquare, User, ChevronRight } from "lucide-react";
+import { Athlete } from "@/types/shared-models";
 
 interface AthleteTableRowProps {
   athlete: Athlete;
@@ -14,27 +13,23 @@ interface AthleteTableRowProps {
   hasUnanswered?: boolean;
 }
 
-const tierStyles = {
-  Elite: "bg-primary/10 text-primary border-primary/20",
-  Pro: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  Standard: "bg-muted text-muted-foreground border-border",
-};
-
-const riskLabels = {
+const riskLabels: Record<Athlete["injuryRisk"], string> = {
   Low: "Düşük",
   Medium: "Orta",
   High: "Yüksek",
+  Inactive: "Pasif",
 };
 
-const riskStyles = {
+const riskStyles: Record<Athlete["injuryRisk"], string> = {
   Low: "bg-success/10 text-success border-success/20",
   Medium: "bg-warning/10 text-warning border-warning/20",
   High: "bg-destructive/10 text-destructive border-destructive/20 animate-pulse",
+  Inactive: "bg-muted text-muted-foreground border-border",
 };
 
-export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswered }: AthleteTableRowProps) {
+export function AthleteTableRow({ athlete, onMessage, hasUnanswered }: AthleteTableRowProps) {
   const navigate = useNavigate();
-  
+
   const initials = athlete.name
     .split(" ")
     .map((n) => n[0])
@@ -53,6 +48,8 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
     return "text-destructive";
   };
 
+  const packageLabel = athlete.packageTitle ?? athlete.tier;
+
   return (
     <tr
       className={cn(
@@ -62,21 +59,28 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
     >
       {/* Student */}
       <td className="py-3 px-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10 border border-border group-hover:border-primary/30 transition-colors">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="w-10 h-10 border border-border group-hover:border-primary/30 transition-colors shrink-0">
             <AvatarImage src={athlete.avatar} />
             <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground">{athlete.name}</span>
-              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", tierStyles[athlete.tier])}>
-                {athlete.tier}
-              </Badge>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-medium text-foreground whitespace-nowrap truncate max-w-[180px]">
+                {athlete.name}
+              </span>
+              <span
+                className="border border-primary/20 bg-primary/10 text-primary uppercase text-[10px] tracking-wider rounded-md font-bold px-2 py-0.5 whitespace-nowrap truncate max-w-[160px]"
+                title={packageLabel}
+              >
+                {packageLabel}
+              </span>
             </div>
-            <span className="text-xs text-muted-foreground">{athlete.sport}</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap truncate block max-w-[220px]">
+              {athlete.sport || athlete.email}
+            </span>
           </div>
         </div>
       </td>
@@ -84,9 +88,18 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
       {/* Compliance */}
       <td className="py-3 px-4">
         <div className="w-32 space-y-1">
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between text-xs whitespace-nowrap">
             <span className="text-muted-foreground">Uyum</span>
-            <span className={cn("font-mono font-medium", athlete.compliance >= 80 ? "text-success" : athlete.compliance >= 60 ? "text-warning" : "text-destructive")}>
+            <span
+              className={cn(
+                "font-mono font-medium",
+                athlete.compliance >= 80
+                  ? "text-success"
+                  : athlete.compliance >= 60
+                  ? "text-warning"
+                  : "text-destructive"
+              )}
+            >
               {athlete.compliance}%
             </span>
           </div>
@@ -101,7 +114,7 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
 
       {/* Readiness */}
       <td className="py-3 px-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <span className={cn("text-xl font-bold font-mono", getReadinessColor())}>
             {athlete.readiness}
           </span>
@@ -111,24 +124,35 @@ export function AthleteTableRow({ athlete, onMessage, onViewProfile, hasUnanswer
 
       {/* Injury Risk */}
       <td className="py-3 px-4">
-        <Badge variant="outline" className={cn("font-medium", riskStyles[athlete.injuryRisk])}>
+        <Badge
+          variant="outline"
+          className={cn("font-medium whitespace-nowrap", riskStyles[athlete.injuryRisk])}
+        >
           {riskLabels[athlete.injuryRisk]}
         </Badge>
       </td>
 
       {/* Last Active */}
       <td className="py-3 px-4">
-        <span className={cn(
-          "text-sm font-mono",
-          athlete.lastActive.includes("day") ? "text-warning" : "text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            "text-sm font-mono whitespace-nowrap truncate block max-w-[160px]",
+            athlete.injuryRisk === "Inactive" ? "text-warning" : "text-muted-foreground"
+          )}
+          title={athlete.lastActive}
+        >
           {athlete.lastActive}
         </span>
       </td>
 
       {/* Actions */}
       <td className="py-3 px-4">
-        <div className={cn("flex items-center gap-2 transition-opacity", hasUnanswered ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+        <div
+          className={cn(
+            "flex items-center gap-2 transition-opacity whitespace-nowrap",
+            hasUnanswered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
           <Button
             variant="ghost"
             size="sm"
