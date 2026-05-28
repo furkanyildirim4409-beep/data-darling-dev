@@ -127,7 +127,8 @@ export function useDashboardData() {
       profilesQuery = profilesQuery.in("id", assignedIds);
     }
 
-    const { data: athletesData } = await profilesQuery;
+    const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({ ...a, calculated_risk_level: "Low" as const }));
+
 
     const athleteList: DashboardAthlete[] = athletesData ?? [];
     if (athleteList.length === 0) {
