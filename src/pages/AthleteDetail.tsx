@@ -70,6 +70,11 @@ interface AthleteProfile {
   streak: number | null;
   bio: string | null;
   fitness_goal: string | null;
+  packageTitle: string | null;
+  subscription_status: string | null;
+  latestPaidOrderId: string | null;
+  latestPaidOrderTotal: number | null;
+
 }
 
 const GOAL_LABELS: Record<string, string> = {
