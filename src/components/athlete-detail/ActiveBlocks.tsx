@@ -646,7 +646,7 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
               const timingClass = TIMING_COLORS[sup.timing] || "bg-muted text-muted-foreground border-border";
               return (
                 <div key={sup.id}>
-                  {idx === 0 ? <Separator className="my-1" /> : <Separator className="my-1" />}
+                  {idx > 0 && <Separator className="my-1" />}
                   <div
                     className={`rounded-lg p-3 hover:bg-secondary/40 transition-colors cursor-pointer ${!sup.is_active ? "opacity-60" : ""}`}
                     onClick={() => setSupplementSheet(sup)}
