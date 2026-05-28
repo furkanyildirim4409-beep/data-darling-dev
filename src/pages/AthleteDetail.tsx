@@ -150,6 +150,108 @@ export default function AthleteDetail() {
     }
   }, [id, aiScanning]);
 
+  const haptic = () => { try { navigator.vibrate?.(15); } catch { /* noop */ } };
+
+  const freezeSchema = z.object({
+    duration: z.enum(["1_week", "2_weeks", "1_month"]),
+    reason: z.string().trim().max(500).optional(),
+  });
+
+  const submitFreeze = async () => {
+    if (!id) return;
+    const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
+    if (!parsed.success) { toast.error("Geçersiz form"); return; }
+    setFreezeLoading(true);
+    try {
+      const days = freezeDuration === "1_week" ? 7 : freezeDuration === "2_weeks" ? 14 : 30;
+      const until = new Date(Date.now() + days * 86_400_000).toISOString();
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          subscription_status: "frozen",
+          freeze_until: until,
+          freeze_reason: freezeReason.trim() || null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      haptic();
+      const label = freezeDuration === "1_week" ? "1 Hafta" : freezeDuration === "2_weeks" ? "2 Hafta" : "1 Ay";
+      toast.success(`Üyelik donduruldu — ${label}`);
+      setFreezeOpen(false);
+      setFreezeReason("");
+      fetchAthleteData();
+    } catch (err: any) {
+      toast.error(err?.message || "Dondurma başarısız oldu");
+    } finally {
+      setFreezeLoading(false);
+    }
+  };
+
+  const submitTerminate = async () => {
+    if (!id) return;
+    setTerminateLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          coach_id: null,
+          subscription_status: "terminated",
+          active_program_id: null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      haptic();
+      toast.success("Sözleşme feshedildi");
+      setTerminateOpen(false);
+      navigate("/athletes");
+    } catch (err: any) {
+      toast.error(err?.message || "Fesih işlemi başarısız oldu");
+    } finally {
+      setTerminateLoading(false);
+    }
+  };
+
+  const submitRefund = async () => {
+    if (!id || !athlete) return;
+    const maxAmount = athlete.latestPaidOrderTotal ?? 0;
+    const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
+    const schema = z.object({
+      amount: z.number().positive().max(maxAmount > 0 ? maxAmount : Number.MAX_SAFE_INTEGER),
+      reason: z.string().trim().max(500).optional(),
+    });
+    const parsed = schema.safeParse({ amount, reason: refundReason });
+    if (!parsed.success) { toast.error("Geçerli bir iade tutarı girin"); return; }
+    setRefundLoading(true);
+    try {
+      const { error } = await supabase.from("orders").insert({
+        user_id: id,
+        items: [{
+          type: "refund",
+          source_order_id: athlete.latestPaidOrderId,
+          refund_kind: refundKind,
+          reason: refundReason.trim() || null,
+        }],
+        total_price: -Math.abs(amount),
+        status: "refund_pending",
+        order_type: "refund",
+        external_reference_id: athlete.latestPaidOrderId,
+      } as any);
+      if (error) throw error;
+      haptic();
+      toast.success(`İade talebi kayıt altına alındı — ${amount.toLocaleString("tr-TR")} ₺`);
+      setRefundOpen(false);
+      setRefundAmount("");
+      setRefundReason("");
+      setRefundKind("full");
+    } catch (err: any) {
+      toast.error(err?.message || "İade talebi başarısız oldu");
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+
+
   const fetchAthleteData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
