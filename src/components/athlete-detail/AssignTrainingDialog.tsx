@@ -402,4 +402,3 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
     </Dialog>
   );
 }
-}
