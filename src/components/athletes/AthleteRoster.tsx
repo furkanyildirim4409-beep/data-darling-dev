@@ -53,31 +53,27 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
   const athleteIds = useMemo(() => athletes.map(a => a.id), [athletes]);
   const unansweredIds = useUnansweredChats(athleteIds);
 
-  const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = [
+  const filters: { id: FilterType; label: string; icon: React.ReactNode; count: number }[] = useMemo(() => [
     { id: "all", label: "Tüm Sporcular", icon: null, count: athletes.length },
     {
       id: "high-risk",
       label: "Yüksek Risk",
       icon: <AlertTriangle className="w-3 h-3" />,
-      count: athletes.filter((a) => a.injuryRisk === "High").length,
+      count: athletes.filter(isHighRisk).length,
     },
     {
       id: "missed-checkin",
       label: "Kaçırılan Check-in",
       icon: <Clock className="w-3 h-3" />,
-      count: athletes.filter((a) => a.checkInStatus === "missed").length,
+      count: athletes.filter(isMissedCheckin).length,
     },
     {
-      id: "expiring",
-      label: "Süresi Doluyor",
+      id: "expired",
+      label: "Süresi Dolanlar",
       icon: <Calendar className="w-3 h-3" />,
-      count: athletes.filter((a) => {
-        const expiry = new Date(a.subscriptionExpiry);
-        const diffDays = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
-        return diffDays <= 3 && diffDays > 0;
-      }).length,
+      count: athletes.filter(isExpired).length,
     },
-  ];
+  ], [athletes]);
 
   const filteredAthletes = useMemo(() => {
     let result = athletes;
@@ -89,16 +85,13 @@ export function AthleteRoster({ athletes, isLoading = false }: AthleteRosterProp
     }
     switch (activeFilter) {
       case "high-risk":
-        result = result.filter((a) => a.injuryRisk === "High");
+        result = result.filter(isHighRisk);
         break;
       case "missed-checkin":
-        result = result.filter((a) => a.checkInStatus === "missed");
+        result = result.filter(isMissedCheckin);
         break;
-      case "expiring":
-        result = result.filter((a) => {
-          const diffDays = Math.ceil((new Date(a.subscriptionExpiry).getTime() - Date.now()) / 86400000);
-          return diffDays <= 3 && diffDays > 0;
-        });
+      case "expired":
+        result = result.filter(isExpired);
         break;
     }
     return result;
