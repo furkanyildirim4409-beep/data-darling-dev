@@ -2013,6 +2013,8 @@ export type Database = {
           daily_protein_target: number | null
           email: string | null
           fitness_goal: string | null
+          freeze_reason: string | null
+          freeze_until: string | null
           full_name: string | null
           gender: string | null
           gym_name: string | null
@@ -2055,6 +2057,8 @@ export type Database = {
           daily_protein_target?: number | null
           email?: string | null
           fitness_goal?: string | null
+          freeze_reason?: string | null
+          freeze_until?: string | null
           full_name?: string | null
           gender?: string | null
           gym_name?: string | null
@@ -2097,6 +2101,8 @@ export type Database = {
           daily_protein_target?: number | null
           email?: string | null
           fitness_goal?: string | null
+          freeze_reason?: string | null
+          freeze_until?: string | null
           full_name?: string | null
           gender?: string | null
           gym_name?: string | null
