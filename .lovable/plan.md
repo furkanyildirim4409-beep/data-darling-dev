@@ -1,81 +1,35 @@
-# Prestige Badge + Subscription Lifecycle Menu on AthleteDetail
+# RLS Lifecycle Recalibration + Column Escalation Trigger
 
-## 1. Replace "Seviye N" with live coaching tier badge
+Two-part migration that fixes the subscription lifecycle RLS violations without triggering recursion, then locks privilege-escalation columns via a `BEFORE UPDATE` trigger.
 
-`src/pages/AthleteDetail.tsx` currently shows `Seviye {athlete.level ?? 1}` (line 213). Swap it for the active coaching package title fetched from `orders`, mirroring the logic already used in `src/hooks/useAthletes.ts` (lines 163-205).
+## Part 1 — Clean RLS pathways
 
-Implementation:
-- Extend `AthleteProfile` with `packageTitle: string | null` and `subscriptionStatus: string | null` (already in `profiles.subscription_status`).
-- In `fetchAthleteData`, add a fourth parallel query: `supabase.from("orders").select("created_at, items, expires_at").eq("user_id", id).eq("status", "paid").eq("order_type", "coaching").order("created_at", { ascending: false })`.
-- Walk the newest paid coaching order, find the `items[]` entry where `type === "coaching" || item_type === "coaching"`, take its `title`. Fallback to `null`.
-- Replace the badge with a premium glass chip:
-  ```tsx
-  <Badge className="bg-gradient-to-r from-amber-500/15 to-purple-500/15 border border-amber-400/30 text-amber-300 backdrop-blur-md shadow-[0_0_12px_hsl(45_100%_60%_/_0.2)]">
-    👑 {athlete.packageTitle ?? "Standart Üyelik"}
-  </Badge>
-  ```
-- When `subscription_status === "frozen"`, append a secondary chip "❄️ Dondurulmuş" next to it.
+Drop and recreate UPDATE policies on `profiles` and INSERT/UPDATE on `orders` using only direct column comparisons and the existing security-definer helpers (`is_coach_of`, `is_active_team_member_of`). No inline subqueries against the same table — no recursion risk.
 
-## 2. Activate the three-dot menu with subscription operations
+**`profiles` UPDATE**
+- `Coaches can update athlete profiles`: USING `coach_id = auth.uid()`, WITH CHECK allows `coach_id = auth.uid() OR coach_id IS NULL` so terminate can null out the link.
+- `Team members can update athlete profiles`: mirrors the above through `is_active_team_member_of(coach_id)`.
 
-The header currently has a dead `<MoreHorizontal>` button (line 198). Wrap it in a `DropdownMenu` with three actions, each opening its own controlled dialog. The button itself is gated by `canEditAthletes`.
+**`orders` INSERT/UPDATE**
+- Split the legacy "FOR ALL" coach policy into separate INSERT and UPDATE policies, both gated by `public.is_coach_of(user_id)`. This covers head coaches and active sub-coaches uniformly and unblocks the refund-insert flow.
 
-### 2a. Üyeliği Dondur — Dialog
+## Part 2 — Column escalation guard trigger
 
-- `Dialog` with title "🚨 Üyeliği Dondur".
-- `<Select>` for duration: `1_week | 2_weeks | 1_month`.
-- `<Textarea>` (optional, ≤500 chars) for comment.
-- On submit: update `profiles` for this athlete:
-  - `subscription_status = 'frozen'`
-  - `freeze_until = now() + interval`
-  - `freeze_reason = comment || null`
-- Schema migration adds `freeze_until timestamptz` and `freeze_reason text` to `public.profiles` (nullable).
-- After success: `toast.success("Üyelik dondurulduuz — {duration_label}")`, close dialog, refetch profile.
+Because RLS `WITH CHECK` cannot reference `OLD`, install a `BEFORE UPDATE` trigger `enforce_athlete_profile_write_guards` on `public.profiles`:
 
-### 2b. Sözleşmeyi Feshet — AlertDialog
+- When `auth.uid() <> NEW.id` (i.e. someone other than the athlete is updating), raise an exception if any of these change: `role`, `email`, `xp`, `bio_coins`, `level`, `subscription_tier`.
+- All other columns — `subscription_status`, `freeze_until`, `freeze_reason`, `coach_id`, `active_program_id`, etc. — remain freely writable by the coach within their RLS scope.
 
-- `AlertDialog` warning: "Sözleşme feshedilecek. Sporcu aktif kadrodan çıkarılacak."
-- Confirm action runs:
-  - `profiles.update({ coach_id: null, subscription_status: 'terminated', active_program_id: null }).eq("id", id)`.
-- After success: `toast.success("Sözleşme feshedildi")`, navigate back to `/athletes`.
+Function is `SECURITY DEFINER` with `SET search_path = public`. Trigger is `BEFORE UPDATE FOR EACH ROW`.
 
-### 2c. Ücret İadesi Gönder — Dialog
+## Execution
 
-- `Dialog` with toggle (radio) for `Kısmi İade | Tam İade`.
-  - "Tam İade" auto-fills amount from the most recent paid coaching order's `total_price`.
-  - "Kısmi İade" exposes a numeric `<Input>` (zod validated, > 0 and ≤ source order total).
-- Optional `<Textarea>` for reason.
-- On submit, insert a transactional record into `orders`:
-  ```ts
-  {
-    user_id: id,
-    items: [{ type: 'refund', source_order_id, reason, refund_kind }],
-    total_price: -amount,
-    status: 'refund_pending',
-    order_type: 'refund',
-    external_reference_id: source_order_id,
-  }
-  ```
-- After success: `toast.success("İade talebi kayıt altına alındı")`, refetch.
-
-### Validation & UX
-
-- All form inputs run through small `zod` schemas before DB calls.
-- Each submit handler has a local `loading` boolean to disable the trigger button.
-- Errors surface via `toast.error(err.message)`.
-- Use `navigator.vibrate?.(15)` on successful submit (the "haptic confirmation" the spec asks for).
-
-## 3. Required schema migration
-
-Single migration adds two nullable columns to `profiles`:
-```sql
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS freeze_until timestamptz,
-  ADD COLUMN IF NOT EXISTS freeze_reason text;
-```
-No new tables, no policy changes — existing RLS on `profiles` already restricts coaches to their athletes via `is_coach_of`. `orders` already has coach-write policies for coaching orders; refund insert reuses them under the same `user_id`.
+Single migration containing both parts (drop policies → create policies → create function → create trigger). No frontend changes — `AthleteDetail.tsx` handlers already issue correct mutations.
 
 ## Out of scope
-- No new tables, no edge functions, no Stripe/refund processor integration — refund is stored as a billing-system record only.
-- No automated unfreeze cron — `freeze_until` is captured for downstream logic; flipping `subscription_status` back to `active` will be handled separately.
-- ProgramTab / ActiveBlocks untouched.
+- No INSERT/SELECT/DELETE policy changes on `profiles`.
+- No changes to athlete-self order policies.
+- No new tables, no edge functions.
+
+## Verification
+After apply: run `supabase--linter` and confirm `subscription_status`, `freeze_until`, `freeze_reason`, `coach_id`, `active_program_id` writes succeed for a coach against their athlete, while `role`/`xp`/`bio_coins` writes raise the guard exception.
