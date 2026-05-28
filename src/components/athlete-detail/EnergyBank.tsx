@@ -333,6 +333,7 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
                     <Line
                       type="monotone"
                       dataKey="energy"
+                      name="Enerji"
                       stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       dot={{ r: 3, fill: "hsl(var(--primary))" }}
