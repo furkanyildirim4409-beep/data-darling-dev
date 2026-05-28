@@ -125,12 +125,13 @@ export function useDashboardData() {
 
     if (assignedIds) {
       profilesQuery = profilesQuery.in("id", assignedIds);
-    }
+    const { data: athletesData } = await profilesQuery;
 
-    const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({ ...a, calculated_risk_level: "Low" as const }));
+    const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({
+      ...a,
+      calculated_risk_level: "Low" as "Low" | "Medium" | "High",
+    }));
 
-
-    const athleteList: DashboardAthlete[] = athletesData ?? [];
     if (athleteList.length === 0) {
       setAthletes([]);
       setRiskDistribution({ low: { count: 0, label: "Düşük Risk" }, medium: { count: 0, label: "Orta Risk" }, high: { count: 0, label: "Yüksek Risk" } });
