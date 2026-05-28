@@ -505,29 +505,33 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
             </div>
           </Collapsible>
         );
-      })}
+            })}
 
-      {hasMore && (
-        <div className="flex justify-center pt-2 pb-4">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="text-sm"
-          >
-            {loadingMore ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Yükleniyor...
-              </>
-            ) : (
-              "Daha Fazla Göster"
+            {hasMore && (
+              <div className="flex justify-center pt-2 pb-4">
+                <Button
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="text-sm"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Yükleniyor...
+                    </>
+                  ) : (
+                    "Daha Fazla Göster"
+                  )}
+                </Button>
+              </div>
             )}
-          </Button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
 }
 
 function getGroupColor(index: number): string {
