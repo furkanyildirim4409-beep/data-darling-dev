@@ -239,7 +239,7 @@ export default function AthleteDetail() {
               "body-model": <BodyMeasurementsStudio athleteId={athlete.id} />,
               "wellness-radar": <WellnessRadar data={wellnessData} />,
               "progress-chart": <AthleteProgressChart athleteId={athlete.id} />,
-              "metabolic-flux": <MetabolicFlux />,
+              "metabolic-flux": <MetabolicFlux athleteId={athlete.id} />,
               "timeline-ai": <TimelineAI athleteId={athlete.id} />,
               "active-blocks": <ActiveBlocks athleteId={athlete.id} />,
               "chat-widget": <ChatWidget athleteName={name} athleteInitials={initials} athleteId={athlete.id} />,
