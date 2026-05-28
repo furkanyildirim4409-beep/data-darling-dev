@@ -4,9 +4,35 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, TrendingUp, TrendingDown, Clock, Loader2, Wand2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  Loader2,
+  Wand2,
+  History,
+  ChevronDown,
+  ChevronUp,
+  Target,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface AiStatusLog {
+  id: string;
+  analysis_type: string | null;
+  analysis_text: string;
+  student_goal_snapshot: string | null;
+  created_at: string;
+}
 
 interface TimelineAIProps {
   athleteId: string;
