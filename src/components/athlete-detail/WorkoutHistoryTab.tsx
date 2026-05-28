@@ -532,7 +532,6 @@ export function WorkoutHistoryTab({ athleteId }: { athleteId: string }) {
     </div>
   );
 }
-}
 
 function getGroupColor(index: number): string {
   const colors = [
