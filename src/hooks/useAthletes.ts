@@ -191,7 +191,6 @@ export function useAthletes(): UseAthletesReturn {
           ),
         ),
       );
-      );
     } catch (err: any) {
       if (activeCoachIdRef.current === coachIdAtRequest) {
         console.error("Failed to fetch athletes:", err);
@@ -233,6 +232,14 @@ export function useAthletes(): UseAthletesReturn {
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "workout_logs" },
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "workout_logs" },
+      () => fetchAthletesRef.current(),
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "orders" },
       () => fetchAthletesRef.current(),
     );
 
