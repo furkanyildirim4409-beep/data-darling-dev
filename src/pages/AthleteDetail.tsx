@@ -1,13 +1,47 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Mail, Calendar, Edit, MoreHorizontal, User, Dumbbell, Apple, History, Brain, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, Edit, MoreVertical, User, Dumbbell, Apple, History, Brain, Loader2, Snowflake, Zap, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+
+
+
 import { usePermissions } from "@/hooks/usePermissions";
 import { EnergyBank } from "@/components/athlete-detail/EnergyBank";
 import { SmartContract } from "@/components/athlete-detail/SmartContract";
@@ -38,6 +72,11 @@ interface AthleteProfile {
   streak: number | null;
   bio: string | null;
   fitness_goal: string | null;
+  packageTitle: string | null;
+  subscription_status: string | null;
+  latestPaidOrderId: string | null;
+  latestPaidOrderTotal: number | null;
+
 }
 
 const GOAL_LABELS: Record<string, string> = {
@@ -79,6 +118,22 @@ export default function AthleteDetail() {
   const [aiScanning, setAiScanning] = useState(false);
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
 
+  // Subscription lifecycle dialogs
+  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [freezeDuration, setFreezeDuration] = useState<"1_week" | "2_weeks" | "1_month">("1_week");
+  const [freezeReason, setFreezeReason] = useState("");
+  const [freezeLoading, setFreezeLoading] = useState(false);
+
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [terminateLoading, setTerminateLoading] = useState(false);
+
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundKind, setRefundKind] = useState<"partial" | "full">("full");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundLoading, setRefundLoading] = useState(false);
+
+
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
     setAiScanning(true);
@@ -97,15 +152,140 @@ export default function AthleteDetail() {
     }
   }, [id, aiScanning]);
 
+  const haptic = () => { try { navigator.vibrate?.(15); } catch { /* noop */ } };
+
+  const freezeSchema = z.object({
+    duration: z.enum(["1_week", "2_weeks", "1_month"]),
+    reason: z.string().trim().max(500).optional(),
+  });
+
+  const submitFreeze = async () => {
+    if (!id) return;
+    const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
+    if (!parsed.success) { toast.error("Geçersiz form"); return; }
+    setFreezeLoading(true);
+    try {
+      const days = freezeDuration === "1_week" ? 7 : freezeDuration === "2_weeks" ? 14 : 30;
+      const until = new Date(Date.now() + days * 86_400_000).toISOString();
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          subscription_status: "frozen",
+          freeze_until: until,
+          freeze_reason: freezeReason.trim() || null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      haptic();
+      const label = freezeDuration === "1_week" ? "1 Hafta" : freezeDuration === "2_weeks" ? "2 Hafta" : "1 Ay";
+      toast.success(`Üyelik donduruldu — ${label}`);
+      setFreezeOpen(false);
+      setFreezeReason("");
+      fetchAthleteData();
+    } catch (err: any) {
+      toast.error(err?.message || "Dondurma başarısız oldu");
+    } finally {
+      setFreezeLoading(false);
+    }
+  };
+
+  const submitTerminate = async () => {
+    if (!id) return;
+    setTerminateLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          coach_id: null,
+          subscription_status: "terminated",
+          active_program_id: null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      haptic();
+      toast.success("Sözleşme feshedildi");
+      setTerminateOpen(false);
+      navigate("/athletes");
+    } catch (err: any) {
+      toast.error(err?.message || "Fesih işlemi başarısız oldu");
+    } finally {
+      setTerminateLoading(false);
+    }
+  };
+
+  const submitRefund = async () => {
+    if (!id || !athlete) return;
+    const maxAmount = athlete.latestPaidOrderTotal ?? 0;
+    const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
+    const schema = z.object({
+      amount: z.number().positive().max(maxAmount > 0 ? maxAmount : Number.MAX_SAFE_INTEGER),
+      reason: z.string().trim().max(500).optional(),
+    });
+    const parsed = schema.safeParse({ amount, reason: refundReason });
+    if (!parsed.success) { toast.error("Geçerli bir iade tutarı girin"); return; }
+    setRefundLoading(true);
+    try {
+      const { error } = await supabase.from("orders").insert({
+        user_id: id,
+        items: [{
+          type: "refund",
+          source_order_id: athlete.latestPaidOrderId,
+          refund_kind: refundKind,
+          reason: refundReason.trim() || null,
+        }],
+        total_price: -Math.abs(amount),
+        status: "refund_pending",
+        order_type: "refund",
+        external_reference_id: athlete.latestPaidOrderId,
+      } as any);
+      if (error) throw error;
+      haptic();
+      toast.success(`İade talebi kayıt altına alındı — ${amount.toLocaleString("tr-TR")} ₺`);
+      setRefundOpen(false);
+      setRefundAmount("");
+      setRefundReason("");
+      setRefundKind("full");
+    } catch (err: any) {
+      toast.error(err?.message || "İade talebi başarısız oldu");
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+
+
   const fetchAthleteData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
 
-    const [profileRes, checkInRes, workoutRes] = await Promise.all([
+    const [profileRes, checkInRes, workoutRes, ordersRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
       supabase.from("daily_checkins").select("mood, sleep, soreness, stress, digestion").eq("user_id", id).order("created_at", { ascending: false }).limit(1),
       supabase.from("workout_logs").select("completed, tonnage").eq("user_id", id),
+      supabase
+        .from("orders")
+        .select("id, created_at, items, total_price")
+        .eq("user_id", id)
+        .eq("status", "paid")
+        .eq("order_type", "coaching")
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
+
+    let packageTitle: string | null = null;
+    let latestPaidOrderId: string | null = null;
+    let latestPaidOrderTotal: number | null = null;
+    for (const o of ordersRes.data ?? []) {
+      const items = Array.isArray((o as any).items) ? ((o as any).items as any[]) : [];
+      const coachingItem = items.find((it) => it?.type === "coaching" || it?.item_type === "coaching");
+      const title = coachingItem?.title;
+      if (typeof title === "string" && title.trim()) {
+        packageTitle = title.trim();
+        latestPaidOrderId = (o as any).id;
+        latestPaidOrderTotal = Number((o as any).total_price ?? 0) || null;
+        break;
+      }
+    }
 
     if (profileRes.data) {
       const p = profileRes.data as any;
@@ -121,8 +301,13 @@ export default function AthleteDetail() {
         streak: p.streak,
         bio: p.bio,
         fitness_goal: p.fitness_goal ?? null,
+        packageTitle,
+        subscription_status: p.subscription_status ?? null,
+        latestPaidOrderId,
+        latestPaidOrderTotal,
       });
     }
+
 
     if (checkInRes.data && checkInRes.data.length > 0) {
       setLatestCheckIn(checkInRes.data[0]);
@@ -195,7 +380,31 @@ export default function AthleteDetail() {
             {aiScanning ? "Analiz Ediliyor..." : "🧠 AI Taraması"}
           </Button>
           {canEditAthletes && <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>}
-          <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="w-5 h-5" /></Button>
+          {canEditAthletes && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 glass border-border">
+                <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
+                  <Snowflake className="w-4 h-4 text-sky-400" />
+                  <span>🚨 Üyeliği Dondur</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRefundOpen(true)} className="gap-2 cursor-pointer">
+                  <Wallet className="w-4 h-4 text-amber-400" />
+                  <span>💰 Ücret İadesi Gönder</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTerminateOpen(true)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <Zap className="w-4 h-4" />
+                  <span>⚡ Sözleşmeyi Feshet</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
         </div>
       </div>
 
@@ -209,9 +418,19 @@ export default function AthleteDetail() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-bold text-foreground">{name}</h1>
-                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
-                  Seviye {athlete.level ?? 1}
+                <Badge className="bg-gradient-to-r from-amber-500/15 to-purple-500/15 border border-amber-400/30 text-amber-300 backdrop-blur-md shadow-[0_0_12px_hsl(45_100%_60%_/_0.2)] font-semibold">
+                  👑 {athlete.packageTitle ?? "Standart Üyelik"}
                 </Badge>
+                {athlete.subscription_status === "frozen" && (
+                  <Badge className="bg-sky-500/15 border border-sky-400/30 text-sky-300 backdrop-blur-md">
+                    ❄️ Dondurulmuş
+                  </Badge>
+                )}
+                {athlete.subscription_status === "terminated" && (
+                  <Badge className="bg-destructive/15 border border-destructive/30 text-destructive backdrop-blur-md">
+                    ⚡ Feshedildi
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 {athlete.current_weight && <span>{athlete.current_weight} kg</span>}
@@ -281,6 +500,124 @@ export default function AthleteDetail() {
           <WorkoutHistoryTab athleteId={athlete.id} />
         </TabsContent>
       </Tabs>
+
+      {/* Freeze Subscription Dialog */}
+      <Dialog open={freezeOpen} onOpenChange={setFreezeOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Snowflake className="w-5 h-5 text-sky-400" /> 🚨 Üyeliği Dondur</DialogTitle>
+            <DialogDescription>Sporcunun aboneliği seçilen süre boyunca dondurulacak.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Süre</Label>
+              <Select value={freezeDuration} onValueChange={(v) => setFreezeDuration(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1_week">1 Hafta</SelectItem>
+                  <SelectItem value="2_weeks">2 Hafta</SelectItem>
+                  <SelectItem value="1_month">1 Ay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Açıklama (opsiyonel)</Label>
+              <Textarea
+                value={freezeReason}
+                onChange={(e) => setFreezeReason(e.target.value.slice(0, 500))}
+                placeholder="Dondurma sebebi…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFreezeOpen(false)} disabled={freezeLoading}>Vazgeç</Button>
+            <Button onClick={submitFreeze} disabled={freezeLoading} className="bg-sky-500/20 text-sky-300 border border-sky-400/30 hover:bg-sky-500/30">
+              {freezeLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Dondur
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Terminate Contract Alert */}
+      <AlertDialog open={terminateOpen} onOpenChange={setTerminateOpen}>
+        <AlertDialogContent className="glass border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-destructive" /> ⚡ Sözleşmeyi Feshet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sözleşme feshedilecek. Sporcu aktif kadrodan kaldırılacak ve atanmış programı sıfırlanacak. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={terminateLoading}>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); submitTerminate(); }}
+              disabled={terminateLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {terminateLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Feshet
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Refund Dialog */}
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wallet className="w-5 h-5 text-amber-400" /> 💰 Ücret İadesi Gönder</DialogTitle>
+            <DialogDescription>
+              {athlete.latestPaidOrderTotal
+                ? <>En son ödenen sipariş tutarı: <strong>{athlete.latestPaidOrderTotal.toLocaleString("tr-TR")} ₺</strong></>
+                : "Bu sporcu için ödenmiş bir koçluk siparişi bulunmuyor."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <RadioGroup value={refundKind} onValueChange={(v) => setRefundKind(v as any)} className="grid grid-cols-2 gap-2">
+              <Label htmlFor="r-full" className={`flex items-center gap-2 rounded-lg border p-3 cursor-pointer ${refundKind === "full" ? "border-amber-400/50 bg-amber-500/10" : "border-border"}`}>
+                <RadioGroupItem value="full" id="r-full" /> Tam İade
+              </Label>
+              <Label htmlFor="r-partial" className={`flex items-center gap-2 rounded-lg border p-3 cursor-pointer ${refundKind === "partial" ? "border-amber-400/50 bg-amber-500/10" : "border-border"}`}>
+                <RadioGroupItem value="partial" id="r-partial" /> Kısmi İade
+              </Label>
+            </RadioGroup>
+            {refundKind === "partial" && (
+              <div className="space-y-2">
+                <Label>Tutar (₺)</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  max={athlete.latestPaidOrderTotal ?? undefined}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Açıklama (opsiyonel)</Label>
+              <Textarea
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value.slice(0, 500))}
+                placeholder="İade gerekçesi…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRefundOpen(false)} disabled={refundLoading}>Vazgeç</Button>
+            <Button
+              onClick={submitRefund}
+              disabled={refundLoading || !athlete.latestPaidOrderId}
+              className="bg-amber-500/20 text-amber-300 border border-amber-400/30 hover:bg-amber-500/30"
+            >
+              {refundLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} İade Talebini Gönder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
