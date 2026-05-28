@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, TrendingUp, TrendingDown, Clock } from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, Clock, Loader2, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface TimelineAIProps {
   athleteId: string;
@@ -17,11 +19,19 @@ interface Stats {
   endurance: number;
 }
 
+const fmt = (n: number, d = 1): string =>
+  Number.isFinite(n) ? Number(n).toFixed(d) : "—";
+
+const round1 = (n: number): number =>
+  Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
+
 export function TimelineAI({ athleteId }: TimelineAIProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [startStats, setStartStats] = useState<Stats>({ bodyFat: 0, muscleMass: 0, strength: 0, endurance: 0 });
   const [currentStats, setCurrentStats] = useState<Stats>({ bodyFat: 0, muscleMass: 0, strength: 0, endurance: 0 });
   const [hasData, setHasData] = useState(false);
+  const [forecast, setForecast] = useState<string | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
 
   const fetchRealData = useCallback(async () => {
     setIsLoading(true);
@@ -50,11 +60,9 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
 
     setHasData(true);
 
-    // Body measurements: first and latest
     const firstBody = bodyData[0];
     const latestBody = bodyData[bodyData.length - 1];
 
-    // Workout-based strength & endurance from tonnage and duration
     const workoutCount = workoutData.length;
     const firstQuarter = workoutData.slice(0, Math.max(1, Math.floor(workoutCount / 4)));
     const lastQuarter = workoutData.slice(Math.max(0, workoutCount - Math.max(1, Math.floor(workoutCount / 4))));
@@ -64,20 +72,19 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
     const avgDurationFirst = firstQuarter.reduce((s, w) => s + Number(w.duration_minutes || 0), 0) / firstQuarter.length || 0;
     const avgDurationLast = lastQuarter.reduce((s, w) => s + Number(w.duration_minutes || 0), 0) / lastQuarter.length || 0;
 
-    // Normalize strength/endurance to 0-100 scale
     const maxTonnage = Math.max(avgTonnageFirst, avgTonnageLast, 1);
     const maxDuration = Math.max(avgDurationFirst, avgDurationLast, 1);
 
     setStartStats({
-      bodyFat: Number(firstBody?.body_fat_pct) || 25,
-      muscleMass: Number(firstBody?.muscle_mass_kg) || 65,
+      bodyFat: round1(Number(firstBody?.body_fat_pct) || 25),
+      muscleMass: round1(Number(firstBody?.muscle_mass_kg) || 65),
       strength: Math.round((avgTonnageFirst / maxTonnage) * 100) || 50,
       endurance: Math.round((avgDurationFirst / maxDuration) * 100) || 50,
     });
 
     setCurrentStats({
-      bodyFat: Number(latestBody?.body_fat_pct) || Number(firstBody?.body_fat_pct) || 25,
-      muscleMass: Number(latestBody?.muscle_mass_kg) || Number(firstBody?.muscle_mass_kg) || 65,
+      bodyFat: round1(Number(latestBody?.body_fat_pct) || Number(firstBody?.body_fat_pct) || 25),
+      muscleMass: round1(Number(latestBody?.muscle_mass_kg) || Number(firstBody?.muscle_mass_kg) || 65),
       strength: Math.round((avgTonnageLast / maxTonnage) * 100) || 50,
       endurance: Math.round((avgDurationLast / maxDuration) * 100) || 50,
     });
@@ -93,29 +100,29 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
     0: { label: "Şimdi", ...currentStats },
     1: {
       label: "1 Ay",
-      bodyFat: Math.max(currentStats.bodyFat - 1, 8),
-      muscleMass: currentStats.muscleMass + 1,
+      bodyFat: round1(Math.max(currentStats.bodyFat - 1, 8)),
+      muscleMass: round1(currentStats.muscleMass + 1),
       strength: Math.min(currentStats.strength + 3, 100),
       endurance: Math.min(currentStats.endurance + 3, 100),
     },
     3: {
       label: "3 Ay",
-      bodyFat: Math.max(currentStats.bodyFat - 3, 8),
-      muscleMass: currentStats.muscleMass + 3,
+      bodyFat: round1(Math.max(currentStats.bodyFat - 3, 8)),
+      muscleMass: round1(currentStats.muscleMass + 3),
       strength: Math.min(currentStats.strength + 8, 100),
       endurance: Math.min(currentStats.endurance + 8, 100),
     },
     6: {
       label: "6 Ay",
-      bodyFat: Math.max(currentStats.bodyFat - 5, 8),
-      muscleMass: currentStats.muscleMass + 6,
+      bodyFat: round1(Math.max(currentStats.bodyFat - 5, 8)),
+      muscleMass: round1(currentStats.muscleMass + 6),
       strength: Math.min(currentStats.strength + 13, 100),
       endurance: Math.min(currentStats.endurance + 15, 100),
     },
     12: {
       label: "1 Yıl",
-      bodyFat: Math.max(currentStats.bodyFat - 7, 6),
-      muscleMass: currentStats.muscleMass + 10,
+      bodyFat: round1(Math.max(currentStats.bodyFat - 7, 6)),
+      muscleMass: round1(currentStats.muscleMass + 10),
       strength: Math.min(currentStats.strength + 18, 100),
       endurance: Math.min(currentStats.endurance + 20, 100),
     },
@@ -124,7 +131,6 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
   const [selectedTime, setSelectedTime] = useState<keyof typeof projections>(0);
   const projection = projections[selectedTime];
   const current = projections[0];
-
   const timelineMarks = [0, 1, 3, 6, 12];
 
   const getClosestMark = (value: number): keyof typeof projections => {
@@ -135,33 +141,53 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
   };
 
   const renderStatChange = (label: string, currentVal: number, projected: number, unit: string, inverse = false) => {
-    const change = Number((projected - currentVal).toFixed(1));
+    const change = round1(projected - currentVal);
     const isPositive = inverse ? change < 0 : change > 0;
 
     return (
-      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="p-3 rounded-lg bg-secondary/50 border border-border overflow-hidden">
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <span className="text-xs text-muted-foreground truncate">{label}</span>
           {change !== 0 && (
-            <div className={cn("flex items-center gap-1 text-xs", isPositive ? "text-success" : "text-destructive")}>
+            <div className={cn("flex items-center gap-1 text-xs shrink-0", isPositive ? "text-success" : "text-destructive")}>
               {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {change > 0 ? "+" : ""}{change}{unit}
+              {change > 0 ? "+" : ""}{fmt(change, 1)}{unit}
             </div>
           )}
         </div>
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 min-w-0">
           <span className={cn(
-            "text-2xl font-bold font-mono",
+            "text-2xl font-bold font-mono tabular-nums truncate",
             selectedTime > 0 && change !== 0 ? (isPositive ? "text-success" : "text-destructive") : "text-foreground"
           )}>
-            {projected}{unit}
+            {fmt(projected, 1)}{unit}
           </span>
           {selectedTime > 0 && (
-            <span className="text-xs text-muted-foreground line-through">{currentVal}{unit}</span>
+            <span className="text-xs text-muted-foreground line-through tabular-nums shrink-0">
+              {fmt(currentVal, 1)}{unit}
+            </span>
           )}
         </div>
       </div>
     );
+  };
+
+  const runForecast = async () => {
+    setForecastLoading(true);
+    setForecast(null);
+    const { data, error } = await supabase.functions.invoke("timeline-forecast", {
+      body: { athleteId },
+    });
+    setForecastLoading(false);
+    if (error) {
+      toast.error(error.message || "AI tahmini başarısız");
+      return;
+    }
+    if ((data as any)?.error) {
+      toast.error((data as any).error);
+      return;
+    }
+    setForecast((data as any)?.markdown ?? "");
   };
 
   if (isLoading) {
@@ -184,12 +210,14 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
     );
   }
 
+  const bodyFatDelta = round1(startStats.bodyFat - currentStats.bodyFat);
+  const muscleDelta = round1(currentStats.muscleMass - startStats.muscleMass);
   const bodyFatProgress = startStats.bodyFat > 0
-    ? ((startStats.bodyFat - currentStats.bodyFat) / startStats.bodyFat * 100).toFixed(1)
-    : "0";
+    ? round1((bodyFatDelta / startStats.bodyFat) * 100)
+    : 0;
   const muscleProgress = startStats.muscleMass > 0
-    ? ((currentStats.muscleMass - startStats.muscleMass) / startStats.muscleMass * 100).toFixed(1)
-    : "0";
+    ? round1((muscleDelta / startStats.muscleMass) * 100)
+    : 0;
 
   return (
     <div className="glass rounded-xl border border-border p-5">
@@ -209,28 +237,26 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
         </Badge>
       </div>
 
-      {/* Progress Summary */}
       <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20">
         <p className="text-xs font-medium text-success mb-2">Başlangıçtan Bu Yana</p>
         <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Yağ Kaybı:</span>
-            <span className="font-mono text-success">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground shrink-0">Yağ Kaybı:</span>
+            <span className="font-mono text-success tabular-nums truncate">
               <TrendingDown className="w-3 h-3 inline mr-1" />
-              {(startStats.bodyFat - currentStats.bodyFat).toFixed(1)}% ({bodyFatProgress}%)
+              {fmt(bodyFatDelta, 1)}% ({fmt(bodyFatProgress, 1)}%)
             </span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Kas Artışı:</span>
-            <span className="font-mono text-success">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground shrink-0">Kas Artışı:</span>
+            <span className="font-mono text-success tabular-nums truncate">
               <TrendingUp className="w-3 h-3 inline mr-1" />
-              +{(currentStats.muscleMass - startStats.muscleMass).toFixed(1)}kg ({muscleProgress}%)
+              +{fmt(muscleDelta, 1)}kg ({fmt(muscleProgress, 1)}%)
             </span>
           </div>
         </div>
       </div>
 
-      {/* Timeline Slider */}
       <div className="mb-6">
         <div className="flex justify-between text-xs text-muted-foreground mb-2">
           {timelineMarks.map((mark) => (
@@ -256,7 +282,6 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
         />
       </div>
 
-      {/* Projected Stats */}
       <div className="grid grid-cols-2 gap-3">
         {renderStatChange("Vücut Yağı", current.bodyFat, projection.bodyFat, "%", true)}
         {renderStatChange("Kas Kütlesi", current.muscleMass, projection.muscleMass, "kg")}
@@ -264,12 +289,11 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
         {renderStatChange("Dayanıklılık", current.endurance, projection.endurance, "")}
       </div>
 
-      {/* AI Confidence */}
       {selectedTime > 0 && (
         <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">AI Güven Oranı</span>
-            <span className="font-mono text-primary">
+            <span className="font-mono text-primary tabular-nums">
               %{Math.max(95 - selectedTime * 5, 70)}
             </span>
           </div>
@@ -284,6 +308,36 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
           </p>
         </div>
       )}
+
+      <div className="mt-4">
+        <Button
+          onClick={runForecast}
+          disabled={forecastLoading}
+          variant="outline"
+          size="sm"
+          className="w-full border-primary/30 hover:bg-primary/10"
+        >
+          {forecastLoading ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+              AI 4-Haftalık Tahmin Üretiyor...
+            </>
+          ) : (
+            <>
+              <Wand2 className="w-3.5 h-3.5 mr-2" />
+              AI Holistik Tahmin Üret
+            </>
+          )}
+        </Button>
+
+        {forecast && (
+          <div className="mt-3 p-4 rounded-lg bg-background/60 border border-primary/20 max-h-96 overflow-y-auto">
+            <div className="prose prose-sm prose-invert max-w-none text-xs whitespace-pre-wrap leading-relaxed text-foreground">
+              {forecast}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
