@@ -71,6 +71,22 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
   const [assigning, setAssigning] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<Date>(getNextMonday());
   const [durationWeeks, setDurationWeeks] = useState("4");
+  const [previewProgram, setPreviewProgram] = useState<ProgramOption | null>(null);
+  const [previewExercises, setPreviewExercises] = useState<Record<string, any[]>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const openPreview = async (prog: ProgramOption) => {
+    setPreviewProgram(prog);
+    if (previewExercises[prog.id]) return;
+    setPreviewLoading(true);
+    const { data } = await supabase
+      .from("exercises")
+      .select("name, sets, reps, rir, rest_time, notes, order_index")
+      .eq("program_id", prog.id)
+      .order("order_index");
+    setPreviewExercises((prev) => ({ ...prev, [prog.id]: data ?? [] }));
+    setPreviewLoading(false);
+  };
 
   useEffect(() => {
     if (!open || !user || !activeCoachId) return;
