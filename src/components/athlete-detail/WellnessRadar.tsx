@@ -71,6 +71,7 @@ export function WellnessRadar({ data }: WellnessRadarProps) {
                 angle={30}
                 domain={[0, 5]}
                 tickCount={6}
+                allowDataOverflow={false}
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                 axisLine={false}
               />
