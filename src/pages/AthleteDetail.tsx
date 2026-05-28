@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { EnergyBank } from "@/components/athlete-detail/EnergyBank";
 import { SmartContract } from "@/components/athlete-detail/SmartContract";
-import { BodyModel3D } from "@/components/athlete-detail/BodyModel3D";
+import { BodyMeasurementsStudio } from "@/components/athlete-detail/BodyMeasurementsStudio";
 import { WellnessRadar } from "@/components/athlete-detail/WellnessRadar";
 import { BloodworkPanel } from "@/components/athlete-detail/BloodworkPanel";
 import { MetabolicFlux } from "@/components/athlete-detail/MetabolicFlux";
@@ -236,7 +236,7 @@ export default function AthleteDetail() {
           <DraggableCardLayout
             athleteId={athlete.id}
             cards={{
-              "body-model": <BodyModel3D />,
+              "body-model": <BodyMeasurementsStudio athleteId={athlete.id} />,
               "wellness-radar": <WellnessRadar data={wellnessData} />,
               "progress-chart": <AthleteProgressChart athleteId={athlete.id} />,
               "metabolic-flux": <MetabolicFlux />,
