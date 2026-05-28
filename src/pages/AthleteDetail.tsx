@@ -120,6 +120,7 @@ export default function AthleteDetail() {
         level: p.level,
         streak: p.streak,
         bio: p.bio,
+        fitness_goal: p.fitness_goal ?? null,
       });
     }
 
