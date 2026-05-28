@@ -498,6 +498,124 @@ export default function AthleteDetail() {
           <WorkoutHistoryTab athleteId={athlete.id} />
         </TabsContent>
       </Tabs>
+
+      {/* Freeze Subscription Dialog */}
+      <Dialog open={freezeOpen} onOpenChange={setFreezeOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Snowflake className="w-5 h-5 text-sky-400" /> 🚨 Üyeliği Dondur</DialogTitle>
+            <DialogDescription>Sporcunun aboneliği seçilen süre boyunca dondurulacak.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Süre</Label>
+              <Select value={freezeDuration} onValueChange={(v) => setFreezeDuration(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1_week">1 Hafta</SelectItem>
+                  <SelectItem value="2_weeks">2 Hafta</SelectItem>
+                  <SelectItem value="1_month">1 Ay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Açıklama (opsiyonel)</Label>
+              <Textarea
+                value={freezeReason}
+                onChange={(e) => setFreezeReason(e.target.value.slice(0, 500))}
+                placeholder="Dondurma sebebi…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFreezeOpen(false)} disabled={freezeLoading}>Vazgeç</Button>
+            <Button onClick={submitFreeze} disabled={freezeLoading} className="bg-sky-500/20 text-sky-300 border border-sky-400/30 hover:bg-sky-500/30">
+              {freezeLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Dondur
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Terminate Contract Alert */}
+      <AlertDialog open={terminateOpen} onOpenChange={setTerminateOpen}>
+        <AlertDialogContent className="glass border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-destructive" /> ⚡ Sözleşmeyi Feshet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sözleşme feshedilecek. Sporcu aktif kadrodan kaldırılacak ve atanmış programı sıfırlanacak. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={terminateLoading}>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); submitTerminate(); }}
+              disabled={terminateLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {terminateLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Feshet
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Refund Dialog */}
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wallet className="w-5 h-5 text-amber-400" /> 💰 Ücret İadesi Gönder</DialogTitle>
+            <DialogDescription>
+              {athlete.latestPaidOrderTotal
+                ? <>En son ödenen sipariş tutarı: <strong>{athlete.latestPaidOrderTotal.toLocaleString("tr-TR")} ₺</strong></>
+                : "Bu sporcu için ödenmiş bir koçluk siparişi bulunmuyor."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <RadioGroup value={refundKind} onValueChange={(v) => setRefundKind(v as any)} className="grid grid-cols-2 gap-2">
+              <Label htmlFor="r-full" className={`flex items-center gap-2 rounded-lg border p-3 cursor-pointer ${refundKind === "full" ? "border-amber-400/50 bg-amber-500/10" : "border-border"}`}>
+                <RadioGroupItem value="full" id="r-full" /> Tam İade
+              </Label>
+              <Label htmlFor="r-partial" className={`flex items-center gap-2 rounded-lg border p-3 cursor-pointer ${refundKind === "partial" ? "border-amber-400/50 bg-amber-500/10" : "border-border"}`}>
+                <RadioGroupItem value="partial" id="r-partial" /> Kısmi İade
+              </Label>
+            </RadioGroup>
+            {refundKind === "partial" && (
+              <div className="space-y-2">
+                <Label>Tutar (₺)</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  max={athlete.latestPaidOrderTotal ?? undefined}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Açıklama (opsiyonel)</Label>
+              <Textarea
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value.slice(0, 500))}
+                placeholder="İade gerekçesi…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRefundOpen(false)} disabled={refundLoading}>Vazgeç</Button>
+            <Button
+              onClick={submitRefund}
+              disabled={refundLoading || !athlete.latestPaidOrderId}
+              className="bg-amber-500/20 text-amber-300 border border-amber-400/30 hover:bg-amber-500/30"
+            >
+              {refundLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} İade Talebini Gönder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
