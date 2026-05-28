@@ -7,7 +7,7 @@ export interface UserProfile {
   tier: "Pro" | "Elite" | "Standard";
   compliance: number;
   readiness: number;
-  injuryRisk: "Low" | "Medium" | "High";
+  injuryRisk: "Low" | "Medium" | "High" | "Inactive";
   checkInStatus: "completed" | "missed" | "pending";
   bloodworkStatus: "up-to-date" | "pending" | "overdue";
   subscriptionExpiry: string;

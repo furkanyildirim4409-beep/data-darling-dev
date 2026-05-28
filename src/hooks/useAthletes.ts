@@ -10,7 +10,50 @@ interface UseAthletesReturn {
   refetch: () => Promise<void>;
 }
 
-function mapProfileToAthlete(row: any): Athlete {
+const tsFmt = new Intl.DateTimeFormat("tr-TR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+function formatTs(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return tsFmt.format(d).replace(",", "");
+}
+
+function applyDecay(baseReadiness: number, baseCompliance: number, lastActivityIso: string | null) {
+  if (!lastActivityIso) {
+    return { readiness: 0, compliance: 0, injuryRisk: "Inactive" as const };
+  }
+  const elapsedDays = Math.floor((Date.now() - new Date(lastActivityIso).getTime()) / 86_400_000);
+  if (elapsedDays >= 14) {
+    return { readiness: 0, compliance: 0, injuryRisk: "Inactive" as const };
+  }
+  if (elapsedDays > 3) {
+    const erosion = (elapsedDays - 3) * 10;
+    const readiness = Math.max(0, baseReadiness - erosion);
+    const compliance = Math.max(0, baseCompliance - erosion);
+    const risk: Athlete["injuryRisk"] =
+      readiness < 40 ? "High" : readiness < 60 ? "Medium" : "Low";
+    return { readiness, compliance, injuryRisk: risk };
+  }
+  return {
+    readiness: baseReadiness,
+    compliance: baseCompliance,
+    injuryRisk: "Low" as const,
+  };
+}
+
+function mapProfileToAthlete(row: any, lastActivityIso: string | null): Athlete {
+  const baseReadiness = row.readiness_score ?? 75;
+  const baseCompliance = 80;
+  const { readiness, compliance, injuryRisk } = applyDecay(baseReadiness, baseCompliance, lastActivityIso);
+
   return {
     id: row.id,
     name: row.full_name || "İsimsiz",
@@ -19,9 +62,9 @@ function mapProfileToAthlete(row: any): Athlete {
     avatar: row.avatar_url || undefined,
     sport: "",
     tier: "Standard",
-    compliance: 80,
-    readiness: row.readiness_score ?? 75,
-    injuryRisk: "Low",
+    compliance,
+    readiness,
+    injuryRisk,
     checkInStatus: "pending",
     bloodworkStatus: "pending",
     subscriptionExpiry: "",
@@ -29,8 +72,8 @@ function mapProfileToAthlete(row: any): Athlete {
     currentProtein: 0,
     currentProgram: "",
     currentDiet: "",
-    joinDate: row.created_at ?? "",
-    lastActive: row.updated_at ?? "",
+    joinDate: formatTs(row.created_at),
+    lastActive: formatTs(lastActivityIso ?? row.updated_at),
   };
 }
 
@@ -40,28 +83,21 @@ export function useAthletes(): UseAthletesReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Stable primitive extractions
   const teamMemberId = teamMember?.id ?? null;
 
-  // Ref to track the latest activeCoachId for stale-closure protection
   const activeCoachIdRef = useRef(activeCoachId);
   useEffect(() => {
     activeCoachIdRef.current = activeCoachId;
   }, [activeCoachId]);
 
   const fetchAthletes = useCallback(async () => {
-    // Guard: skip fetch if coachId hasn't stabilized yet
-    if (!user || !activeCoachId) {
-      return;
-    }
-
+    if (!user || !activeCoachId) return;
     const coachIdAtRequest = activeCoachId;
 
     try {
       setError(null);
       setIsLoading(true);
 
-      // Data scoping for sub-coaches without full permissions
       let assignedIds: string[] | null = null;
       if (isSubCoach && teamMemberPermissions !== 'full' && teamMemberId) {
         const { data: assignmentData, error: assignmentError } = await supabase
@@ -69,9 +105,7 @@ export function useAthletes(): UseAthletesReturn {
           .select("athlete_id")
           .eq("team_member_id", teamMemberId);
 
-        // Stale check after async
         if (activeCoachIdRef.current !== coachIdAtRequest) return;
-
         if (assignmentError || !assignmentData || assignmentData.length === 0) {
           setAthletes([]);
           setIsLoading(false);
@@ -91,15 +125,50 @@ export function useAthletes(): UseAthletesReturn {
       }
 
       const { data, error: fetchError } = await query;
-
-      // Stale check after async — discard if coachId changed mid-flight
       if (activeCoachIdRef.current !== coachIdAtRequest) return;
-
       if (fetchError) throw fetchError;
 
-      setAthletes((data || []).map(mapProfileToAthlete));
+      const rows = data || [];
+      const athleteIds = rows.map((r: any) => r.id);
+
+      // Last activity resolution from real activity streams (last 60 days window)
+      const lastActivity = new Map<string, string>();
+
+      if (athleteIds.length > 0) {
+        const sinceIso = new Date(Date.now() - 60 * 86_400_000).toISOString();
+        const [checkinsRes, workoutsRes] = await Promise.all([
+          supabase
+            .from("daily_checkins")
+            .select("user_id, created_at")
+            .in("user_id", athleteIds)
+            .gte("created_at", sinceIso),
+          supabase
+            .from("workout_logs")
+            .select("user_id, logged_at")
+            .in("user_id", athleteIds)
+            .gte("logged_at", sinceIso),
+        ]);
+
+        if (activeCoachIdRef.current !== coachIdAtRequest) return;
+
+        for (const c of checkinsRes.data ?? []) {
+          if (!c.created_at) continue;
+          const prev = lastActivity.get(c.user_id);
+          if (!prev || c.created_at > prev) lastActivity.set(c.user_id, c.created_at);
+        }
+        for (const w of workoutsRes.data ?? []) {
+          if (!w.logged_at || !w.user_id) continue;
+          const prev = lastActivity.get(w.user_id);
+          if (!prev || w.logged_at > prev) lastActivity.set(w.user_id, w.logged_at);
+        }
+      }
+
+      setAthletes(
+        rows.map((r: any) =>
+          mapProfileToAthlete(r, lastActivity.get(r.id) ?? r.updated_at ?? null),
+        ),
+      );
     } catch (err: any) {
-      // Only set error if still relevant
       if (activeCoachIdRef.current === coachIdAtRequest) {
         console.error("Failed to fetch athletes:", err);
         setError(err.message || "Sporcular yüklenemedi");
@@ -115,13 +184,11 @@ export function useAthletes(): UseAthletesReturn {
     fetchAthletes();
   }, [fetchAthletes]);
 
-  // Keep latest fetcher in a ref so the realtime effect doesn't re-subscribe
   const fetchAthletesRef = useRef(fetchAthletes);
   useEffect(() => {
     fetchAthletesRef.current = fetchAthletes;
   }, [fetchAthletes]);
 
-  // Realtime subscription with unique channel name
   useEffect(() => {
     if (!user || !activeCoachId) return;
 
@@ -131,15 +198,18 @@ export function useAthletes(): UseAthletesReturn {
 
     channel.on(
       "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "profiles",
-        filter: `coach_id=eq.${activeCoachId}`,
-      },
-      () => {
-        fetchAthletesRef.current();
-      }
+      { event: "*", schema: "public", table: "profiles", filter: `coach_id=eq.${activeCoachId}` },
+      () => fetchAthletesRef.current(),
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "daily_checkins" },
+      () => fetchAthletesRef.current(),
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "workout_logs" },
+      () => fetchAthletesRef.current(),
     );
 
     channel.subscribe();
