@@ -110,6 +110,7 @@ interface WorkoutSummary {
 export default function AthleteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { canEditAthletes } = usePermissions();
   const [activeTab, setActiveTab] = useState("general");
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
