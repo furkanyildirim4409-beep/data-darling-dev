@@ -314,9 +314,19 @@ export default function AthleteDetail() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-bold text-foreground">{name}</h1>
-                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
-                  Seviye {athlete.level ?? 1}
+                <Badge className="bg-gradient-to-r from-amber-500/15 to-purple-500/15 border border-amber-400/30 text-amber-300 backdrop-blur-md shadow-[0_0_12px_hsl(45_100%_60%_/_0.2)] font-semibold">
+                  👑 {athlete.packageTitle ?? "Standart Üyelik"}
                 </Badge>
+                {athlete.subscription_status === "frozen" && (
+                  <Badge className="bg-sky-500/15 border border-sky-400/30 text-sky-300 backdrop-blur-md">
+                    ❄️ Dondurulmuş
+                  </Badge>
+                )}
+                {athlete.subscription_status === "terminated" && (
+                  <Badge className="bg-destructive/15 border border-destructive/30 text-destructive backdrop-blur-md">
+                    ⚡ Feshedildi
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 {athlete.current_weight && <span>{athlete.current_weight} kg</span>}
