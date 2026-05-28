@@ -49,7 +49,12 @@ function applyDecay(baseReadiness: number, baseCompliance: number, lastActivityI
   };
 }
 
-function mapProfileToAthlete(row: any, lastActivityIso: string | null): Athlete {
+function mapProfileToAthlete(
+  row: any,
+  lastActivityIso: string | null,
+  lastCheckinIso: string | null,
+  expiryIso: string | null,
+): Athlete {
   const baseReadiness = row.readiness_score ?? 75;
   const baseCompliance = 80;
   const { readiness, compliance, injuryRisk } = applyDecay(baseReadiness, baseCompliance, lastActivityIso);
@@ -67,13 +72,14 @@ function mapProfileToAthlete(row: any, lastActivityIso: string | null): Athlete 
     injuryRisk,
     checkInStatus: "pending",
     bloodworkStatus: "pending",
-    subscriptionExpiry: "",
+    subscriptionExpiry: expiryIso ?? "",
     currentCalories: 0,
     currentProtein: 0,
     currentProgram: "",
     currentDiet: "",
     joinDate: formatTs(row.created_at),
     lastActive: formatTs(lastActivityIso ?? row.updated_at),
+    lastCheckinAt: lastCheckinIso,
   };
 }
 
