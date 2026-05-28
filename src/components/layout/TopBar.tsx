@@ -220,7 +220,7 @@ export function TopBar() {
               className="flex items-center gap-3 hover:bg-secondary px-2"
             >
               <Avatar className="w-8 h-8 border border-border">
-                <AvatarImage src="/placeholder.svg" />
+                <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} className="object-cover" />
                 <AvatarFallback className="bg-primary/20 text-primary text-sm">
                   {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                 </AvatarFallback>

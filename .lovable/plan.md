@@ -1,19 +1,32 @@
-# Risk Radar Drill-Down Sync Fix
+# Part 3/3 — Avatar Unification & Compliance Pulse Audit
 
-## Problem
-`useDashboardData` computes `riskDistribution` from behavioral signals (missed workouts ≥3, nutrition gap ≥5d), but `RiskRadar.tsx` re-classifies the drill-down dialog list with `classifyRisk(readiness_score)`. Counts and list rows diverge.
+## 1. TopBar avatar wiring (real fix)
 
-## Changes
+**File:** `src/components/layout/TopBar.tsx` (line 223)
 
-**`src/hooks/useDashboardData.ts`**
-- Extend `DashboardAthlete` with `calculated_risk_level: "Low" | "Medium" | "High"`.
-- In the athlete loop, derive each level from the same `isHighRisk` / `isMediumRisk` predicates that drive `dist`, attach to the athlete object before pushing.
-- Use a fresh array so type strictness is preserved (avoid mutating raw query rows).
+Replace the hardcoded placeholder with the authenticated coach's avatar from `useAuth().profile`:
 
-**`src/components/dashboard/RiskRadar.tsx`**
-- Delete `classifyRisk` and the readiness-based filter.
-- In `RiskDialog`, filter via `a.calculated_risk_level === riskLevel`.
-- Replace the misleading `Hazırlık: {readiness_score}` row with the actual risk badge (Low/Medium/High) so the dialog reflects the behavioral classification.
-- Update subtitle copy: "Sporcu hazırlık skoru dağılımı" → "Davranışsal risk dağılımı" for consistency.
+```tsx
+<AvatarImage
+  src={profile?.avatar_url || "/placeholder.svg"}
+  className="object-cover"
+/>
+```
 
-No backend, no other consumer changes (verified no other file imports `DashboardAthlete` beyond `RiskRadar`).
+`profile` is already destructured from `useAuth()` on line 44 — no new imports, no context changes. `AvatarFallback` initials logic stays intact for users without an uploaded avatar.
+
+## 2. Compliance Pulse + Critical Stats audit (no changes required)
+
+Verified the live data path is already production-clean — no static counters or placeholders remain:
+
+- **`stats.criticalAlerts`** (`useDashboardData.ts` line 309) → derived from `critical.length`, the behavioral-risk array built in Part 2 (missed workouts + nutrition gap).
+- **`compliance.workoutCompliance`** (line 209) → `weekCompleted / weekWorkouts.length` from `assigned_workouts` rows where `coach_id = activeCoachId`, `scheduled_date` between Monday–Sunday of the current week, scoped to the athlete roster.
+- **`compliance.checkinCompliance`** (line 216) → distinct `user_id` count from `daily_checkins` in the last 48 h divided by roster size.
+- **`CompliancePulse.tsx`** consumes those two props directly and renders donuts — no mock fallback, no hardcoded numbers.
+- **`CommandCenter.tsx`** passes the live `compliance` + `stats` objects straight through to `CompliancePulse` and `StatCard`.
+
+No edits needed in `CompliancePulse.tsx`, `CommandCenter.tsx`, or `useDashboardData.ts` — the live wiring requested in Part 3 was already completed in Parts 1/2.
+
+## Files touched
+
+- `src/components/layout/TopBar.tsx` — single-line AvatarImage src swap.
