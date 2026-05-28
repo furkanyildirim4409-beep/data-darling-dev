@@ -242,9 +242,13 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
               {DURATION_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
-            </SelectContent>
-          </Select>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Seçilen Hafta Başlangıcı: <span className="font-medium text-foreground">{format(startDate, "dd MMMM yyyy", { locale: tr })}</span> (Pazartesi)
+        </p>
+        </div>
+
+        <ScrollArea className="flex-1 pr-2 -mr-2">
 
         <ScrollArea className="flex-1 pr-2 -mr-2">
           {loading ? (
