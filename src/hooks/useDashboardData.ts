@@ -297,6 +297,8 @@ export function useDashboardData() {
       } else {
         dist.low.count++;
       }
+    }
+
 
     // Sort: high risk first, then by risk score desc
     critical.sort((a, b) => {
