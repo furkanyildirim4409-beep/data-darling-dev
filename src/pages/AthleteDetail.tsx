@@ -413,10 +413,17 @@ export default function AthleteDetail() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 glass border-border">
-                <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
-                  <Snowflake className="w-4 h-4 text-sky-400" />
-                  <span>🚨 Üyeliği Dondur</span>
-                </DropdownMenuItem>
+                {athlete?.subscription_status === 'frozen' ? (
+                  <DropdownMenuItem onClick={handleUnfreezeAthlete} className="gap-2 text-emerald-400 font-semibold focus:text-emerald-400 focus:bg-emerald-500/10 cursor-pointer">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>✅ Aboneliği Aktifleştir / Dondurmayı Kaldır</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
+                    <Snowflake className="w-4 h-4 text-sky-400" />
+                    <span>🚨 Üyeliği Dondur</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setRefundOpen(true)} className="gap-2 cursor-pointer">
                   <Wallet className="w-4 h-4 text-amber-400" />
                   <span>💰 Ücret İadesi Gönder</span>
