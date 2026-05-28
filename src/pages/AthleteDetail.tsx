@@ -276,7 +276,31 @@ export default function AthleteDetail() {
             {aiScanning ? "Analiz Ediliyor..." : "🧠 AI Taraması"}
           </Button>
           {canEditAthletes && <Button variant="outline" className="border-border hover:bg-secondary"><Edit className="w-4 h-4 mr-2" />Profili Düzenle</Button>}
-          <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="w-5 h-5" /></Button>
+          {canEditAthletes && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 glass border-border">
+                <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
+                  <Snowflake className="w-4 h-4 text-sky-400" />
+                  <span>🚨 Üyeliği Dondur</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRefundOpen(true)} className="gap-2 cursor-pointer">
+                  <Wallet className="w-4 h-4 text-amber-400" />
+                  <span>💰 Ücret İadesi Gönder</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTerminateOpen(true)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <Zap className="w-4 h-4" />
+                  <span>⚡ Sözleşmeyi Feshet</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
         </div>
       </div>
 
