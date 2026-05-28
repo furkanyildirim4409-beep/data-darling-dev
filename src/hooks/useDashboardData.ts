@@ -125,7 +125,10 @@ export function useDashboardData() {
 
     if (assignedIds) {
       profilesQuery = profilesQuery.in("id", assignedIds);
+    }
+
     const { data: athletesData } = await profilesQuery;
+
 
     const athleteList: DashboardAthlete[] = (athletesData ?? []).map((a) => ({
       ...a,
