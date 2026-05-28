@@ -9,7 +9,15 @@ import { QuickChatPopover } from "./QuickChatPopover";
 import { useUnansweredChats } from "@/hooks/useUnansweredChats";
 import { Search, AlertTriangle, Clock, Calendar, X } from "lucide-react";
 
-type FilterType = "all" | "high-risk" | "missed-checkin" | "expiring";
+type FilterType = "all" | "high-risk" | "missed-checkin" | "expired";
+
+const MISSED_CHECKIN_MS = 48 * 60 * 60 * 1000;
+const isHighRisk = (a: Athlete) =>
+  a.injuryRisk === "High" || a.injuryRisk === "Inactive" || a.readiness < 40;
+const isMissedCheckin = (a: Athlete) =>
+  !a.lastCheckinAt || Date.now() - new Date(a.lastCheckinAt).getTime() > MISSED_CHECKIN_MS;
+const isExpired = (a: Athlete) =>
+  !!a.subscriptionExpiry && new Date(a.subscriptionExpiry).getTime() < Date.now();
 
 interface AthleteRosterProps {
   athletes: Athlete[];
