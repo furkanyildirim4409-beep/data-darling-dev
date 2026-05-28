@@ -232,9 +232,6 @@ export function useAthletes(): UseAthletesReturn {
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "workout_logs" },
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "workout_logs" },
       () => fetchAthletesRef.current(),
     );
     channel.on(
