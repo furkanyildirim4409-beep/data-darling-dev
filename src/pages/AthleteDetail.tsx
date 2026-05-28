@@ -138,11 +138,34 @@ export default function AthleteDetail() {
     if (!id) return;
     setIsLoading(true);
 
-    const [profileRes, checkInRes, workoutRes] = await Promise.all([
+    const [profileRes, checkInRes, workoutRes, ordersRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
       supabase.from("daily_checkins").select("mood, sleep, soreness, stress, digestion").eq("user_id", id).order("created_at", { ascending: false }).limit(1),
       supabase.from("workout_logs").select("completed, tonnage").eq("user_id", id),
+      supabase
+        .from("orders")
+        .select("id, created_at, items, total_price")
+        .eq("user_id", id)
+        .eq("status", "paid")
+        .eq("order_type", "coaching")
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
+
+    let packageTitle: string | null = null;
+    let latestPaidOrderId: string | null = null;
+    let latestPaidOrderTotal: number | null = null;
+    for (const o of ordersRes.data ?? []) {
+      const items = Array.isArray((o as any).items) ? ((o as any).items as any[]) : [];
+      const coachingItem = items.find((it) => it?.type === "coaching" || it?.item_type === "coaching");
+      const title = coachingItem?.title;
+      if (typeof title === "string" && title.trim()) {
+        packageTitle = title.trim();
+        latestPaidOrderId = (o as any).id;
+        latestPaidOrderTotal = Number((o as any).total_price ?? 0) || null;
+        break;
+      }
+    }
 
     if (profileRes.data) {
       const p = profileRes.data as any;
@@ -158,8 +181,13 @@ export default function AthleteDetail() {
         streak: p.streak,
         bio: p.bio,
         fitness_goal: p.fitness_goal ?? null,
+        packageTitle,
+        subscription_status: p.subscription_status ?? null,
+        latestPaidOrderId,
+        latestPaidOrderTotal,
       });
     }
+
 
     if (checkInRes.data && checkInRes.data.length > 0) {
       setLatestCheckIn(checkInRes.data[0]);
