@@ -237,6 +237,7 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
       return;
     }
     setForecast((data as any)?.markdown ?? "");
+    fetchLogs();
   };
 
   if (isLoading) {
