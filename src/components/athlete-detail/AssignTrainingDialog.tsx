@@ -265,9 +265,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
             Seçilen Hafta Başlangıcı: <span className="font-medium text-foreground">{format(startDate, "dd MMMM yyyy", { locale: tr })}</span> (Pazartesi)
           </p>
         </div>
-
-        <ScrollArea className="flex-1 pr-2 -mr-2">
-
+        <ScrollArea className="h-[440px] max-h-[50vh] w-full pr-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -278,11 +276,15 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
               <p className="text-sm text-muted-foreground">Henüz antrenman programı oluşturmadınız.</p>
             </div>
           ) : (
-            <div className="space-y-3 pb-2">
+            <div className="grid grid-cols-1 gap-3 pb-4">
               {programs.map((prog) => (
                 <div
                   key={prog.id}
-                  className="rounded-xl border border-border hover:border-primary/40 p-4 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openPreview(prog)}
+                  onKeyDown={(e) => { if (e.key === "Enter") openPreview(prog); }}
+                  className="rounded-xl border border-border hover:border-primary/40 p-4 transition-colors cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -300,25 +302,104 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
                       </Badge>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={assigning === prog.id}
-                    onClick={() => handleAssign(prog)}
-                  >
-                    {assigning === prog.id ? (
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    ) : (
-                      <Check className="w-4 h-4 mr-1.5" />
-                    )}
-                    Ata
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={(e) => { e.stopPropagation(); openPreview(prog); }}
+                    >
+                      <Eye className="w-4 h-4 mr-1.5" />
+                      Önizleme
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      disabled={assigning === prog.id}
+                      onClick={(e) => { e.stopPropagation(); handleAssign(prog); }}
+                    >
+                      {assigning === prog.id ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-1.5" />
+                      )}
+                      Ata
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </ScrollArea>
       </DialogContent>
+
+      <Sheet open={!!previewProgram} onOpenChange={(o) => !o && setPreviewProgram(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b border-border flex flex-row items-center justify-between space-y-0">
+            <div className="min-w-0">
+              <SheetTitle className="truncate flex items-center gap-2">
+                <Dumbbell className="w-4 h-4 text-primary" />
+                {previewProgram?.title}
+              </SheetTitle>
+              {previewProgram?.description && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{previewProgram.description}</p>
+              )}
+            </div>
+            <SheetClose className="rounded-md p-1 hover:bg-muted">
+              <X className="w-4 h-4" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : previewProgram && (previewExercises[previewProgram.id]?.length ?? 0) === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-12">Bu programda egzersiz yok.</p>
+            ) : previewProgram && (() => {
+              const exs = previewExercises[previewProgram.id] ?? [];
+              const byDay = new Map<number, any[]>();
+              exs.forEach((ex) => {
+                const day = Math.floor((ex.order_index || 0) / 100);
+                if (!byDay.has(day)) byDay.set(day, []);
+                byDay.get(day)!.push(ex);
+              });
+              return [...byDay.entries()].sort((a, b) => a[0] - b[0]).map(([day, items]) => (
+                <div key={day} className="space-y-2">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {DAY_LABELS[day % 7] ?? `Gün ${day + 1}`}
+                  </h5>
+                  <div className="space-y-2">
+                    {items.map((ex, i) => (
+                      <div key={i} className="rounded-lg border border-border p-3 bg-card">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-sm text-foreground flex-1">{ex.name}</p>
+                          {typeof ex.rir === "number" && (
+                            <Badge variant="outline" className="text-[10px] shrink-0">RIR {ex.rir}</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                          <span className="font-mono">{ex.sets ?? "-"} x {ex.reps ?? "-"}</span>
+                          {ex.rest_time && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {ex.rest_time}
+                            </span>
+                          )}
+                        </div>
+                        {ex.notes && (
+                          <p className="text-xs text-muted-foreground mt-1.5 italic">{ex.notes}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Dialog>
   );
+}
 }
