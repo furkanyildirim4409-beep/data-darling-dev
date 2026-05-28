@@ -54,6 +54,7 @@ function mapProfileToAthlete(
   lastActivityIso: string | null,
   lastCheckinIso: string | null,
   expiryIso: string | null,
+  packageTitle: string | null,
 ): Athlete {
   const baseReadiness = row.readiness_score ?? 75;
   const baseCompliance = 80;
@@ -80,6 +81,7 @@ function mapProfileToAthlete(
     joinDate: formatTs(row.created_at),
     lastActive: formatTs(lastActivityIso ?? row.updated_at),
     lastCheckinAt: lastCheckinIso,
+    packageTitle,
   };
 }
 
@@ -138,9 +140,12 @@ export function useAthletes(): UseAthletesReturn {
       const athleteIds = rows.map((r: any) => r.id);
 
       // Last activity + last check-in + paid coaching expiry from real data streams
+      // Last activity + last check-in + paid coaching expiry from real data streams
       const lastActivity = new Map<string, string>();
       const lastCheckin = new Map<string, string>();
       const subscriptionExpiry = new Map<string, string>();
+      const packageTitle = new Map<string, string>();
+      const latestOrderAt = new Map<string, string>();
 
       if (athleteIds.length > 0) {
         const sinceIso = new Date(Date.now() - 60 * 86_400_000).toISOString();
@@ -157,7 +162,7 @@ export function useAthletes(): UseAthletesReturn {
             .gte("logged_at", sinceIso),
           supabase
             .from("orders")
-            .select("user_id, expires_at, created_at")
+            .select("user_id, expires_at, created_at, items")
             .in("user_id", athleteIds)
             .eq("status", "paid")
             .eq("order_type", "coaching"),
@@ -178,9 +183,25 @@ export function useAthletes(): UseAthletesReturn {
           if (!prev || w.logged_at > prev) lastActivity.set(w.user_id, w.logged_at);
         }
         for (const o of ordersRes.data ?? []) {
-          if (!o.user_id || !o.expires_at) continue;
-          const prev = subscriptionExpiry.get(o.user_id);
-          if (!prev || o.expires_at > prev) subscriptionExpiry.set(o.user_id, o.expires_at);
+          if (!o.user_id) continue;
+          if (o.expires_at) {
+            const prev = subscriptionExpiry.get(o.user_id);
+            if (!prev || o.expires_at > prev) subscriptionExpiry.set(o.user_id, o.expires_at);
+          }
+          // Track newest paid order to derive the active package title
+          const stamp = o.created_at ?? "";
+          const prevStamp = latestOrderAt.get(o.user_id) ?? "";
+          if (stamp >= prevStamp) {
+            const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+            const coachingItem = items.find(
+              (it) => it?.type === "coaching" || it?.item_type === "coaching",
+            );
+            const title = coachingItem?.title;
+            if (typeof title === "string" && title.trim()) {
+              packageTitle.set(o.user_id, title.trim());
+              latestOrderAt.set(o.user_id, stamp);
+            }
+          }
         }
       }
 
@@ -191,6 +212,7 @@ export function useAthletes(): UseAthletesReturn {
             lastActivity.get(r.id) ?? r.updated_at ?? null,
             lastCheckin.get(r.id) ?? null,
             subscriptionExpiry.get(r.id) ?? null,
+            packageTitle.get(r.id) ?? null,
           ),
         ),
       );

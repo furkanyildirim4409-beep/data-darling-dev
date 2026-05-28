@@ -127,7 +127,6 @@ export interface Athlete extends UserProfile {
   lastCheckinAt?: string | null;
   packageTitle?: string | null;
 }
-}
 
 // Extended Invoice interface for Admin Panel
 export interface InvoiceAdmin extends Invoice {
