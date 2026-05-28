@@ -84,11 +84,13 @@ function HormonalComparisonChart({
   currentDate: string;
   previousDate: string;
 }) {
-  if (!current.length || !previous.length) return null;
+  const currentFiltered = current.filter((b) => b && b.value !== null && b.value !== undefined);
+  const previousFiltered = previous.filter((b) => b && b.value !== null && b.value !== undefined);
+  if (!currentFiltered.length || !previousFiltered.length) return null;
 
-  const comparisonData = current
+  const comparisonData = currentFiltered
     .map((cur) => {
-      const prev = previous.find(
+      const prev = previousFiltered.find(
         (p) => p.name.toLowerCase() === cur.name.toLowerCase()
       );
       if (!prev) return null;
@@ -280,12 +282,16 @@ export function BloodworkDialog({ open, onOpenChange, athleteId }: BloodworkDial
 
   const selectedTest = tests[selectedIndex];
   const biomarkers: Biomarker[] = selectedTest && Array.isArray(selectedTest.extracted_data)
-    ? selectedTest.extracted_data
+    ? (selectedTest.extracted_data as Biomarker[]).filter(
+        (b) => b && b.value !== null && b.value !== undefined
+      )
     : [];
 
   const previousTest = tests[selectedIndex + 1] ?? null;
   const previousBiomarkers: Biomarker[] = previousTest && Array.isArray(previousTest.extracted_data)
-    ? previousTest.extracted_data
+    ? (previousTest.extracted_data as Biomarker[]).filter(
+        (b) => b && b.value !== null && b.value !== undefined
+      )
     : [];
 
   const optimalCount = biomarkers.filter((b) => b.status === "optimal").length;

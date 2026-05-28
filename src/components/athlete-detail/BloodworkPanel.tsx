@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   LineChart,
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BloodworkDialog } from "./BloodworkDialog";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface BloodworkPanelProps {
   athleteId: string;
@@ -37,31 +38,43 @@ interface BloodTest {
   extracted_data: Biomarker[] | null;
 }
 
-function findBiomarker(biomarkers: Biomarker[] | null, keyword: string): number | null {
-  if (!biomarkers || !Array.isArray(biomarkers)) return null;
-  const found = biomarkers.find((b) =>
-    b.name.toLowerCase().includes(keyword.toLowerCase())
-  );
-  return found ? found.value : null;
-}
+const CHART_COLORS = [
+  "hsl(68, 100%, 50%)",
+  "hsl(45, 100%, 50%)",
+  "hsl(190, 90%, 55%)",
+  "hsl(320, 80%, 60%)",
+];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="glass border border-border rounded-lg px-3 py-2 text-sm">
-        <p className="font-medium text-foreground mb-1">{label}</p>
-        <div className="space-y-1">
-          {payload[0]?.value != null && (
-            <p className="text-primary font-mono">T: {payload[0].value} ng/dL</p>
-          )}
-          {payload[1]?.value != null && (
-            <p className="text-warning font-mono">C: {payload[1].value} μg/dL</p>
-          )}
-        </div>
-      </div>
-    );
+const statusColor = (status: string) => {
+  switch (status) {
+    case "optimal":
+      return { bg: "bg-success/10", border: "border-success/20", text: "text-success" };
+    case "warning":
+      return { bg: "bg-warning/10", border: "border-warning/20", text: "text-warning" };
+    case "low":
+    case "high":
+      return { bg: "bg-destructive/10", border: "border-destructive/20", text: "text-destructive" };
+    default:
+      return { bg: "bg-secondary/40", border: "border-border", text: "text-foreground" };
   }
-  return null;
+};
+
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="glass border border-border rounded-lg px-3 py-2 text-xs">
+      <p className="font-medium text-foreground mb-1">{label}</p>
+      <div className="space-y-0.5">
+        {payload.map((p: any) => (
+          p?.value != null && (
+            <p key={p.dataKey} className="font-mono" style={{ color: p.color }}>
+              {p.dataKey}: {p.value}
+            </p>
+          )
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
@@ -81,7 +94,52 @@ export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
     enabled: !!athleteId,
   });
 
-  // No data state
+  // Latest test biomarkers (only ones with real values)
+  const { latest, availableBiomarkers, chartMarkers, chartData } = useMemo(() => {
+    if (tests.length === 0) {
+      return { latest: null, availableBiomarkers: [], chartMarkers: [] as string[], chartData: [] as any[] };
+    }
+    const latest = tests[tests.length - 1];
+    const latestBio = Array.isArray(latest.extracted_data) ? latest.extracted_data : [];
+    const availableBiomarkers = latestBio.filter(
+      (b) => b && b.value !== null && b.value !== undefined && Number.isFinite(Number(b.value))
+    );
+
+    // Markers present in ≥2 tests
+    const nameCounts = new Map<string, { count: number; name: string }>();
+    for (const t of tests) {
+      const arr = Array.isArray(t.extracted_data) ? t.extracted_data : [];
+      const seen = new Set<string>();
+      for (const b of arr) {
+        if (!b || b.value === null || b.value === undefined) continue;
+        const key = b.name.trim().toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const entry = nameCounts.get(key);
+        if (entry) entry.count += 1;
+        else nameCounts.set(key, { count: 1, name: b.name });
+      }
+    }
+    const chartMarkers = Array.from(nameCounts.values())
+      .filter((e) => e.count >= 2)
+      .slice(0, 4)
+      .map((e) => e.name);
+
+    const chartData = tests.map((t) => {
+      const arr = Array.isArray(t.extracted_data) ? t.extracted_data : [];
+      const row: Record<string, number | string | null> = {
+        month: format(new Date(t.date), "MMM yy", { locale: tr }),
+      };
+      for (const m of chartMarkers) {
+        const found = arr.find((b) => b?.name?.toLowerCase() === m.toLowerCase());
+        row[m] = found && found.value !== null && found.value !== undefined ? Number(found.value) : null;
+      }
+      return row;
+    });
+
+    return { latest, availableBiomarkers, chartMarkers, chartData };
+  }, [tests]);
+
   if (!isLoading && tests.length === 0) {
     return (
       <div className="glass rounded-xl border border-border p-5 flex flex-col items-center justify-center min-h-[200px] text-center">
@@ -94,7 +152,7 @@ export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !latest) {
     return (
       <div className="glass rounded-xl border border-border p-5 animate-pulse min-h-[200px]">
         <div className="h-4 bg-muted rounded w-1/3 mb-4" />
@@ -103,31 +161,11 @@ export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
     );
   }
 
-  // Build chart data from all tests
-  const chartData = tests.map((t) => {
-    const biomarkers = Array.isArray(t.extracted_data) ? t.extracted_data : [];
-    return {
-      month: format(new Date(t.date), "MMM yy", { locale: tr }),
-      testosterone: findBiomarker(biomarkers, "testosteron") ?? findBiomarker(biomarkers, "testosterone"),
-      cortisol: findBiomarker(biomarkers, "kortizol") ?? findBiomarker(biomarkers, "cortisol"),
-    };
-  });
-
-  // Latest two for trend
-  const latest = tests[tests.length - 1];
+  // Previous test for delta on quick-stat tiles
   const previous = tests.length >= 2 ? tests[tests.length - 2] : null;
-
-  const latestBio = Array.isArray(latest.extracted_data) ? latest.extracted_data : [];
   const prevBio = previous && Array.isArray(previous.extracted_data) ? previous.extracted_data : [];
 
-  const latestT = findBiomarker(latestBio, "testosteron") ?? findBiomarker(latestBio, "testosterone");
-  const prevT = prevBio.length ? (findBiomarker(prevBio, "testosteron") ?? findBiomarker(prevBio, "testosterone")) : null;
-  const tChange = latestT && prevT ? (((latestT - prevT) / prevT) * 100).toFixed(1) : null;
-
-  const latestC = findBiomarker(latestBio, "kortizol") ?? findBiomarker(latestBio, "cortisol");
-  const prevC = prevBio.length ? (findBiomarker(prevBio, "kortizol") ?? findBiomarker(prevBio, "cortisol")) : null;
-  const cChange = latestC && prevC ? (((latestC - prevC) / prevC) * 100).toFixed(1) : null;
-
+  const tiles = availableBiomarkers.slice(0, 4);
   const lastDate = format(new Date(latest.date), "dd MMM yyyy", { locale: tr });
 
   return (
@@ -139,81 +177,81 @@ export function BloodworkPanel({ athleteId }: BloodworkPanelProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Kan Tahlili Paneli</h3>
-            <p className="text-xs text-muted-foreground">Testosteron / Kortizol Oranı</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">Güncelleme: {lastDate}</span>
-            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Testosteron</span>
-              {tChange && (
-                <div className="flex items-center gap-1 text-xs">
-                  {Number(tChange) > 0 ? (
-                    <TrendingUp className="w-3 h-3 text-success" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-destructive" />
-                  )}
-                  <span className={Number(tChange) > 0 ? "text-success" : "text-destructive"}>
-                    %{tChange}
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="text-xl font-bold font-mono text-primary mt-1">
-              {latestT != null ? `${latestT} ng/dL` : "—"}
+            <p className="text-xs text-muted-foreground">
+              {availableBiomarkers.length} biyobelirteç • Son tahlil {lastDate}
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Kortizol</span>
-              {cChange && (
-                <div className="flex items-center gap-1 text-xs">
-                  {Number(cChange) < 0 ? (
-                    <TrendingDown className="w-3 h-3 text-success" />
-                  ) : (
-                    <TrendingUp className="w-3 h-3 text-warning" />
-                  )}
-                  <span className={Number(cChange) < 0 ? "text-success" : "text-warning"}>
-                    %{cChange}
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="text-xl font-bold font-mono text-warning mt-1">
-              {latestC != null ? `${latestC} μg/dL` : "—"}
-            </p>
-          </div>
+          <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
 
-        {/* Chart */}
-        {chartData.length > 1 && (
+        {tiles.length === 0 ? (
+          <div className="p-4 rounded-lg bg-secondary/40 text-center text-xs text-muted-foreground">
+            Bu tahlilden çıkarılmış sayısal biyobelirteç bulunmuyor.
+          </div>
+        ) : (
+          <div className={cn(
+            "grid gap-3 mb-4",
+            tiles.length === 1 ? "grid-cols-1" : "grid-cols-2"
+          )}>
+            {tiles.map((marker) => {
+              const style = statusColor(marker.status);
+              const prev = prevBio.find(
+                (p) => p?.name?.toLowerCase() === marker.name.toLowerCase()
+              );
+              const delta =
+                prev && Number(prev.value) !== 0 && prev.value !== null && prev.value !== undefined
+                  ? ((Number(marker.value) - Number(prev.value)) / Number(prev.value)) * 100
+                  : null;
+              return (
+                <div
+                  key={marker.name}
+                  className={cn("p-3 rounded-lg border", style.bg, style.border)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground truncate pr-2">{marker.name}</span>
+                    {delta !== null && Number.isFinite(delta) && (
+                      <div className="flex items-center gap-1 text-xs shrink-0">
+                        {delta > 0 ? (
+                          <TrendingUp className="w-3 h-3 text-success" />
+                        ) : delta < 0 ? (
+                          <TrendingDown className="w-3 h-3 text-destructive" />
+                        ) : null}
+                        <span className={delta > 0 ? "text-success" : delta < 0 ? "text-destructive" : "text-muted-foreground"}>
+                          %{delta.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className={cn("text-xl font-bold font-mono tabular-nums mt-1 truncate", style.text)}>
+                    {marker.value} <span className="text-xs text-muted-foreground">{marker.unit}</span>
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {chartMarkers.length > 0 && chartData.length > 1 && (
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Line yAxisId="left" type="monotone" dataKey="testosterone" stroke="hsl(68, 100%, 50%)" strokeWidth={2} dot={{ fill: "hsl(68, 100%, 50%)", strokeWidth: 0, r: 3 }} connectNulls />
-                <Line yAxisId="right" type="monotone" dataKey="cortisol" stroke="hsl(45, 100%, 50%)" strokeWidth={2} dot={{ fill: "hsl(45, 100%, 50%)", strokeWidth: 0, r: 3 }} connectNulls />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTooltip />} />
+                {chartMarkers.map((m, i) => (
+                  <Line
+                    key={m}
+                    type="monotone"
+                    dataKey={m}
+                    stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ fill: CHART_COLORS[i % CHART_COLORS.length], strokeWidth: 0, r: 3 }}
+                    connectNulls
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* T:C Ratio */}
-        {latestT != null && latestC != null && latestC > 0 && (
-          <div className="mt-3 p-2 rounded-lg bg-secondary/50 text-center">
-            <span className="text-xs text-muted-foreground">T:C Oranı: </span>
-            <span className="font-mono font-bold text-success">{(latestT / latestC).toFixed(1)}</span>
-            <span className="text-xs text-muted-foreground ml-2">(Optimal: &gt;30)</span>
           </div>
         )}
 

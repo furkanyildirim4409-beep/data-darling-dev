@@ -52,4 +52,8 @@ verify_jwt = false
 
 [functions.radar-worker]
 verify_jwt = false
+verify_jwt = false
+
+[functions.timeline-forecast]
+verify_jwt = false
 
