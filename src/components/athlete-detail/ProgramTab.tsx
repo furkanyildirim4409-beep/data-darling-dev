@@ -239,36 +239,45 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
 
     const programTitle = allPrograms.find(p => p.id === selectedProgramId)?.title ?? "Bilinmeyen";
 
-    // 1. Only clear active_program_id if removing the active one
-    if (selectedProgramId === activeProgramId) {
-      await supabase
-        .from("profiles")
-        .update({ active_program_id: null } as any)
-        .eq("id", athleteId);
-      setActiveProgramId(null);
+    try {
+      // 1. Destructive cascade delete of all assigned_workouts for this program+athlete
+      const { error: deleteError } = await supabase
+        .from("assigned_workouts")
+        .delete()
+        .eq("athlete_id", athleteId)
+        .eq("program_id", selectedProgramId);
+
+      if (deleteError) {
+        toast.error("Antrenman silinemedi: " + deleteError.message);
+        return;
+      }
+
+      // 2. Only clear active_program_id if removing the active one
+      if (selectedProgramId === activeProgramId) {
+        await supabase
+          .from("profiles")
+          .update({ active_program_id: null } as any)
+          .eq("id", athleteId);
+        setActiveProgramId(null);
+      }
+
+      // 3. Log the removal
+      await supabase.from("program_assignment_logs").insert({
+        athlete_id: athleteId,
+        coach_id: user.id,
+        program_id: selectedProgramId,
+        program_title: programTitle,
+        action: "removed",
+      });
+
+      toast.success("Antrenman programı sporcu üzerinden kalıcı olarak silindi.", { icon: "🗑️" });
+      fetchPrograms();
+    } finally {
+      setRemoving(false);
+      setRemoveOpen(false);
     }
-
-    // 2. Delete assigned_workouts for this program+athlete
-    await supabase
-      .from("assigned_workouts")
-      .delete()
-      .eq("athlete_id", athleteId)
-      .eq("program_id", selectedProgramId);
-
-    // 3. Log the removal
-    await supabase.from("program_assignment_logs").insert({
-      athlete_id: athleteId,
-      coach_id: user.id,
-      program_id: selectedProgramId,
-      program_title: programTitle,
-      action: "removed",
-    });
-
-    toast.success("Program kaldırıldı (geçmiş verileri korundu)");
-    setRemoving(false);
-    setRemoveOpen(false);
-    fetchPrograms();
   };
+
 
   // Fetch history logs — paginated
   const fetchHistoryPage = async (page: number, append = false) => {
