@@ -1,35 +1,61 @@
-# RLS Lifecycle Recalibration + Column Escalation Trigger
+## Objective
+Add a state-aware "Unfreeze / Reactivate" handler inside `src/pages/AthleteDetail.tsx` that replaces the freeze menu item with an inverse unfreeze action when `subscription_status === 'frozen'`.
 
-Two-part migration that fixes the subscription lifecycle RLS violations without triggering recursion, then locks privilege-escalation columns via a `BEFORE UPDATE` trigger.
+## Step A: Imports
+- Add `CheckCircle2` to the existing `lucide-react` import block.
+- Add `useQueryClient` import from `@tanstack/react-query`.
 
-## Part 1 — Clean RLS pathways
+## Step B: Hook Instantiation
+Inside `AthleteDetail` component body, declare:
+```typescript
+const queryClient = useQueryClient();
+```
 
-Drop and recreate UPDATE policies on `profiles` and INSERT/UPDATE on `orders` using only direct column comparisons and the existing security-definer helpers (`is_coach_of`, `is_active_team_member_of`). No inline subqueries against the same table — no recursion risk.
+## Step C: `handleUnfreezeAthlete` Handler
+Insert immediately below the existing `submitFreeze` / `submitTerminate` / `submitRefund` handlers:
+```typescript
+const handleUnfreezeAthlete = async () => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      subscription_status: 'active',
+      freeze_until: null,
+      freeze_reason: null,
+    })
+    .eq('id', id);
 
-**`profiles` UPDATE**
-- `Coaches can update athlete profiles`: USING `coach_id = auth.uid()`, WITH CHECK allows `coach_id = auth.uid() OR coach_id IS NULL` so terminate can null out the link.
-- `Team members can update athlete profiles`: mirrors the above through `is_active_team_member_of(coach_id)`.
+  if (!error) {
+    toast.success("Sporcunun aboneliği ve tüm premium özellikleri başarıyla aktifleştirildi!", { icon: "🟢" });
+    queryClient.invalidateQueries({ queryKey: ['athlete', id] });
+    fetchAthleteData();
+  } else {
+    toast.error("Abonelik aktifleştirilirken veritabanı senkronizasyon hatası oluştu.");
+  }
+};
+```
 
-**`orders` INSERT/UPDATE**
-- Split the legacy "FOR ALL" coach policy into separate INSERT and UPDATE policies, both gated by `public.is_coach_of(user_id)`. This covers head coaches and active sub-coaches uniformly and unblocks the refund-insert flow.
+## Step D: Dropdown Conditional Toggle
+Replace the static freeze `<DropdownMenuItem>` (currently at lines 391-394) inside `<DropdownMenuContent>` with a conditional fork:
 
-## Part 2 — Column escalation guard trigger
+```tsx
+{athlete?.subscription_status === 'frozen' ? (
+  <DropdownMenuItem onClick={handleUnfreezeAthlete} className="text-emerald-400 font-semibold focus:text-emerald-400 focus:bg-emerald-500/10 cursor-pointer">
+    <CheckCircle2 className="w-4 h-4 mr-2" /> Aboneliği Aktifleştir / Dondurmayı Kaldır
+  </DropdownMenuItem>
+) : (
+  <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
+    <Snowflake className="w-4 h-4 text-sky-400" />
+    <span>🚨 Üyeliği Dondur</span>
+  </DropdownMenuItem>
+)}
+```
 
-Because RLS `WITH CHECK` cannot reference `OLD`, install a `BEFORE UPDATE` trigger `enforce_athlete_profile_write_guards` on `public.profiles`:
+## Step E: Verification
+- TypeScript compilation must pass with zero errors.
+- No new dependencies required (`@tanstack/react-query` is already in `package.json`).
+- All existing freeze/terminate/refund flows remain untouched.
 
-- When `auth.uid() <> NEW.id` (i.e. someone other than the athlete is updating), raise an exception if any of these change: `role`, `email`, `xp`, `bio_coins`, `level`, `subscription_tier`.
-- All other columns — `subscription_status`, `freeze_until`, `freeze_reason`, `coach_id`, `active_program_id`, etc. — remain freely writable by the coach within their RLS scope.
-
-Function is `SECURITY DEFINER` with `SET search_path = public`. Trigger is `BEFORE UPDATE FOR EACH ROW`.
-
-## Execution
-
-Single migration containing both parts (drop policies → create policies → create function → create trigger). No frontend changes — `AthleteDetail.tsx` handlers already issue correct mutations.
-
-## Out of scope
-- No INSERT/SELECT/DELETE policy changes on `profiles`.
-- No changes to athlete-self order policies.
-- No new tables, no edge functions.
-
-## Verification
-After apply: run `supabase--linter` and confirm `subscription_status`, `freeze_until`, `freeze_reason`, `coach_id`, `active_program_id` writes succeed for a coach against their athlete, while `role`/`xp`/`bio_coins` writes raise the guard exception.
+## Out of Scope
+- No changes to Supabase RLS, schema, or edge functions.
+- No changes to the freeze/terminate/refund dialog implementations.
+- No changes to other tabs or child components.

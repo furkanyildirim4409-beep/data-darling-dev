@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Mail, Calendar, Edit, MoreVertical, User, Dumbbell, Apple, History, Brain, Loader2, Snowflake, Zap, Wallet } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, Edit, MoreVertical, User, Dumbbell, Apple, History, Brain, Loader2, Snowflake, Zap, Wallet, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,6 +110,7 @@ interface WorkoutSummary {
 export default function AthleteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { canEditAthletes } = usePermissions();
   const [activeTab, setActiveTab] = useState("general");
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
@@ -252,6 +254,29 @@ export default function AthleteDetail() {
     }
   };
 
+  const handleUnfreezeAthlete = async () => {
+    if (!id) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        subscription_status: 'active',
+        freeze_until: null,
+        freeze_reason: null,
+      } as any)
+      .eq('id', id);
+
+    if (!error) {
+      haptic();
+      toast.success("Sporcunun aboneliği ve tüm premium özellikleri başarıyla aktifleştirildi!", { icon: "🟢" });
+      queryClient.invalidateQueries({ queryKey: ['athlete', id] });
+      fetchAthleteData();
+    } else {
+      toast.error("Abonelik aktifleştirilirken veritabanı senkronizasyon hatası oluştu.");
+    }
+  };
+
+
+
 
 
   const fetchAthleteData = useCallback(async () => {
@@ -388,10 +413,17 @@ export default function AthleteDetail() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 glass border-border">
-                <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
-                  <Snowflake className="w-4 h-4 text-sky-400" />
-                  <span>🚨 Üyeliği Dondur</span>
-                </DropdownMenuItem>
+                {athlete?.subscription_status === 'frozen' ? (
+                  <DropdownMenuItem onClick={handleUnfreezeAthlete} className="gap-2 text-emerald-400 font-semibold focus:text-emerald-400 focus:bg-emerald-500/10 cursor-pointer">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>✅ Aboneliği Aktifleştir / Dondurmayı Kaldır</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => setFreezeOpen(true)} className="gap-2 cursor-pointer">
+                    <Snowflake className="w-4 h-4 text-sky-400" />
+                    <span>🚨 Üyeliği Dondur</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setRefundOpen(true)} className="gap-2 cursor-pointer">
                   <Wallet className="w-4 h-4 text-amber-400" />
                   <span>💰 Ücret İadesi Gönder</span>
