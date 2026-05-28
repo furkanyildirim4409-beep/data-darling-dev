@@ -23,13 +23,6 @@ interface RiskRadarProps {
   isLoading: boolean;
 }
 
-function classifyRisk(readiness: number | null): "Low" | "Medium" | "High" {
-  const score = readiness ?? 75;
-  if (score >= 70) return "Low";
-  if (score >= 50) return "Medium";
-  return "High";
-}
-
 interface RiskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,7 +32,10 @@ interface RiskDialogProps {
 
 function RiskDialog({ open, onOpenChange, riskLevel, athletes }: RiskDialogProps) {
   const navigate = useNavigate();
-  const filtered = athletes.filter((a) => classifyRisk(a.readiness_score) === riskLevel);
+  // Synchronized target filter: enforces 100% parity with riskDistribution counts
+  const filtered = athletes.filter(
+    (a) => a.calculated_risk_level?.toLowerCase() === riskLevel.toLowerCase(),
+  );
 
   const levelConfig = {
     Low: { label: "Düşük Risk", icon: ShieldCheck, color: "success" },
