@@ -152,10 +152,8 @@ export default function AthleteDetail() {
 
   const name = athlete.full_name || "İsimsiz";
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase();
-  const energyLevel = athlete.readiness_score ?? 75;
   const missedWorkouts = workoutSummary.total - workoutSummary.completed;
   const totalWorkouts = workoutSummary.total || 1;
-  const isVaultSecure = missedWorkouts <= 2;
 
   const wellnessData = {
     sleep: latestCheckIn?.sleep ?? null,
