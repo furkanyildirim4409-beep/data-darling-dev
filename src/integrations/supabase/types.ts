@@ -1921,6 +1921,7 @@ export type Database = {
           gender: string | null
           gym_name: string | null
           height_cm: number | null
+          hide_from_leaderboard: boolean
           id: string
           last_activity_date: string | null
           level: number | null
@@ -1929,6 +1930,7 @@ export type Database = {
           notification_settings: Json | null
           onboarding_completed: boolean | null
           phone_number: string | null
+          profile_private: boolean
           readiness_score: number | null
           role: string | null
           specialty: string | null
@@ -1961,6 +1963,7 @@ export type Database = {
           gender?: string | null
           gym_name?: string | null
           height_cm?: number | null
+          hide_from_leaderboard?: boolean
           id: string
           last_activity_date?: string | null
           level?: number | null
@@ -1969,6 +1972,7 @@ export type Database = {
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
           phone_number?: string | null
+          profile_private?: boolean
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
@@ -2001,6 +2005,7 @@ export type Database = {
           gender?: string | null
           gym_name?: string | null
           height_cm?: number | null
+          hide_from_leaderboard?: boolean
           id?: string
           last_activity_date?: string | null
           level?: number | null
@@ -2009,6 +2014,7 @@ export type Database = {
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
           phone_number?: string | null
+          profile_private?: boolean
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
@@ -2691,6 +2697,44 @@ export type Database = {
           },
         ]
       }
+      ticket_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          sender_id: string
+          sender_role: string
+          ticket_id: string
+          voice_url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          sender_id: string
+          sender_role: string
+          ticket_id: string
+          voice_url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          sender_id?: string
+          sender_role?: string
+          ticket_id?: string
+          voice_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           coach_id: string | null
@@ -2726,6 +2770,63 @@ export type Database = {
           replied_at?: string | null
           status?: string
           subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_cart: {
+        Row: {
+          coach_id: string | null
+          coach_name: string | null
+          coins_used: number | null
+          created_at: string
+          discounted_price: number | null
+          id: string
+          image_url: string | null
+          item_type: string
+          price: number
+          product_id: string
+          quantity: number
+          shopify_product_id: string | null
+          shopify_variant_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          coach_id?: string | null
+          coach_name?: string | null
+          coins_used?: number | null
+          created_at?: string
+          discounted_price?: number | null
+          id?: string
+          image_url?: string | null
+          item_type: string
+          price: number
+          product_id: string
+          quantity: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          coach_id?: string | null
+          coach_name?: string | null
+          coins_used?: number | null
+          created_at?: string
+          discounted_price?: number | null
+          id?: string
+          image_url?: string | null
+          item_type?: string
+          price?: number
+          product_id?: string
+          quantity?: number
+          shopify_product_id?: string | null
+          shopify_variant_id?: string | null
+          title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
