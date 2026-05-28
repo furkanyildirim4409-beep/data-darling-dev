@@ -157,6 +157,10 @@ interface SupplementData {
   is_active: boolean;
   servings_left: number;
   total_servings: number;
+  dosage: string | null;
+  servings_per_use: number | null;
+  servings_taken_today: number | null;
+  last_taken_date: string | null;
 }
 
 const TIMING_COLORS: Record<string, string> = {
