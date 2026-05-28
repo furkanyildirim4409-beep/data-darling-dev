@@ -177,8 +177,8 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
 
   return (
     <>
-      <div className="glass rounded-xl border border-border p-4 flex items-center gap-4 relative min-w-[200px]">
-        <div className={cn("relative", colorClass)}>
+      <div className="glass rounded-xl border border-border p-4 pr-12 flex items-center gap-4 relative min-w-[220px]">
+        <div className={cn("relative shrink-0", colorClass)}>
           <Icon className={cn("w-12 h-12", isStale && "animate-pulse")} />
           {!isStale && percentage >= 80 && (
             <div
@@ -189,8 +189,8 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
             </div>
           )}
         </div>
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Enerji Bankası</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider truncate">Enerji Bankası</p>
           <p className={cn("text-2xl font-bold font-mono", colorClass)}>%{percentage}</p>
           {isStale && (
             <p className="text-[10px] text-destructive/80 uppercase tracking-wider">Check-in atlandı</p>
@@ -200,7 +200,7 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-lg border border-white/5 bg-white/[0.02] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+              className="absolute top-3 right-3 inline-flex items-center justify-center w-7 h-7 rounded-lg border border-white/5 bg-white/[0.02] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary hover:border-primary/40"
               aria-label="Seçenekler"
             >
               <MoreVertical className="w-4 h-4" />
