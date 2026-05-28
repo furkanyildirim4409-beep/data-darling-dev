@@ -422,18 +422,17 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
             <History className="w-4 h-4 mr-1.5" />
             Program Geçmişi
           </Button>
-        </div>
         <div className="glass rounded-xl border border-border p-12 text-center">
           <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <Dumbbell className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">Atanmış program yok</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Atanmış Bir Antrenman Bulunmuyor</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Bu sporcuya henüz bir antrenman programı atanmadı
           </p>
-          <Button onClick={() => navigate("/programs")} className="bg-primary text-primary-foreground">
-            <Dumbbell className="w-4 h-4 mr-2" />
-            Program Mimarı'na Git
+          <Button onClick={() => setAssignTrainingOpen(true)} className="bg-primary text-primary-foreground">
+            <Plus className="w-4 h-4 mr-2" />
+            Antrenman Programı Ata
           </Button>
         </div>
         <HistoryDialog
@@ -449,7 +448,15 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
           onLoadMoreHistory={loadMoreHistory}
           athleteId={athleteId}
         />
+        <AssignTrainingDialog
+          open={assignTrainingOpen}
+          onOpenChange={setAssignTrainingOpen}
+          athleteId={athleteId}
+          onAssigned={() => { setAssignTrainingOpen(false); fetchPrograms(); }}
+        />
       </div>
+    );
+  }
     );
   }
 
