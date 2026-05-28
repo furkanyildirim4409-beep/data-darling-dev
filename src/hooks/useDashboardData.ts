@@ -259,6 +259,11 @@ export function useDashboardData() {
       const isHighRisk = missed >= 3 || nutGap >= 5;
       const isMediumRisk = missed >= 2 || nutGap >= 3;
 
+      let derivedLevel: "Low" | "Medium" | "High" = "Low";
+      if (isHighRisk) derivedLevel = "High";
+      else if (isMediumRisk) derivedLevel = "Medium";
+      a.calculated_risk_level = derivedLevel;
+
       if (isHighRisk) {
         dist.high.count++;
         const issues: string[] = [];
