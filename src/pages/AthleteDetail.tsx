@@ -254,6 +254,29 @@ export default function AthleteDetail() {
     }
   };
 
+  const handleUnfreezeAthlete = async () => {
+    if (!id) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        subscription_status: 'active',
+        freeze_until: null,
+        freeze_reason: null,
+      } as any)
+      .eq('id', id);
+
+    if (!error) {
+      haptic();
+      toast.success("Sporcunun aboneliği ve tüm premium özellikleri başarıyla aktifleştirildi!", { icon: "🟢" });
+      queryClient.invalidateQueries({ queryKey: ['athlete', id] });
+      fetchAthleteData();
+    } else {
+      toast.error("Abonelik aktifleştirilirken veritabanı senkronizasyon hatası oluştu.");
+    }
+  };
+
+
+
 
 
   const fetchAthleteData = useCallback(async () => {
