@@ -102,6 +102,7 @@ export function ProgramTab({ athleteId }: ProgramTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [allPrograms, setAllPrograms] = useState<ProgramInfo[]>([]);
+  const [assignTrainingOpen, setAssignTrainingOpen] = useState(false);
   const [activeProgramId, setActiveProgramId] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<AssignedWorkout[]>([]);
