@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface ProgramOption {
@@ -42,13 +43,22 @@ const DURATION_OPTIONS = [
   { value: "12", label: "12 Hafta" },
 ];
 
+function normalizeToMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function getNextMonday(): Date {
   const d = new Date();
   const day = d.getDay();
   const diff = day === 0 ? 1 : 8 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
-  return d;
+  return normalizeToMonday(d);
 }
 
 const DAY_LABELS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
@@ -129,7 +139,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
 
     const batchId = crypto.randomUUID();
     const weeks = Number(durationWeeks);
-    const start = new Date(startDate);
+    const start = normalizeToMonday(new Date(startDate));
     const rows: any[] = [];
 
     for (let w = 0; w < weeks; w++) {
@@ -204,37 +214,43 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
         </DialogHeader>
 
         {/* Date & Duration */}
-        <div className="flex items-center gap-3 pb-2 border-b border-border">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2")}>
-                <CalendarIcon className="w-3.5 h-3.5" />
-                {format(startDate, "dd MMM yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={(d) => d && setStartDate(d)}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <Select value={durationWeeks} onValueChange={setDurationWeeks}>
-            <SelectTrigger className="w-[120px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DURATION_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-2 pb-2 border-b border-border">
+          <div className="flex items-center gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2")}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {format(startDate, "dd MMM yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(d) => d && setStartDate(normalizeToMonday(d))}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Select value={durationWeeks} onValueChange={setDurationWeeks}>
+              <SelectTrigger className="w-[120px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATION_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Seçilen Hafta Başlangıcı: <span className="font-medium text-foreground">{format(startDate, "dd MMMM yyyy", { locale: tr })}</span> (Pazartesi)
+          </p>
         </div>
 
         <ScrollArea className="flex-1 pr-2 -mr-2">
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
