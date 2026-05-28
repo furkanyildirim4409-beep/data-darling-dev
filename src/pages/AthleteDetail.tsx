@@ -37,7 +37,21 @@ interface AthleteProfile {
   level: number | null;
   streak: number | null;
   bio: string | null;
+  fitness_goal: string | null;
 }
+
+const GOAL_LABELS: Record<string, string> = {
+  hypertrophy: "Hipertrofi / Kas Kazanımı",
+  muscle_gain: "Hipertrofi / Kas Kazanımı",
+  fat_loss: "Yağ Yakımı & Definasyon",
+  weight_loss: "Yağ Yakımı & Definasyon",
+  strength: "Maksimal Kuvvet",
+  endurance: "Dayanıklılık",
+  recomp: "Rekomp / Eşzamanlı Dönüşüm",
+  recomposition: "Rekomp / Eşzamanlı Dönüşüm",
+  health: "Sağlık & Yaşam Kalitesi",
+  general_fitness: "Genel Fitness",
+};
 
 interface CheckInData {
   mood: number | null;
