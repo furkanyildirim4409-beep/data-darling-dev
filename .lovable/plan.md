@@ -1,62 +1,42 @@
-# Energy Bank Live Sync + Smart Contract Expiry
+# 27 May Pass — Measurements Studio, Radar Calibration, Metabolic Flux
 
-## File 1 — `src/components/athlete-detail/EnergyBank.tsx`
+## 1. Remove 3D body model, ship BodyMeasurementsStudio
 
-Convert from a dumb display to a self-fetching, realtime-synced widget.
+- Delete `src/components/athlete-detail/BodyModel3D.tsx` and `BodyModel3DViewer.tsx`.
+- In `src/pages/AthleteDetail.tsx`: remove the `BodyModel3D` import and replace the `"body-model"` slot entry with `<BodyMeasurementsStudio athleteId={...} />` (keep the same bento key so saved layouts still resolve).
+- Create `src/components/athlete-detail/BodyMeasurementsStudio.tsx` — dark glass card matching the existing `EnergyBank` / `SmartContract` styling:
+  - Fetch all `body_measurements` rows for the athlete (`user_id = athleteId`) ordered by `logged_at desc`.
+  - Top control: shadcn `Select` listing every `logged_at` (formatted Turkish date). Default = newest row. Empty state = friendly "Henüz ölçüm yok" message.
+  - Two-column grid (`md:grid-cols-2`):
+    - **Left — Progress Photo**: query `progress_photos` for the same `user_id` where `date` is closest to (≤) the selected `logged_at`. Render the image from the `progress-photos` storage bucket via signed URL (bucket is private). Fallback: dark-glass silhouette placeholder (lucide `User` icon on gradient).
+    - **Right — Metrics ledger**: list Chest / Waist / Hips / Arm / Thigh / Neck / Shoulder / BodyFat%. Each row shows current value + delta vs. the oldest (day-one) row using a colored chip (green for favorable change in waist/bodyfat down; otherwise neutral arrow).
+  - Realtime subscribe to `body_measurements` and `progress_photos` INSERT/UPDATE for that athlete to refetch.
 
-### Props
-- Change from `percentage` to `athleteId: string`. Update the call site in `src/pages/AthleteDetail.tsx` (line 221) to pass `athlete.id`.
+## 2. Fix WellnessRadar low-value distortion
 
-### Data fetching
-- On mount + when `athleteId` changes, fetch the most recent `daily_checkins` row for `user_id = athleteId` ordered by `created_at desc limit 1` (select `mood, sleep_hours, soreness, stress, digestion, created_at`).
-- Compute `percentage`:
-  - If no row, or if `Date.now() - new Date(created_at).getTime() > 24h` → force `0`.
-  - Otherwise: average of `mood, 6 - soreness, 6 - stress, digestion` (each 1–5 scale), plus a sleep factor (`min(sleep_hours,8)/8 * 5`), normalised to 0–100. Keeps it consistent with `wellness-radar-scaling` memory (Soreness & Stress inverted).
-- Subscribe to `postgres_changes` INSERT on `daily_checkins` filtered to this user; re-run the fetch. Cleanup via `removeChannel`. Listener attached before `.subscribe()` per realtime memory.
+In `src/components/athlete-detail/WellnessRadar.tsx`:
+- Add `<PolarRadiusAxis domain={[0, 5]} allowDataOverflow={false} tickCount={6} axisLine={false} tick={false} />` (scale matches existing 1–5 wellness scale; if data already normalised 0–100, use `[0,100]` — verify before edit).
+- Ensure the `<Radar>` series still uses the same dataKey so the shape stays bounded and symmetric for low scores.
 
-### Drill-down dialog
-- Top-right `DropdownMenu` with `MoreVertical` trigger → menu item "Geçmişi Görüntüle".
-- Opens a `Dialog` titled `"Enerji Rezervi & Davranış Geçmişi"` with a glass-blur surface.
-- Inside: fetch last 14 `daily_checkins` rows for this athlete, render a `recharts` `LineChart` of computed energy% over time + a compact list of datestamps with mood/sleep/stress chips.
+## 3. Hydrate MetabolicFlux with real data
 
-### Visuals
-- Keep the existing battery icon + percentage layout intact. Add the dropdown to the upper-right. When `percentage === 0` show `BatteryWarning` in destructive tone with a subtle pulse.
+In `src/components/athlete-detail/MetabolicFlux.tsx`:
+- Drop all hardcoded mock arrays.
+- Query for the active athlete (last 7 days):
+  - `nutrition_logs` rows → sum `total_calories`, `total_protein`, `total_carbs`, `total_fat` per day.
+  - `nutrition_targets` for the athlete → `daily_calories`, `protein_g`, `carbs_g`, `fat_g`.
+- Render:
+  - Today's totals vs. target with delta chips (under/over).
+  - 7-day mini trend (reuse the existing chart container) of calories vs. target line.
+  - Compliance score = mean(daily_cal / target_cal) clamped 0–100 with the same 85–115% tolerance band used elsewhere (per memory).
+- Realtime subscribe on `nutrition_logs` INSERT for the athlete to refetch.
 
-## File 2 — `src/components/athlete-detail/SmartContract.tsx`
+## 4. Delivery
 
-Replace mock secure/missed display with real contract countdown.
+- No new dependencies. Keep Lucide imports complete. All colors via design tokens (no raw hex/`text-white`). Type-safe, no `any` leakage on Supabase results.
 
-### Props
-- Replace with `athleteId: string`. Keep `missedWorkouts` & `totalWorkouts` props (still useful as a secondary line) — passed through from AthleteDetail unchanged.
+## Technical notes
 
-### Data fetching
-- Query latest paid coaching order for this athlete:
-  ```
-  orders: select id, items, created_at, expires_at, status
-  where user_id = athleteId and status = 'paid' and order_type = 'coaching'
-  order by created_at desc limit 1
-  ```
-- Determine expiry target:
-  - If `expires_at` present → use it.
-  - Else iterate `items` to find the first `type|item_type === 'coaching'` entry, take its `package_id` (or `coaching_package_id`), fetch `coaching_packages.duration_months`, then `expiry = created_at + duration_months months`.
-
-### Computation
-```ts
-const daysRemaining = expiryTarget
-  ? Math.max(0, Math.ceil((new Date(expiryTarget).getTime() - Date.now()) / 86_400_000))
-  : null;
-```
-
-### UI
-- Card keeps the glass shell. Left icon = `ShieldCheck` (success) when `daysRemaining > 7`, `ShieldAlert` (destructive + `animate-pulse`) when `daysRemaining <= 7`, `Lock` muted when no active package.
-- Title: "Akıllı Sözleşme".
-- Primary line: futuristic neon badge — `{daysRemaining} GÜN KALDI` (or `Aktif Paket Yok`). Uses `border-primary/40 bg-primary/10 text-primary` normally; flips to destructive + `pulse-red` when `<= 7`.
-- Secondary line: `Bu ay {missedWorkouts}/{totalWorkouts} kaçırıldı` (unchanged).
-
-## File 3 — `src/pages/AthleteDetail.tsx` (line 221-222)
-- Update props: `<EnergyBank athleteId={athlete.id} />` and `<SmartContract athleteId={athlete.id} missedWorkouts={...} totalWorkouts={...} />`.
-- Remove the now-unused `energyLevel` and `isVaultSecure` derivations only if they are not referenced elsewhere; otherwise leave intact.
-
-## Out of scope
-- No DB migrations; `orders.expires_at` and `coaching_packages.duration_months` already exist.
-- No changes to other widgets in the bento grid.
+- `progress-photos` bucket is **private** → use `supabase.storage.from('progress-photos').createSignedUrl(path, 3600)`. The `photo_url` column may already be a full URL; handle both (if it starts with `http`, use directly; otherwise treat as storage path).
+- Bento layout key `body-model` is preserved so existing `athlete-card-layout-v2-{id}` localStorage entries keep working — only the rendered component swaps.
+- Files touched: delete 2, create 1, edit 3 (`AthleteDetail.tsx`, `WellnessRadar.tsx`, `MetabolicFlux.tsx`).
