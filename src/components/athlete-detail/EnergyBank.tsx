@@ -57,33 +57,63 @@ function computeEnergy(c: CheckIn | null): number {
   const stress = 6 - (c.stress ?? 3);
   const digestion = c.digestion ?? 3;
   const sleep = Math.min(c.sleep_hours ?? 6, 8) / 8 * 5;
-  const avg = (mood + soreness + stress + digestion + sleep) / 5; // 1..5
+  const avg = (mood + soreness + stress + digestion + sleep) / 5;
   return Math.max(0, Math.min(100, Math.round(((avg - 1) / 4) * 100)));
 }
 
+// Mirrors applyDecay() in src/hooks/useAthletes.ts so the EnergyBank value
+// matches the "Hazırlık" (readiness) score on the athlete roster page.
+function applyReadinessDecay(base: number, lastActivityIso: string | null): number {
+  if (!lastActivityIso) return 0;
+  const elapsedDays = Math.floor((Date.now() - new Date(lastActivityIso).getTime()) / DAY_MS);
+  if (elapsedDays >= 14) return 0;
+  if (elapsedDays > 3) return Math.max(0, base - (elapsedDays - 3) * 10);
+  return base;
+}
+
 export function EnergyBank({ athleteId }: EnergyBankProps) {
-  const [latest, setLatest] = useState<CheckIn | null>(null);
+  const [baseReadiness, setBaseReadiness] = useState<number>(75);
+  const [lastActivityIso, setLastActivityIso] = useState<string | null>(null);
   const [history, setHistory] = useState<CheckIn[]>([]);
   const [open, setOpen] = useState(false);
 
-  const isStale = !latest || Date.now() - new Date(latest.created_at).getTime() > DAY_MS;
-  const percentage = isStale ? 0 : computeEnergy(latest);
+  const percentage = applyReadinessDecay(baseReadiness, lastActivityIso);
+  const isStale = percentage === 0;
 
   useEffect(() => {
     if (!athleteId) return;
     let cancelled = false;
 
     const fetchData = async () => {
-      const { data } = await supabase
-        .from("daily_checkins")
-        .select("mood, sleep_hours, soreness, stress, digestion, created_at")
-        .eq("user_id", athleteId)
-        .order("created_at", { ascending: false })
-        .limit(14);
+      const [profileRes, checkinsRes, workoutsRes] = await Promise.all([
+        supabase.from("profiles").select("readiness_score").eq("id", athleteId).maybeSingle(),
+        supabase
+          .from("daily_checkins")
+          .select("mood, sleep_hours, soreness, stress, digestion, created_at")
+          .eq("user_id", athleteId)
+          .order("created_at", { ascending: false })
+          .limit(14),
+        supabase
+          .from("workout_logs")
+          .select("logged_at")
+          .eq("user_id", athleteId)
+          .order("logged_at", { ascending: false })
+          .limit(1),
+      ]);
       if (cancelled) return;
-      const rows = (data ?? []) as CheckIn[];
+
+      setBaseReadiness((profileRes.data as any)?.readiness_score ?? 75);
+
+      const rows = (checkinsRes.data ?? []) as CheckIn[];
       setHistory(rows);
-      setLatest(rows[0] ?? null);
+
+      const lastCheckin = rows[0]?.created_at ?? null;
+      const lastWorkout = (workoutsRes.data?.[0] as any)?.logged_at ?? null;
+      const latest =
+        lastCheckin && lastWorkout
+          ? lastCheckin > lastWorkout ? lastCheckin : lastWorkout
+          : lastCheckin ?? lastWorkout ?? null;
+      setLastActivityIso(latest);
     };
 
     fetchData();
@@ -93,6 +123,16 @@ export function EnergyBank({ athleteId }: EnergyBankProps) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "daily_checkins", filter: `user_id=eq.${athleteId}` },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "workout_logs", filter: `user_id=eq.${athleteId}` },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${athleteId}` },
         () => fetchData()
       )
       .subscribe();
