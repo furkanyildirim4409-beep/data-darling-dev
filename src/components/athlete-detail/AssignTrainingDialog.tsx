@@ -139,7 +139,7 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
 
     const batchId = crypto.randomUUID();
     const weeks = Number(durationWeeks);
-    const start = new Date(startDate);
+    const start = normalizeToMonday(new Date(startDate));
     const rows: any[] = [];
 
     for (let w = 0; w < weeks; w++) {
