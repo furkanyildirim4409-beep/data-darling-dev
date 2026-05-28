@@ -58,6 +58,29 @@ export function TimelineAI({ athleteId }: TimelineAIProps) {
   const [hasData, setHasData] = useState(false);
   const [forecast, setForecast] = useState<string | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [logs, setLogs] = useState<AiStatusLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const fetchLogs = useCallback(async () => {
+    setLogsLoading(true);
+    const { data, error } = await supabase
+      .from("athlete_ai_status_logs")
+      .select("id, analysis_type, analysis_text, student_goal_snapshot, created_at")
+      .eq("athlete_id", athleteId)
+      .order("created_at", { ascending: false });
+    setLogsLoading(false);
+    if (error) {
+      toast.error(error.message || "AI geçmişi yüklenemedi");
+      return;
+    }
+    setLogs((data ?? []) as AiStatusLog[]);
+  }, [athleteId]);
+
+  useEffect(() => {
+    if (historyOpen) fetchLogs();
+  }, [historyOpen, fetchLogs]);
 
   const fetchRealData = useCallback(async () => {
     setIsLoading(true);
