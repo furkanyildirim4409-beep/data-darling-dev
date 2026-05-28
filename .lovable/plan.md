@@ -1,46 +1,95 @@
-## EnergyBank Refactor — 6 Biometric Pillars + Shadcn Tooltips
+## AI Status Logging Core + Goal Badge + Prompt Enrichment
 
-### Scope
-Single file: `src/components/athlete-detail/EnergyBank.tsx`. No backend / schema changes.
+### 1. Database migration — `athlete_ai_status_logs`
+Single migration with the 4-step pattern (CREATE → GRANT → ENABLE RLS → POLICY):
 
-### Data mapping
-`daily_checkins` currently exposes: `mood`, `sleep_hours`, `soreness`, `stress`, `digestion`. There is no dedicated "sleep quality" or "energy level" raw column, so we derive them:
+```sql
+CREATE TABLE IF NOT EXISTS public.athlete_ai_status_logs (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  athlete_id UUID NOT NULL,
+  coach_id UUID NOT NULL,
+  analysis_type TEXT NOT NULL DEFAULT 'holistic_forecast',
+  analysis_text TEXT NOT NULL,
+  student_goal_snapshot TEXT,
+  context_snapshot JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_status_logs_athlete ON public.athlete_ai_status_logs(athlete_id, created_at DESC);
 
-| Pillar | Source | Display |
-|---|---|---|
-| Ruh Hali | `mood` | `n/5` |
-| Uyku Kalitesi | `min(sleep_hours/8,1) * 5` rounded | `n/5` |
-| Enerji Seviyesi | `computeEnergy(checkin)` | `%n` |
-| Kas Ağrısı | `soreness` | `n/5` (düşük iyi) |
-| Stres | `stress` | `n/5` (düşük iyi) |
-| Uyku Süresi | `sleep_hours` | `n sa` |
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.athlete_ai_status_logs TO authenticated;
+GRANT ALL ON public.athlete_ai_status_logs TO service_role;
 
-(`digestion` is dropped from the UI per the spec's 6-pillar list; it stays in `computeEnergy` so the aggregate score is unchanged.)
+ALTER TABLE public.athlete_ai_status_logs ENABLE ROW LEVEL SECURITY;
 
-### Step A — Pillar config array
-Introduce a `PILLARS` array of `{ key, label, icon, tooltip, accentClass, getValue(c), formatValue(v) }` using Lucide `Smile`, `Moon`, `Zap`, `Flame`, `Brain`, `Clock`. Tooltip strings exactly as specified in the brief.
+-- Owning coach OR an active sub-coach of that head coach
+CREATE POLICY "Coach team can view AI logs"
+  ON public.athlete_ai_status_logs FOR SELECT TO authenticated
+  USING (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id));
 
-### Step B — Shadcn Tooltip wrapping
-- Import `Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider` from `@/components/ui/tooltip`.
-- Wrap the whole dialog badge region in a single `<TooltipProvider delayDuration={120}>`.
-- Each badge becomes:
-  ```tsx
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <span className="...badge..."><Icon/> {formatted}</span>
-    </TooltipTrigger>
-    <TooltipContent className="bg-popover/95 backdrop-blur-md border border-white/10 p-2.5 max-w-[280px] rounded-xl text-xs font-medium text-foreground shadow-2xl tracking-wide select-none animate-in fade-in zoom-in-95 duration-150">
-      <p className="font-semibold mb-0.5">{label}</p>
-      <p className="text-muted-foreground">{tooltip}</p>
-    </TooltipContent>
-  </Tooltip>
+CREATE POLICY "Coach team can insert AI logs"
+  ON public.athlete_ai_status_logs FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id));
+
+CREATE POLICY "Coach team can delete AI logs"
+  ON public.athlete_ai_status_logs FOR DELETE TO authenticated
+  USING (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id));
+```
+
+(Agency IP rule: inserts from sub-coaches still bind to the head-coach `coach_id` — the client sends `coach_id = get_my_head_coach_id()` returned from the existing RPC / activeCoachId context. Service role does it from the edge function.)
+
+### 2. Edge function `timeline-forecast` — enrich + persist
+- Also fetch `profiles.fitness_goal` and `profiles.coach_id` for the athlete.
+- Prepend the mandated directive line to `systemPrompt`:
+  `🎯 SPORCUNUN ANA HEDEFİ: Bu sporcunun platformdaki birincil fitness/sağlık hedefi <goal or "Belirtilmemiş"> olarak belirlenmiştir. Yapacağın tüm gelişim tahminlerini, makro kalori uyum analizlerini, dikey tape ölçüm varyasyonlarını ve 4 haftalık hipertrofi projeksiyonlarını kesinlikle bu hedef doğrultusunda ağırlıklandırarak hesapla.`
+- After successful AI response, insert into `athlete_ai_status_logs` via service-role client:
+  `{ athlete_id, coach_id: profiles.coach_id, analysis_type: 'holistic_forecast', analysis_text: markdown, student_goal_snapshot: fitness_goal, context_snapshot: ctx }`.
+- Return `{ markdown, goal, logId }` so the UI can refresh.
+
+### 3. `TimelineAI.tsx` — new "AI Durum Analizi" button + history dialog
+- Add a sibling button next to "AI Holistik Tahmin Üret":
+  `<Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>` with `History` icon, label "AI Durum Analizi".
+- New state: `historyOpen`, `logs`, `logsLoading`, `expandedId`.
+- On dialog open, query:
+  ```ts
+  supabase.from('athlete_ai_status_logs')
+    .select('id, analysis_type, analysis_text, student_goal_snapshot, created_at')
+    .eq('athlete_id', athleteId)
+    .order('created_at', { ascending: false });
   ```
-- Remove the legacy native `title=""` attributes (replaced by tooltips).
+- Render shadcn `<Dialog>` with `bg-background/95 backdrop-blur-xl border border-white/10 max-w-3xl`:
+  - Header: "AI Durum Analizi Geçmişi" + count.
+  - Empty state: "Henüz kayıtlı AI analizi yok."
+  - Each row: collapsible card showing `dd.MM.yyyy HH:mm` (Intl), goal snapshot badge (emerald), and click-to-expand preview of `analysis_text` (truncated to 220 chars when collapsed, full whitespace-pre-wrap when expanded).
+- After `runForecast` resolves, also re-fetch logs so the dialog stays in sync next time it opens.
 
-### Step C — Historical dialog grid
-Inside the `history.map(...)` row, replace the current 6-chip flex with a 6-column responsive grid (`grid grid-cols-3 sm:grid-cols-6 gap-1.5`) that always renders all six pillars side-by-side, never truncating. Each cell uses the same Tooltip wrapper from Step B so hovering any historical entry reveals the same definitions.
+### 4. `AthleteDetail.tsx` — goal badge in identity card
+- Extend `AthleteProfile` interface with `fitness_goal: string | null` and read it from the profile row.
+- Add a human-readable mapper:
+  ```ts
+  const GOAL_LABELS: Record<string,string> = {
+    hypertrophy: 'Hipertrofi / Kas Kazanımı',
+    fat_loss: 'Yağ Yakımı & Definasyon',
+    strength: 'Maksimal Kuvvet',
+    endurance: 'Dayanıklılık',
+    recomp: 'Rekomp / Eşzamanlı Dönüşüm',
+    health: 'Sağlık & Yaşam Kalitesi',
+  };
+  const goalLabel = athlete.fitness_goal ? (GOAL_LABELS[athlete.fitness_goal] ?? athlete.fitness_goal) : null;
+  ```
+- Inside the identity block (right after the weight/streak row, before the email row), render when `goalLabel`:
+  ```tsx
+  <span className="inline-flex items-center justify-center px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider shadow-lg select-none flex-shrink-0 whitespace-nowrap mt-1.5">
+    🎯 Hedef: {goalLabel}
+  </span>
+  ```
 
 ### Out of scope
-- Outer card layout (3-dot vs title overlap) — already addressed in the prior pass.
-- `computeEnergy` formula, decay logic, realtime subscriptions, dropdown menu — untouched.
-- No new dependencies.
+- No other components touched.
+- `useAthletes`, exports, and the AI Doctor flow stay as-is.
+- `fitness_goal` writes are already handled by `update_own_profile` RPC — no schema change needed.
+
+### Implementation order
+1. Run migration (await user approval).
+2. Update `supabase/functions/timeline-forecast/index.ts`.
+3. Refactor `src/components/athlete-detail/TimelineAI.tsx`.
+4. Patch `src/pages/AthleteDetail.tsx`.
