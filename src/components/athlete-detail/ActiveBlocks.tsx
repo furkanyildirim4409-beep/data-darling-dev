@@ -985,6 +985,73 @@ export function ActiveBlocks({ athleteId }: ActiveBlocksProps) {
         athleteId={athleteId}
         onAssigned={fetchData}
       />
+
+      {/* Supplement Detail Sheet */}
+      <Sheet open={!!supplementSheet} onOpenChange={(o) => !o && setSupplementSheet(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          {supplementSheet && (() => {
+            const sup = supplementSheet;
+            const pct = sup.total_servings > 0 ? Math.round((sup.servings_left / sup.total_servings) * 100) : 0;
+            const timingClass = TIMING_COLORS[sup.timing] || "bg-muted text-muted-foreground border-border";
+            return (
+              <>
+                <SheetHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0">
+                      <span className="text-2xl leading-none">{sup.icon || "💊"}</span>
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <SheetTitle className="text-base truncate">{sup.name_and_dosage}</SheetTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${timingClass}`}>{sup.timing}</Badge>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${sup.is_active ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
+                          {sup.is_active ? "Aktif" : "Pasif"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-border bg-card/50 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Dozaj</p>
+                      <p className="text-sm font-semibold text-foreground">{sup.dosage || "—"}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/50 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Servis / Alım</p>
+                      <p className="text-sm font-semibold text-foreground">{sup.servings_per_use ?? 1}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/50 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Bugün Alınan</p>
+                      <p className="text-sm font-semibold text-foreground">{sup.servings_taken_today ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/50 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Son Alım</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {sup.last_taken_date ? new Date(sup.last_taken_date).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-foreground">Kalan Servis</p>
+                      <p className="text-xs font-mono text-purple-400">{sup.servings_left} / {sup.total_servings}</p>
+                    </div>
+                    <Progress value={pct} className="h-2 bg-muted/50" />
+                    <p className="text-[10px] text-muted-foreground mt-2 text-right">%{pct} kaldı</p>
+                  </div>
+
+                  <SheetClose asChild>
+                    <Button variant="outline" className="w-full">Kapat</Button>
+                  </SheetClose>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
