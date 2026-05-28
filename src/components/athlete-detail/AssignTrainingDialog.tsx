@@ -215,42 +215,42 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
 
         {/* Date & Duration */}
         <div className="space-y-2 pb-2 border-b border-border">
-        <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3 pb-2 border-b border-border">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2")}>
-                <CalendarIcon className="w-3.5 h-3.5" />
-                {format(startDate, "dd MMM yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={(d) => d && setStartDate(normalizeToMonday(d))}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <Select value={durationWeeks} onValueChange={setDurationWeeks}>
-            <SelectTrigger className="w-[120px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DURATION_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Seçilen Hafta Başlangıcı: <span className="font-medium text-foreground">{format(startDate, "dd MMMM yyyy", { locale: tr })}</span> (Pazartesi)
-        </p>
+          <div className="flex items-center gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal gap-2")}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {format(startDate, "dd MMM yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(d) => d && setStartDate(normalizeToMonday(d))}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Select value={durationWeeks} onValueChange={setDurationWeeks}>
+              <SelectTrigger className="w-[120px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATION_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Seçilen Hafta Başlangıcı: <span className="font-medium text-foreground">{format(startDate, "dd MMMM yyyy", { locale: tr })}</span> (Pazartesi)
+          </p>
         </div>
 
         <ScrollArea className="flex-1 pr-2 -mr-2">
 
-        <ScrollArea className="flex-1 pr-2 -mr-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
