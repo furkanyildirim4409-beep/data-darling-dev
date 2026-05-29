@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
