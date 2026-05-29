@@ -40,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 
 
@@ -111,6 +112,7 @@ export default function AthleteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { canEditAthletes } = usePermissions();
   const [activeTab, setActiveTab] = useState("general");
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
@@ -227,22 +229,18 @@ export default function AthleteDetail() {
     if (!parsed.success) { toast.error("Geçerli bir iade tutarı girin"); return; }
     setRefundLoading(true);
     try {
-      const { error } = await supabase.from("orders").insert({
-        user_id: id,
-        items: [{
-          type: "refund",
-          source_order_id: athlete.latestPaidOrderId,
-          refund_kind: refundKind,
-          reason: refundReason.trim() || null,
-        }],
-        total_price: -Math.abs(amount),
-        status: "refund_pending",
-        order_type: "refund",
-        external_reference_id: athlete.latestPaidOrderId,
+      if (!user?.id) { toast.error("Yetki doğrulanamadı"); setRefundLoading(false); return; }
+      const { error } = await supabase.from("refund_requests").insert({
+        athlete_id: id,
+        coach_id: user.id,
+        requested_amount: Math.abs(Number(amount)),
+        reason: refundReason.trim() || refundKind,
+        status: "pending",
       } as any);
       if (error) throw error;
       haptic();
-      toast.success(`İade talebi kayıt altına alındı — ${amount.toLocaleString("tr-TR")} ₺`);
+      toast.success("İade talebi admin onayına başarıyla sunuldu.", { icon: "⏳" });
+      queryClient.invalidateQueries({ queryKey: ["athlete", id] });
       setRefundOpen(false);
       setRefundAmount("");
       setRefundReason("");
