@@ -46,6 +46,54 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
   const [featureInput, setFeatureInput] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [galleryUploading, setGalleryUploading] = useState<Record<number, boolean>>({});
+
+  const STORAGE_BUCKET = "coaching-packages";
+  const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+  const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+  const uploadToStorage = useCallback(async (file: File): Promise<string | null> => {
+    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+    const path = `package-assets/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+    if (error) {
+      toast.error(`Yükleme başarısız: ${error.message}`);
+      return null;
+    }
+    const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    return publicUrl;
+  }, []);
+
+  const handleVideoFile = useCallback(async (file: File) => {
+    const okType = file.type === "video/mp4" || file.type === "video/quicktime" || /\.(mp4|mov|m4v)$/i.test(file.name);
+    if (!okType) { toast.error("Yalnızca MP4 / MOV kabul edilir"); return; }
+    if (file.size > MAX_VIDEO_BYTES) { toast.error("Video 200MB sınırını aşıyor"); return; }
+    setVideoUploading(true);
+    setVideoProgress(15);
+    const tick = window.setInterval(() => setVideoProgress((p) => (p < 85 ? p + 7 : p)), 400);
+    const url = await uploadToStorage(file);
+    window.clearInterval(tick);
+    setVideoProgress(100);
+    if (url) setVideoUrl(url);
+    setTimeout(() => { setVideoUploading(false); setVideoProgress(0); }, 350);
+  }, [uploadToStorage]);
+
+  const handleGalleryFile = useCallback(async (file: File, slotIndex: number) => {
+    if (!file.type.startsWith("image/")) { toast.error("Yalnızca görsel dosyaları"); return; }
+    if (file.size > MAX_IMAGE_BYTES) { toast.error("Görsel 8MB sınırını aşıyor"); return; }
+    setGalleryUploading((m) => ({ ...m, [slotIndex]: true }));
+    const url = await uploadToStorage(file);
+    if (url) {
+      setGalleryUrls((prev) => prev.map((u, i) => (i === slotIndex ? url : u)));
+    }
+    setGalleryUploading((m) => { const n = { ...m }; delete n[slotIndex]; return n; });
+  }, [uploadToStorage]);
+
+  const anyUploading = videoUploading || Object.keys(galleryUploading).length > 0;
 
   const richRef = useRef<HTMLTextAreaElement>(null);
 
