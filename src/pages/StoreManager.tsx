@@ -282,11 +282,20 @@ export default function StoreManager() {
       </div>
 
       <Tabs defaultValue="orders" className="space-y-6">
-        <TabsList className="glass border border-border">
-          <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
-          <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
-          <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <TabsList className="glass border border-border">
+            <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
+            <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
+            <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            onClick={() => setTerminatedSheetOpen(true)}
+            className="border-white/5 bg-white/[0.01] hover:bg-white/5 text-muted-foreground hover:text-foreground text-xs rounded-xl gap-2 h-9 px-3"
+          >
+            <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
+          </Button>
+        </div>
 
         <TabsContent value="products" className="space-y-6 mt-0">
           {/* Upload Form */}
