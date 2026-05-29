@@ -273,6 +273,27 @@ export default function AthleteDetail() {
     }
   };
 
+  const handleRemoveTermination = async () => {
+    if (!id) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        subscription_status: 'active',
+        active_program_id: null,
+      } as any)
+      .eq('id', id);
+
+    if (!error) {
+      haptic();
+      toast.success("Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi.", { icon: "🟢" });
+      queryClient.invalidateQueries({ queryKey: ['athletes'] });
+      queryClient.invalidateQueries({ queryKey: ['athlete', id] });
+      fetchAthleteData();
+    } else {
+      toast.error("Fesih kaldırılamadı: " + error.message);
+    }
+  };
+
 
 
 
