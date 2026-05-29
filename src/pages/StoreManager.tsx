@@ -104,6 +104,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export default function StoreManager() {
   const { canManageStore } = usePermissions();
+  const queryClient = useQueryClient();
   const { data: products, isLoading } = useCoachProducts();
   const { orders, isLoading: isOrdersLoading } = useStoreOrders();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
