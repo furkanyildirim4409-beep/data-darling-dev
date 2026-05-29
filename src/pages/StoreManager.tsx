@@ -55,6 +55,12 @@ import {
 } from "@/hooks/useStoreMutations";
 import { useStoreOrders } from "@/hooks/useStoreOrders";
 import StoreOrdersList from "@/components/store-manager/StoreOrdersList";
+import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { RotateCcw, UserX } from "lucide-react";
 
 const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
 
