@@ -1,28 +1,30 @@
-# Re-Termination Cache Invalidation Fix
-
-## Problem
-When an athlete is terminated → reinstated → terminated again, they don't reappear in the "Feshedilen Sporcular" sheet. The `terminated-athletes` query inside `TerminatedAthletesPanel` (StoreManager.tsx) serves stale cached data and never re-validates against Supabase when the sheet is re-opened or another mutation flips `subscription_status` back to `terminated`.
+# Isolate Terminated Sheet Trigger Inside Packages Tab
 
 ## Changes — `src/pages/StoreManager.tsx`
 
-### 1. Harden the terminated-athletes query (around line 903)
-Add freshness + refetch triggers to the existing `useQuery`:
-- `staleTime: 0` — always treat cache as stale
-- `refetchOnWindowFocus: true`
-- `refetchOnMount: "always"` — refetch each time the Sheet remounts the panel
-- Keep `queryKey: ["terminated-athletes", activeCoachId]` (already scoped to coach; matches the rest of the file's conventions — no need to switch to `['athletes','terminated']` since invalidation uses prefix matching).
+### 1. Remove button from global tab header (lines 286–299)
+Strip the `<Button>` for "Feshedilen Sporcular Geçmişi" out of the flex row that wraps `TabsList`. Collapse the wrapper back to just `<TabsList>` (no longer needs the flex justify-between div).
 
-### 2. Refetch when the Sheet opens
-Expose `refetch` from the query and trigger it whenever `terminatedSheetOpen` flips to `true`. Two options:
-- Pass an `open` prop into `TerminatedAthletesPanel` and `useEffect(() => { if (open) refetch(); }, [open])`, OR
-- Call `queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] })` from `StoreManager` inside the `onOpenChange` handler when opening.
+### 2. Add header row + button inside `TabsContent value="coaching_packages"` (line 684)
+Replace the bare wrapper with a header row + body:
 
-Going with the second approach — smaller diff, keeps the panel self-contained.
+```tsx
+<TabsContent value="coaching_packages" className="space-y-6 mt-0 animate-in fade-in duration-200">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4">
+    <div>
+      <h2 className="text-lg font-bold uppercase tracking-wider text-foreground">Abonelik & Koçluk Paketleri</h2>
+      <p className="text-xs text-muted-foreground">Premium satış hizmetlerinizi zengin içeriklerle yapılandırın.</p>
+    </div>
+    <Button variant="outline" onClick={() => setTerminatedSheetOpen(true)} className="...same classes...">
+      <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
+    </Button>
+  </div>
+  <CoachingPackagesManager />
+</TabsContent>
+```
 
-### 3. Strengthen reinstate mutation invalidation (around line 927)
-Already invalidates the right keys; add an `await refetch()` after invalidation for instant UI sync (currently fire-and-forget). Convert `onSuccess` to await both `invalidateQueries` calls so the list is guaranteed fresh before the toast resolves.
+### 3. Keep the `<Sheet>` definition outside the tabs (current location ~line 689) — unchanged
+Only the trigger button moves; the Sheet itself stays at root so it overlays correctly regardless of active tab. State (`terminatedSheetOpen`) is already at the page level.
 
 ## Out of scope
-- No DB / RLS changes
-- No edits to `useAthletes` or other panels
-- Part 2 / Part 3 termination lifecycle work
+- No changes to `TerminatedAthletesPanel`, query logic, or other tabs.
