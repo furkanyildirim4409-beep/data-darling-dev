@@ -1139,11 +1139,15 @@ export type Database = {
           description: string | null
           duration_months: number
           features: Json
+          features_list: string[] | null
+          gallery_urls: string[] | null
           id: string
           is_active: boolean
           price: number
+          rich_description: string | null
           title: string
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           coach_id: string
@@ -1151,11 +1155,15 @@ export type Database = {
           description?: string | null
           duration_months: number
           features?: Json
+          features_list?: string[] | null
+          gallery_urls?: string[] | null
           id?: string
           is_active?: boolean
           price: number
+          rich_description?: string | null
           title: string
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           coach_id?: string
@@ -1163,11 +1171,15 @@ export type Database = {
           description?: string | null
           duration_months?: number
           features?: Json
+          features_list?: string[] | null
+          gallery_urls?: string[] | null
           id?: string
           is_active?: boolean
           price?: number
+          rich_description?: string | null
           title?: string
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: []
       }
