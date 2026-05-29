@@ -179,6 +179,10 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
   };
 
   const handleSubmit = async () => {
+    if (videoUploading || Object.keys(galleryUploading).length > 0) {
+      toast.error("Medya yüklenirken kaydedilemez");
+      return;
+    }
     if (!title.trim()) {
       toast.error("Paket adı gerekli");
       return;
