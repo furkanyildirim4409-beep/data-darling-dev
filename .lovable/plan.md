@@ -1,50 +1,44 @@
-## Add "📦 Paketler & Abonelikler" tab to StoreManager
+## Wire "Fesih Kaldır" reinstate flow
 
-Mount a third tab in `src/pages/StoreManager.tsx` with a 2-column layout: the existing `CoachingPackagesManager` on the left, a "Feshedilenler" terminated-athletes roster on the right with a "Fesih Kaldır" action.
+Align both surfaces to the same lifecycle mutation: set `subscription_status='active'` AND clear `active_program_id`, with consistent toast + cache invalidation.
 
-### Changes to `src/pages/StoreManager.tsx`
+### A. `src/pages/AthleteDetail.tsx`
 
-1. **Imports**
-   - `CoachingPackagesManager` from `@/components/business/CoachingPackagesManager`
-   - `supabase` from `@/integrations/supabase/client`
-   - `useQuery`, `useQueryClient`, `useMutation` from `@tanstack/react-query`
-   - `Button`, `toast`, `RotateCcw` (lucide)
-
-2. **Add tab trigger** (line ~273, inside `<TabsList>`):
-   ```tsx
-   <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
-   ```
-
-3. **Add `<TabsContent value="coaching_packages">`** after the `orders` tab (line ~657):
-   ```tsx
-   <TabsContent value="coaching_packages" className="mt-0">
-     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-       <div><CoachingPackagesManager /></div>
-       <TerminatedAthletesPanel />
-     </div>
-   </TabsContent>
-   ```
-
-4. **New inline component `TerminatedAthletesPanel`** in the same file (kept local to avoid file sprawl for one-screen widget):
-   - `useQuery(['terminated-athletes', activeCoachId])` → `profiles` filter:
-     ```ts
-     supabase
+1. **New handler `handleRemoveTermination`** placed next to `handleUnfreezeAthlete` (~line 274):
+   ```ts
+   const handleRemoveTermination = async () => {
+     if (!id) return;
+     const { error } = await supabase
        .from('profiles')
-       .select('id, full_name, avatar_url, updated_at')
-       .eq('subscription_status', 'terminated')
-       .eq('coach_id', activeCoachId)
-       .order('updated_at', { ascending: false })
-     ```
-     `activeCoachId` from `useAuth()` (agency IP rule — sub-coaches see head coach's roster).
-   - Render glass card with a scrollable list (max-h, native overflow + `.scrollbar-hide`): avatar, full_name, severance timestamp (tr-TR), and a `Button size="sm"` labeled **Fesih Kaldır**.
-   - Empty state: "Feshedilmiş sporcu bulunmuyor." (no mock data — core rule).
+       .update({ subscription_status: 'active', active_program_id: null } as any)
+       .eq('id', id);
+     if (!error) {
+       haptic();
+       toast.success("Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi.", { icon: "🟢" });
+       queryClient.invalidateQueries({ queryKey: ['athletes'] });
+       queryClient.invalidateQueries({ queryKey: ['athlete', id] });
+       fetchAthleteData();
+     } else {
+       toast.error("Fesih kaldırılamadı: " + error.message);
+     }
+   };
+   ```
 
-5. **Mutation `handleReinstate(athleteId)`**:
-   - `supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', athleteId)`
-   - On success: `toast.success("Fesih kaldırıldı; sporcu yeniden aktif.")`, invalidate `['terminated-athletes']` and `['athletes']`.
-   - On error: toast.error with message.
+2. **Dropdown menu (lines 414–433)** — expand to handle three states:
+   - `terminated` → single emerald **"♻️ Fesih Kaldır"** item calling `handleRemoveTermination`, plus separator and the existing terminate is hidden (already gone since they're terminated).
+   - `frozen` → existing unfreeze item (unchanged).
+   - else → freeze / refund / terminate trio (unchanged).
+   
+   Refund + Terminate items remain visible only when **not** terminated (avoid double-terminating or refunding a closed account).
+
+### B. `src/pages/StoreManager.tsx` — `TerminatedAthletesPanel`
+
+Update the existing `reinstate` mutation:
+- Add `active_program_id: null` to the update payload.
+- Update success toast to: `"Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi."` with `{ icon: "🟢" }`.
+- Add `queryClient.invalidateQueries({ queryKey: ['athlete', id] })` per row alongside the existing two invalidations.
 
 ### Out of scope
-- Restoring the previously-cleared `coach_id` / `active_program_id` (terminate sets them null; reinstating subscription doesn't auto-reassign coach — that requires a separate roster-reassign flow).
-- Editing the existing two tabs.
-- New DB tables/migrations.
+- Restoring `coach_id` (terminate nulled it; re-linking requires explicit roster flow).
+- Backend triggers or RPC wrappers — direct table update is sufficient under existing RLS.
+- New UI in any other page.
