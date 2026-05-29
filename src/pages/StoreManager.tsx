@@ -686,7 +686,10 @@ export default function StoreManager() {
         </TabsContent>
       </Tabs>
 
-      <Sheet open={terminatedSheetOpen} onOpenChange={setTerminatedSheetOpen}>
+      <Sheet open={terminatedSheetOpen} onOpenChange={(o) => {
+        setTerminatedSheetOpen(o);
+        if (o) queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
+      }}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
           <SheetHeader className="p-5 border-b border-border text-left">
             <SheetTitle className="flex items-center gap-2">
