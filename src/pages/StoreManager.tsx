@@ -672,7 +672,20 @@ export default function StoreManager() {
           <StoreOrdersList orders={orders} isLoading={isOrdersLoading} />
         </TabsContent>
 
-        <TabsContent value="coaching_packages" className="mt-0">
+        <TabsContent value="coaching_packages" className="space-y-6 mt-0 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4">
+            <div>
+              <h2 className="text-lg font-bold uppercase tracking-wider text-foreground">Abonelik & Koçluk Paketleri</h2>
+              <p className="text-xs text-muted-foreground">Premium satış hizmetlerinizi zengin içeriklerle yapılandırın.</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setTerminatedSheetOpen(true)}
+              className="border-white/5 bg-white/[0.01] hover:bg-white/5 text-muted-foreground hover:text-foreground text-xs rounded-xl gap-2 h-9 px-3"
+            >
+              <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
+            </Button>
+          </div>
           <CoachingPackagesManager />
         </TabsContent>
       </Tabs>
