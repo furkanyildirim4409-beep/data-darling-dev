@@ -133,6 +133,7 @@ export default function StoreManager() {
   const [editStockQty, setEditStockQty] = useState<string>("");
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [terminatedSheetOpen, setTerminatedSheetOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
