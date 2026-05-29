@@ -1,42 +1,46 @@
-## Analiz özeti
+## Plan: Native MP4 + Image Uploader for Coaching Packages
 
-DB ve kod hattını birlikte inceledim:
+### 1. Database migration (Supabase Storage)
+Create a single migration that:
+- Inserts public bucket `coaching-packages` (idempotent via `ON CONFLICT`).
+- Adds storage.objects policies:
+  - `INSERT` for `authenticated` where `bucket_id = 'coaching-packages'`.
+  - `SELECT` for `public` where `bucket_id = 'coaching-packages'`.
+  - Also `UPDATE` + `DELETE` for `authenticated` on own uploads (so coaches can replace/remove their assets — required for a clean UX even though the brief only listed insert/select).
+- Guards with `DROP POLICY IF EXISTS` to keep the migration re-runnable.
 
-- `profiles` içinde şu an `subscription_status = 'terminated'` olan kullanıcı var: `MEHMET TUNÇ`.
-- Bu kullanıcının `coach_id` alanı `NULL` olmuş.
-- Aynı kullanıcının son ücretli koçluk siparişindeki `items[].coach_id` değeri hâlâ doğru koça bağlı: `c21a5a19-daaf-4e23-90f6-71179e7f8bcd`.
-- `StoreManager.tsx` içindeki feshedilenler listesi şu filtreyle çalışıyor:
-  - `subscription_status = 'terminated'`
-  - `coach_id = activeCoachId`
-- Fesih aksiyonu `AthleteDetail.tsx` içinde kullanıcıyı feshederken `coach_id: null` yapıyor. Bu nedenle ikinci fesihten sonra kayıt DB'de durmasına rağmen liste sorgusundan eleniyor.
-- Son Postgres loglarında bu akışa dair RLS/policy/permission hatası görünmedi; sorun cache değil, query filtresinin `coach_id` silindikten sonra geçmiş sahipliği kaybetmesi.
+### 2. Refactor `src/components/business/PackageFormDialog.tsx`
+Replace the two text inputs in SECTION B — MEDIA with native upload widgets.
 
-## Kök neden
+**State / handlers**
+- Add `videoUploading: boolean`, `videoProgress: number`, `galleryUploading: Record<number, boolean>`.
+- Add async `handleMediaUpload(file, type, slotIndex?)` that:
+  - Validates MIME (`video/mp4`, `video/quicktime` for video; `image/*` for gallery) and size (video ≤ 200 MB, image ≤ 8 MB).
+  - Generates `package-assets/${crypto.randomUUID()}.${ext}`.
+  - Calls `supabase.storage.from('coaching-packages').upload(path, file, { cacheControl: '31536000', upsert: false })`.
+  - On success resolves `getPublicUrl` and writes back into `videoUrl` or the targeted `galleryUrls[idx]`.
+  - On failure shows `toast.error`.
+- Add `handleRemoveVideo` and reuse existing `removeGallerySlot` for clearing.
 
-Fesih geçmişi `profiles.coach_id` alanına bağlı okunuyor; ancak fesih işlemi aynı alanı `NULL` yaptığı için geçmiş liste kendi kanıtını siliyor. İkinci satın alma/aktifleşme/fesih döngüsünde kayıt `terminated` kalıyor ama `coach_id` boş olduğu için `Feshedilen Sporcular` sheet'inde görünmüyor.
+**UI — Video block**
+- Dark glass dropzone: `rounded-xl border border-dashed border-white/10 bg-white/[0.01] hover:border-primary/40 transition` with drag-and-drop handlers.
+- Empty state: upload icon + "MP4 dosyasını sürükleyin veya seçin" + size hint.
+- Uploading state: animated `Progress` bar + percent.
+- Filled state: inline `<video controls>` preview + "Değiştir" / "Kaldır" buttons.
 
-## Uygulama planı
+**UI — Gallery block**
+- Same dropzone treatment per slot. Slot shows thumbnail when filled, dropzone when empty.
+- "Slot ekle" button preserved; cap at `MAX_GALLERY`.
+- Keep submit payload shape (`video_url`, `gallery_urls`) untouched — only the URL source changes from manual paste to CDN URL from Storage.
 
-1. **`StoreManager.tsx` terminated query hattını düzelt**
-   - `TerminatedAthletesPanel` sorgusunu sadece `profiles.coach_id = activeCoachId` filtresine bağlı bırakmayacağım.
-   - Önce aktif koça ait `paid + coaching` siparişlerden athlete id’lerini çıkaracağım.
-   - Sonra `profiles` tablosundan `subscription_status = 'terminated'` ve `id IN (bu athlete id’leri)` olacak şekilde okuyacağım.
-   - Böylece `coach_id` fesihte `NULL` olsa bile geçmiş satın alma bağından doğru koç listesinde görünecek.
+**Submission**
+- Block `onSubmit` while any upload is in-flight (`videoUploading || any galleryUploading`).
+- No change to `video_url` / `gallery_urls` columns — they continue to store the public CDN URL string.
 
-2. **Tip güvenliğini artır**
-   - `TerminatedRow` tipine gerekirse paket/sipariş kaynaklı alanları ekleyeceğim.
-   - JSON `items` alanını güvenli parse edeceğim; kırık/boş item listeleri UI’ı bozmayacak.
+### 3. Out of scope (handled in later parts)
+- Video transcoding, thumbnails, signed URLs, per-coach folder scoping, deletion of orphaned storage objects on package delete.
 
-3. **Fesih kaldırma sonrası invalidation’ı mevcut düzenle uyumlu tut**
-   - `terminated-athletes`, `athletes`, `athlete` query invalidation zincirini koruyacağım.
-   - Gerekli yerde `refetch()` ile sheet’in anında senkron kalmasını sağlayacağım.
-
-4. **DB değişikliği yapmayacağım**
-   - Mevcut schema ile çözülebiliyor.
-   - RLS hatası/log hatası olmadığı için migration gerekmez.
-
-## Beklenen sonuç
-
-- Feshedilmiş kullanıcı DB’de `coach_id = NULL` olsa bile, son/önceki ücretli koçluk siparişindeki `coach_id` üzerinden doğru koçun `Feshedilen Sporcular` listesinde görünür.
-- Tekrar aktifleşme, tekrar satın alma ve tekrar fesih döngüsünde browser refresh gerekmeyecek.
-- Mevcut RLS modeline ek risk getirilmeden sadece frontend query hidrasyonu düzeltilmiş olacak.
+### Technical notes
+- Bucket is public, so `getPublicUrl` is sufficient and the rendered `<video>` / `<img>` need no signed URL refresh.
+- The `upload` API does not expose granular progress in supabase-js v2; show an indeterminate shimmer + a coarse 0→90→100 transition driven by `onUploadProgress` via `fetch` fallback only if needed. Initial implementation uses indeterminate `Progress` to avoid extra complexity.
+- Keep existing `Input`-driven flow removed entirely — no hidden fallback text field.
