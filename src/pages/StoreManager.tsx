@@ -681,14 +681,23 @@ export default function StoreManager() {
         </TabsContent>
 
         <TabsContent value="coaching_packages" className="mt-0">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-            <div>
-              <CoachingPackagesManager />
-            </div>
-            <TerminatedAthletesPanel />
-          </div>
+          <CoachingPackagesManager />
         </TabsContent>
       </Tabs>
+
+      <Sheet open={terminatedSheetOpen} onOpenChange={setTerminatedSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="p-5 border-b border-border text-left">
+            <SheetTitle className="flex items-center gap-2">
+              <UserX className="w-4 h-4 text-destructive" /> Feshedilen Sporcular
+            </SheetTitle>
+            <SheetDescription>Geçmiş fesihler ve geri alma işlemleri.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <TerminatedAthletesPanel variant="sheet" />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Product Dialog */}
       <Dialog open={!!editingProduct} onOpenChange={(o) => !o && setEditingProduct(null)}>
