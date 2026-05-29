@@ -277,6 +277,7 @@ export default function StoreManager() {
         <TabsList className="glass border border-border">
           <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
           <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
+          <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6 mt-0">
