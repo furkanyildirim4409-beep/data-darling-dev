@@ -900,9 +900,12 @@ function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "she
   const { activeCoachId } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ["terminated-athletes", activeCoachId],
     enabled: !!activeCoachId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     queryFn: async (): Promise<TerminatedRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
@@ -924,11 +927,14 @@ function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "she
       if (error) throw error;
       return athleteId;
     },
-    onSuccess: (athleteId) => {
+    onSuccess: async (athleteId) => {
       toast.success("Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi.", { icon: "🟢" });
-      queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
-      queryClient.invalidateQueries({ queryKey: ["athletes"] });
-      queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] }),
+        queryClient.invalidateQueries({ queryKey: ["athletes"] }),
+        queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] }),
+      ]);
+      await refetch();
     },
     onError: (err: any) => toast.error(err?.message || "Fesih kaldırılamadı"),
   });
