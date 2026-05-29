@@ -1,42 +1,50 @@
-## Refactor `submitRefund` to use `refund_requests`
+## Add "📦 Paketler & Abonelikler" tab to StoreManager
 
-In `src/pages/AthleteDetail.tsx`, swap the `orders`-insert refund logic for the new isolated `refund_requests` table.
+Mount a third tab in `src/pages/StoreManager.tsx` with a 2-column layout: the existing `CoachingPackagesManager` on the left, a "Feshedilenler" terminated-athletes roster on the right with a "Fesih Kaldır" action.
 
-### Changes
+### Changes to `src/pages/StoreManager.tsx`
 
-1. **Import `useAuth`** alongside existing imports:
-   ```ts
-   import { useAuth } from "@/contexts/AuthContext";
+1. **Imports**
+   - `CoachingPackagesManager` from `@/components/business/CoachingPackagesManager`
+   - `supabase` from `@/integrations/supabase/client`
+   - `useQuery`, `useQueryClient`, `useMutation` from `@tanstack/react-query`
+   - `Button`, `toast`, `RotateCcw` (lucide)
+
+2. **Add tab trigger** (line ~273, inside `<TabsList>`):
+   ```tsx
+   <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
    ```
 
-2. **Hook up `activeCoachId`** near the existing `queryClient` hook (line ~113):
-   ```ts
-   const { activeCoachId } = useAuth();
-   ```
-   Using `activeCoachId` (not `user.id`) honors the agency IP rule — sub-coaches always write under the Head Coach's id.
-
-3. **Replace the insert block (lines 230–242)** inside `submitRefund`:
-   ```ts
-   if (!activeCoachId) { toast.error("Yetki doğrulanamadı"); return; }
-   const { error } = await supabase
-     .from("refund_requests")
-     .insert({
-       athlete_id: id,
-       coach_id: activeCoachId,
-       requested_amount: Math.abs(Number(amount)),
-       reason: refundReason.trim() || refundKind,
-       status: "pending",
-     });
-   ```
-   `reason` is `NOT NULL` in the new table — fall back to `refundKind` ("full"/"partial") when the textarea is empty.
-
-4. **Replace the success toast (line 245)**:
-   ```ts
-   toast.success("İade talebi admin onayına başarıyla sunuldu.", { icon: "⏳" });
-   queryClient.invalidateQueries({ queryKey: ["athlete", id] });
+3. **Add `<TabsContent value="coaching_packages">`** after the `orders` tab (line ~657):
+   ```tsx
+   <TabsContent value="coaching_packages" className="mt-0">
+     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+       <div><CoachingPackagesManager /></div>
+       <TerminatedAthletesPanel />
+     </div>
+   </TabsContent>
    ```
 
-### Out of scope (later parts)
-- Admin Board UI for processing `refund_requests`
-- Backfill / migration of existing `orders` refund rows
-- Disabling the legacy `latestPaidOrderId` gate (kept as-is so the button still requires a paid order to refund)
+4. **New inline component `TerminatedAthletesPanel`** in the same file (kept local to avoid file sprawl for one-screen widget):
+   - `useQuery(['terminated-athletes', activeCoachId])` → `profiles` filter:
+     ```ts
+     supabase
+       .from('profiles')
+       .select('id, full_name, avatar_url, updated_at')
+       .eq('subscription_status', 'terminated')
+       .eq('coach_id', activeCoachId)
+       .order('updated_at', { ascending: false })
+     ```
+     `activeCoachId` from `useAuth()` (agency IP rule — sub-coaches see head coach's roster).
+   - Render glass card with a scrollable list (max-h, native overflow + `.scrollbar-hide`): avatar, full_name, severance timestamp (tr-TR), and a `Button size="sm"` labeled **Fesih Kaldır**.
+   - Empty state: "Feshedilmiş sporcu bulunmuyor." (no mock data — core rule).
+
+5. **Mutation `handleReinstate(athleteId)`**:
+   - `supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', athleteId)`
+   - On success: `toast.success("Fesih kaldırıldı; sporcu yeniden aktif.")`, invalidate `['terminated-athletes']` and `['athletes']`.
+   - On error: toast.error with message.
+
+### Out of scope
+- Restoring the previously-cleared `coach_id` / `active_program_id` (terminate sets them null; reinstating subscription doesn't auto-reassign coach — that requires a separate roster-reassign flow).
+- Editing the existing two tabs.
+- New DB tables/migrations.
