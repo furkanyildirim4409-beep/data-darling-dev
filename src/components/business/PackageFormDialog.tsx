@@ -532,9 +532,9 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || anyUploading}
           >
-            {saving ? "Kaydediliyor..." : initialPackage ? "Güncelle" : "Oluştur"}
+            {anyUploading ? "Medya yükleniyor..." : saving ? "Kaydediliyor..." : initialPackage ? "Güncelle" : "Oluştur"}
           </Button>
         </DialogFooter>
       </DialogContent>
