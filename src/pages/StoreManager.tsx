@@ -21,6 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
   Box,
   Cloud,
   Edit2,
@@ -126,6 +133,7 @@ export default function StoreManager() {
   const [editStockQty, setEditStockQty] = useState<string>("");
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [terminatedSheetOpen, setTerminatedSheetOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -274,11 +282,20 @@ export default function StoreManager() {
       </div>
 
       <Tabs defaultValue="orders" className="space-y-6">
-        <TabsList className="glass border border-border">
-          <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
-          <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
-          <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <TabsList className="glass border border-border">
+            <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
+            <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
+            <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            onClick={() => setTerminatedSheetOpen(true)}
+            className="border-white/5 bg-white/[0.01] hover:bg-white/5 text-muted-foreground hover:text-foreground text-xs rounded-xl gap-2 h-9 px-3"
+          >
+            <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
+          </Button>
+        </div>
 
         <TabsContent value="products" className="space-y-6 mt-0">
           {/* Upload Form */}
@@ -664,14 +681,23 @@ export default function StoreManager() {
         </TabsContent>
 
         <TabsContent value="coaching_packages" className="mt-0">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-            <div>
-              <CoachingPackagesManager />
-            </div>
-            <TerminatedAthletesPanel />
-          </div>
+          <CoachingPackagesManager />
         </TabsContent>
       </Tabs>
+
+      <Sheet open={terminatedSheetOpen} onOpenChange={setTerminatedSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="p-5 border-b border-border text-left">
+            <SheetTitle className="flex items-center gap-2">
+              <UserX className="w-4 h-4 text-destructive" /> Feshedilen Sporcular
+            </SheetTitle>
+            <SheetDescription>Geçmiş fesihler ve geri alma işlemleri.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <TerminatedAthletesPanel variant="sheet" />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Product Dialog */}
       <Dialog open={!!editingProduct} onOpenChange={(o) => !o && setEditingProduct(null)}>
@@ -867,9 +893,10 @@ interface TerminatedRow {
   full_name: string | null;
   avatar_url: string | null;
   updated_at: string | null;
+  freeze_reason: string | null;
 }
 
-function TerminatedAthletesPanel() {
+function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "sheet" }) {
   const { activeCoachId } = useAuth();
   const queryClient = useQueryClient();
 
@@ -879,7 +906,7 @@ function TerminatedAthletesPanel() {
     queryFn: async (): Promise<TerminatedRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, updated_at")
+        .select("id, full_name, avatar_url, updated_at, freeze_reason")
         .eq("subscription_status", "terminated")
         .eq("coach_id", activeCoachId!)
         .order("updated_at", { ascending: false });
@@ -906,16 +933,10 @@ function TerminatedAthletesPanel() {
     onError: (err: any) => toast.error(err?.message || "Fesih kaldırılamadı"),
   });
 
-  return (
-    <div className="glass rounded-xl border border-border">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <UserX className="w-4 h-4 text-destructive" />
-          <h2 className="font-semibold text-foreground">Feshedilenler</h2>
-        </div>
-        <span className="text-xs font-mono text-muted-foreground">{rows.length} kayıt</span>
-      </div>
+  const isSheet = variant === "sheet";
 
+  const body = (
+    <>
       {isLoading ? (
         <div className="p-4 space-y-3">
           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
@@ -926,7 +947,7 @@ function TerminatedAthletesPanel() {
           <p className="text-muted-foreground text-sm">Feshedilmiş sporcu bulunmuyor.</p>
         </div>
       ) : (
-        <div className="divide-y divide-border max-h-[520px] overflow-y-auto scrollbar-hide">
+        <div className={`divide-y divide-border ${isSheet ? "" : "max-h-[520px] overflow-y-auto scrollbar-hide"}`}>
           {rows.map((r) => (
             <div key={r.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
               <div className="flex items-center gap-3 min-w-0">
@@ -939,6 +960,9 @@ function TerminatedAthletesPanel() {
                   <p className="text-[11px] text-muted-foreground">
                     Fesih: {r.updated_at ? new Date(r.updated_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                   </p>
+                  {r.freeze_reason && (
+                    <p className="text-[11px] text-muted-foreground/80 italic truncate">"{r.freeze_reason}"</p>
+                  )}
                 </div>
               </div>
               <Button
@@ -955,6 +979,30 @@ function TerminatedAthletesPanel() {
           ))}
         </div>
       )}
+    </>
+  );
+
+  if (isSheet) {
+    return (
+      <div>
+        <div className="px-5 py-3 text-xs font-mono text-muted-foreground border-b border-border">
+          {rows.length} kayıt
+        </div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass rounded-xl border border-border">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <UserX className="w-4 h-4 text-destructive" />
+          <h2 className="font-semibold text-foreground">Feshedilenler</h2>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{rows.length} kayıt</span>
+      </div>
+      {body}
     </div>
   );
 }
