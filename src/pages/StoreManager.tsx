@@ -662,6 +662,15 @@ export default function StoreManager() {
         <TabsContent value="orders" className="space-y-6 mt-0">
           <StoreOrdersList orders={orders} isLoading={isOrdersLoading} />
         </TabsContent>
+
+        <TabsContent value="coaching_packages" className="mt-0">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+            <div>
+              <CoachingPackagesManager />
+            </div>
+            <TerminatedAthletesPanel />
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Edit Product Dialog */}
