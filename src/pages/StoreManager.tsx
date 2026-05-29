@@ -104,6 +104,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export default function StoreManager() {
   const { canManageStore } = usePermissions();
+  const queryClient = useQueryClient();
   const { data: products, isLoading } = useCoachProducts();
   const { orders, isLoading: isOrdersLoading } = useStoreOrders();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
@@ -685,7 +686,10 @@ export default function StoreManager() {
         </TabsContent>
       </Tabs>
 
-      <Sheet open={terminatedSheetOpen} onOpenChange={setTerminatedSheetOpen}>
+      <Sheet open={terminatedSheetOpen} onOpenChange={(o) => {
+        setTerminatedSheetOpen(o);
+        if (o) queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
+      }}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
           <SheetHeader className="p-5 border-b border-border text-left">
             <SheetTitle className="flex items-center gap-2">
@@ -900,9 +904,12 @@ function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "she
   const { activeCoachId } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ["terminated-athletes", activeCoachId],
     enabled: !!activeCoachId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     queryFn: async (): Promise<TerminatedRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
@@ -924,11 +931,14 @@ function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "she
       if (error) throw error;
       return athleteId;
     },
-    onSuccess: (athleteId) => {
+    onSuccess: async (athleteId) => {
       toast.success("Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi.", { icon: "🟢" });
-      queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
-      queryClient.invalidateQueries({ queryKey: ["athletes"] });
-      queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] }),
+        queryClient.invalidateQueries({ queryKey: ["athletes"] }),
+        queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] }),
+      ]);
+      await refetch();
     },
     onError: (err: any) => toast.error(err?.message || "Fesih kaldırılamadı"),
   });

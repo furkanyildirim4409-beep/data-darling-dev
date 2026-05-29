@@ -1,31 +1,28 @@
-## Rich Package Editor (Part 3/4)
+# Re-Termination Cache Invalidation Fix
 
-Two files: `src/hooks/useCoachPackages.ts`, `src/components/business/PackageFormDialog.tsx`. Note the actual path is `business/`, not `store/` — same file.
+## Problem
+When an athlete is terminated → reinstated → terminated again, they don't reappear in the "Feshedilen Sporcular" sheet. The `terminated-athletes` query inside `TerminatedAthletesPanel` (StoreManager.tsx) serves stale cached data and never re-validates against Supabase when the sheet is re-opened or another mutation flips `subscription_status` back to `terminated`.
 
-### 1. `useCoachPackages.ts` — extend types + persistence
+## Changes — `src/pages/StoreManager.tsx`
 
-- Add to `CoachingPackage`: `rich_description: string | null`, `video_url: string | null`, `gallery_urls: string[]`, `features_list: string[]`.
-- Add same optional fields (arrays default `[]`) to `PackageInput`.
-- In the post-fetch `.map()`, hydrate `gallery_urls` and `features_list` to arrays when missing.
-- In `createPackage` / `updatePackage` insert/update payloads, include `rich_description`, `video_url`, `gallery_urls`, `features_list`.
-- Keep legacy `features` column untouched (mirror `features_list` into it for backward compatibility so existing displays keep working).
+### 1. Harden the terminated-athletes query (around line 903)
+Add freshness + refetch triggers to the existing `useQuery`:
+- `staleTime: 0` — always treat cache as stale
+- `refetchOnWindowFocus: true`
+- `refetchOnMount: "always"` — refetch each time the Sheet remounts the panel
+- Keep `queryKey: ["terminated-athletes", activeCoachId]` (already scoped to coach; matches the rest of the file's conventions — no need to switch to `['athletes','terminated']` since invalidation uses prefix matching).
 
-### 2. `PackageFormDialog.tsx` — luxury builder layout
+### 2. Refetch when the Sheet opens
+Expose `refetch` from the query and trigger it whenever `terminatedSheetOpen` flips to `true`. Two options:
+- Pass an `open` prop into `TerminatedAthletesPanel` and `useEffect(() => { if (open) refetch(); }, [open])`, OR
+- Call `queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] })` from `StoreManager` inside the `onOpenChange` handler when opening.
 
-- Widen dialog to `max-w-3xl`.
-- New state: `richDescription`, `videoUrl`, `galleryUrls: string[]` (capped at 4), `showPreview: boolean`.
-- Hydrate from `initialPackage` in the existing `useEffect`.
-- **Section A — Rich text:**
-  - Replace short `Açıklama` textarea with a taller `Textarea` (rows 8) labeled "Zengin Açıklama (HTML destekli)" with a small inline toolbar of buttons that wrap selection with `<b>`, `<i>`, `<h3>`, `<ul><li>`, `<br/>` (simple `document.execCommand`-free helpers using selectionStart/End).
-  - Toggle button "Önizleme" that swaps the textarea for a read-only `dangerouslySetInnerHTML` panel inside a `.prose prose-invert max-w-none` styled container.
-- **Section B — Media:**
-  - Video URL input labeled "Pazarlama / Tanıtım Videosu Linki (YouTube/Vimeo Embed)" with placeholder `https://www.youtube.com/embed/...`.
-  - Gallery: 4 stacked URL inputs in a 2-column grid, each row showing a tiny thumbnail preview when URL is set; add/remove via inline trash button (max 4).
-- **Section C — Features list** (renamed to "Öğrenci Avantajları"):
-  - Reuse the existing chip pattern but rename state `features` → `featuresList`, store via `features_list`. Keep current "type then Enter / + button → pill with X" UX, restyled with a subtle neon ring (`shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]`).
-- `handleSubmit` passes the 4 new fields to `onSubmit`; also keeps `features: featuresList` for backward compat.
+Going with the second approach — smaller diff, keeps the panel self-contained.
 
-### Out of scope
-- No DB changes (columns already exist from Part 1).
-- No edits to athlete-facing package display or `SmartContract.tsx` (Part 4 territory).
-- No file-upload pipeline — gallery accepts URLs only, matching the schema (`gallery_urls TEXT[]`).
+### 3. Strengthen reinstate mutation invalidation (around line 927)
+Already invalidates the right keys; add an `await refetch()` after invalidation for instant UI sync (currently fire-and-forget). Convert `onSuccess` to await both `invalidateQueries` calls so the list is guaranteed fresh before the toast resolves.
+
+## Out of scope
+- No DB / RLS changes
+- No edits to `useAthletes` or other panels
+- Part 2 / Part 3 termination lifecycle work
