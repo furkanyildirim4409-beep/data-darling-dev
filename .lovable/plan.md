@@ -1,50 +1,31 @@
-## Liberate the Packages tab + tuck Terminated list into a Sheet
+## Rich Package Editor (Part 3/4)
 
-Single file: `src/pages/StoreManager.tsx`.
+Two files: `src/hooks/useCoachPackages.ts`, `src/components/business/PackageFormDialog.tsx`. Note the actual path is `business/`, not `store/` — same file.
 
-### Changes
+### 1. `useCoachPackages.ts` — extend types + persistence
 
-1. **Tab row** (line ~277) — wrap `TabsList` and the new trigger button in a flex row so the button sits at the upper-right of the tab bar:
-   ```tsx
-   <div className="flex items-center justify-between gap-3">
-     <TabsList className="glass border border-border"> … </TabsList>
-     <Button onClick={() => setTerminatedSheetOpen(true)}
-       variant="outline"
-       className="border-white/5 bg-white/[0.01] hover:bg-white/5 text-muted-foreground hover:text-foreground text-xs rounded-xl gap-2 h-9 px-3">
-       <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
-     </Button>
-   </div>
-   ```
-   Add `const [terminatedSheetOpen, setTerminatedSheetOpen] = useState(false);` in the parent component.
+- Add to `CoachingPackage`: `rich_description: string | null`, `video_url: string | null`, `gallery_urls: string[]`, `features_list: string[]`.
+- Add same optional fields (arrays default `[]`) to `PackageInput`.
+- In the post-fetch `.map()`, hydrate `gallery_urls` and `features_list` to arrays when missing.
+- In `createPackage` / `updatePackage` insert/update payloads, include `rich_description`, `video_url`, `gallery_urls`, `features_list`.
+- Keep legacy `features` column untouched (mirror `features_list` into it for backward compatibility so existing displays keep working).
 
-2. **Coaching packages tab content** (lines 666–673) — drop the 2-column grid and `<TerminatedAthletesPanel />`. The tab now renders `<CoachingPackagesManager />` full-width so the Package HUB owns 100% of the canvas.
+### 2. `PackageFormDialog.tsx` — luxury builder layout
 
-3. **Side Sheet** — render once at the end of the page JSX (alongside the existing dialogs):
-   ```tsx
-   <Sheet open={terminatedSheetOpen} onOpenChange={setTerminatedSheetOpen}>
-     <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-       <SheetHeader className="p-5 border-b border-border">
-         <SheetTitle className="flex items-center gap-2">
-           <UserX className="w-4 h-4 text-destructive" /> Feshedilen Sporcular
-         </SheetTitle>
-         <SheetDescription>Geçmiş fesihler ve geri alma işlemleri.</SheetDescription>
-       </SheetHeader>
-       <div className="flex-1 overflow-y-auto">
-         <TerminatedAthletesPanel variant="sheet" />
-       </div>
-     </SheetContent>
-   </Sheet>
-   ```
-
-4. **`TerminatedAthletesPanel` refactor:**
-   - Add `variant?: "card" | "sheet"` prop; in `sheet` mode skip the outer `glass rounded-xl border` wrapper + header (Sheet provides them) and remove the `max-h-[520px]` scroll cap (Sheet body handles scroll).
-   - Extend the select to include `freeze_reason` (existing column, see `handleUnfreezeAthlete` memory) and render a small muted reason line under the severance date when present:
-     ```tsx
-     {r.freeze_reason && <p className="text-[11px] text-muted-foreground/80 truncate italic">"{r.freeze_reason}"</p>}
-     ```
-   - Update `TerminatedRow` type accordingly.
-
-5. **Imports** — add `Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription` from `@/components/ui/sheet`. `UserX`, `Button`, `useState` already imported.
+- Widen dialog to `max-w-3xl`.
+- New state: `richDescription`, `videoUrl`, `galleryUrls: string[]` (capped at 4), `showPreview: boolean`.
+- Hydrate from `initialPackage` in the existing `useEffect`.
+- **Section A — Rich text:**
+  - Replace short `Açıklama` textarea with a taller `Textarea` (rows 8) labeled "Zengin Açıklama (HTML destekli)" with a small inline toolbar of buttons that wrap selection with `<b>`, `<i>`, `<h3>`, `<ul><li>`, `<br/>` (simple `document.execCommand`-free helpers using selectionStart/End).
+  - Toggle button "Önizleme" that swaps the textarea for a read-only `dangerouslySetInnerHTML` panel inside a `.prose prose-invert max-w-none` styled container.
+- **Section B — Media:**
+  - Video URL input labeled "Pazarlama / Tanıtım Videosu Linki (YouTube/Vimeo Embed)" with placeholder `https://www.youtube.com/embed/...`.
+  - Gallery: 4 stacked URL inputs in a 2-column grid, each row showing a tiny thumbnail preview when URL is set; add/remove via inline trash button (max 4).
+- **Section C — Features list** (renamed to "Öğrenci Avantajları"):
+  - Reuse the existing chip pattern but rename state `features` → `featuresList`, store via `features_list`. Keep current "type then Enter / + button → pill with X" UX, restyled with a subtle neon ring (`shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]`).
+- `handleSubmit` passes the 4 new fields to `onSubmit`; also keeps `features: featuresList` for backward compat.
 
 ### Out of scope
-- No DB changes, no edits to other pages, no changes to the reinstate mutation logic itself.
+- No DB changes (columns already exist from Part 1).
+- No edits to athlete-facing package display or `SmartContract.tsx` (Part 4 territory).
+- No file-upload pipeline — gallery accepts URLs only, matching the schema (`gallery_urls TEXT[]`).

@@ -11,6 +11,10 @@ export interface CoachingPackage {
   price: number;
   duration_months: number;
   features: string[];
+  features_list: string[];
+  rich_description: string | null;
+  video_url: string | null;
+  gallery_urls: string[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -22,6 +26,10 @@ export interface PackageInput {
   price: number;
   duration_months: number;
   features: string[];
+  features_list?: string[];
+  rich_description?: string | null;
+  video_url?: string | null;
+  gallery_urls?: string[];
   is_active?: boolean;
 }
 
@@ -49,6 +57,10 @@ export function useCoachPackages() {
     const list: CoachingPackage[] = ((data as any[]) ?? []).map((p) => ({
       ...p,
       features: Array.isArray(p.features) ? p.features : [],
+      features_list: Array.isArray(p.features_list) ? p.features_list : [],
+      gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
+      rich_description: p.rich_description ?? null,
+      video_url: p.video_url ?? null,
     }));
 
     setPackages(list);
@@ -59,16 +71,24 @@ export function useCoachPackages() {
     fetchPackages();
   }, [fetchPackages]);
 
+  const buildPayload = (input: PackageInput) => ({
+    title: input.title,
+    description: input.description ?? null,
+    price: input.price,
+    duration_months: input.duration_months,
+    features: input.features as any,
+    features_list: input.features_list ?? input.features ?? [],
+    rich_description: input.rich_description ?? null,
+    video_url: input.video_url ?? null,
+    gallery_urls: input.gallery_urls ?? [],
+    is_active: input.is_active,
+  });
+
   const createPackage = async (input: PackageInput) => {
     if (!user || !activeCoachId) return false;
     const { error } = await supabase.from("coaching_packages").insert({
       coach_id: activeCoachId,
-      title: input.title,
-      description: input.description ?? null,
-      price: input.price,
-      duration_months: input.duration_months,
-      features: input.features as any,
-      is_active: input.is_active ?? true,
+      ...buildPayload({ ...input, is_active: input.is_active ?? true }),
     } as any);
     if (error) {
       toast.error("Paket oluşturulamadı: " + error.message);
@@ -83,14 +103,7 @@ export function useCoachPackages() {
     if (!user) return false;
     const { error } = await supabase
       .from("coaching_packages")
-      .update({
-        title: input.title,
-        description: input.description ?? null,
-        price: input.price,
-        duration_months: input.duration_months,
-        features: input.features as any,
-        is_active: input.is_active,
-      } as any)
+      .update(buildPayload(input) as any)
       .eq("id", id);
     if (error) {
       toast.error("Paket güncellenemedi: " + error.message);
