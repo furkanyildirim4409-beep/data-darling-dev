@@ -324,19 +324,72 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
           </section>
 
           {/* SECTION B — MEDIA */}
-          <section className="rounded-xl border border-border bg-secondary/20 p-4 space-y-4">
-            <div className="space-y-1.5">
+          <section className="rounded-xl border border-border bg-secondary/20 p-4 space-y-5">
+            {/* VIDEO DROPZONE */}
+            <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm">
                 <Video className="w-3.5 h-3.5 text-primary" />
-                Pazarlama / Tanıtım Videosu Linki (YouTube/Vimeo Embed)
+                Tanıtım Videosu (MP4 / MOV — max 200MB)
               </Label>
-              <Input
-                placeholder="https://www.youtube.com/embed/xxxxxx veya https://player.vimeo.com/video/xxxxxx"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-              />
+
+              {videoUrl && !videoUploading ? (
+                <div className="rounded-xl border border-white/10 bg-black/40 p-2 space-y-2">
+                  <video src={videoUrl} controls className="w-full rounded-lg max-h-64 bg-black" />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-muted-foreground truncate">{videoUrl}</span>
+                    <div className="flex items-center gap-1">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="video/mp4,video/quicktime"
+                          className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); e.target.value = ""; }}
+                        />
+                        <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border text-xs hover:bg-secondary/60">
+                          <Upload className="w-3 h-3" /> Değiştir
+                        </span>
+                      </label>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setVideoUrl("")}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <label
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.01] hover:border-primary/40 hover:bg-white/[0.02] transition cursor-pointer px-4 py-8 ${videoUploading ? "pointer-events-none opacity-90" : ""}`}
+                  onDragOver={(e) => { e.preventDefault(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const f = e.dataTransfer.files?.[0];
+                    if (f) handleVideoFile(f);
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime"
+                    className="hidden"
+                    disabled={videoUploading}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); e.target.value = ""; }}
+                  />
+                  {videoUploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                      <span className="text-xs text-muted-foreground">Yükleniyor… {videoProgress}%</span>
+                      <Progress value={videoProgress} className="h-1.5 w-full max-w-xs" />
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 text-primary/80" />
+                      <span className="text-sm font-medium">MP4 dosyasını sürükleyin veya tıklayın</span>
+                      <span className="text-[11px] text-muted-foreground">H.264 önerilir · 200MB sınır</span>
+                    </>
+                  )}
+                </label>
+              )}
             </div>
 
+            {/* GALLERY DROPZONES */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm">
@@ -350,35 +403,79 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {galleryUrls.map((url, idx) => (
-                  <div key={idx} className="flex items-center gap-2 rounded-lg border border-border bg-background/40 p-2">
-                    <div className="w-12 h-12 rounded-md bg-muted/50 overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {url ? (
-                        <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => ((e.currentTarget.style.display = "none"))} />
+                {galleryUrls.map((url, idx) => {
+                  const uploading = !!galleryUploading[idx];
+                  return (
+                    <div key={idx} className="relative">
+                      {url && !uploading ? (
+                        <div className="group relative rounded-xl overflow-hidden border border-white/10 bg-black/40 aspect-video">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-end p-2 gap-1">
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleGalleryFile(f, idx); e.target.value = ""; }}
+                              />
+                              <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md bg-background/80 border border-border text-xs">
+                                <Upload className="w-3 h-3" /> Değiştir
+                              </span>
+                            </label>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 bg-background/80 text-muted-foreground hover:text-destructive" onClick={() => removeGallerySlot(idx)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
                       ) : (
-                        <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                        <label
+                          className={`flex flex-col items-center justify-center gap-1.5 aspect-video rounded-xl border border-dashed border-white/10 bg-white/[0.01] hover:border-primary/40 hover:bg-white/[0.02] transition cursor-pointer ${uploading ? "pointer-events-none" : ""}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const f = e.dataTransfer.files?.[0];
+                            if (f) handleGalleryFile(f, idx);
+                          }}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploading}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleGalleryFile(f, idx); e.target.value = ""; }}
+                          />
+                          {uploading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              <span className="text-[11px] text-muted-foreground">Yükleniyor…</span>
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="w-4 h-4 text-primary/80" />
+                              <span className="text-[11px] font-medium">Görsel ekle</span>
+                              <span className="text-[10px] text-muted-foreground">JPG / PNG · max 8MB</span>
+                            </>
+                          )}
+                        </label>
+                      )}
+                      {url && !uploading && galleryUrls.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive"
+                          onClick={() => removeGallerySlot(idx)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       )}
                     </div>
-                    <Input
-                      placeholder="https://...image.jpg"
-                      value={url}
-                      onChange={(e) => updateGallery(idx, e.target.value)}
-                      className="h-9 text-xs"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeGallerySlot(idx)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>
+
 
           {/* SECTION C — FEATURES */}
           <section className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
