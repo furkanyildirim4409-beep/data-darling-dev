@@ -861,3 +861,98 @@ export default function StoreManager() {
     </div>
   );
 }
+
+interface TerminatedRow {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  updated_at: string | null;
+}
+
+function TerminatedAthletesPanel() {
+  const { activeCoachId } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["terminated-athletes", activeCoachId],
+    enabled: !!activeCoachId,
+    queryFn: async (): Promise<TerminatedRow[]> => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, updated_at")
+        .eq("subscription_status", "terminated")
+        .eq("coach_id", activeCoachId!)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as TerminatedRow[];
+    },
+  });
+
+  const reinstate = useMutation({
+    mutationFn: async (athleteId: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ subscription_status: "active" } as any)
+        .eq("id", athleteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Fesih kaldırıldı; sporcu yeniden aktif.");
+      queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
+      queryClient.invalidateQueries({ queryKey: ["athletes"] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Fesih kaldırılamadı"),
+  });
+
+  return (
+    <div className="glass rounded-xl border border-border">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <UserX className="w-4 h-4 text-destructive" />
+          <h2 className="font-semibold text-foreground">Feshedilenler</h2>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{rows.length} kayıt</span>
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 space-y-3">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="p-8 text-center">
+          <UserX className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">Feshedilmiş sporcu bulunmuyor.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border max-h-[520px] overflow-y-auto scrollbar-hide">
+          {rows.map((r) => (
+            <div key={r.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="w-9 h-9">
+                  <AvatarImage src={r.avatar_url || undefined} />
+                  <AvatarFallback>{(r.full_name || "?").charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{r.full_name || "İsimsiz"}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Fesih: {r.updated_at ? new Date(r.updated_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-primary/40 text-primary hover:bg-primary/10 flex-shrink-0"
+                disabled={reinstate.isPending}
+                onClick={() => reinstate.mutate(r.id)}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                Fesih Kaldır
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
