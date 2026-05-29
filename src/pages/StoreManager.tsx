@@ -915,11 +915,44 @@ function TerminatedAthletesPanel({ variant = "card" }: { variant?: "card" | "she
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     queryFn: async (): Promise<TerminatedRow[]> => {
+      // Historical ownership source of truth: paid coaching orders.
+      // profiles.coach_id is nulled during termination, so filtering by it
+      // hides athletes after the second termination cycle.
+      const { data: orderRows, error: orderErr } = await supabase
+        .from("orders")
+        .select("user_id, items")
+        .eq("status", "paid")
+        .eq("order_type", "coaching");
+      if (orderErr) throw orderErr;
+
+      const historicalAthleteIds = new Set<string>();
+      for (const o of orderRows ?? []) {
+        if (!o.user_id) continue;
+        const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+        const ownedByCoach = items.some((it) => {
+          const cid = it?.coach_id ?? it?.coachId;
+          const isCoaching = it?.type === "coaching" || it?.item_type === "coaching";
+          return isCoaching && cid === activeCoachId;
+        });
+        if (ownedByCoach) historicalAthleteIds.add(o.user_id);
+      }
+
+      // Also include athletes still linked to this coach (first-time
+      // termination before any paid order, or live roster).
+      const { data: linkedRows, error: linkedErr } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("coach_id", activeCoachId!);
+      if (linkedErr) throw linkedErr;
+      for (const r of linkedRows ?? []) historicalAthleteIds.add(r.id);
+
+      if (historicalAthleteIds.size === 0) return [];
+
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, updated_at, freeze_reason")
         .eq("subscription_status", "terminated")
-        .eq("coach_id", activeCoachId!)
+        .in("id", Array.from(historicalAthleteIds))
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data || []) as TerminatedRow[];
