@@ -1,30 +1,42 @@
-# Isolate Terminated Sheet Trigger Inside Packages Tab
+## Analiz özeti
 
-## Changes — `src/pages/StoreManager.tsx`
+DB ve kod hattını birlikte inceledim:
 
-### 1. Remove button from global tab header (lines 286–299)
-Strip the `<Button>` for "Feshedilen Sporcular Geçmişi" out of the flex row that wraps `TabsList`. Collapse the wrapper back to just `<TabsList>` (no longer needs the flex justify-between div).
+- `profiles` içinde şu an `subscription_status = 'terminated'` olan kullanıcı var: `MEHMET TUNÇ`.
+- Bu kullanıcının `coach_id` alanı `NULL` olmuş.
+- Aynı kullanıcının son ücretli koçluk siparişindeki `items[].coach_id` değeri hâlâ doğru koça bağlı: `c21a5a19-daaf-4e23-90f6-71179e7f8bcd`.
+- `StoreManager.tsx` içindeki feshedilenler listesi şu filtreyle çalışıyor:
+  - `subscription_status = 'terminated'`
+  - `coach_id = activeCoachId`
+- Fesih aksiyonu `AthleteDetail.tsx` içinde kullanıcıyı feshederken `coach_id: null` yapıyor. Bu nedenle ikinci fesihten sonra kayıt DB'de durmasına rağmen liste sorgusundan eleniyor.
+- Son Postgres loglarında bu akışa dair RLS/policy/permission hatası görünmedi; sorun cache değil, query filtresinin `coach_id` silindikten sonra geçmiş sahipliği kaybetmesi.
 
-### 2. Add header row + button inside `TabsContent value="coaching_packages"` (line 684)
-Replace the bare wrapper with a header row + body:
+## Kök neden
 
-```tsx
-<TabsContent value="coaching_packages" className="space-y-6 mt-0 animate-in fade-in duration-200">
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4">
-    <div>
-      <h2 className="text-lg font-bold uppercase tracking-wider text-foreground">Abonelik & Koçluk Paketleri</h2>
-      <p className="text-xs text-muted-foreground">Premium satış hizmetlerinizi zengin içeriklerle yapılandırın.</p>
-    </div>
-    <Button variant="outline" onClick={() => setTerminatedSheetOpen(true)} className="...same classes...">
-      <UserX className="w-3.5 h-3.5" /> Feshedilen Sporcular Geçmişi
-    </Button>
-  </div>
-  <CoachingPackagesManager />
-</TabsContent>
-```
+Fesih geçmişi `profiles.coach_id` alanına bağlı okunuyor; ancak fesih işlemi aynı alanı `NULL` yaptığı için geçmiş liste kendi kanıtını siliyor. İkinci satın alma/aktifleşme/fesih döngüsünde kayıt `terminated` kalıyor ama `coach_id` boş olduğu için `Feshedilen Sporcular` sheet'inde görünmüyor.
 
-### 3. Keep the `<Sheet>` definition outside the tabs (current location ~line 689) — unchanged
-Only the trigger button moves; the Sheet itself stays at root so it overlays correctly regardless of active tab. State (`terminatedSheetOpen`) is already at the page level.
+## Uygulama planı
 
-## Out of scope
-- No changes to `TerminatedAthletesPanel`, query logic, or other tabs.
+1. **`StoreManager.tsx` terminated query hattını düzelt**
+   - `TerminatedAthletesPanel` sorgusunu sadece `profiles.coach_id = activeCoachId` filtresine bağlı bırakmayacağım.
+   - Önce aktif koça ait `paid + coaching` siparişlerden athlete id’lerini çıkaracağım.
+   - Sonra `profiles` tablosundan `subscription_status = 'terminated'` ve `id IN (bu athlete id’leri)` olacak şekilde okuyacağım.
+   - Böylece `coach_id` fesihte `NULL` olsa bile geçmiş satın alma bağından doğru koç listesinde görünecek.
+
+2. **Tip güvenliğini artır**
+   - `TerminatedRow` tipine gerekirse paket/sipariş kaynaklı alanları ekleyeceğim.
+   - JSON `items` alanını güvenli parse edeceğim; kırık/boş item listeleri UI’ı bozmayacak.
+
+3. **Fesih kaldırma sonrası invalidation’ı mevcut düzenle uyumlu tut**
+   - `terminated-athletes`, `athletes`, `athlete` query invalidation zincirini koruyacağım.
+   - Gerekli yerde `refetch()` ile sheet’in anında senkron kalmasını sağlayacağım.
+
+4. **DB değişikliği yapmayacağım**
+   - Mevcut schema ile çözülebiliyor.
+   - RLS hatası/log hatası olmadığı için migration gerekmez.
+
+## Beklenen sonuç
+
+- Feshedilmiş kullanıcı DB’de `coach_id = NULL` olsa bile, son/önceki ücretli koçluk siparişindeki `coach_id` üzerinden doğru koçun `Feshedilen Sporcular` listesinde görünür.
+- Tekrar aktifleşme, tekrar satın alma ve tekrar fesih döngüsünde browser refresh gerekmeyecek.
+- Mevcut RLS modeline ek risk getirilmeden sadece frontend query hidrasyonu düzeltilmiş olacak.
