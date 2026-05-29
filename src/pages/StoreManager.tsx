@@ -892,14 +892,16 @@ function TerminatedAthletesPanel() {
     mutationFn: async (athleteId: string) => {
       const { error } = await supabase
         .from("profiles")
-        .update({ subscription_status: "active" } as any)
+        .update({ subscription_status: "active", active_program_id: null } as any)
         .eq("id", athleteId);
       if (error) throw error;
+      return athleteId;
     },
-    onSuccess: () => {
-      toast.success("Fesih kaldırıldı; sporcu yeniden aktif.");
+    onSuccess: (athleteId) => {
+      toast.success("Fesih başarıyla kaldırıldı! Sporcu hesabı ve mağaza erişimi anında aktifleştirildi.", { icon: "🟢" });
       queryClient.invalidateQueries({ queryKey: ["terminated-athletes"] });
       queryClient.invalidateQueries({ queryKey: ["athletes"] });
+      queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
     },
     onError: (err: any) => toast.error(err?.message || "Fesih kaldırılamadı"),
   });
