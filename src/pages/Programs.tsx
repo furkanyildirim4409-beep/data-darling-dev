@@ -678,7 +678,8 @@ export default function Programs() {
 
         toast.success(isEditing ? `"${meta.title}" beslenme şablonu güncellendi!` : `"${meta.title}" beslenme şablonu kaydedildi!`);
         setSelectedNutrition([]);
-        setDashboardKey((k) => k + 1);
+        setLastSavedType("nutrition");
+        setRefreshToken((t) => t + 1);
         setViewMode("dashboard");
         return;
       }
