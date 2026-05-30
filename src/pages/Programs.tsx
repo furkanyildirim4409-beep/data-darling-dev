@@ -4,7 +4,7 @@ import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program
 import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem, calcFactor } from "@/components/program-architect/NutritionBuilder";
 import { SupplementBuilder, SupplementBuilderItem } from "@/components/program-architect/SupplementBuilder";
-import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
+// WeeklySchedule intentionally not imported — athlete picker removed from builder workspace
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,8 +53,9 @@ export default function Programs() {
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-  // Force dashboard refresh key
-  const [dashboardKey, setDashboardKey] = useState(0);
+  // Dashboard refresh signal (no remount — keeps tab state intact)
+  const [lastSavedType, setLastSavedType] = useState<ProgramType | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
 
   // Flatten all exercises for compatibility
@@ -578,7 +579,8 @@ export default function Programs() {
         if (ok) {
           setSelectedSupplements([]);
           setEditingProgram(null);
-          setDashboardKey((k) => k + 1);
+          setLastSavedType("supplement");
+          setRefreshToken((t) => t + 1);
           setViewMode("dashboard");
         }
         return;
@@ -676,7 +678,8 @@ export default function Programs() {
 
         toast.success(isEditing ? `"${meta.title}" beslenme şablonu güncellendi!` : `"${meta.title}" beslenme şablonu kaydedildi!`);
         setSelectedNutrition([]);
-        setDashboardKey((k) => k + 1);
+        setLastSavedType("nutrition");
+        setRefreshToken((t) => t + 1);
         setViewMode("dashboard");
         return;
       }
@@ -783,7 +786,8 @@ export default function Programs() {
       setAutomationRules([]);
       setDayGroups({});
       setEditingProgram(null);
-      setDashboardKey((k) => k + 1);
+      setLastSavedType("exercise");
+      setRefreshToken((t) => t + 1);
       setViewMode("dashboard");
     },
     [user, weekPlan, editingProgram, automationRules, dayGroups, builderMode, selectedNutrition, selectedSupplements, saveSupplementTemplate]
@@ -906,7 +910,8 @@ export default function Programs() {
   if (viewMode === "dashboard") {
     return (
       <ProgramDashboard
-        key={dashboardKey}
+        initialViewMode={lastSavedType ?? "exercise"}
+        refreshToken={refreshToken}
         onCreateProgram={handleCreateProgram}
         onEditProgram={handleEditProgram}
         onSaveAsTemplate={handleSaveProgramAsTemplate}
@@ -1000,11 +1005,8 @@ export default function Programs() {
         </div>
       </div>
 
-      <div className={cn(
-        "grid grid-cols-1 gap-4 h-[calc(100vh-220px)]",
-        builderMode === "supplement" ? "lg:grid-cols-2" : "lg:grid-cols-12"
-      )}>
-        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-3 h-full"}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)] w-full">
+        <div className="lg:col-span-3 h-full">
           <ProgramLibrary
             onAddItem={handleAddItem}
             addedItemIds={weekPlan[activeDay]?.exercises.map((ex) => ex.id) ?? []}
@@ -1012,7 +1014,7 @@ export default function Programs() {
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
-        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-5 h-full"}>
+        <div className="lg:col-span-9 h-full w-full">
           {builderMode === "exercise" ? (
             <WorkoutBuilder
               weekPlan={weekPlan}
@@ -1055,15 +1057,8 @@ export default function Programs() {
             />
           )}
         </div>
-        {builderMode !== "supplement" && (
-          <div className="lg:col-span-4 h-full">
-            <WeeklySchedule
-              weekPlan={weekPlan}
-              onClearBuilder={handleClearAll}
-            />
-          </div>
-        )}
       </div>
+
 
       <SaveTemplateDialog
         open={saveDialogOpen}

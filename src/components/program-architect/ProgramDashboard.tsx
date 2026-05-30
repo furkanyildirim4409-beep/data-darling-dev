@@ -69,13 +69,20 @@ interface ProgramDashboardProps {
   onCreateProgram: (type: ProgramType) => void;
   onEditProgram: (program: ProgramData) => void;
   onSaveAsTemplate?: (program: ProgramData) => void;
+  initialViewMode?: ProgramType;
+  refreshToken?: number;
 }
 
-export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate }: ProgramDashboardProps) {
+export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTemplate, initialViewMode, refreshToken }: ProgramDashboardProps) {
   const { user, activeCoachId } = useAuth();
   const { canCreatePrograms, canAssignPrograms, canEditAthletes, canDeleteAthletes } = usePermissions();
   const importRef = useRef<HTMLInputElement>(null);
-  const [viewMode, setViewMode] = useState<ProgramType>("exercise");
+  const [viewMode, setViewMode] = useState<ProgramType>(initialViewMode ?? "exercise");
+
+  // Sync external view mode requests (e.g. after a save in the builder)
+  useEffect(() => {
+    if (initialViewMode) setViewMode(initialViewMode);
+  }, [initialViewMode]);
   const [programs, setPrograms] = useState<ProgramData[]>([]);
   const [dietTemplates, setDietTemplates] = useState<ProgramData[]>([]);
   const [supplementTemplates, setSupplementTemplates] = useState<ProgramData[]>([]);
@@ -212,7 +219,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     } else {
       fetchSupplementTemplatesData();
     }
-  }, [viewMode, fetchPrograms, fetchDietTemplates, fetchSupplementTemplatesData]);
+  }, [viewMode, refreshToken, fetchPrograms, fetchDietTemplates, fetchSupplementTemplatesData]);
 
   const currentItems = viewMode === "exercise" ? programs : viewMode === "nutrition" ? dietTemplates : supplementTemplates;
 

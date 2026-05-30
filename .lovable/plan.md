@@ -1,28 +1,41 @@
-## Kapsam (sadece Part 1 — koç paneli)
+# Plan — Builder layout purge + tab persistence
 
-`exercise_library` gerçek şeması: `id, name, category, target_muscle, video_url`. `gif_url` / `target_muscle_group` yok — `video_url` zaten GIF/preview asset URL'i olarak kullanılıyor.
+## 1) Remove the right-side athlete selector column
 
-Mevcut akış (`Programs.tsx` + `useValidExercises` + edge function) pre-fetch + isim kilitleme + `video_url` geri-eşlemeyi zaten yapıyor. Eksik olan: prompt'un mutlak sözlük kısıtı yeterince sert değil, ve geri-eşlemede `exercise_library.id` saklanmıyor (ileride asset çözümleme için faydalı).
+Only `WeeklySchedule` carries the athlete picker; `WorkoutBuilder`, `NutritionBuilder`, and `SupplementBuilder` have no internal athlete UI, so the surgery is contained in `src/pages/Programs.tsx`:
 
-## Değişiklikler
+- Drop the `WeeklySchedule` import and the entire `{builderMode !== "supplement" && (<div className="lg:col-span-4">…</div>)}` block.
+- Collapse the builder grid so the workspace fills the full width:
+  - Container: `grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)]` (single rule for every mode).
+  - Library column: `lg:col-span-3 h-full`.
+  - Builder column: `lg:col-span-9 h-full w-full` (Workout/Nutrition/Supplement).
+- Leave `WeeklySchedule.tsx` on disk (no longer imported) so no other consumer breaks; no logic changes in `WorkoutBuilder`/`NutritionBuilder`/`SupplementBuilder`.
 
-### 1) `supabase/functions/generate-ai-program/index.ts`
-- System prompt'u sertleştir: "MUTLAK KURAL" bloğu — listede olmayan hiçbir isim üretme; emin değilsen listeden en yakın eşleşmeyi seç; çeviri/varyant/uydurma yasak.
-- Tool şemasına `name` alanı için açıklamayı güncelle: "MUST be an exact verbatim string from the provided dictionary."
-- Listeyi `target_muscle` ile birlikte (opsiyonel etiket olarak) iletmek için payload'da `validExercises: Array<{ name: string; target_muscle?: string }>` kabul et; geriye dönük uyumluluk için string[] de kabul et.
+## 2) Stop the dashboard tab from snapping back to "Antrenman" after save
 
-### 2) `src/hooks/useValidExercises.ts`
-- Halihazırda `id, name, category, target_muscle, video_url` çekiyor — değişiklik yok. (Sadece doğrulama.)
+Root cause: after saving nutrition or supplement, `Programs.tsx` calls `setDashboardKey(k => k + 1)` together with `setViewMode("dashboard")`. The key bump force-remounts `ProgramDashboard`, which reinitialises its internal `useState<ProgramType>("exercise")` — that is the "reload to workouts tab" symptom.
 
-### 3) `src/pages/Programs.tsx` (`handleAIGenerate`)
-- Edge function'a artık `{ name, target_muscle }` objeleri gönder.
-- Geri-mapping loop'unda eşleşen `exercise_library` satırının `id`'sini `libraryExerciseId` olarak ProgramExercise'a yaz (gelecekteki asset rendering için kanca; UI davranışını bozmaz). Eşleşme yoksa exercise atla + tek toast uyarısı ("X egzersiz kütüphanede bulunamadığı için atlandı").
-- `videoUrl` zaten `match.video_url`'den geliyor — GIF olarak kullanılan field bu, dokunma.
+Fix without any `window.location.reload`, keeping state in React:
 
-### 4) `src/components/program-architect/AIGeneratorModal.tsx`
-- Değişiklik yok (modal sadece parametre topluyor).
+**`src/components/program-architect/ProgramDashboard.tsx`**
+- New props: `initialViewMode?: ProgramType` and `refreshToken?: number`.
+- Initialise `useState<ProgramType>(initialViewMode ?? "exercise")`.
+- Add `useEffect` on `initialViewMode` → `setViewMode(initialViewMode)` when it changes.
+- Add `useEffect` on `[refreshToken, viewMode]` that re-runs the appropriate fetch (`fetchPrograms` / `fetchDietTemplates` / `fetchSupplementTemplatesData`) so saved data shows up without remount.
 
-## Kapsam Dışı
-- Part 2 (athlete app `Antrenman.tsx` çoklu workout bug'ı) — ayrı repo, atlandı.
-- DB şema değişikliği yok.
-- `ProgramExercise` tipine yeni alan eklemek bileşik tip dokunuşu gerektirir; sadece runtime objeye eklenir, type opsiyonel olarak genişletilir.
+**`src/pages/Programs.tsx`**
+- Replace `dashboardKey` with `lastSavedType: ProgramType | null` and `refreshToken: number`.
+- Remove `key={dashboardKey}` from `<ProgramDashboard>`; pass `initialViewMode={lastSavedType ?? "exercise"}` and `refreshToken={refreshToken}`.
+- In each successful save branch (exercise / nutrition / supplement) of `handleSaveProgram`:
+  - `setLastSavedType(builderMode)`
+  - `setRefreshToken(t => t + 1)`
+  - `setViewMode("dashboard")` (unchanged)
+  - Toast already fires inside each branch — keep existing single success toast (no duplicate).
+- Same treatment for the supplement branch that previously called `setDashboardKey`.
+
+Result: after saving a diet template the user lands on the dashboard with the "Beslenme" tab active and fresh data; saving a supplement template lands on "Takviye"; saving a workout lands on "Antrenman". No remounts, no reloads, sub-workspace pointer pinned to the matching tab, success toast preserved.
+
+## Out of scope
+- Edge functions, DB migrations, AI flow.
+- WeeklySchedule internals (file kept untouched, just unused).
+- Athlete assignment still available from the dashboard's existing assign dialogs (no functionality lost — only the inline picker mid-authoring is removed).
