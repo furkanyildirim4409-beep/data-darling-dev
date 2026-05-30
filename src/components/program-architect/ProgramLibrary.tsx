@@ -13,6 +13,28 @@ import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 import { usePermissions } from "@/hooks/usePermissions";
 import { FoodPortionDialog, ApiServing, PortionResult } from "./FoodPortionDialog";
+import { SupplementAmountDialog } from "./SupplementAmountDialog";
+
+// Parse a stored default_dosage string like "400 mg", "5 g", "2 Softgel", "5000 IU"
+// into the locked unit + suggested numeric amount for the Miktar Belirle dialog.
+const SUPPLEMENT_UNIT_PATTERN = /^\s*(\d+(?:[.,]\d+)?)\s*(mg|g|iu|ml|kapsül|softgel|tablet)\s*$/i;
+const UNIT_DISPLAY: Record<string, string> = {
+  mg: "mg",
+  g: "g",
+  iu: "IU",
+  ml: "ml",
+  kapsül: "Kapsül",
+  softgel: "Softgel",
+  tablet: "Tablet",
+};
+function parseSupplementDosage(raw?: string | null): { amount: number; unit: string } {
+  if (!raw) return { amount: 1, unit: "Adet" };
+  const m = raw.match(SUPPLEMENT_UNIT_PATTERN);
+  if (!m) return { amount: 1, unit: "Adet" };
+  const amount = Number(m[1].replace(",", "."));
+  const unit = UNIT_DISPLAY[m[2].toLowerCase()] ?? m[2];
+  return { amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit };
+}
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
