@@ -85,7 +85,7 @@ serve(async (req) => {
                           items: {
                             type: "object",
                             properties: {
-                              name: { type: "string", description: "Egzersiz adı Türkçe" },
+                              name: { type: "string", description: "Egzersiz adı — verilen sözlükteki bir girdiyle BİREBİR (karakter karakter, büyük/küçük harf dahil) aynı olmak ZORUNDA. Yeni isim uydurma." },
                               sets: { type: "number" },
                               reps: { type: "string", description: "Tekrar aralığı, ör: '8-10'" },
                               notes: { type: "string", description: "Kısa teknik not" },
