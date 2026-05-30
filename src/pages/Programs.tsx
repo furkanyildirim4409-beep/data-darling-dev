@@ -1005,11 +1005,8 @@ export default function Programs() {
         </div>
       </div>
 
-      <div className={cn(
-        "grid grid-cols-1 gap-4 h-[calc(100vh-220px)]",
-        builderMode === "supplement" ? "lg:grid-cols-2" : "lg:grid-cols-12"
-      )}>
-        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-3 h-full"}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)] w-full">
+        <div className="lg:col-span-3 h-full">
           <ProgramLibrary
             onAddItem={handleAddItem}
             addedItemIds={weekPlan[activeDay]?.exercises.map((ex) => ex.id) ?? []}
@@ -1017,7 +1014,7 @@ export default function Programs() {
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
-        <div className={builderMode === "supplement" ? "h-full" : "lg:col-span-5 h-full"}>
+        <div className="lg:col-span-9 h-full w-full">
           {builderMode === "exercise" ? (
             <WorkoutBuilder
               weekPlan={weekPlan}
@@ -1060,15 +1057,8 @@ export default function Programs() {
             />
           )}
         </div>
-        {builderMode !== "supplement" && (
-          <div className="lg:col-span-4 h-full">
-            <WeeklySchedule
-              weekPlan={weekPlan}
-              onClearBuilder={handleClearAll}
-            />
-          </div>
-        )}
       </div>
+
 
       <SaveTemplateDialog
         open={saveDialogOpen}
