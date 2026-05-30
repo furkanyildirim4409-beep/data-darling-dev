@@ -70,6 +70,7 @@ export interface BuilderExercise extends LibraryItem {
   notes?: string;
   groupId?: string;
   videoUrl?: string;
+  libraryExerciseId?: string;
 }
 
 export type BlockType = "hypertrophy" | "strength" | "endurance" | "power" | "deload" | "none";

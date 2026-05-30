@@ -414,13 +414,20 @@ export default function Programs() {
     setIsAIModalOpen(false);
     setIsAIGenerating(true);
     try {
+      // Send {name, target_muscle} pairs so the model can pick muscle-appropriate lifts
+      // while still being constrained to verbatim names from the library.
+      const validExercises = Array.from(exerciseLookup.values()).map((e) => ({
+        name: e.name,
+        target_muscle: e.target_muscle || undefined,
+      }));
+
       const { data, error } = await supabase.functions.invoke('generate-ai-program', {
         body: {
           goal: params.goal,
           days: params.days,
           level: params.level,
           specialNotes: params.specialNotes,
-          validExercises: validExerciseNames,
+          validExercises,
         },
       });
 
@@ -442,39 +449,53 @@ export default function Programs() {
       };
       const blockType = goalBlockMap[params.goal] || "hypertrophy";
 
+      let skipped = 0;
       const newWeek = createEmptyWeek();
       data.forEach((day: any, index: number) => {
         if (index >= 7) return;
         newWeek[index].label = day.dayName || `${index + 1}. Gün`;
         newWeek[index].blockType = blockType;
-        newWeek[index].exercises = (day.exercises || []).map((ex: any) => {
-          const match = exerciseLookup.get((ex.name || "").toLowerCase());
-          return {
-            id: crypto.randomUUID(),
-            name: match?.name || ex.name || "Egzersiz",
-            category: match?.category || "",
-            type: "exercise" as const,
-            sets: ex.sets || 3,
-            reps: parseInt(String(ex.reps).split("-")[0]) || 10,
-            rpe: 7,
-            rir: 2,
-            failureSet: false,
-            notes: ex.notes || undefined,
-            videoUrl: match?.video_url || undefined,
-          };
-        });
+        newWeek[index].exercises = (day.exercises || [])
+          .map((ex: any): BuilderExercise | null => {
+            const match = exerciseLookup.get((ex.name || "").toLowerCase());
+            if (!match) {
+              skipped++;
+              return null;
+            }
+            return {
+              id: crypto.randomUUID(),
+              libraryExerciseId: match.id,
+              name: match.name,
+              category: match.category || "",
+              muscleGroup: match.target_muscle || undefined,
+              type: "exercise",
+              sets: ex.sets || 3,
+              reps: parseInt(String(ex.reps).split("-")[0]) || 10,
+              rpe: 7,
+              rir: 2,
+              failureSet: false,
+              notes: ex.notes || undefined,
+              videoUrl: match.video_url || undefined,
+              gifUrl: match.video_url || undefined,
+            };
+          })
+          .filter((e: BuilderExercise | null): e is BuilderExercise => e !== null);
       });
 
       setWeekPlan(newWeek);
       setActiveDay(0);
       setDayGroups({});
       toast.success(`✨ AI ${data.length} günlük ${params.goal} programı üretti!`);
+      if (skipped > 0) {
+        toast.warning(`${skipped} egzersiz kütüphanede bulunamadığı için atlandı.`);
+      }
     } catch (err: any) {
       toast.error("AI hatası: " + (err?.message || "Bilinmeyen hata"));
     } finally {
       setIsAIGenerating(false);
     }
   }, [validExerciseNames, exerciseLookup]);
+
 
 
   const handleSaveAsTemplate = useCallback(async () => {
