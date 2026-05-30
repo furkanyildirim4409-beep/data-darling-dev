@@ -209,9 +209,10 @@ export default function Programs() {
   }, [fetchTemplateItems]);
 
   const handleBackToDashboard = useCallback(() => {
+    setLastSavedType(builderMode);
     setViewMode("dashboard");
     setEditingProgram(null);
-  }, []);
+  }, [builderMode]);
 
   const handleAddItem = useCallback(
     (item: LibraryItem) => {
