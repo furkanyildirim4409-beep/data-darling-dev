@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ExerciseLibraryEntry {
+  id: string;
   name: string;
   video_url: string | null;
   category: string | null;
@@ -20,7 +21,7 @@ async function fetchAllExercises(): Promise<ExerciseLibraryEntry[]> {
 
     const { data, error } = await supabase
       .from("exercise_library")
-      .select("name, video_url, category, target_muscle")
+      .select("id, name, video_url, category, target_muscle")
       .range(from, to);
 
     if (error) throw error;
