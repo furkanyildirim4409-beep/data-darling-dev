@@ -24,25 +24,32 @@ serve(async (req) => {
     let days = 3;
     let level = "Orta";
     let specialNotes = "";
-    let validExercises: string[] = [];
+    let validExercises: Array<{ name: string; target_muscle?: string }> = [];
     try {
       const body = await req.json();
       if (body.goal) goal = body.goal;
       if (body.days) days = Math.min(Math.max(Number(body.days), 1), 7);
       if (body.level) level = body.level;
       if (body.specialNotes) specialNotes = String(body.specialNotes).slice(0, 500);
-      if (Array.isArray(body.validExercises)) validExercises = body.validExercises;
+      if (Array.isArray(body.validExercises)) {
+        validExercises = body.validExercises.map((e: any) =>
+          typeof e === "string"
+            ? { name: e }
+            : { name: String(e.name ?? ""), target_muscle: e.target_muscle ? String(e.target_muscle) : undefined }
+        ).filter((e: { name: string }) => e.name.length > 0);
+      }
     } catch { /* empty body ok */ }
 
     // Truncate to ~1200 entries for token safety
     const exerciseList = validExercises.slice(0, 1200);
 
     const exerciseDirective = exerciseList.length > 0
-      ? `\n\nKRİTİK KURAL: SADECE aşağıdaki listeden egzersiz seç. Listedeki isimleri BİREBİR kullan — değiştirme, çevirme, kısaltma veya yeni isim uydurma. Listede olmayan hiçbir egzersiz kullanma.\n\nGeçerli egzersiz listesi:\n${exerciseList.join(', ')}`
+      ? `\n\n=== MUTLAK KURAL — EGZERSİZ SÖZLÜĞÜ ===\nAşağıda projeye ait DOĞRULANMIŞ egzersiz kütüphanesi var (format: "İsim [hedef kas]"). Senin görevin SADECE bu listedeki egzersizleri kullanmak.\n\nYASAKLAR (HİÇBİR İSTİSNA YOK):\n- Listede olmayan bir egzersiz adı üretmek YASAK.\n- İsmi çevirmek, kısaltmak, yeniden formatlamak, varyant adı uydurmak YASAK.\n- Liste dışındaki sinonim/benzer egzersizleri kullanmak YASAK.\n- Emin değilsen listeden en yakın anlamsal eşleşmeyi BİREBİR kopyala; asla yeni isim uydurma.\n\nKURAL: Her üretilen egzersiz adı, aşağıdaki listedeki bir girdiyle KARAKTER KARAKTER aynı olmalıdır.\n\nEgzersiz sözlüğü:\n${exerciseList.map((e) => e.target_muscle ? `${e.name} [${e.target_muscle}]` : e.name).join("\n")}`
       : '';
 
     const levelDirective = `\nSporcu Seviyesi: ${level}.`;
     const notesDirective = specialNotes ? `\nÖzel Notlar/Sakatlıklar: ${specialNotes}. Bu özel durumlara KESİNLİKLE DİKKAT EDEREK ve notlara uygun şekilde programı optimize et.` : '';
+
 
     const systemPrompt = `Sen elit bir güç ve kondisyon koçusun. Senden ${days} günlük bir antrenman programı üretmeni istiyorum. Hedef: ${goal}.${levelDirective}${notesDirective} Her gün için gün adı ve egzersiz listesi oluştur. Her egzersiz için set sayısı, tekrar aralığı ve notlar ekle. Notlar kısa ve teknik olsun (ör. "Tükenişe 2 tekrar kala bırak", "Kontrollü negatif").${exerciseDirective}`;
 
