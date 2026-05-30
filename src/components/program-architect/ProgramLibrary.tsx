@@ -711,6 +711,28 @@ export function ProgramLibrary({
         onConfirm={handlePortionConfirm}
       />
 
+      {/* Supplement Amount Dialog */}
+      {supplementAmountDialog.item && (
+        <SupplementAmountDialog
+          open={supplementAmountDialog.open}
+          onOpenChange={(v) => setSupplementAmountDialog((p) => ({ ...p, open: v }))}
+          supplementName={supplementAmountDialog.item.name}
+          icon={(supplementAmountDialog.item as any).icon}
+          defaultAmount={supplementAmountDialog.defaultAmount}
+          unit={supplementAmountDialog.unit}
+          onConfirm={(amount) => {
+            const src = supplementAmountDialog.item!;
+            const enriched: LibraryItem = {
+              ...src,
+              ...({ default_dosage: `${amount} ${supplementAmountDialog.unit}` } as any),
+            };
+            onAddItem(enriched);
+            toast.success(`${src.name} ${amount} ${supplementAmountDialog.unit} olarak eklendi`);
+          }}
+        />
+      )}
+
+
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
