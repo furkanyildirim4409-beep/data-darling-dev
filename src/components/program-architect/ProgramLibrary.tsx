@@ -278,6 +278,14 @@ export function ProgramLibrary({
   const [supplementItems, setSupplementItems] = useState<LibraryItem[]>([]);
   const [loadingSupplements, setLoadingSupplements] = useState(false);
 
+  // Supplement amount dialog state
+  const [supplementAmountDialog, setSupplementAmountDialog] = useState<{
+    open: boolean;
+    item: LibraryItem | null;
+    defaultAmount: number;
+    unit: string;
+  }>({ open: false, item: null, defaultAmount: 1, unit: "Adet" });
+
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
