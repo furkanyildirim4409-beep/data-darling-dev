@@ -53,8 +53,9 @@ export default function Programs() {
   const [dayGroups, setDayGroups] = useState<Record<number, ExerciseGroup[]>>({});
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-  // Force dashboard refresh key
-  const [dashboardKey, setDashboardKey] = useState(0);
+  // Dashboard refresh signal (no remount — keeps tab state intact)
+  const [lastSavedType, setLastSavedType] = useState<ProgramType | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
 
   // Flatten all exercises for compatibility
