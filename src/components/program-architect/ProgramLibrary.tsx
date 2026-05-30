@@ -13,6 +13,28 @@ import { toast } from "sonner";
 import { ExerciseLibraryEditor } from "./ExerciseLibraryEditor";
 import { usePermissions } from "@/hooks/usePermissions";
 import { FoodPortionDialog, ApiServing, PortionResult } from "./FoodPortionDialog";
+import { SupplementAmountDialog } from "./SupplementAmountDialog";
+
+// Parse a stored default_dosage string like "400 mg", "5 g", "2 Softgel", "5000 IU"
+// into the locked unit + suggested numeric amount for the Miktar Belirle dialog.
+const SUPPLEMENT_UNIT_PATTERN = /^\s*(\d+(?:[.,]\d+)?)\s*(mg|g|iu|ml|kapsül|softgel|tablet)\s*$/i;
+const UNIT_DISPLAY: Record<string, string> = {
+  mg: "mg",
+  g: "g",
+  iu: "IU",
+  ml: "ml",
+  kapsül: "Kapsül",
+  softgel: "Softgel",
+  tablet: "Tablet",
+};
+function parseSupplementDosage(raw?: string | null): { amount: number; unit: string } {
+  if (!raw) return { amount: 1, unit: "Adet" };
+  const m = raw.match(SUPPLEMENT_UNIT_PATTERN);
+  if (!m) return { amount: 1, unit: "Adet" };
+  const amount = Number(m[1].replace(",", "."));
+  const unit = UNIT_DISPLAY[m[2].toLowerCase()] ?? m[2];
+  return { amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit };
+}
 
 const TOTAL_EXERCISE_COUNT = 1324;
 const PAGE_SIZE = 50;
@@ -255,6 +277,14 @@ export function ProgramLibrary({
   // Supplement library state
   const [supplementItems, setSupplementItems] = useState<LibraryItem[]>([]);
   const [loadingSupplements, setLoadingSupplements] = useState(false);
+
+  // Supplement amount dialog state
+  const [supplementAmountDialog, setSupplementAmountDialog] = useState<{
+    open: boolean;
+    item: LibraryItem | null;
+    defaultAmount: number;
+    unit: string;
+  }>({ open: false, item: null, defaultAmount: 1, unit: "Adet" });
 
   // Category list (fetched once)
   const [exerciseCategories, setExerciseCategories] = useState<string[]>([]);
@@ -588,8 +618,15 @@ export function ProgramLibrary({
     }
   }, [user, activeCoachId, fetchCoachFoods]);
 
-  // Add handler — opens portion dialog for API items, otherwise direct add
+  // Add handler — opens portion dialog for API items, supplement amount dialog for supplements, otherwise direct add
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    // Intercept supplement adds → open unit-locked Miktar Belirle dialog
+    if (item.type === "supplement") {
+      const { amount, unit } = parseSupplementDosage((item as any).default_dosage);
+      setSupplementAmountDialog({ open: true, item, defaultAmount: amount, unit });
+      return;
+    }
+
     const isApiNutrition = item.type === "nutrition" && item.id.startsWith("api-") && !!item.api_food_id;
 
     if (!isApiNutrition) {
@@ -673,6 +710,28 @@ export function ProgramLibrary({
         servings={portionDialog.servings}
         onConfirm={handlePortionConfirm}
       />
+
+      {/* Supplement Amount Dialog */}
+      {supplementAmountDialog.item && (
+        <SupplementAmountDialog
+          open={supplementAmountDialog.open}
+          onOpenChange={(v) => setSupplementAmountDialog((p) => ({ ...p, open: v }))}
+          supplementName={supplementAmountDialog.item.name}
+          icon={(supplementAmountDialog.item as any).icon}
+          defaultAmount={supplementAmountDialog.defaultAmount}
+          unit={supplementAmountDialog.unit}
+          onConfirm={(amount) => {
+            const src = supplementAmountDialog.item!;
+            const enriched: LibraryItem = {
+              ...src,
+              ...({ default_dosage: `${amount} ${supplementAmountDialog.unit}` } as any),
+            };
+            onAddItem(enriched);
+            toast.success(`${src.name} ${amount} ${supplementAmountDialog.unit} olarak eklendi`);
+          }}
+        />
+      )}
+
 
       {/* Header */}
       <div className="p-4 border-b border-border">
