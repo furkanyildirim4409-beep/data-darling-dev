@@ -618,8 +618,15 @@ export function ProgramLibrary({
     }
   }, [user, activeCoachId, fetchCoachFoods]);
 
-  // Add handler — opens portion dialog for API items, otherwise direct add
+  // Add handler — opens portion dialog for API items, supplement amount dialog for supplements, otherwise direct add
   const handleAddWithSync = useCallback(async (item: LibraryItem) => {
+    // Intercept supplement adds → open unit-locked Miktar Belirle dialog
+    if (item.type === "supplement") {
+      const { amount, unit } = parseSupplementDosage((item as any).default_dosage);
+      setSupplementAmountDialog({ open: true, item, defaultAmount: amount, unit });
+      return;
+    }
+
     const isApiNutrition = item.type === "nutrition" && item.id.startsWith("api-") && !!item.api_food_id;
 
     if (!isApiNutrition) {
