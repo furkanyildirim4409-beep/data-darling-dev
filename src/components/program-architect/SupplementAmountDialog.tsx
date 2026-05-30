@@ -65,7 +65,7 @@ export function SupplementAmountDialog({
                   submit();
                 }
               }}
-              className="pr-24 text-base font-semibold"
+              className="pr-24 text-base font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="Örn: 400"
             />
             <Badge
