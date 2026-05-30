@@ -219,7 +219,7 @@ export function ProgramDashboard({ onCreateProgram, onEditProgram, onSaveAsTempl
     } else {
       fetchSupplementTemplatesData();
     }
-  }, [viewMode, fetchPrograms, fetchDietTemplates, fetchSupplementTemplatesData]);
+  }, [viewMode, refreshToken, fetchPrograms, fetchDietTemplates, fetchSupplementTemplatesData]);
 
   const currentItems = viewMode === "exercise" ? programs : viewMode === "nutrition" ? dietTemplates : supplementTemplates;
 
