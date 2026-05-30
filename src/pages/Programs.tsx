@@ -910,7 +910,8 @@ export default function Programs() {
   if (viewMode === "dashboard") {
     return (
       <ProgramDashboard
-        key={dashboardKey}
+        initialViewMode={lastSavedType ?? "exercise"}
+        refreshToken={refreshToken}
         onCreateProgram={handleCreateProgram}
         onEditProgram={handleEditProgram}
         onSaveAsTemplate={handleSaveProgramAsTemplate}
