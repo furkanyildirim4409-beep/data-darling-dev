@@ -4,7 +4,7 @@ import { ProgramLibrary, LibraryItem, SavedTemplate } from "@/components/program
 import { WorkoutBuilder, BuilderExercise, DayPlan, BlockType, AutomationRule, ExerciseGroup } from "@/components/program-architect/WorkoutBuilder";
 import { NutritionBuilder, NutritionItem, calcFactor } from "@/components/program-architect/NutritionBuilder";
 import { SupplementBuilder, SupplementBuilderItem } from "@/components/program-architect/SupplementBuilder";
-import { WeeklySchedule } from "@/components/program-architect/WeeklySchedule";
+// WeeklySchedule intentionally not imported — athlete picker removed from builder workspace
 import { SaveTemplateDialog } from "@/components/program-architect/SaveTemplateDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
