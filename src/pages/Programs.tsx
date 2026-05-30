@@ -579,7 +579,8 @@ export default function Programs() {
         if (ok) {
           setSelectedSupplements([]);
           setEditingProgram(null);
-          setDashboardKey((k) => k + 1);
+          setLastSavedType("supplement");
+          setRefreshToken((t) => t + 1);
           setViewMode("dashboard");
         }
         return;
