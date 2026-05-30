@@ -786,7 +786,8 @@ export default function Programs() {
       setAutomationRules([]);
       setDayGroups({});
       setEditingProgram(null);
-      setDashboardKey((k) => k + 1);
+      setLastSavedType("exercise");
+      setRefreshToken((t) => t + 1);
       setViewMode("dashboard");
     },
     [user, weekPlan, editingProgram, automationRules, dayGroups, builderMode, selectedNutrition, selectedSupplements, saveSupplementTemplate]
