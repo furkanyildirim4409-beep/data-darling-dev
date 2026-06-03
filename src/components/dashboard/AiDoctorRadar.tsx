@@ -108,7 +108,14 @@ export function AiDoctorRadar() {
       athlete_id: i.athlete_id,
       issue_type: i.severity || "low",
       issue_title: i.title,
-      issue_details: { analysis: i.analysis, severity: i.severity },
+      issue_details: {
+        description: i.analysis,
+        detailed_analysis: i.analysis,
+        severity: i.severity,
+        source: "ai_doctor_radar",
+        suggested_manual_actions: [],
+        biometric_context: "",
+      },
       source_insight_id: i.id,
       status,
     }));
