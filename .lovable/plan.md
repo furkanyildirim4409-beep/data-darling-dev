@@ -1,36 +1,59 @@
-# Action Ledger Pipeline — Alerts Page
+# Action Ledger — Preserve & Display Rich AI Analysis
 
-The `coach_action_ledger` table and `ActionLedgerDesk` component already exist from the prior CommandCenter integration. This plan ports the same pattern into `src/pages/Alerts.tsx`.
+## Problem
+When a coach hits **[Listeye Ekle]** on an AI Doktor / Hızlı Müdahale card, only `issue_title` shows up in the ledger desk. The detailed `analysis` body that the AI produced (e.g. "ALT/AST yüksek, şu dozajı el ile ayarla…") is actually already saved into `issue_details.analysis` from `src/pages/Alerts.tsx`, but `ActionLedgerDesk` never renders it, and `AiDoctorRadar` does not save quite as much context. Result: triaged rows look empty and contextless.
 
-## 1. Database
-No migration needed. Table `coach_action_ledger` is live with RLS (`coach_id = auth.uid()`), realtime publication, and the four statuses (`pending` / `resolved` / `failed` / `ignored`). The existing `source_insight_id` column will be reused to dedupe against `ai_weekly_analyses.id`.
+No DB migration needed — `issue_details` is already a JSONB column.
 
-## 2. `src/pages/Alerts.tsx` — AI Intervention Queue refactor
-Strip the per-action execution flow (supplement / program / message / nutrition buttons, `MutationConfigDialog`, `handleActionExecute`, `handleActionClick`, `executeAiAction`, `resolvingIds`, `pendingAction`) from the queue cards. The queue becomes a triage list only.
+## Changes
 
-Replace each card's footer with a single dark-glass **Popover** trigger ("Eylem Al"). The popover content (centered, `bg-popover/95 backdrop-blur` styling) exposes exactly two buttons:
+### 1. `src/pages/Alerts.tsx` — enrich the insert payload
+In `triageIntervention`, expand the `issue_details` object passed to `coach_action_ledger.insert` so it captures the full diagnostic context for later rendering:
 
-- **[Yok Say]** → `insert` into `coach_action_ledger` with `status: 'ignored'`, `issue_type: severity === 'high' ? 'biometric_anomaly' : 'low_adherence'`, `issue_title: intervention.title`, `source_insight_id: intervention.id`, `coach_id: activeCoachId ?? user.id`, `athlete_id: intervention.athlete_id`. On success, remove the card from `aiInterventions` with `AnimatePresence` + `motion.div` height fade-out.
-- **[Listeye Ekle]** → same insert but `status: 'pending'`. Same removal animation. After insert, call `queryClient.invalidateQueries({ queryKey: ['coach_action_ledger'] })` so the ledger desk refreshes immediately.
+```
+issue_details: {
+  description: intervention.analysis,
+  detailed_analysis: intervention.analysis,
+  athlete_name: intervention.athlete_name,
+  severity: intervention.severity,
+  created_at: intervention.created_at,
+  source: 'alerts_ai_intervention_queue',
+  suggested_manual_actions: [],
+  biometric_context: '',
+}
+```
 
-Filter the initial fetch in `fetchAiInterventions` to exclude any `ai_weekly_analyses.id` already present in `coach_action_ledger` (mirrors `AiDoctorRadar`'s `fetchLedgered` pattern).
+No other logic in `Alerts.tsx` changes.
 
-Keep the collapsible "Detaylı Analiz" section and severity badges intact.
+### 2. `src/components/dashboard/AiDoctorRadar.tsx` — same enrichment for parity
+Update the rows built in `handleLedgerAction` so cards triaged from the radar carry the same shape:
 
-## 3. Kritik Masası & Eylem Defteri panel
-Mount the existing `<ActionLedgerDesk />` directly below the AI Müdahale Kuyruğu block and above the main alert grid. No new component needed — it already:
-- Fetches `status = 'pending'` rows scoped by RLS
-- Groups by athlete with avatar + accordion
-- Renders 🟢 Çözüldü / 🔴 Çözülmedi per-row buttons that fire `update({ status })` with optimistic UI
-- Subscribes to realtime `postgres_changes` for live invalidation across coach sessions
+```
+issue_details: {
+  description: i.analysis,
+  detailed_analysis: i.analysis,
+  severity: i.severity,
+  source: 'ai_doctor_radar',
+  suggested_manual_actions: [],
+  biometric_context: '',
+}
+```
 
-Wrap it in a section header consistent with the page (`Brain` → `ClipboardList` icon already inside the card).
+### 3. `src/components/dashboard/ActionLedgerDesk.tsx` — display the rich body
+Inside the per-row `motion.div` (the card that currently only renders `issue_title` + timestamp), add a context block rendered when `r.issue_details` exists:
 
-## 4. Cleanup
-- Remove imports no longer used in `Alerts.tsx`: `executeAiAction`, `AiActionType`, `MutationConfigDialog`, `Pill`, `Dumbbell`, `MessageSquare`, `UtensilsCrossed`, `Sparkles`, `CheckCircle2`, `actionIcons`, `actionColors`, `AiAction` interface.
-- Add: `Popover`, `PopoverTrigger`, `PopoverContent`, `motion`, `AnimatePresence`, `useQueryClient`, `EyeOff`, `ListPlus` icons, `ActionLedgerDesk`.
+- Header chip: `🧠 AI TEŞHİS VE MANUEL TAVSİYE NOTU`
+- Body paragraph: `issue_details.description ?? issue_details.detailed_analysis ?? issue_details.analysis` (last fallback covers legacy rows already saved with just `analysis`).
+- Optional list: when `issue_details.suggested_manual_actions` is a non-empty array, render it as a bulleted "Koç Tarafından Uygulanacak Manuel Adımlar" list, supporting both string entries and `{title}` objects.
+- Styling uses existing semantic tokens (`text-foreground/80`, `text-muted-foreground`, `border-border`, `bg-card/40`) — no raw colors, no new design tokens.
+- `select-text` to let the coach copy the note.
 
-## Files touched
-- `src/pages/Alerts.tsx` (edit only)
+A small `LedgerDetails` helper component inside the file keeps the JSX readable and the type narrowing tight (no `any` leaks beyond a single safe cast on the JSONB blob).
 
-No other files change. Type-safe against existing `Database['public']['Tables']['coach_action_ledger']` row shape.
+### 4. Type-safety
+- Treat `issue_details` as `Record<string, unknown> | null` (already its declared type in `LedgerRow`) and narrow each field locally with `typeof` / `Array.isArray` checks before rendering. No new global types needed.
+
+## Out of scope
+- No DB migration, no schema change.
+- No changes to the resolve / fail buttons or realtime subscription.
+- No changes to triage filtering logic in `Alerts.tsx` or `AiDoctorRadar.tsx`.
