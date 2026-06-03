@@ -142,7 +142,16 @@ export default function Alerts() {
     }
 
     const { data } = await query;
-    const items = (data || []) as AiIntervention[];
+    const items = ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+      id: row.id as string,
+      athlete_id: row.athlete_id as string,
+      athlete_name: (row.athlete_name as string | null) ?? null,
+      severity: row.severity as string,
+      title: row.title as string,
+      analysis: row.analysis as string,
+      actions: Array.isArray(row.actions) ? (row.actions as AiActionItem[]) : [],
+      created_at: row.created_at as string,
+    })) as AiIntervention[];
 
     // Filter out interventions already triaged in the ledger
     const ids = items.map((i) => i.id);
