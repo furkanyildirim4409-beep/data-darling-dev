@@ -1,52 +1,36 @@
-## Aksiyon Defteri (Action Ledger) — Kalıcı Müdahale Takip Sistemi
+# Action Ledger Pipeline — Alerts Page
 
-AI Doktor Radarı kart akışını, koçun her bulguyu "Listeye Ekle" veya "Yok Say" ile filtreleyebildiği ve sonradan "Çözüldü/Çözülmedi" olarak işaretleyebildiği bir kalıcı eylem defterine dönüştürüyoruz.
+The `coach_action_ledger` table and `ActionLedgerDesk` component already exist from the prior CommandCenter integration. This plan ports the same pattern into `src/pages/Alerts.tsx`.
 
-### 1. Veritabanı (migration)
+## 1. Database
+No migration needed. Table `coach_action_ledger` is live with RLS (`coach_id = auth.uid()`), realtime publication, and the four statuses (`pending` / `resolved` / `failed` / `ignored`). The existing `source_insight_id` column will be reused to dedupe against `ai_weekly_analyses.id`.
 
-Yeni tablo `coach_action_ledger`:
-- `coach_id` (auth.uid), `athlete_id` (profiles), `issue_type`, `issue_title`, `issue_details jsonb`
-- `status`: `pending` | `resolved` | `failed` | `ignored` (varsayılan `pending`)
-- `source_insight_id uuid` — `ai_weekly_analyses` kaydına referans (aynı bulguyu tekrar göstermemek için unique `(coach_id, source_insight_id)`)
-- `created_at`, `updated_at` + `touch_updated_at` trigger
-- GRANT (authenticated + service_role), RLS: koç sadece kendi `coach_id` satırlarını görür/yazar; sub-coach `get_my_head_coach_id()` ile head coach kapsamına erişir
-- Realtime publication eklenir
+## 2. `src/pages/Alerts.tsx` — AI Intervention Queue refactor
+Strip the per-action execution flow (supplement / program / message / nutrition buttons, `MutationConfigDialog`, `handleActionExecute`, `handleActionClick`, `executeAiAction`, `resolvingIds`, `pendingAction`) from the queue cards. The queue becomes a triage list only.
 
-### 2. `AiDoctorRadar.tsx` — Bulgu Filtreleme
+Replace each card's footer with a single dark-glass **Popover** trigger ("Eylem Al"). The popover content (centered, `bg-popover/95 backdrop-blur` styling) exposes exactly two buttons:
 
-- Mevcut sporcu kartına hover/click ile **dark mini-popover** (Radix Popover) açılır: iki buton — `[Yok Say]` ve `[Listeye Ekle]`
-- Sporcunun tüm aktif bulgu başlıkları popover içinde listelenir (tek tek veya toplu işlem)
-- `Yok Say` → `coach_action_ledger` satırı `status='ignored'` ile insert
-- `Listeye Ekle` → `status='pending'` ile insert (athlete_id + issue_title + issue_details + source_insight_id)
-- Eklenen/yok sayılan sporcular Framer Motion `AnimatePresence` ile collapse animasyonu ile akıştan çıkar
-- Halihazırda `ignored` veya `pending/resolved/failed` durumdaki insight'lar liste sorgusundan filtrelenir
+- **[Yok Say]** → `insert` into `coach_action_ledger` with `status: 'ignored'`, `issue_type: severity === 'high' ? 'biometric_anomaly' : 'low_adherence'`, `issue_title: intervention.title`, `source_insight_id: intervention.id`, `coach_id: activeCoachId ?? user.id`, `athlete_id: intervention.athlete_id`. On success, remove the card from `aiInterventions` with `AnimatePresence` + `motion.div` height fade-out.
+- **[Listeye Ekle]** → same insert but `status: 'pending'`. Same removal animation. After insert, call `queryClient.invalidateQueries({ queryKey: ['coach_action_ledger'] })` so the ledger desk refreshes immediately.
 
-### 3. Yeni bileşen: `ActionLedgerDesk.tsx` ("Kritik Masası & Takip Defteri")
+Filter the initial fetch in `fetchAiInterventions` to exclude any `ai_weekly_analyses.id` already present in `coach_action_ledger` (mirrors `AiDoctorRadar`'s `fetchLedgered` pattern).
 
-`CommandCenter.tsx`'de `AiDoctorRadar` ile `RiskRadar` arasına yerleştirilir.
+Keep the collapsible "Detaylı Analiz" section and severity badges intact.
 
-- Üstte özet rozetler: Bekleyen / Çözüldü / Çözülmedi sayıları
-- Sadece `status='pending'` satırları olan sporcular listelenir (athlete_id ile gruplanır)
-- shadcn `Accordion` ile sporcu satırı tıklanınca dikey bento yığını açılır:
-  - Her ledger satırı için başlık + detay + iki micro-buton:
-    - 🟢 **Çözüldü** → `update status='resolved'`
-    - 🔴 **Çözülmedi** → `update status='failed'`
-- Mutasyon sonrası: optimistic UI + supabase realtime channel ile otomatik invalidation
-- Boş durum: "Henüz takip listesinde bulgu yok" mesajı
+## 3. Kritik Masası & Eylem Defteri panel
+Mount the existing `<ActionLedgerDesk />` directly below the AI Müdahale Kuyruğu block and above the main alert grid. No new component needed — it already:
+- Fetches `status = 'pending'` rows scoped by RLS
+- Groups by athlete with avatar + accordion
+- Renders 🟢 Çözüldü / 🔴 Çözülmedi per-row buttons that fire `update({ status })` with optimistic UI
+- Subscribes to realtime `postgres_changes` for live invalidation across coach sessions
 
-### 4. Teknik notlar
+Wrap it in a section header consistent with the page (`Brain` → `ClipboardList` icon already inside the card).
 
-- Bulgu key'i: `source_insight_id` üzerinden tekilleştirme (aynı insight tekrar listeye eklenemez)
-- `useAuth().isSubCoach` ve `teamMemberPermissions !== 'full'` durumunda `team_member_athletes` kapsam filtresi uygulanır (mevcut AiDoctorRadar deseni)
-- Realtime subscription: `coach_action_ledger` postgres_changes → state refetch (proje kuralı: `.on()` → `.subscribe()` sırası, `removeChannel` cleanup)
-- TypeScript: tüm satırlar `Database['public']['Tables']['coach_action_ledger']` tipinden türetilir
-- Tasarım tokenları: mevcut `bg-destructive`, `bg-success`, `glass`, `border-border` semantik tokenları; ham renk yok
+## 4. Cleanup
+- Remove imports no longer used in `Alerts.tsx`: `executeAiAction`, `AiActionType`, `MutationConfigDialog`, `Pill`, `Dumbbell`, `MessageSquare`, `UtensilsCrossed`, `Sparkles`, `CheckCircle2`, `actionIcons`, `actionColors`, `AiAction` interface.
+- Add: `Popover`, `PopoverTrigger`, `PopoverContent`, `motion`, `AnimatePresence`, `useQueryClient`, `EyeOff`, `ListPlus` icons, `ActionLedgerDesk`.
 
-### Dokunulacak dosyalar
+## Files touched
+- `src/pages/Alerts.tsx` (edit only)
 
-```text
-+ supabase/migrations/<new>.sql              (CREATE TABLE + GRANT + RLS + trigger)
-+ src/components/dashboard/ActionLedgerDesk.tsx
-~ src/components/dashboard/AiDoctorRadar.tsx (popover + ignore/add aksiyonları)
-~ src/pages/CommandCenter.tsx                (ActionLedgerDesk yerleştirme)
-```
+No other files change. Type-safe against existing `Database['public']['Tables']['coach_action_ledger']` row shape.
