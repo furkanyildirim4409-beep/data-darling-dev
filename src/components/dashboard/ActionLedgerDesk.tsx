@@ -34,6 +34,60 @@ interface AthleteGroup {
   rows: LedgerRow[];
 }
 
+function LedgerDetails({ details }: { details: Record<string, unknown> | null }) {
+  if (!details) return null;
+  const d = details as Record<string, unknown>;
+  const body =
+    (typeof d.description === "string" && d.description) ||
+    (typeof d.detailed_analysis === "string" && d.detailed_analysis) ||
+    (typeof d.analysis === "string" && d.analysis) ||
+    "";
+  const actions = Array.isArray(d.suggested_manual_actions)
+    ? (d.suggested_manual_actions as unknown[])
+    : [];
+  const biometric = typeof d.biometric_context === "string" ? d.biometric_context : "";
+  if (!body && actions.length === 0 && !biometric) return null;
+  return (
+    <div className="mt-2.5 p-3 rounded-lg border border-border bg-card/40 space-y-2 select-text">
+      <p className="text-[10px] font-bold text-primary tracking-widest uppercase">
+        🧠 AI Teşhis ve Manuel Tavsiye Notu
+      </p>
+      {body && (
+        <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">
+          {body}
+        </p>
+      )}
+      {biometric && (
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          {biometric}
+        </p>
+      )}
+      {actions.length > 0 && (
+        <div className="pt-2 border-t border-border">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
+            Koç Tarafından Uygulanacak Manuel Adımlar
+          </span>
+          <ul className="list-disc pl-4 space-y-1">
+            {actions.map((act, idx) => {
+              const label =
+                typeof act === "string"
+                  ? act
+                  : act && typeof act === "object" && "title" in act && typeof (act as { title: unknown }).title === "string"
+                  ? (act as { title: string }).title
+                  : JSON.stringify(act);
+              return (
+                <li key={idx} className="text-xs text-muted-foreground leading-normal">
+                  {label}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ActionLedgerDesk() {
   const { user } = useAuth();
   const [rows, setRows] = useState<LedgerRow[]>([]);
