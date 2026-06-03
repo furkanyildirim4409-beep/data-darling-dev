@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,13 @@ import {
   EyeOff,
   ListPlus,
   Zap,
+  Dumbbell,
+  Pill,
+  UtensilsCrossed,
+  MessageSquare,
+  CheckCircle2,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +39,15 @@ import { toast } from "@/hooks/use-toast";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
+interface AiActionItem {
+  type?: string;
+  label?: string;
+  title?: string;
+  payload?: string;
+  description?: string;
+  is_quantitative?: boolean;
+}
+
 interface AiIntervention {
   id: string;
   athlete_id: string;
@@ -38,14 +55,18 @@ interface AiIntervention {
   severity: string;
   title: string;
   analysis: string;
+  actions: AiActionItem[];
   created_at: string;
 }
+
+type ChecklistStatus = "done" | "dismissed";
 
 type LedgerStatus = "pending" | "ignored";
 
 export default function Alerts() {
   const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
@@ -56,6 +77,19 @@ export default function Alerts() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<Record<string, ChecklistStatus>>({});
+
+  const toggleChecklist = (key: string, next: ChecklistStatus) => {
+    setActionStatus((prev) => {
+      const copy = { ...prev };
+      if (copy[key] === next) {
+        delete copy[key];
+      } else {
+        copy[key] = next;
+      }
+      return copy;
+    });
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -98,7 +132,7 @@ export default function Alerts() {
 
     let query = supabase
       .from("ai_weekly_analyses")
-      .select("id, athlete_id, athlete_name, severity, title, analysis, created_at")
+      .select("id, athlete_id, athlete_name, severity, title, analysis, actions, created_at")
       .eq("resolved", false)
       .in("severity", ["high", "medium"])
       .order("created_at", { ascending: false });
@@ -108,7 +142,16 @@ export default function Alerts() {
     }
 
     const { data } = await query;
-    const items = (data || []) as AiIntervention[];
+    const items = ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+      id: row.id as string,
+      athlete_id: row.athlete_id as string,
+      athlete_name: (row.athlete_name as string | null) ?? null,
+      severity: row.severity as string,
+      title: row.title as string,
+      analysis: row.analysis as string,
+      actions: Array.isArray(row.actions) ? (row.actions as AiActionItem[]) : [],
+      created_at: row.created_at as string,
+    })) as AiIntervention[];
 
     // Filter out interventions already triaged in the ledger
     const ids = items.map((i) => i.id);
@@ -409,6 +452,129 @@ export default function Alerts() {
                           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
                             {intervention.analysis}
                           </p>
+                        </div>
+                      )}
+
+                      {intervention.actions && intervention.actions.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-border space-y-2">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                            <Sparkles className="w-3 h-3" />
+                            Önerilen Manuel Aksiyonlar
+                          </span>
+                          {intervention.actions.map((action, idx) => {
+                            const key = `${intervention.id}:${idx}`;
+                            const status = actionStatus[key];
+                            const rawType = (action.type ?? "").toLowerCase();
+                            const titleText = (action.label ?? action.title ?? "").toLowerCase();
+                            const isProgram =
+                              rawType.includes("program") || titleText.includes("program") || titleText.includes("antren");
+                            const isNutrition =
+                              rawType.includes("nutrition") || titleText.includes("beslenme") || titleText.includes("makro");
+                            const isSupplement =
+                              rawType.includes("supplement") || titleText.includes("takviye") || titleText.includes("suplem");
+
+                            const Icon = isProgram
+                              ? Dumbbell
+                              : isNutrition
+                              ? UtensilsCrossed
+                              : isSupplement
+                              ? Pill
+                              : MessageSquare;
+                            const colorClass = isProgram
+                              ? "text-primary"
+                              : isNutrition
+                              ? "text-emerald-500"
+                              : isSupplement
+                              ? "text-purple-400"
+                              : "text-warning";
+                            const targetRoute = isProgram
+                              ? "program"
+                              : isNutrition
+                              ? "nutrition"
+                              : isSupplement
+                              ? "supplements"
+                              : "chat";
+
+                            const labelText = action.label ?? action.title ?? "Aksiyon";
+                            const subText = action.payload ?? action.description ?? null;
+                            const isDone = status === "done";
+                            const isDismissed = status === "dismissed";
+
+                            return (
+                              <div
+                                key={key}
+                                className={cn(
+                                  "flex items-center justify-between p-3 rounded-xl bg-card/40 border border-border group transition-opacity",
+                                  isDone && "opacity-50",
+                                  isDismissed && "opacity-40"
+                                )}
+                              >
+                                <button
+                                  onClick={() =>
+                                    navigate(`/athletes/${intervention.athlete_id}?tab=${targetRoute}`)
+                                  }
+                                  className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity min-w-0"
+                                >
+                                  <div
+                                    className={cn(
+                                      "w-8 h-8 rounded-full bg-background/60 flex items-center justify-center shrink-0",
+                                      colorClass
+                                    )}
+                                  >
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p
+                                      className={cn(
+                                        "text-xs font-bold text-foreground truncate",
+                                        (isDone || isDismissed) && "line-through"
+                                      )}
+                                    >
+                                      {labelText}
+                                    </p>
+                                    {subText && (
+                                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                        {subText}
+                                      </p>
+                                    )}
+                                  </div>
+                                </button>
+
+                                <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleChecklist(key, "done");
+                                    }}
+                                    className={cn(
+                                      "w-7 h-7 rounded-full border border-border flex items-center justify-center transition-all active:scale-90",
+                                      isDone
+                                        ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-500"
+                                        : "bg-background/60 text-emerald-500 hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                                    )}
+                                    title="Manuel olarak tamamlandı"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleChecklist(key, "dismissed");
+                                    }}
+                                    className={cn(
+                                      "w-7 h-7 rounded-full border border-border flex items-center justify-center transition-all active:scale-90",
+                                      isDismissed
+                                        ? "bg-destructive/20 border-destructive/40 text-destructive"
+                                        : "bg-background/60 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                                    )}
+                                    title="Aksiyonu iptal et"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </motion.div>
