@@ -307,42 +307,91 @@ export function AiDoctorRadar() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            {athleteGroups.map((athlete) => (
-              <div
-                key={athlete.id}
-                className="rounded-lg border border-border bg-card p-3 space-y-2"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                      {getInitials(athlete.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{athlete.name}</p>
-                    <div className="space-y-0.5 mt-1">
-                      {athlete.titles.map((title, idx) => (
-                        <p key={idx} className="text-xs text-muted-foreground leading-snug">
-                          • {title}
-                        </p>
-                      ))}
+            <AnimatePresence initial={false}>
+              {athleteGroups.map((athlete) => (
+                <motion.div
+                  key={athlete.id}
+                  layout
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  className="rounded-lg border border-border bg-card p-3 space-y-2 overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        {getInitials(athlete.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{athlete.name}</p>
+                      <div className="space-y-0.5 mt-1">
+                        {athlete.titles.map((title, idx) => (
+                          <p key={idx} className="text-xs text-muted-foreground leading-snug">
+                            • {title}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Popover
+                        open={openPopoverId === athlete.id}
+                        onOpenChange={(o) => setOpenPopoverId(o ? athlete.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={busyAthleteId === athlete.id}
+                            title="Eylem"
+                          >
+                            {busyAthleteId === athlete.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          className="w-48 p-1.5 bg-popover/95 backdrop-blur border-border"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleLedgerAction(athlete.id, "ignored")}
+                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <EyeOff className="w-4 h-4" />
+                            Yok Say
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLedgerAction(athlete.id, "pending")}
+                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-primary/10 text-primary transition-colors"
+                          >
+                            <ListPlus className="w-4 h-4" />
+                            Listeye Ekle
+                          </button>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setSelectedSeverity(null);
+                          navigate(`/athletes/${athlete.id}`);
+                        }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Profil</span>
+                      </Button>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5"
-                    onClick={() => {
-                      setSelectedSeverity(null);
-                      navigate(`/athletes/${athlete.id}`);
-                    }}
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Profili İncele</span>
-                  </Button>
-                </div>
-              </div>
-            ))}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </DialogContent>
       </Dialog>
