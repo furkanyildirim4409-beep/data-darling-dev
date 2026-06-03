@@ -255,38 +255,41 @@ export function ActionLedgerDesk() {
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                              className="rounded-lg border border-border bg-background/60 p-3 flex items-start gap-3"
+                              className="rounded-lg border border-border bg-background/60 p-3"
                             >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground leading-snug">
-                                  {r.issue_title}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                                  {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
-                                </p>
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground leading-snug">
+                                    {r.issue_title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground font-mono mt-1">
+                                    {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    disabled={busyId === r.id}
+                                    onClick={() => updateStatus(r.id, "resolved")}
+                                    className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
+                                    title="Çözüldü"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    disabled={busyId === r.id}
+                                    onClick={() => updateStatus(r.id, "failed")}
+                                    className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
+                                    title="Çözülmedi"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  disabled={busyId === r.id}
-                                  onClick={() => updateStatus(r.id, "resolved")}
-                                  className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
-                                  title="Çözüldü"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  disabled={busyId === r.id}
-                                  onClick={() => updateStatus(r.id, "failed")}
-                                  className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                                  title="Çözülmedi"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
+                              <LedgerDetails details={r.issue_details} />
                             </motion.div>
                           ))}
                         </AnimatePresence>
