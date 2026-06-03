@@ -136,8 +136,8 @@ export function ActionLedgerDesk() {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status } : r))
     );
-    const { error } = await supabase
-      .from("coach_action_ledger" as never)
+    const { error } = await (supabase as any)
+      .from("coach_action_ledger")
       .update({ status })
       .eq("id", id);
     setBusyId(null);
