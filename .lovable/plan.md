@@ -1,59 +1,46 @@
-# Action Ledger — Preserve & Display Rich AI Analysis
+# Restore Legacy Action Cards as Manual Checklist (Alerts.tsx)
 
-## Problem
-When a coach hits **[Listeye Ekle]** on an AI Doktor / Hızlı Müdahale card, only `issue_title` shows up in the ledger desk. The detailed `analysis` body that the AI produced (e.g. "ALT/AST yüksek, şu dozajı el ile ayarla…") is actually already saved into `issue_details.analysis` from `src/pages/Alerts.tsx`, but `ActionLedgerDesk` never renders it, and `AiDoctorRadar` does not save quite as much context. Result: triaged rows look empty and contextless.
-
-No DB migration needed — `issue_details` is already a JSONB column.
+## Scope
+Single file: `src/pages/Alerts.tsx`. No DB schema, no edge function, no other files.
 
 ## Changes
 
-### 1. `src/pages/Alerts.tsx` — enrich the insert payload
-In `triageIntervention`, expand the `issue_details` object passed to `coach_action_ledger.insert` so it captures the full diagnostic context for later rendering:
+### 1. Imports
+- Add lucide icons: `Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `CheckCircle2`, `X`, `Sparkles`.
+- Add `useNavigate` from `react-router-dom`, initialized as `const navigate = useNavigate();` near other hooks.
 
-```
-issue_details: {
-  description: intervention.analysis,
-  detailed_analysis: intervention.analysis,
-  athlete_name: intervention.athlete_name,
-  severity: intervention.severity,
-  created_at: intervention.created_at,
-  source: 'alerts_ai_intervention_queue',
-  suggested_manual_actions: [],
-  biometric_context: '',
-}
-```
+### 2. Data shape
+- Extend `AiIntervention` type with `actions: Array<{ type: string; label?: string; title?: string; payload?: string; description?: string; is_quantitative?: boolean }>`.
+- Update `fetchAiInterventions` Supabase select to include `actions` (currently fetches `id, athlete_id, athlete_name, severity, title, analysis, created_at`). Backend (`ai_weekly_analyses.actions`) already populated by `ai-doctor` edge function with `{ type, label, payload, is_quantitative }`.
 
-No other logic in `Alerts.tsx` changes.
+### 3. Per-action local checklist state
+- Add `const [actionStatus, setActionStatus] = useState<Record<string, "done" | "dismissed">>({})`.
+- Key format: `${intervention.id}:${idx}`.
+- Pure local state for this session — no DB write (matches spec "or local state tracking for that session"). Avoids polluting `coach_action_ledger` (which is per-insight, not per-sub-action).
 
-### 2. `src/components/dashboard/AiDoctorRadar.tsx` — same enrichment for parity
-Update the rows built in `handleLedgerAction` so cards triaged from the radar carry the same shape:
+### 4. Render the checklist
+Inside the existing `aiInterventions.map(...)` card, append the block from the spec **after** the existing "Detaylı Analizi Gör" expand button. Adapt:
+- Icon/type detection: support both legacy enum (`program`/`nutrition`/`supplement`/`message`) and the spec's `update_*` variants via `includes()`.
+- Display text: `action.label ?? action.title` for title; `action.payload ?? action.description` for subtext.
+- Wire Done/Dismiss buttons to `setActionStatus`. Visual states:
+  - `done` → opacity-50 + line-through on title, green check filled.
+  - `dismissed` → opacity-40 + line-through, red X filled.
+  - Buttons remain clickable to toggle back to neutral.
+- Deep-link `onClick` calls `navigate(\`/athletes/${intervention.athlete_id}?tab=${targetRoute}\`)`.
 
-```
-issue_details: {
-  description: i.analysis,
-  detailed_analysis: i.analysis,
-  severity: i.severity,
-  source: 'ai_doctor_radar',
-  suggested_manual_actions: [],
-  biometric_context: '',
-}
-```
+### 5. Styling discipline
+Replace raw color classes from the spec snippet (`text-blue-400`, `bg-white/[0.02]`, `text-destructive/80`, etc.) with project semantic tokens where the design system has equivalents:
+- Containers: `bg-card/40`, `border-border` (matches existing card style in this file).
+- Icon colors: keep `text-primary` (program), `text-emerald-500` (nutrition), `text-purple-400` (supplement), `text-warning` (message) — these mirror palettes already used elsewhere in the file (`text-warning`, `text-destructive`, `text-primary`).
+- Done button: `text-emerald-500 hover:bg-emerald-500/10`.
+- Dismiss button: `text-destructive hover:bg-destructive/10 border-border`.
 
-### 3. `src/components/dashboard/ActionLedgerDesk.tsx` — display the rich body
-Inside the per-row `motion.div` (the card that currently only renders `issue_title` + timestamp), add a context block rendered when `r.issue_details` exists:
+### 6. Out of scope
+- No change to triage popover (Yok Say / Listeye Ekle) — kept as-is.
+- No change to `ActionLedgerDesk`, `AiDoctorRadar`, or migrations.
+- No re-introduction of `executeAiAction` / `MutationConfigDialog`.
 
-- Header chip: `🧠 AI TEŞHİS VE MANUEL TAVSİYE NOTU`
-- Body paragraph: `issue_details.description ?? issue_details.detailed_analysis ?? issue_details.analysis` (last fallback covers legacy rows already saved with just `analysis`).
-- Optional list: when `issue_details.suggested_manual_actions` is a non-empty array, render it as a bulleted "Koç Tarafından Uygulanacak Manuel Adımlar" list, supporting both string entries and `{title}` objects.
-- Styling uses existing semantic tokens (`text-foreground/80`, `text-muted-foreground`, `border-border`, `bg-card/40`) — no raw colors, no new design tokens.
-- `select-text` to let the coach copy the note.
-
-A small `LedgerDetails` helper component inside the file keeps the JSX readable and the type narrowing tight (no `any` leaks beyond a single safe cast on the JSONB blob).
-
-### 4. Type-safety
-- Treat `issue_details` as `Record<string, unknown> | null` (already its declared type in `LedgerRow`) and narrow each field locally with `typeof` / `Array.isArray` checks before rendering. No new global types needed.
-
-## Out of scope
-- No DB migration, no schema change.
-- No changes to the resolve / fail buttons or realtime subscription.
-- No changes to triage filtering logic in `Alerts.tsx` or `AiDoctorRadar.tsx`.
+## Technical notes
+- `useNavigate` must be called at component top level, not inside the map callback.
+- Local state resets when the intervention is triaged out (acceptable — card unmounts).
+- Type cast `action` as the local type to keep TS strict-safe; avoid `any`.

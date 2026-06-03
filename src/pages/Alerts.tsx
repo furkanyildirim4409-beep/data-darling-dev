@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,13 @@ import {
   EyeOff,
   ListPlus,
   Zap,
+  Dumbbell,
+  Pill,
+  UtensilsCrossed,
+  MessageSquare,
+  CheckCircle2,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +39,15 @@ import { toast } from "@/hooks/use-toast";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
+interface AiActionItem {
+  type?: string;
+  label?: string;
+  title?: string;
+  payload?: string;
+  description?: string;
+  is_quantitative?: boolean;
+}
+
 interface AiIntervention {
   id: string;
   athlete_id: string;
@@ -38,8 +55,11 @@ interface AiIntervention {
   severity: string;
   title: string;
   analysis: string;
+  actions: AiActionItem[];
   created_at: string;
 }
+
+type ChecklistStatus = "done" | "dismissed";
 
 type LedgerStatus = "pending" | "ignored";
 
