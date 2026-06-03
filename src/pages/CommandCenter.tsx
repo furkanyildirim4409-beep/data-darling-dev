@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AiDoctorRadar } from "@/components/dashboard/AiDoctorRadar";
+import { ActionLedgerDesk } from "@/components/dashboard/ActionLedgerDesk";
 import { useNavigate } from "react-router-dom";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RiskRadar } from "@/components/dashboard/RiskRadar";
