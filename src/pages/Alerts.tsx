@@ -132,7 +132,7 @@ export default function Alerts() {
 
     let query = supabase
       .from("ai_weekly_analyses")
-      .select("id, athlete_id, athlete_name, severity, title, analysis, created_at")
+      .select("id, athlete_id, athlete_name, severity, title, analysis, actions, created_at")
       .eq("resolved", false)
       .in("severity", ["high", "medium"])
       .order("created_at", { ascending: false });
