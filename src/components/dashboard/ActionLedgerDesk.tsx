@@ -34,6 +34,60 @@ interface AthleteGroup {
   rows: LedgerRow[];
 }
 
+function LedgerDetails({ details }: { details: Record<string, unknown> | null }) {
+  if (!details) return null;
+  const d = details as Record<string, unknown>;
+  const body =
+    (typeof d.description === "string" && d.description) ||
+    (typeof d.detailed_analysis === "string" && d.detailed_analysis) ||
+    (typeof d.analysis === "string" && d.analysis) ||
+    "";
+  const actions = Array.isArray(d.suggested_manual_actions)
+    ? (d.suggested_manual_actions as unknown[])
+    : [];
+  const biometric = typeof d.biometric_context === "string" ? d.biometric_context : "";
+  if (!body && actions.length === 0 && !biometric) return null;
+  return (
+    <div className="mt-2.5 p-3 rounded-lg border border-border bg-card/40 space-y-2 select-text">
+      <p className="text-[10px] font-bold text-primary tracking-widest uppercase">
+        🧠 AI Teşhis ve Manuel Tavsiye Notu
+      </p>
+      {body && (
+        <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">
+          {body}
+        </p>
+      )}
+      {biometric && (
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          {biometric}
+        </p>
+      )}
+      {actions.length > 0 && (
+        <div className="pt-2 border-t border-border">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
+            Koç Tarafından Uygulanacak Manuel Adımlar
+          </span>
+          <ul className="list-disc pl-4 space-y-1">
+            {actions.map((act, idx) => {
+              const label =
+                typeof act === "string"
+                  ? act
+                  : act && typeof act === "object" && "title" in act && typeof (act as { title: unknown }).title === "string"
+                  ? (act as { title: string }).title
+                  : JSON.stringify(act);
+              return (
+                <li key={idx} className="text-xs text-muted-foreground leading-normal">
+                  {label}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ActionLedgerDesk() {
   const { user } = useAuth();
   const [rows, setRows] = useState<LedgerRow[]>([]);
@@ -255,38 +309,41 @@ export function ActionLedgerDesk() {
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                              className="rounded-lg border border-border bg-background/60 p-3 flex items-start gap-3"
+                              className="rounded-lg border border-border bg-background/60 p-3"
                             >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground leading-snug">
-                                  {r.issue_title}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                                  {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
-                                </p>
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground leading-snug">
+                                    {r.issue_title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground font-mono mt-1">
+                                    {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    disabled={busyId === r.id}
+                                    onClick={() => updateStatus(r.id, "resolved")}
+                                    className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
+                                    title="Çözüldü"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    disabled={busyId === r.id}
+                                    onClick={() => updateStatus(r.id, "failed")}
+                                    className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
+                                    title="Çözülmedi"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  disabled={busyId === r.id}
-                                  onClick={() => updateStatus(r.id, "resolved")}
-                                  className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
-                                  title="Çözüldü"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  disabled={busyId === r.id}
-                                  onClick={() => updateStatus(r.id, "failed")}
-                                  className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                                  title="Çözülmedi"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
+                              <LedgerDetails details={r.issue_details} />
                             </motion.div>
                           ))}
                         </AnimatePresence>
