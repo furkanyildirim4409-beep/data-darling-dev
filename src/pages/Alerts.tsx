@@ -66,6 +66,7 @@ type LedgerStatus = "pending" | "ignored";
 export default function Alerts() {
   const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
