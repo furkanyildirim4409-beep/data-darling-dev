@@ -919,6 +919,60 @@ export type Database = {
           },
         ]
       }
+      coach_action_ledger: {
+        Row: {
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          issue_details: Json | null
+          issue_title: string
+          issue_type: string
+          source_insight_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          issue_details?: Json | null
+          issue_title: string
+          issue_type: string
+          source_insight_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          issue_details?: Json | null
+          issue_title?: string
+          issue_type?: string
+          source_insight_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_action_ledger_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_action_ledger_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_highlight_metadata: {
         Row: {
           category_name: string
