@@ -140,16 +140,16 @@ export function AiDoctorRadar() {
   // Deduplicate: keep only latest scan per athlete
   const latestInsights = useMemo(() => {
     const latestTimestampByAthlete = new Map<string, string>();
-    for (const i of insights) {
+    for (const i of visibleInsights) {
       const existing = latestTimestampByAthlete.get(i.athlete_id);
       if (!existing || i.created_at > existing) {
         latestTimestampByAthlete.set(i.athlete_id, i.created_at);
       }
     }
-    return insights.filter(
+    return visibleInsights.filter(
       (i) => i.created_at === latestTimestampByAthlete.get(i.athlete_id)
     );
-  }, [insights]);
+  }, [visibleInsights]);
 
   const grouped = useMemo(() => {
     const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
