@@ -150,7 +150,16 @@ export default function Alerts() {
       athlete_id: intervention.athlete_id,
       issue_title: intervention.title,
       issue_type: issueType,
-      issue_details: { analysis: intervention.analysis, athlete_name: intervention.athlete_name },
+      issue_details: {
+        description: intervention.analysis,
+        detailed_analysis: intervention.analysis,
+        athlete_name: intervention.athlete_name,
+        severity: intervention.severity,
+        created_at: intervention.created_at,
+        source: "alerts_ai_intervention_queue",
+        suggested_manual_actions: [],
+        biometric_context: "",
+      },
       source_insight_id: intervention.id,
       status,
     });
