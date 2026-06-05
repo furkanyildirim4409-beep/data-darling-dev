@@ -24,13 +24,6 @@ import {
   EyeOff,
   ListPlus,
   Zap,
-  Dumbbell,
-  Pill,
-  UtensilsCrossed,
-  MessageSquare,
-  CheckCircle2,
-  X,
-  Sparkles,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
