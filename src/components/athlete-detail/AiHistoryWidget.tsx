@@ -433,17 +433,31 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 return (
                   <div
                     key={insight.id}
-                    className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor}`}
+                    className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor} ${
+                      (ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored')
+                        ? 'opacity-50 grayscale-[0.2] pointer-events-none transition-all'
+                        : ''
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.textColor}`} />
                       <div className="min-w-0 w-full">
-                        <p className="text-sm font-semibold text-foreground mb-1">
-                          {insight.title}
+                        <p className="text-sm font-semibold text-foreground mb-1 flex items-center flex-wrap gap-1">
+                          <span>{insight.title}</span>
+                          {ledgerMap[insight.id] === 'resolved' && (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ml-2">
+                              🟢 Çözüldü
+                            </Badge>
+                          )}
+                          {ledgerMap[insight.id] === 'ignored' && (
+                            <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 ml-2">
+                              ⚪ Yok Sayıldı
+                            </Badge>
+                          )}
                         </p>
 
                         {/* Action Buttons */}
-                        {insight.actions.length > 0 && (
+                        {!(ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored') && insight.actions.length > 0 && (
                           <div className="flex items-center gap-1.5 flex-wrap mt-2 mb-2">
                             {insight.actions.map((action, idx) => {
                               const isActionCompleted = action.completed === true;
@@ -480,6 +494,31 @@ export function AiHistoryWidget({ athleteId }: Props) {
                                 </Button>
                               );
                             })}
+                          </div>
+                        )}
+
+                        {/* Inline Intervention Bar */}
+                        {!(ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored') && (
+                          <div className="flex items-center gap-2 mt-2 mb-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-[10px] gap-1 px-2 py-0.5 border-primary/30 text-primary hover:bg-primary/10"
+                              onClick={() => navigate('/alerts')}
+                            >
+                              <Zap className="w-3 h-3" />
+                              Müdahale Et
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-[10px] gap-1 px-2 py-0.5 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              onClick={() => dismissMutation.mutate(insight)}
+                              disabled={dismissMutation.isPending}
+                            >
+                              <XCircle className="w-3 h-3" />
+                              Yok Say
+                            </Button>
                           </div>
                         )}
 
