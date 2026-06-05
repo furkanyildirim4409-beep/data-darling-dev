@@ -52,7 +52,7 @@ interface AiIntervention {
   created_at: string;
 }
 
-type ChecklistStatus = "done" | "dismissed";
+
 
 type LedgerStatus = "pending" | "ignored";
 
