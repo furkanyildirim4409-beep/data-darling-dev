@@ -458,10 +458,13 @@ export function AiHistoryWidget({ athleteId }: Props) {
       <Dialog open={!!selectedSeverity} onOpenChange={() => setSelectedSeverity(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               {selectedSeverity && (() => {
                 const config = severityConfig[selectedSeverity];
                 const Icon = config.icon;
+                const handledCount = selectedSeverity === 'low'
+                  ? 0
+                  : filteredBySelection.filter((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored').length;
                 return (
                   <>
                     <Icon className={`w-5 h-5 ${config.textColor}`} />
@@ -469,6 +472,9 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     <Badge variant="outline" className={`ml-auto ${config.badgeCls}`}>
                       {filteredBySelection.length} bulgu
                     </Badge>
+                    {selectedSeverity !== 'low' && (
+                      <SessionProgressBadge total={filteredBySelection.length} handled={handledCount} />
+                    )}
                   </>
                 );
               })()}
