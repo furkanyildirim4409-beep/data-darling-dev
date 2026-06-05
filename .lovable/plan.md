@@ -1,46 +1,42 @@
-# Restore Legacy Action Cards as Manual Checklist (Alerts.tsx)
+# Re-route AI Actions to Ledger + Decision Modal
 
-## Scope
-Single file: `src/pages/Alerts.tsx`. No DB schema, no edge function, no other files.
+## A. `src/pages/Alerts.tsx` — Top queue cleanup
 
-## Changes
+1. Delete the entire `{intervention.actions && intervention.actions.length > 0 && (...)}` checklist block (~lines 458–end of that block) including the per-action Done/Dismiss buttons and the `toggleChecklist` / `actionStatus` state plumbing tied to it (only the rendering — keep `AiActionItem` type and the `actions` field on `AiIntervention` because we still need to ship it to the ledger).
+2. Remove now-unused icon imports (`Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `CheckCircle2`, `Sparkles`) and the `useNavigate` import if nothing else uses it. Keep `X` only if still referenced.
+3. In `handleTriageAction` (the `[Listeye Ekle]` insert), change `suggested_manual_actions: []` to `suggested_manual_actions: intervention.actions ?? []` so the full structured action list (type/title/label/payload/description/is_quantitative) is persisted into `issue_details` JSONB.
+4. Top card visual stays: title, severity badge, analysis text, expand-details, and the `[Yok Say]` / `[Listeye Ekle]` popover. Nothing else.
 
-### 1. Imports
-- Add lucide icons: `Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `CheckCircle2`, `X`, `Sparkles`.
-- Add `useNavigate` from `react-router-dom`, initialized as `const navigate = useNavigate();` near other hooks.
+## B. `src/components/dashboard/ActionLedgerDesk.tsx` — Bottom accordion overhaul
 
-### 2. Data shape
-- Extend `AiIntervention` type with `actions: Array<{ type: string; label?: string; title?: string; payload?: string; description?: string; is_quantitative?: boolean }>`.
-- Update `fetchAiInterventions` Supabase select to include `actions` (currently fetches `id, athlete_id, athlete_name, severity, title, analysis, created_at`). Backend (`ai_weekly_analyses.actions`) already populated by `ai-doctor` edge function with `{ type, label, payload, is_quantitative }`.
+1. Add imports: `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter` from `@/components/ui/dialog`; `useNavigate` from `react-router-dom`; icons `Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `Sparkles`, `Zap`.
+2. Extend `LedgerDetails` (or inline in the row): for each pending row, read `issue_details.suggested_manual_actions` as an array of `{ type?, title?, label?, description?, payload? }`. If non-empty, render each as a clickable premium sub-card (icon by type/title text match — program→Dumbbell, supplement→Pill, nutrition/macro→UtensilsCrossed, message/chat→MessageSquare, fallback→Sparkles). Style with `bg-card/60 border-border hover:border-primary/40 hover:bg-primary/5` and an `active:scale-[0.99]` transition.
+3. Visually hide an action sub-card (or strike-through + opacity-50) when its title is present in `issue_details.dismissed_actions: string[]`.
+4. Component-level state:
+   - `const [selectedAction, setSelectedAction] = useState<{ row: LedgerRow; action: ManualAction } | null>(null)`
+   - `const [dismissBusy, setDismissBusy] = useState(false)`
+5. Sub-card `onClick` → `setSelectedAction({ row, action })`.
 
-### 3. Per-action local checklist state
-- Add `const [actionStatus, setActionStatus] = useState<Record<string, "done" | "dismissed">>({})`.
-- Key format: `${intervention.id}:${idx}`.
-- Pure local state for this session — no DB write (matches spec "or local state tracking for that session"). Avoids polluting `coach_action_ledger` (which is per-insight, not per-sub-action).
+## C. Decision Modal (mounted once at component root)
 
-### 4. Render the checklist
-Inside the existing `aiInterventions.map(...)` card, append the block from the spec **after** the existing "Detaylı Analizi Gör" expand button. Adapt:
-- Icon/type detection: support both legacy enum (`program`/`nutrition`/`supplement`/`message`) and the spec's `update_*` variants via `includes()`.
-- Display text: `action.label ?? action.title` for title; `action.payload ?? action.description` for subtext.
-- Wire Done/Dismiss buttons to `setActionStatus`. Visual states:
-  - `done` → opacity-50 + line-through on title, green check filled.
-  - `dismissed` → opacity-40 + line-through, red X filled.
-  - Buttons remain clickable to toggle back to neutral.
-- Deep-link `onClick` calls `navigate(\`/athletes/${intervention.athlete_id}?tab=${targetRoute}\`)`.
+`<Dialog open={!!selectedAction} onOpenChange={(o) => !o && setSelectedAction(null)}>` with `DialogContent` containing:
 
-### 5. Styling discipline
-Replace raw color classes from the spec snippet (`text-blue-400`, `bg-white/[0.02]`, `text-destructive/80`, etc.) with project semantic tokens where the design system has equivalents:
-- Containers: `bg-card/40`, `border-border` (matches existing card style in this file).
-- Icon colors: keep `text-primary` (program), `text-emerald-500` (nutrition), `text-purple-400` (supplement), `text-warning` (message) — these mirror palettes already used elsewhere in the file (`text-warning`, `text-destructive`, `text-primary`).
-- Done button: `text-emerald-500 hover:bg-emerald-500/10`.
-- Dismiss button: `text-destructive hover:bg-destructive/10 border-border`.
+- Header: icon + `action.title || action.label`, `DialogDescription` showing `action.description` (whitespace-pre-line, max-h with scroll).
+- Footer two buttons:
+  1. **`[⚡ Profile Git ve Uygula]`** (primary): resolves a tab from action type/title (`program` | `nutrition` | `supplements` | `chat`, default `program`) → `navigate(`/athletes/${selectedAction.row.athlete_id}?tab=${tab}`)`, then `setSelectedAction(null)`.
+  2. **`[🔴 Bu Öneriyi Yok Say]`** (destructive variant): async handler:
+     - `setDismissBusy(true)`
+     - Compute `nextDetails = { ...row.issue_details, dismissed_actions: [...(row.issue_details?.dismissed_actions ?? []), action.title || action.label] }`
+     - `await supabase.from("coach_action_ledger").update({ issue_details: nextDetails }).eq("id", row.id)`
+     - On success: optimistically patch `rows` state, toast `"Öneri yok sayıldı"`, close modal. On error: toast destructive, keep modal open.
 
-### 6. Out of scope
-- No change to triage popover (Yok Say / Listeye Ekle) — kept as-is.
-- No change to `ActionLedgerDesk`, `AiDoctorRadar`, or migrations.
-- No re-introduction of `executeAiAction` / `MutationConfigDialog`.
+## D. Types & safety
 
-## Technical notes
-- `useNavigate` must be called at component top level, not inside the map callback.
-- Local state resets when the intervention is triaged out (acceptable — card unmounts).
-- Type cast `action` as the local type to keep TS strict-safe; avoid `any`.
+- Local `type ManualAction = { type?: string; title?: string; label?: string; description?: string; payload?: string }` inside `ActionLedgerDesk.tsx`.
+- Narrow `issue_details` access via small helper `getActions(details)` and `getDismissed(details)` that guard against non-array values.
+- No DB schema changes; `issue_details` is already JSONB.
+
+## Out of scope
+
+- No changes to `AiDoctorRadar`, `executeAiAction`, `MutationConfigDialog`, edge functions, RLS, or migrations.
+- No changes to the top queue popover behavior beyond persisting `actions` into the ledger payload.
