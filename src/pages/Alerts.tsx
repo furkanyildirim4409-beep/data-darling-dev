@@ -200,7 +200,7 @@ export default function Alerts() {
         severity: intervention.severity,
         created_at: intervention.created_at,
         source: "alerts_ai_intervention_queue",
-        suggested_manual_actions: [],
+        suggested_manual_actions: intervention.actions ?? [],
         biometric_context: "",
       },
       source_insight_id: intervention.id,
