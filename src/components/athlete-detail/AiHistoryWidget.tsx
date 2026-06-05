@@ -30,6 +30,8 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Zap,
+  XCircle,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { executeAiAction, type AiAction } from "@/services/ActionEngine";
