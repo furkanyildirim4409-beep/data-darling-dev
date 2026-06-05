@@ -367,6 +367,11 @@ export function AiHistoryWidget({ athleteId }: Props) {
         </CardHeader>
 
         <CardContent>
+          {sessionInsights.length > 0 && sessionInsights.every((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored') && (
+            <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
+              ✅ Bu Raporun Tüm Sorunları Çözüldü
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-3">
             {(["high", "medium", "low"] as SeverityKey[]).map((severity) => {
               const config = severityConfig[severity];
