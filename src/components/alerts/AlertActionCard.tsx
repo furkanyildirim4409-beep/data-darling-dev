@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Notification } from "@/types/shared-models";
-import { ProgramSelectModal } from "./ProgramSelectModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { sendCheckinReminder } from "@/utils/checkinReminder";
 
 interface AlertActionCardProps {
   alert: Notification;
@@ -48,19 +49,29 @@ const alertConfig: Record<
 
 export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
   const navigate = useNavigate();
+  const { activeCoachId } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
-  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
-  
+
   const level = alert.level || "info";
   const config = alertConfig[level];
   const Icon = config.icon;
 
-  const handleRemind = () => {
-    toast({
-      title: "Hatırlatma Gönderildi",
-      description: "Mail başarıyla gönderildi.",
-    });
+  const handleRemind = async () => {
+    if (!alert.athleteId) {
+      toast({ title: "Hata", description: "Sporcu bulunamadı.", variant: "destructive" });
+      return;
+    }
+    setIsSending(true);
+    try {
+      await sendCheckinReminder(alert.athleteId, activeCoachId ?? null);
+      toast({ title: "Hatırlatma gönderildi" });
+    } catch {
+      toast({ title: "Hata", description: "Bildirim gönderilemedi.", variant: "destructive" });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleGoToProfile = () => {
@@ -72,9 +83,11 @@ export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
   };
 
   const handleRefreshProgram = () => {
-    // Extract athlete name from title
-    const athleteName = alert.title.split(" - ")[0] || "Sporcu";
-    setIsProgramModalOpen(true);
+    if (alert.athleteId) {
+      navigate(`/athletes/${alert.athleteId}?tab=program`);
+    } else {
+      navigate("/athletes");
+    }
   };
 
   const handleDismiss = () => {
