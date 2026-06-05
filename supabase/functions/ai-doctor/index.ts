@@ -113,7 +113,47 @@ serve(async (req) => {
       patientHistory: historyRes.data || [],
     };
 
-    // ── 5. Call Gemini Flash via Lovable AI Gateway ──
+    // ── 5. Fetch coach rejection memory (last 14 days) ──
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    let rejectionContext = "";
+    try {
+      const { data: ledgerRows, error: ledgerErr } = await adminClient
+        .from("coach_action_ledger")
+        .select("issue_title, issue_details, status, created_at")
+        .eq("coach_id", coachId)
+        .eq("athlete_id", athleteId)
+        .gte("created_at", fourteenDaysAgo)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (ledgerErr) {
+        console.warn("[ai-doctor] ledger fetch failed:", ledgerErr.message);
+      } else if (ledgerRows && ledgerRows.length > 0) {
+        const rejected: string[] = [];
+        for (const row of ledgerRows) {
+          if (row.status === "ignored" && row.issue_title) {
+            rejected.push(String(row.issue_title));
+          }
+          const details = row.issue_details as Record<string, unknown> | null;
+          const dismissed = details?.dismissed_actions;
+          if (Array.isArray(dismissed)) {
+            for (const d of dismissed) {
+              if (typeof d === "string" && d.trim()) rejected.push(d.trim());
+            }
+          }
+        }
+        const unique = Array.from(new Set(rejected)).slice(0, 25);
+        if (unique.length > 0) {
+          rejectionContext = `CRITICAL CONTEXT: The coach previously MANUALLY REJECTED or IGNORED the following recommendations for this athlete in the past 14 days:\n${unique
+            .map((u) => `- ${u}`)
+            .join("\n")}\nDO NOT recommend these exact same actions again this week unless biometric data indicates a critical, life-threatening deviation. Adapt your strategy based on the coach's past rejections.`;
+        }
+      }
+    } catch (e) {
+      console.warn("[ai-doctor] ledger memory loop skipped:", (e as Error).message);
+    }
+
+    // ── 6. Call Gemini via Lovable AI Gateway ──
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -153,6 +193,17 @@ is_quantitative KURALI (ZORUNLU):
 - Eğer eylem matematiksel olarak yüzde ile artırılıp azaltılabilecek bir şeyse (Örn: Antrenman hacmi, kalori, makro) → is_quantitative: true
 - Eğer eylem sadece bir direktif veya tebrik mesajı ise → is_quantitative: false`;
 
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+    if (rejectionContext) {
+      messages.push({ role: "system", content: rejectionContext });
+    }
+    messages.push({
+      role: "user",
+      content: `${athleteName} adlı sporcunun son 7 günlük verileri:\n${JSON.stringify(snapshot, null, 2)}`,
+    });
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -160,14 +211,9 @@ is_quantitative KURALI (ZORUNLU):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `${athleteName} adlı sporcunun son 7 günlük verileri:\n${JSON.stringify(snapshot, null, 2)}`,
-          },
-        ],
+        model: "google/gemini-3-flash-preview",
+        temperature: 0.4,
+        messages,
         tools: [
           {
             type: "function",

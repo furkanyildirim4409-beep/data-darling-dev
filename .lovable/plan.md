@@ -1,42 +1,50 @@
-# Re-route AI Actions to Ledger + Decision Modal
+# AI Doctor: Model Upgrade + Rejection Memory Loop
 
-## A. `src/pages/Alerts.tsx` — Top queue cleanup
+## A. Model upgrade (`supabase/functions/ai-doctor/index.ts`)
 
-1. Delete the entire `{intervention.actions && intervention.actions.length > 0 && (...)}` checklist block (~lines 458–end of that block) including the per-action Done/Dismiss buttons and the `toggleChecklist` / `actionStatus` state plumbing tied to it (only the rendering — keep `AiActionItem` type and the `actions` field on `AiIntervention` because we still need to ship it to the ledger).
-2. Remove now-unused icon imports (`Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `CheckCircle2`, `Sparkles`) and the `useNavigate` import if nothing else uses it. Keep `X` only if still referenced.
-3. In `handleTriageAction` (the `[Listeye Ekle]` insert), change `suggested_manual_actions: []` to `suggested_manual_actions: intervention.actions ?? []` so the full structured action list (type/title/label/payload/description/is_quantitative) is persisted into `issue_details` JSONB.
-4. Top card visual stays: title, severity badge, analysis text, expand-details, and the `[Yok Say]` / `[Listeye Ekle]` popover. Nothing else.
+Swap `google/gemini-2.5-flash` for `google/gemini-3-flash-preview` (the latest reasoning-grade Flash on the Lovable AI Gateway — `gemini-2.0-flash-thinking-exp` is not exposed by the Gateway, so we use the supported equivalent). Keep the existing tool-calling schema (Gemini constrained-decoding limits), and add a tight `temperature: 0.4` to nudge stricter clinical output. Do not add unsupported sampling params.
 
-## B. `src/components/dashboard/ActionLedgerDesk.tsx` — Bottom accordion overhaul
+## B. Rejection memory loop
 
-1. Add imports: `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter` from `@/components/ui/dialog`; `useNavigate` from `react-router-dom`; icons `Dumbbell`, `Pill`, `UtensilsCrossed`, `MessageSquare`, `Sparkles`, `Zap`.
-2. Extend `LedgerDetails` (or inline in the row): for each pending row, read `issue_details.suggested_manual_actions` as an array of `{ type?, title?, label?, description?, payload? }`. If non-empty, render each as a clickable premium sub-card (icon by type/title text match — program→Dumbbell, supplement→Pill, nutrition/macro→UtensilsCrossed, message/chat→MessageSquare, fallback→Sparkles). Style with `bg-card/60 border-border hover:border-primary/40 hover:bg-primary/5` and an `active:scale-[0.99]` transition.
-3. Visually hide an action sub-card (or strike-through + opacity-50) when its title is present in `issue_details.dismissed_actions: string[]`.
-4. Component-level state:
-   - `const [selectedAction, setSelectedAction] = useState<{ row: LedgerRow; action: ManualAction } | null>(null)`
-   - `const [dismissBusy, setDismissBusy] = useState(false)`
-5. Sub-card `onClick` → `setSelectedAction({ row, action })`.
+Before the LLM call, fetch the coach's rejection history for this athlete from `coach_action_ledger` (last 14 days) using the already-initialised `adminClient`:
 
-## C. Decision Modal (mounted once at component root)
+```ts
+const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+const { data: ledgerRows } = await adminClient
+  .from("coach_action_ledger")
+  .select("issue_title, issue_details, status, created_at")
+  .eq("coach_id", coachId)
+  .eq("athlete_id", athleteId)
+  .gte("created_at", fourteenDaysAgo)
+  .order("created_at", { ascending: false })
+  .limit(50);
+```
 
-`<Dialog open={!!selectedAction} onOpenChange={(o) => !o && setSelectedAction(null)}>` with `DialogContent` containing:
+Build a deduplicated string list of rejected/ignored signals:
+- Any row where `status === "ignored"` → push `issue_title`.
+- For every row, parse `issue_details.dismissed_actions` (array of strings) and push each entry.
+- `Array.from(new Set(...))`, truncate to ~25 items.
 
-- Header: icon + `action.title || action.label`, `DialogDescription` showing `action.description` (whitespace-pre-line, max-h with scroll).
-- Footer two buttons:
-  1. **`[⚡ Profile Git ve Uygula]`** (primary): resolves a tab from action type/title (`program` | `nutrition` | `supplements` | `chat`, default `program`) → `navigate(`/athletes/${selectedAction.row.athlete_id}?tab=${tab}`)`, then `setSelectedAction(null)`.
-  2. **`[🔴 Bu Öneriyi Yok Say]`** (destructive variant): async handler:
-     - `setDismissBusy(true)`
-     - Compute `nextDetails = { ...row.issue_details, dismissed_actions: [...(row.issue_details?.dismissed_actions ?? []), action.title || action.label] }`
-     - `await supabase.from("coach_action_ledger").update({ issue_details: nextDetails }).eq("id", row.id)`
-     - On success: optimistically patch `rows` state, toast `"Öneri yok sayıldı"`, close modal. On error: toast destructive, keep modal open.
+If the list is non-empty, append a dynamically constructed system message AFTER the existing `systemPrompt`:
 
-## D. Types & safety
+```
+CRITICAL CONTEXT: The coach previously MANUALLY REJECTED or IGNORED the following recommendations for this athlete in the past 14 days:
+- <item 1>
+- <item 2>
+...
+DO NOT recommend these exact same actions again this week unless biometric data indicates a critical, life-threatening deviation. Adapt your strategy based on the coach's past rejections.
+```
 
-- Local `type ManualAction = { type?: string; title?: string; label?: string; description?: string; payload?: string }` inside `ActionLedgerDesk.tsx`.
-- Narrow `issue_details` access via small helper `getActions(details)` and `getDismissed(details)` that guard against non-array values.
-- No DB schema changes; `issue_details` is already JSONB.
+Inject it as an additional `{ role: "system", content: rejectionContext }` message placed between the existing system prompt and the user message (so the base persona stays first, the memory layer comes second, then the data payload). When the list is empty, skip injection entirely — no empty headers.
+
+## C. Safety / compatibility
+
+- Wrap the ledger fetch in a try/catch-style guard (check `error`, log, then proceed without the memory layer) so an empty/missing `coach_action_ledger` table never breaks analysis.
+- Keep all other logic (auth, snapshot aggregation, auto-resolve, insert) unchanged.
+- No DB migrations, no client changes, no schema changes to `ai_weekly_analyses`.
 
 ## Out of scope
 
-- No changes to `AiDoctorRadar`, `executeAiAction`, `MutationConfigDialog`, edge functions, RLS, or migrations.
-- No changes to the top queue popover behavior beyond persisting `actions` into the ledger payload.
+- `generate-ai-program` and other functions (only `ai-doctor` produces `aiInterventions`).
+- UI changes in `Alerts.tsx` / `ActionLedgerDesk.tsx`.
+- New tables, columns, or RLS edits.
