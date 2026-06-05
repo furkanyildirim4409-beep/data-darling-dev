@@ -456,46 +456,8 @@ export function AiHistoryWidget({ athleteId }: Props) {
                           )}
                         </p>
 
-                        {/* Action Buttons */}
-                        {!(ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored') && insight.actions.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap mt-2 mb-2">
-                            {insight.actions.map((action, idx) => {
-                              const isActionCompleted = action.completed === true;
-                              const isActionResolving = resolvingIds.has(`${insight.id}-${action.label}`);
-                              const ActionIcon = actionTypeIcons[action.type] || Sparkles;
-                              const colorCls = actionColors[action.type] || "border-border text-foreground hover:bg-secondary";
+                        {/* Action Buttons removed — coaches now intervene via /alerts ledger */}
 
-                              if (isActionCompleted) {
-                                return (
-                                  <Button
-                                    key={idx}
-                                    variant="outline"
-                                    size="sm"
-                                    disabled
-                                    className="text-[10px] gap-1 px-2 py-0.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 opacity-80 cursor-not-allowed"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    {action.label}
-                                  </Button>
-                                );
-                              }
-
-                              return (
-                                <Button
-                                  key={idx}
-                                  variant="outline"
-                                  size="sm"
-                                  className={`text-[10px] gap-1 px-2 py-0.5 border ${colorCls}`}
-                                  onClick={() => handleActionClick(insight.id, action)}
-                                  disabled={isActionResolving}
-                                >
-                                  <ActionIcon className="w-3 h-3" />
-                                  {isActionResolving ? "İşleniyor..." : action.label}
-                                </Button>
-                              );
-                            })}
-                          </div>
-                        )}
 
                         {/* Inline Intervention Bar */}
                         {!(ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored') && (
