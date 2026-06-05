@@ -33,6 +33,7 @@ import {
   MessageSquare,
   Sparkles,
   Zap,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -375,6 +376,11 @@ export function ActionLedgerDesk() {
                           {g.rows.map((r) => {
                             const actions = getActions(r.issue_details);
                             const dismissed = getDismissed(r.issue_details);
+                            const details = (r.issue_details ?? {}) as Record<string, unknown>;
+                            const description =
+                              (typeof details.description === "string" && details.description) ||
+                              (typeof details.detailed_analysis === "string" && details.detailed_analysis) ||
+                              "";
                             return (
                               <motion.div
                                 key={r.id}
@@ -416,6 +422,24 @@ export function ActionLedgerDesk() {
                                     </Button>
                                   </div>
                                 </div>
+
+                                {description && (
+                                  <Accordion type="single" collapsible className="mt-2">
+                                    <AccordionItem value="detail" className="border-0">
+                                      <AccordionTrigger className="py-1.5 px-2 rounded-md bg-card/60 hover:bg-card hover:no-underline text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                                        <span className="flex items-center gap-1.5">
+                                          <FileText className="w-3 h-3" />
+                                          Detay Gör
+                                        </span>
+                                      </AccordionTrigger>
+                                      <AccordionContent className="pt-2 pb-1">
+                                        <p className="text-xs text-foreground/80 whitespace-pre-line leading-relaxed px-2">
+                                          {description}
+                                        </p>
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  </Accordion>
+                                )}
 
                                 {actions.length > 0 && (
                                   <div className="mt-3 pt-3 border-t border-border space-y-1.5">
