@@ -1,55 +1,72 @@
-## Plan: Fix badge placement & isolate positive items in AiHistoryWidget
+## Goal
+Upgrade `/alerts` so coaches can (A) jump straight to an athlete's program tab from program alerts, (B) send a one-tap check-in reminder (inbox row + push), and (C) fire those reminders in bulk when the "Check-in Yapmayanlar" filter is active.
 
-File: `src/components/athlete-detail/AiHistoryWidget.tsx`
+## Schema note (important deviation from spec)
+The existing `public.athlete_notifications` table uses columns: `athlete_id`, `coach_id`, `title`, `message`, `type`, `is_read`, `source_insight_id`, `metadata`, `action_url` — NOT `profile_id`/`body`/`category` as in the spec. The implementation will use the real column names. No migration needed.
 
-### Context mapping
-The spec references "Kritik Bulgular" / "Dikkat Edilmesi Gerekenler" category headers, but this widget doesn't render per-category sections in the card. It renders:
-- A 3-tile severity grid (high / medium / low) in the main card
-- A Dialog (opened when a tile is clicked) that lists items for the selected severity
+## Files touched
+- `src/components/alerts/AlertActionCard.tsx`
+- `src/pages/Alerts.tsx`
 
-So the "category header" the spec wants is the **Dialog header** (one severity at a time) and the severity **tiles** in the grid. The spec's intent translates cleanly to those two places.
+## A. Deep-link "Programı Yenile" (AlertActionCard.tsx)
+- `useNavigate` is already imported.
+- Replace `handleRefreshProgram` (currently opens `ProgramSelectModal`) with:
+  ```ts
+  if (alert.athleteId) navigate(`/athletes/${alert.athleteId}?tab=program`);
+  else navigate('/athletes');
+  ```
+- Remove the now-unused `ProgramSelectModal` import, `isProgramModalOpen` state, and its JSX render. Drop the unused `athleteName` variable too.
 
-### Changes
+## B. Single "Hatırlat" reminder (AlertActionCard.tsx)
+- Add `useAuth` to grab `activeCoachId`.
+- New handler `handleRemindSingle` invoked from the existing "Hatırlat" button (currently `handleRemind`, which only toasts). Used by both `payment` and `checkin` cases (the latter is the primary target; keep behavior identical so the payment "Hatırlat" also benefits).
+  ```ts
+  const handleRemindSingle = async () => {
+    if (!alert.athleteId) { toast({ title: "Hata", description: "Sporcu bulunamadı.", variant: "destructive" }); return; }
+    try {
+      await supabase.from('athlete_notifications').insert({
+        athlete_id: alert.athleteId,
+        coach_id: activeCoachId ?? null,
+        title: "Check-in Zamanı! ⚡",
+        message: "Koçunuz form durumunuzu incelemek için check-in yapmanızı bekliyor.",
+        type: 'checkin_reminder',
+        is_read: false,
+      });
+      await supabase.functions.invoke('send-chat-push', {
+        body: { userId: alert.athleteId, title: "Check-in Zamanı!", body: "Koçunuz form verilerinizi bekliyor." },
+      }).catch(() => {}); // silent push failure tolerated
+      toast({ title: "Hatırlatma gönderildi" });
+    } catch {
+      toast({ title: "Hata", description: "Bildirim gönderilemedi.", variant: "destructive" });
+    }
+  };
+  ```
+- Wire it to the `checkin` (and `payment`) "Hatırlat" buttons in `getActionButtons`.
+- Export `handleRemindSingle`-equivalent logic from a shared helper module `src/utils/checkinReminder.ts` so the bulk marquee in `Alerts.tsx` can reuse it without duplicating SQL. The helper signature: `sendCheckinReminder(athleteId: string, coachId: string | null): Promise<void>`.
 
-**A. Strict issue math — exclude `low` (positive)**
+## C. Bulk "Tümü İçin Gönder" marquee (Alerts.tsx)
+- Note: the spec mentions `aiInterventions` for the bulk action, but "Check-in Yapmayanlar" is a `quickFilter` mapped to `checkinAlerts` (not AI interventions). The marquee will iterate the currently filtered **check-in alerts** — that matches user intent ("send reminder to everyone missing a check-in").
+- Condition to render the bar (above the alerts list inside the `lg:col-span-2` column, before the type-filter tabs):
+  ```tsx
+  {quickFilter === 'checkin' && filteredAlerts.length > 1 && (
+    <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold tracking-widest shadow-[0_0_15px_rgba(249,115,22,0.3)] mb-4" onClick={handleBulkRemind} disabled={bulkSending}>
+      <Zap className="w-4 h-4 mr-2" />
+      {bulkSending ? 'GÖNDERİLİYOR…' : `⚡ TÜMÜ İÇİN GÖNDER: HATIRLAT (${uniqueAthleteIds.length})`}
+    </Button>
+  )}
+  ```
+- `handleBulkRemind`:
+  ```ts
+  const ids = Array.from(new Set(filteredAlerts.map(a => a.athleteId).filter(Boolean))) as string[];
+  setBulkSending(true);
+  const results = await Promise.allSettled(ids.map(id => sendCheckinReminder(id, activeCoachId ?? null)));
+  setBulkSending(false);
+  const ok = results.filter(r => r.status === 'fulfilled').length;
+  toast({ title: 'Toplu hatırlatma', description: `${ok}/${ids.length} sporcuya gönderildi.` });
+  ```
+- Add `bulkSending` state and reuse existing `Zap` import.
 
-Add per-severity helpers:
-```ts
-const highIssues = sessionInsights.filter(i => i.severity === 'high');
-const mediumIssues = sessionInsights.filter(i => i.severity === 'medium');
-const countHandled = (arr: AiInsight[]) =>
-  arr.filter(i => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored').length;
-const highHandled = countHandled(highIssues);
-const mediumHandled = countHandled(mediumIssues);
-```
-
-Update `computeProgress` (used by `SessionProgressBadge` in the main `CardHeader` and in each `SelectItem`) to exclude `low`:
-```ts
-const actionable = items.filter(i => i.severity === 'high' || i.severity === 'medium');
-```
-This keeps the dropdown/header badge accurate (positives never inflate totals or get counted as "unresolved").
-
-Update the "✅ Bu Raporun Tüm Sorunları Çözüldü" full-width banner gate to also use only actionable items so positives don't block the success state.
-
-**B. Move badge to category headers (= dialog header + severity tiles)**
-
-- **Remove** the `SessionProgressBadge` from the main `CardHeader`'s left cluster (the floating one next to "X tarama kaydı"). Keep it inside each `SelectItem` (still useful for picking a session).
-- **Add** a small per-severity badge under each tile in the 3-tile grid for `high` and `medium` only (none for `low`), e.g. `X/Y Çözüldü` in amber, or `✨ Tamamı Çözüldü` in emerald. Shown only when `count > 0`.
-- **Add** a per-severity badge in the **Dialog header** (which acts as "Kritik Bulgular" / "Dikkat Edilmesi Gerekenler" header) for `high`/`medium`. For `low`, render no progress badge (positive isn't a problem to resolve).
-
-Badge logic mirrors spec:
-- `handled === total` → emerald `✨ Tamamı Çözüldü`
-- `0 < handled < total` → amber `{total} Sorundan {handled} Çözüldü`
-- Otherwise: nothing
-
-**C. Isolate positive interventions in the dialog list**
-
-In the dialog item `.map`:
-- Gate the inline intervention bar (`Müdahale Et` / `Yok Say`) on `(severity === 'high' || severity === 'medium') && !ledgerMap[id]`. Current code only checks the ledger; this adds the severity guard so `low`/positive items never show action buttons.
-- Remove the dimmed/clickable styling for `low` items (they're not "handled problems", they're informational). Dimmed style stays only for `high`/`medium` that are resolved/ignored.
-- Keep the "Detaylı Analizi Gör/Gizle" toggle for all severities — positives remain fully readable, just read-only.
-
-### Not changing
-- Data fetching, `ledgerMap` derivation, `dismissMutation`, `executeAiAction`, `MutationConfigDialog`.
-- Severity tile grid structure, dialog open/close flow, expandable analysis.
-- `TimelineAI.tsx` — no `interventions`/`ledgerMap` concept; spec doesn't apply there.
+## Out of scope
+- No DB migration (table already exists with required columns).
+- AthleteDetail `?tab=program` already-handled assumption: navigation works; if the page doesn't read the query param yet, the route still lands on the athlete page — separate ticket if tab auto-select is needed.
+- `ProgramSelectModal` file is left in place (other callers may exist); only this widget stops mounting it.
