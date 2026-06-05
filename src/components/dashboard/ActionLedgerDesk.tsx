@@ -423,6 +423,24 @@ export function ActionLedgerDesk() {
                                   </div>
                                 </div>
 
+                                {description && (
+                                  <Accordion type="single" collapsible className="mt-2">
+                                    <AccordionItem value="detail" className="border-0">
+                                      <AccordionTrigger className="py-1.5 px-2 rounded-md bg-card/60 hover:bg-card hover:no-underline text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                                        <span className="flex items-center gap-1.5">
+                                          <FileText className="w-3 h-3" />
+                                          Detay Gör
+                                        </span>
+                                      </AccordionTrigger>
+                                      <AccordionContent className="pt-2 pb-1">
+                                        <p className="text-xs text-foreground/80 whitespace-pre-line leading-relaxed px-2">
+                                          {description}
+                                        </p>
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  </Accordion>
+                                )}
+
                                 {actions.length > 0 && (
                                   <div className="mt-3 pt-3 border-t border-border space-y-1.5">
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
