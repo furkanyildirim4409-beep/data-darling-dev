@@ -378,10 +378,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
                   {sessionDates.length} tarama kaydı
                 </p>
               </div>
-              {(() => {
-                const { total, handled } = computeProgress(sessionInsights);
-                return <SessionProgressBadge total={total} handled={handled} />;
-              })()}
             </div>
 
             <Select
