@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast as sonnerToast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +119,7 @@ interface Props {
 
 export function AiHistoryWidget({ athleteId }: Props) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
@@ -124,6 +127,52 @@ export function AiHistoryWidget({ athleteId }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
   const [pendingAction, setPendingAction] = useState<{ id: string; action: AiAction } | null>(null);
+
+  const { data: ledgerActions } = useQuery({
+    queryKey: ['coach_action_ledger', athleteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coach_action_ledger')
+        .select('source_insight_id, status')
+        .eq('athlete_id', athleteId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!athleteId,
+  });
+
+  const ledgerMap = useMemo(() => {
+    return (ledgerActions || []).reduce((acc, row: any) => {
+      if (row.source_insight_id) acc[row.source_insight_id] = row.status;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [ledgerActions]);
+
+  const dismissMutation = useMutation({
+    mutationFn: async (intervention: AiInsight) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase.from('coach_action_ledger').insert({
+        coach_id: user.id,
+        athlete_id: athleteId,
+        source_insight_id: intervention.id,
+        issue_title: intervention.title,
+        issue_type: intervention.severity === 'high' ? 'biometric_anomaly' : 'low_adherence',
+        status: 'ignored',
+        issue_details: {
+          description: intervention.analysis,
+          source: 'athlete_profile_direct',
+        },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coach_action_ledger', athleteId] });
+      sonnerToast.success('Sorun yok sayıldı ve loglara eklendi.');
+    },
+    onError: (err: any) => {
+      sonnerToast.error(err?.message || 'Yok sayma işlemi başarısız.');
+    },
+  });
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
