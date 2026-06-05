@@ -70,19 +70,6 @@ export default function Alerts() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-  const [actionStatus, setActionStatus] = useState<Record<string, ChecklistStatus>>({});
-
-  const toggleChecklist = (key: string, next: ChecklistStatus) => {
-    setActionStatus((prev) => {
-      const copy = { ...prev };
-      if (copy[key] === next) {
-        delete copy[key];
-      } else {
-        copy[key] = next;
-      }
-      return copy;
-    });
-  };
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
