@@ -476,7 +476,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     key={insight.id}
                     className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor} ${
                       (ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored')
-                        ? 'opacity-50 grayscale-[0.2] pointer-events-none transition-all'
+                        ? 'opacity-45 grayscale-[0.35] bg-white/[0.01] hover:opacity-75 transition-opacity duration-200 cursor-pointer'
                         : ''
                     }`}
                   >
