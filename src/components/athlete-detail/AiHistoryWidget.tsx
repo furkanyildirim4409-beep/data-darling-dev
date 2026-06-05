@@ -284,24 +284,26 @@ export function AiHistoryWidget({ athleteId }: Props) {
   );
 
   const computeProgress = (items: AiInsight[]) => {
-    const total = items.length;
-    const resolved = items.filter((i) => ledgerMap[i.id] === 'resolved').length;
-    const ignored = items.filter((i) => ledgerMap[i.id] === 'ignored').length;
-    return { total, handled: resolved + ignored };
+    const actionable = items.filter((i) => i.severity === 'high' || i.severity === 'medium');
+    const total = actionable.length;
+    const handled = actionable.filter(
+      (i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored'
+    ).length;
+    return { total, handled };
   };
 
   const SessionProgressBadge = ({ total, handled }: { total: number; handled: number }) => {
     if (total === 0 || handled === 0) return null;
     if (handled === total) {
       return (
-        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[11px] font-bold font-sans tracking-widest uppercase px-2.5 py-1">
+        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-bold font-sans tracking-widest uppercase px-2 py-0.5">
           ✨ Tamamı Çözüldü
         </Badge>
       );
     }
     return (
-      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[11px] font-bold font-sans tracking-wide px-2.5 py-1">
-        {total} Sorundan {handled} Sorun Çözüldü
+      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px] font-bold font-sans tracking-wide px-2 py-0.5">
+        {total} Sorundan {handled} Çözüldü
       </Badge>
     );
   };
@@ -376,10 +378,6 @@ export function AiHistoryWidget({ athleteId }: Props) {
                   {sessionDates.length} tarama kaydı
                 </p>
               </div>
-              {(() => {
-                const { total, handled } = computeProgress(sessionInsights);
-                return <SessionProgressBadge total={total} handled={handled} />;
-              })()}
             </div>
 
             <Select
@@ -408,16 +406,24 @@ export function AiHistoryWidget({ athleteId }: Props) {
         </CardHeader>
 
         <CardContent>
-          {sessionInsights.length > 0 && sessionInsights.every((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored') && (
-            <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
-              ✅ Bu Raporun Tüm Sorunları Çözüldü
-            </div>
-          )}
+          {(() => {
+            const actionable = sessionInsights.filter((i) => i.severity === 'high' || i.severity === 'medium');
+            const allHandled = actionable.length > 0 && actionable.every((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored');
+            return allHandled ? (
+              <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
+                ✅ Bu Raporun Tüm Sorunları Çözüldü
+              </div>
+            ) : null;
+          })()}
           <div className="grid grid-cols-3 gap-3">
             {(["high", "medium", "low"] as SeverityKey[]).map((severity) => {
               const config = severityConfig[severity];
               const Icon = config.icon;
-              const count = grouped[severity].length;
+              const items = grouped[severity];
+              const count = items.length;
+              const handled = severity === 'low'
+                ? 0
+                : items.filter((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored').length;
 
               return (
                 <button
@@ -437,21 +443,28 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     >
                       {config.label}
                     </Badge>
+                    {severity !== 'low' && count > 0 && (
+                      <SessionProgressBadge total={count} handled={handled} />
+                    )}
                   </div>
                 </button>
               );
             })}
           </div>
         </CardContent>
+
       </Card>
 
       <Dialog open={!!selectedSeverity} onOpenChange={() => setSelectedSeverity(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               {selectedSeverity && (() => {
                 const config = severityConfig[selectedSeverity];
                 const Icon = config.icon;
+                const handledCount = selectedSeverity === 'low'
+                  ? 0
+                  : filteredBySelection.filter((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored').length;
                 return (
                   <>
                     <Icon className={`w-5 h-5 ${config.textColor}`} />
@@ -459,6 +472,9 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     <Badge variant="outline" className={`ml-auto ${config.badgeCls}`}>
                       {filteredBySelection.length} bulgu
                     </Badge>
+                    {selectedSeverity !== 'low' && (
+                      <SessionProgressBadge total={filteredBySelection.length} handled={handledCount} />
+                    )}
                   </>
                 );
               })()}
@@ -471,11 +487,14 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 const config = severityConfig[sev];
                 const Icon = config.icon;
 
+                const isActionable = sev === 'high' || sev === 'medium';
+                const isHandled = ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored';
+
                 return (
                   <div
                     key={insight.id}
                     className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor} ${
-                      (ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored')
+                      isActionable && isHandled
                         ? 'opacity-45 grayscale-[0.35] bg-white/[0.01] hover:opacity-75 transition-opacity duration-200 cursor-pointer'
                         : ''
                     }`}
@@ -485,29 +504,26 @@ export function AiHistoryWidget({ athleteId }: Props) {
                       <div className="min-w-0 w-full">
                         <p className="text-sm font-semibold text-foreground mb-1 flex items-center flex-wrap gap-1">
                           <span>{insight.title}</span>
-                          {ledgerMap[insight.id] === 'resolved' && (
+                          {isActionable && ledgerMap[insight.id] === 'resolved' && (
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ml-2">
                               🟢 Çözüldü
                             </Badge>
                           )}
-                          {ledgerMap[insight.id] === 'ignored' && (
+                          {isActionable && ledgerMap[insight.id] === 'ignored' && (
                             <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 ml-2">
                               ⚪ Yok Sayıldı
                             </Badge>
                           )}
                         </p>
 
-                        {/* Action Buttons removed — coaches now intervene via /alerts ledger */}
-
-
-                        {/* Inline Intervention Bar */}
-                        {!(ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored') && (
+                        {/* Inline Intervention Bar — only for actionable (high/medium) and not yet handled */}
+                        {isActionable && !isHandled && (
                           <div className="flex items-center gap-2 mt-2 mb-2">
                             <Button
                               size="sm"
                               variant="outline"
                               className="text-[10px] gap-1 px-2 py-0.5 border-primary/30 text-primary hover:bg-primary/10"
-                              onClick={() => navigate('/alerts')}
+                              onClick={(e) => { e.stopPropagation(); navigate('/alerts'); }}
                             >
                               <Zap className="w-3 h-3" />
                               Müdahale Et
@@ -516,7 +532,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                               size="sm"
                               variant="outline"
                               className="text-[10px] gap-1 px-2 py-0.5 border-destructive/30 text-destructive hover:bg-destructive/10"
-                              onClick={() => dismissMutation.mutate(insight)}
+                              onClick={(e) => { e.stopPropagation(); dismissMutation.mutate(insight); }}
                               disabled={dismissMutation.isPending}
                             >
                               <XCircle className="w-3 h-3" />
@@ -524,6 +540,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                             </Button>
                           </div>
                         )}
+
 
                         {/* Collapsible Analysis */}
                         <button
