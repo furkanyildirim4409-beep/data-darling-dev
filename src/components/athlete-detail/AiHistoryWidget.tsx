@@ -284,24 +284,26 @@ export function AiHistoryWidget({ athleteId }: Props) {
   );
 
   const computeProgress = (items: AiInsight[]) => {
-    const total = items.length;
-    const resolved = items.filter((i) => ledgerMap[i.id] === 'resolved').length;
-    const ignored = items.filter((i) => ledgerMap[i.id] === 'ignored').length;
-    return { total, handled: resolved + ignored };
+    const actionable = items.filter((i) => i.severity === 'high' || i.severity === 'medium');
+    const total = actionable.length;
+    const handled = actionable.filter(
+      (i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored'
+    ).length;
+    return { total, handled };
   };
 
   const SessionProgressBadge = ({ total, handled }: { total: number; handled: number }) => {
     if (total === 0 || handled === 0) return null;
     if (handled === total) {
       return (
-        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[11px] font-bold font-sans tracking-widest uppercase px-2.5 py-1">
+        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-bold font-sans tracking-widest uppercase px-2 py-0.5">
           ✨ Tamamı Çözüldü
         </Badge>
       );
     }
     return (
-      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[11px] font-bold font-sans tracking-wide px-2.5 py-1">
-        {total} Sorundan {handled} Sorun Çözüldü
+      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px] font-bold font-sans tracking-wide px-2 py-0.5">
+        {total} Sorundan {handled} Çözüldü
       </Badge>
     );
   };
