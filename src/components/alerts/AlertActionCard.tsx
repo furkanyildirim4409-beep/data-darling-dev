@@ -215,8 +215,6 @@ export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
     }
   };
 
-  const athleteName = alert.title.split(" - ")[0] || "Sporcu";
-
   if (isDismissed) {
     return null;
   }
@@ -275,12 +273,6 @@ export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
           </div>
         </div>
       </div>
-
-      <ProgramSelectModal
-        open={isProgramModalOpen}
-        onOpenChange={setIsProgramModalOpen}
-        athleteName={athleteName}
-      />
     </>
   );
 }
