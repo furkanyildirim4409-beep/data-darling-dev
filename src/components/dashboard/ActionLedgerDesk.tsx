@@ -33,6 +33,7 @@ import {
   MessageSquare,
   Sparkles,
   Zap,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
