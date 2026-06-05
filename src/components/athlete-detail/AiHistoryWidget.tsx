@@ -267,6 +267,14 @@ export function AiHistoryWidget({ athleteId }: Props) {
     return Array.from(set).sort((a, b) => (b > a ? 1 : -1));
   }, [insights]);
 
+  const insightsBySession = useMemo(() => {
+    const map: Record<string, AiInsight[]> = {};
+    for (const i of insights) {
+      (map[i.created_at] ||= []).push(i);
+    }
+    return map;
+  }, [insights]);
+
   const sessionInsights = useMemo(
     () =>
       selectedSession
@@ -274,6 +282,29 @@ export function AiHistoryWidget({ athleteId }: Props) {
         : [],
     [insights, selectedSession]
   );
+
+  const computeProgress = (items: AiInsight[]) => {
+    const total = items.length;
+    const resolved = items.filter((i) => ledgerMap[i.id] === 'resolved').length;
+    const ignored = items.filter((i) => ledgerMap[i.id] === 'ignored').length;
+    return { total, handled: resolved + ignored };
+  };
+
+  const SessionProgressBadge = ({ total, handled }: { total: number; handled: number }) => {
+    if (total === 0 || handled === 0) return null;
+    if (handled === total) {
+      return (
+        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[11px] font-bold font-sans tracking-widest uppercase px-2.5 py-1">
+          ✨ Tamamı Çözüldü
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[11px] font-bold font-sans tracking-wide px-2.5 py-1">
+        {total} Sorundan {handled} Sorun Çözüldü
+      </Badge>
+    );
+  };
 
   const grouped = useMemo(() => {
     const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
@@ -345,6 +376,10 @@ export function AiHistoryWidget({ athleteId }: Props) {
                   {sessionDates.length} tarama kaydı
                 </p>
               </div>
+              {(() => {
+                const { total, handled } = computeProgress(sessionInsights);
+                return <SessionProgressBadge total={total} handled={handled} />;
+              })()}
             </div>
 
             <Select
@@ -356,11 +391,17 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 <SelectValue placeholder="Tarama seçin" />
               </SelectTrigger>
               <SelectContent>
-                {sessionDates.map((iso) => (
-                  <SelectItem key={iso} value={iso}>
-                    {formatSessionDate(iso)}
-                  </SelectItem>
-                ))}
+                {sessionDates.map((iso) => {
+                  const { total, handled } = computeProgress(insightsBySession[iso] || []);
+                  return (
+                    <SelectItem key={iso} value={iso}>
+                      <div className="flex items-center gap-2 w-full">
+                        <span>{formatSessionDate(iso)}</span>
+                        <SessionProgressBadge total={total} handled={handled} />
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -435,7 +476,7 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     key={insight.id}
                     className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor} ${
                       (ledgerMap[insight.id] === 'resolved' || ledgerMap[insight.id] === 'ignored')
-                        ? 'opacity-50 grayscale-[0.2] pointer-events-none transition-all'
+                        ? 'opacity-45 grayscale-[0.35] bg-white/[0.01] hover:opacity-75 transition-opacity duration-200 cursor-pointer'
                         : ''
                     }`}
                   >
