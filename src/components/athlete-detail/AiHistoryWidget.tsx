@@ -267,6 +267,14 @@ export function AiHistoryWidget({ athleteId }: Props) {
     return Array.from(set).sort((a, b) => (b > a ? 1 : -1));
   }, [insights]);
 
+  const insightsBySession = useMemo(() => {
+    const map: Record<string, AiInsight[]> = {};
+    for (const i of insights) {
+      (map[i.created_at] ||= []).push(i);
+    }
+    return map;
+  }, [insights]);
+
   const sessionInsights = useMemo(
     () =>
       selectedSession
@@ -274,6 +282,29 @@ export function AiHistoryWidget({ athleteId }: Props) {
         : [],
     [insights, selectedSession]
   );
+
+  const computeProgress = (items: AiInsight[]) => {
+    const total = items.length;
+    const resolved = items.filter((i) => ledgerMap[i.id] === 'resolved').length;
+    const ignored = items.filter((i) => ledgerMap[i.id] === 'ignored').length;
+    return { total, handled: resolved + ignored };
+  };
+
+  const SessionProgressBadge = ({ total, handled }: { total: number; handled: number }) => {
+    if (total === 0 || handled === 0) return null;
+    if (handled === total) {
+      return (
+        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[11px] font-bold font-sans tracking-widest uppercase px-2.5 py-1">
+          ✨ Tamamı Çözüldü
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[11px] font-bold font-sans tracking-wide px-2.5 py-1">
+        {total} Sorundan {handled} Sorun Çözüldü
+      </Badge>
+    );
+  };
 
   const grouped = useMemo(() => {
     const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
