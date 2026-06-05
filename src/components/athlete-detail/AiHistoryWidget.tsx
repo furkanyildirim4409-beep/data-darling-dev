@@ -406,16 +406,24 @@ export function AiHistoryWidget({ athleteId }: Props) {
         </CardHeader>
 
         <CardContent>
-          {sessionInsights.length > 0 && sessionInsights.every((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored') && (
-            <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
-              ✅ Bu Raporun Tüm Sorunları Çözüldü
-            </div>
-          )}
+          {(() => {
+            const actionable = sessionInsights.filter((i) => i.severity === 'high' || i.severity === 'medium');
+            const allHandled = actionable.length > 0 && actionable.every((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored');
+            return allHandled ? (
+              <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
+                ✅ Bu Raporun Tüm Sorunları Çözüldü
+              </div>
+            ) : null;
+          })()}
           <div className="grid grid-cols-3 gap-3">
             {(["high", "medium", "low"] as SeverityKey[]).map((severity) => {
               const config = severityConfig[severity];
               const Icon = config.icon;
-              const count = grouped[severity].length;
+              const items = grouped[severity];
+              const count = items.length;
+              const handled = severity === 'low'
+                ? 0
+                : items.filter((i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored').length;
 
               return (
                 <button
@@ -435,12 +443,16 @@ export function AiHistoryWidget({ athleteId }: Props) {
                     >
                       {config.label}
                     </Badge>
+                    {severity !== 'low' && count > 0 && (
+                      <SessionProgressBadge total={count} handled={handled} />
+                    )}
                   </div>
                 </button>
               );
             })}
           </div>
         </CardContent>
+
       </Card>
 
       <Dialog open={!!selectedSeverity} onOpenChange={() => setSelectedSeverity(null)}>
