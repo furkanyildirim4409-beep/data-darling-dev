@@ -1,92 +1,103 @@
 ## Goal
-Wire `src/components/athlete-detail/AiHistoryWidget.tsx` to `coach_action_ledger` so the AI insights rendered on each athlete profile reflect the same lifecycle (`pending` / `resolved` / `ignored`) the coach sees in `Alerts.tsx`, and let the coach dismiss an alert inline without leaving the profile.
-
-This is Part 1/2 — data layer only. UI badges/conditional rendering land in Part 2.
+Wire the `ledgerMap` from Part 1 into `AiHistoryWidget.tsx`'s render layer so each AI insight visually reflects its lifecycle (pending / resolved / ignored), exposes inline "Müdahale Et" + "Yok Say" actions, and shows a master "all handled" banner per scan session.
 
 ## Scope
-- Single file edited: `src/components/athlete-detail/AiHistoryWidget.tsx`
-- No DB migrations (the `coach_action_ledger` table already exists and is used by `Alerts.tsx` / `ActionLedgerDesk.tsx`)
-- No edge function or schema changes
-- Existing logic (severity grouping, session selector, `executeAiAction`, MutationConfigDialog, expand/collapse, completed action badges) stays intact
+- Single file: `src/components/athlete-detail/AiHistoryWidget.tsx`
+- No DB / edge / hook changes — Part 1 already provides `ledgerMap` and `dismissMutation`
+- No changes to `Alerts.tsx`, `ActionLedgerDesk.tsx`, or other components
 
-## Changes to `AiHistoryWidget.tsx`
+## Edits
 
 ### 1. Imports
-- Add `useQuery`, `useMutation`, `useQueryClient` from `@tanstack/react-query`
-- Add `toast` from `sonner` (keep existing `toast` from `@/hooks/use-toast` for the action-execute flow to avoid behavior drift)
-- Icon set unchanged
+- Add `useNavigate` from `react-router-dom`
+- Add `Zap`, `XCircle` lucide icons for the action bar
+- Inside the component: `const navigate = useNavigate();`
 
-### 2. Ledger fetch hook
-Inside the component, add a React Query fetch keyed by athlete:
-
-```ts
-const queryClient = useQueryClient();
-
-const { data: ledgerActions } = useQuery({
-  queryKey: ['coach_action_ledger', athleteId],
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from('coach_action_ledger')
-      .select('source_insight_id, status')
-      .eq('athlete_id', athleteId);
-    if (error) throw error;
-    return data || [];
-  },
-  enabled: !!athleteId,
-});
-
-const ledgerMap = useMemo(() => {
-  return (ledgerActions || []).reduce((acc, row) => {
-    if (row.source_insight_id) acc[row.source_insight_id] = row.status;
-    return acc;
-  }, {} as Record<string, string>);
-}, [ledgerActions]);
-```
-
-### 3. Inline Dismiss ("Yok Say") mutation
-Prepared now, consumed by Part 2's UI:
+### 2. "All handled" banner (per scan session)
+At the top of `<CardContent>` in the main Card (above the 3-tile severity grid), compute against the currently selected session's insights:
 
 ```ts
-const dismissMutation = useMutation({
-  mutationFn: async (intervention: AiInsight) => {
-    if (!user) throw new Error('Not authenticated');
-    const { error } = await supabase.from('coach_action_ledger').insert({
-      coach_id: user.id,
-      athlete_id: athleteId,
-      source_insight_id: intervention.id,
-      issue_title: intervention.title,
-      issue_type: intervention.severity === 'high' ? 'biometric_anomaly' : 'low_adherence',
-      status: 'ignored',
-      issue_details: {
-        description: intervention.analysis,
-        source: 'athlete_profile_direct',
-      },
-    });
-    if (error) throw error;
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['coach_action_ledger', athleteId] });
-    sonnerToast.success('Sorun yok sayıldı ve loglara eklendi.');
-  },
-  onError: (err: any) => {
-    sonnerToast.error(err?.message || 'Yok sayma işlemi başarısız.');
-  },
-});
+const allHandled =
+  sessionInsights.length > 0 &&
+  sessionInsights.every(
+    (i) => ledgerMap[i.id] === 'resolved' || ledgerMap[i.id] === 'ignored'
+  );
 ```
 
-(`sonnerToast` = aliased import from `sonner` to avoid colliding with the existing `useToast` `toast`.)
+Render when true:
+```tsx
+{allHandled && (
+  <div className="w-full bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center text-xs font-bold text-emerald-500 tracking-widest uppercase mb-4">
+    ✅ Bu Raporun Tüm Sorunları Çözüldü
+  </div>
+)}
+```
 
-### 4. Expose to render layer (Part 2 hookup)
-- `ledgerMap` and `dismissMutation` are declared at component scope so the upcoming JSX refactor (badges + "Yok Say" button) can consume them with zero further wiring.
-- No JSX changes in this part — existing render output is byte-identical apart from the new hooks running.
+### 3. Per-insight rendering inside the severity Dialog
+The detail list lives in the `<Dialog>` → `filteredBySelection.map((insight) => ...)` block (around the current insight card). For each insight derive:
 
-## Out of scope (Part 2)
-- Rendering ledger status badges (Çözüldü / Yok Sayıldı / Bekliyor) next to insights
-- "Yok Say" button placement and confirm UX
-- Filtering or hiding already-resolved insights
-- Any change to `Alerts.tsx`, `ActionLedgerDesk.tsx`, or edge functions
+```ts
+const status = ledgerMap[insight.id];
+const isHandled = status === 'resolved' || status === 'ignored';
+```
 
-## Risk / verification
-- `coach_action_ledger` columns used (`source_insight_id`, `status`, `coach_id`, `athlete_id`, `issue_title`, `issue_type`, `issue_details`) match what `Alerts.tsx` already inserts, so RLS + grants are known-good.
-- React Query is already used elsewhere in the project (verified via `useDashboardData`, `useAthletes`, etc.), so no provider setup needed.
-- Verification: load an athlete profile, confirm no console/network errors, and confirm the `coach_action_ledger` query fires once with the correct `athlete_id` filter.
+**A. Dimming wrapper** — apply conditionally on the outer `<div>`:
+```
+className={`rounded-lg border border-border bg-card p-4 border-l-4 ${config.borderColor} ${
+  isHandled ? 'opacity-50 grayscale-[0.2] pointer-events-none transition-all' : ''
+}`}
+```
+
+**B. Status badge** next to the title (inline with `insight.title`):
+```tsx
+{status === 'resolved' && (
+  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ml-2">
+    🟢 Çözüldü
+  </Badge>
+)}
+{status === 'ignored' && (
+  <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 ml-2">
+    ⚪ Yok Sayıldı
+  </Badge>
+)}
+```
+
+**C. Existing action buttons block** (`insight.actions.map(...)`) — wrap in `{!isHandled && insight.actions.length > 0 && (...)}` so dimmed items show no AI-action buttons.
+
+**D. New inline action bar** — render only when `!isHandled`, placed after the existing action buttons row and before the "Detaylı Analizi Gör" toggle:
+```tsx
+{!isHandled && (
+  <div className="flex items-center gap-2 mt-2 mb-2">
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-[10px] gap-1 px-2 py-0.5 border-primary/30 text-primary hover:bg-primary/10"
+      onClick={() => navigate('/alerts')}
+    >
+      <Zap className="w-3 h-3" />
+      Müdahale Et
+    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-[10px] gap-1 px-2 py-0.5 border-destructive/30 text-destructive hover:bg-destructive/10"
+      onClick={() => dismissMutation.mutate(insight)}
+      disabled={dismissMutation.isPending}
+    >
+      <XCircle className="w-3 h-3" />
+      Yok Say
+    </Button>
+  </div>
+)}
+```
+
+### 4. Untouched
+- Session selector, severity tiles, empty/loading states, `executeAiAction` flow, `MutationConfigDialog`, expand/collapse analysis, `actionTypeIcons`/`actionColors` maps — all unchanged.
+- The Part 1 hooks (`ledgerMap`, `dismissMutation`, query invalidation) need no edits; dismissing an item refetches the ledger and the row auto-dims on next render.
+
+## Verification
+- Load an athlete profile with at least one prior AI scan session.
+- Open severity dialog → confirm pending insights show both buttons, dismissed ones become dimmed + "⚪ Yok Sayıldı" badge instantly after clicking Yok Say.
+- When every insight in a session is resolved/ignored, the emerald banner appears at the top of the AI Tarama Geçmişi card.
+- "Müdahale Et" navigates to `/alerts`.
+- No console / TS errors.
