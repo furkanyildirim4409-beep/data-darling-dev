@@ -376,6 +376,10 @@ export function AiHistoryWidget({ athleteId }: Props) {
                   {sessionDates.length} tarama kaydı
                 </p>
               </div>
+              {(() => {
+                const { total, handled } = computeProgress(sessionInsights);
+                return <SessionProgressBadge total={total} handled={handled} />;
+              })()}
             </div>
 
             <Select
@@ -387,11 +391,17 @@ export function AiHistoryWidget({ athleteId }: Props) {
                 <SelectValue placeholder="Tarama seçin" />
               </SelectTrigger>
               <SelectContent>
-                {sessionDates.map((iso) => (
-                  <SelectItem key={iso} value={iso}>
-                    {formatSessionDate(iso)}
-                  </SelectItem>
-                ))}
+                {sessionDates.map((iso) => {
+                  const { total, handled } = computeProgress(insightsBySession[iso] || []);
+                  return (
+                    <SelectItem key={iso} value={iso}>
+                      <div className="flex items-center gap-2 w-full">
+                        <span>{formatSessionDate(iso)}</span>
+                        <SessionProgressBadge total={total} handled={handled} />
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
