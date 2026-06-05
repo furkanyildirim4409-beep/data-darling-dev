@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,8 +14,29 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ClipboardList, Check, X, Inbox } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ClipboardList,
+  Check,
+  X,
+  Inbox,
+  Dumbbell,
+  Pill,
+  UtensilsCrossed,
+  MessageSquare,
+  Sparkles,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export interface LedgerRow {
   id: string;
@@ -34,66 +56,66 @@ interface AthleteGroup {
   rows: LedgerRow[];
 }
 
-function LedgerDetails({ details }: { details: Record<string, unknown> | null }) {
-  if (!details) return null;
-  const d = details as Record<string, unknown>;
-  const body =
-    (typeof d.description === "string" && d.description) ||
-    (typeof d.detailed_analysis === "string" && d.detailed_analysis) ||
-    (typeof d.analysis === "string" && d.analysis) ||
-    "";
-  const actions = Array.isArray(d.suggested_manual_actions)
-    ? (d.suggested_manual_actions as unknown[])
-    : [];
-  const biometric = typeof d.biometric_context === "string" ? d.biometric_context : "";
-  if (!body && actions.length === 0 && !biometric) return null;
-  return (
-    <div className="mt-2.5 p-3 rounded-lg border border-border bg-card/40 space-y-2 select-text">
-      <p className="text-[10px] font-bold text-primary tracking-widest uppercase">
-        🧠 AI Teşhis ve Manuel Tavsiye Notu
-      </p>
-      {body && (
-        <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">
-          {body}
-        </p>
-      )}
-      {biometric && (
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          {biometric}
-        </p>
-      )}
-      {actions.length > 0 && (
-        <div className="pt-2 border-t border-border">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
-            Koç Tarafından Uygulanacak Manuel Adımlar
-          </span>
-          <ul className="list-disc pl-4 space-y-1">
-            {actions.map((act, idx) => {
-              const label =
-                typeof act === "string"
-                  ? act
-                  : act && typeof act === "object" && "title" in act && typeof (act as { title: unknown }).title === "string"
-                  ? (act as { title: string }).title
-                  : JSON.stringify(act);
-              return (
-                <li key={idx} className="text-xs text-muted-foreground leading-normal">
-                  {label}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
+type ManualAction = {
+  type?: string;
+  title?: string;
+  label?: string;
+  description?: string;
+  payload?: string;
+};
+
+function getActions(details: Record<string, unknown> | null): ManualAction[] {
+  if (!details) return [];
+  const raw = (details as Record<string, unknown>).suggested_manual_actions;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((a) => {
+      if (typeof a === "string") return { title: a } as ManualAction;
+      if (a && typeof a === "object") return a as ManualAction;
+      return null;
+    })
+    .filter((a): a is ManualAction => !!a);
+}
+
+function getDismissed(details: Record<string, unknown> | null): string[] {
+  if (!details) return [];
+  const raw = (details as Record<string, unknown>).dismissed_actions;
+  return Array.isArray(raw) ? (raw.filter((x) => typeof x === "string") as string[]) : [];
+}
+
+function actionKey(a: ManualAction): string {
+  return a.title ?? a.label ?? "";
+}
+
+function classifyAction(a: ManualAction): {
+  Icon: LucideIcon;
+  color: string;
+  tab: "program" | "nutrition" | "supplements" | "chat";
+} {
+  const rawType = (a.type ?? "").toLowerCase();
+  const text = `${a.label ?? ""} ${a.title ?? ""}`.toLowerCase();
+  if (rawType.includes("program") || text.includes("program") || text.includes("antren"))
+    return { Icon: Dumbbell, color: "text-primary", tab: "program" };
+  if (rawType.includes("nutrition") || text.includes("beslenme") || text.includes("makro"))
+    return { Icon: UtensilsCrossed, color: "text-emerald-500", tab: "nutrition" };
+  if (rawType.includes("supplement") || text.includes("takviye") || text.includes("suplem"))
+    return { Icon: Pill, color: "text-purple-400", tab: "supplements" };
+  if (rawType.includes("message") || rawType.includes("chat") || text.includes("mesaj"))
+    return { Icon: MessageSquare, color: "text-warning", tab: "chat" };
+  return { Icon: Sparkles, color: "text-primary", tab: "program" };
 }
 
 export function ActionLedgerDesk() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [athleteNames, setAthleteNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedAction, setSelectedAction] = useState<
+    { row: LedgerRow; action: ManualAction } | null
+  >(null);
+  const [dismissBusy, setDismissBusy] = useState(false);
 
   const fetchRows = useCallback(async () => {
     if (!user) return;
@@ -131,7 +153,6 @@ export function ActionLedgerDesk() {
     fetchRows();
   }, [fetchRows]);
 
-  // Realtime
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -186,7 +207,6 @@ export function ActionLedgerDesk() {
     status: "resolved" | "failed"
   ): Promise<void> => {
     setBusyId(id);
-    // Optimistic
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status } : r))
     );
@@ -205,8 +225,55 @@ export function ActionLedgerDesk() {
       return;
     }
     toast({
-      title: status === "resolved" ? "Çözüldü olarak işaretlendi" : "Çözülmedi olarak işaretlendi",
+      title:
+        status === "resolved"
+          ? "Çözüldü olarak işaretlendi"
+          : "Çözülmedi olarak işaretlendi",
     });
+  };
+
+  const handleNavigate = () => {
+    if (!selectedAction) return;
+    const { row, action } = selectedAction;
+    const { tab } = classifyAction(action);
+    navigate(`/athletes/${row.athlete_id}?tab=${tab}`);
+    setSelectedAction(null);
+  };
+
+  const handleDismissAction = async () => {
+    if (!selectedAction) return;
+    const { row, action } = selectedAction;
+    const key = actionKey(action);
+    if (!key) {
+      setSelectedAction(null);
+      return;
+    }
+    setDismissBusy(true);
+    const prevDismissed = getDismissed(row.issue_details);
+    const nextDetails = {
+      ...(row.issue_details ?? {}),
+      dismissed_actions: Array.from(new Set([...prevDismissed, key])),
+    };
+    // Optimistic
+    setRows((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, issue_details: nextDetails } : r))
+    );
+    const { error } = await (supabase as any)
+      .from("coach_action_ledger")
+      .update({ issue_details: nextDetails })
+      .eq("id", row.id);
+    setDismissBusy(false);
+    if (error) {
+      toast({
+        title: "Hata",
+        description: "Öneri yok sayılamadı.",
+        variant: "destructive",
+      });
+      fetchRows();
+      return;
+    }
+    toast({ title: "Öneri yok sayıldı" });
+    setSelectedAction(null);
   };
 
   const getInitials = (name: string) =>
@@ -216,6 +283,9 @@ export function ActionLedgerDesk() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+
+  const selectedMeta = selectedAction ? classifyAction(selectedAction.action) : null;
+  const SelectedIcon = selectedMeta?.Icon ?? Sparkles;
 
   return (
     <Card className="glass border-border">
@@ -302,50 +372,103 @@ export function ActionLedgerDesk() {
                     <AccordionContent>
                       <div className="space-y-2 pb-2">
                         <AnimatePresence initial={false}>
-                          {g.rows.map((r) => (
-                            <motion.div
-                              key={r.id}
-                              layout
-                              initial={{ opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                              className="rounded-lg border border-border bg-background/60 p-3"
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground leading-snug">
-                                    {r.issue_title}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                                    {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
-                                  </p>
+                          {g.rows.map((r) => {
+                            const actions = getActions(r.issue_details);
+                            const dismissed = getDismissed(r.issue_details);
+                            return (
+                              <motion.div
+                                key={r.id}
+                                layout
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                className="rounded-lg border border-border bg-background/60 p-3"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground leading-snug">
+                                      {r.issue_title}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground font-mono mt-1">
+                                      {new Date(r.created_at).toLocaleString("tr-TR")} · {r.issue_type}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      disabled={busyId === r.id}
+                                      onClick={() => updateStatus(r.id, "resolved")}
+                                      className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
+                                      title="Çözüldü"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      disabled={busyId === r.id}
+                                      onClick={() => updateStatus(r.id, "failed")}
+                                      className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
+                                      title="Çözülmedi"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <Button
-                                    size="icon"
-                                    variant="outline"
-                                    disabled={busyId === r.id}
-                                    onClick={() => updateStatus(r.id, "resolved")}
-                                    className="h-8 w-8 border-success/40 text-success hover:bg-success/15 hover:text-success"
-                                    title="Çözüldü"
-                                  >
-                                    <Check className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="outline"
-                                    disabled={busyId === r.id}
-                                    onClick={() => updateStatus(r.id, "failed")}
-                                    className="h-8 w-8 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                                    title="Çözülmedi"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <LedgerDetails details={r.issue_details} />
-                            </motion.div>
-                          ))}
+
+                                {actions.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                      <Sparkles className="w-3 h-3" />
+                                      Önerilen Manuel Aksiyonlar
+                                    </span>
+                                    {actions.map((a, idx) => {
+                                      const { Icon, color } = classifyAction(a);
+                                      const label = a.label ?? a.title ?? "Aksiyon";
+                                      const sub = a.payload ?? a.description ?? null;
+                                      const isDismissed = dismissed.includes(actionKey(a));
+                                      return (
+                                        <button
+                                          key={`${r.id}:${idx}`}
+                                          type="button"
+                                          onClick={() => setSelectedAction({ row: r, action: a })}
+                                          className={cn(
+                                            "w-full flex items-center gap-3 p-2.5 rounded-lg border border-border bg-card/60 text-left transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.99]",
+                                            isDismissed && "opacity-50"
+                                          )}
+                                        >
+                                          <div
+                                            className={cn(
+                                              "w-8 h-8 rounded-full bg-background/60 flex items-center justify-center shrink-0",
+                                              color
+                                            )}
+                                          >
+                                            <Icon className="w-4 h-4" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p
+                                              className={cn(
+                                                "text-xs font-bold text-foreground truncate",
+                                                isDismissed && "line-through"
+                                              )}
+                                            >
+                                              {label}
+                                            </p>
+                                            {sub && (
+                                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                                {sub}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </motion.div>
+                            );
+                          })}
                         </AnimatePresence>
                       </div>
                     </AccordionContent>
@@ -356,6 +479,56 @@ export function ActionLedgerDesk() {
           </Accordion>
         )}
       </CardContent>
+
+      <Dialog
+        open={!!selectedAction}
+        onOpenChange={(o) => {
+          if (!o) setSelectedAction(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <div
+                className={cn(
+                  "w-9 h-9 rounded-full bg-background flex items-center justify-center",
+                  selectedMeta?.color ?? "text-primary"
+                )}
+              >
+                <SelectedIcon className="w-4 h-4" />
+              </div>
+              <span className="leading-tight">
+                {selectedAction?.action.title ?? selectedAction?.action.label ?? "Aksiyon"}
+              </span>
+            </DialogTitle>
+            {selectedAction?.action.description && (
+              <DialogDescription className="text-sm text-foreground/80 whitespace-pre-line max-h-72 overflow-y-auto pt-2 leading-relaxed">
+                {selectedAction.action.description}
+              </DialogDescription>
+            )}
+            {!selectedAction?.action.description && selectedAction?.action.payload && (
+              <DialogDescription className="text-sm text-muted-foreground whitespace-pre-line pt-2">
+                {selectedAction.action.payload}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDismissAction}
+              disabled={dismissBusy}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <X className="w-4 h-4 mr-1.5" />
+              Bu Öneriyi Yok Say
+            </Button>
+            <Button onClick={handleNavigate} className="gap-1.5">
+              <Zap className="w-4 h-4" />
+              Profile Git ve Uygula
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
