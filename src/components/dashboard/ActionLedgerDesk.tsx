@@ -376,6 +376,11 @@ export function ActionLedgerDesk() {
                           {g.rows.map((r) => {
                             const actions = getActions(r.issue_details);
                             const dismissed = getDismissed(r.issue_details);
+                            const details = (r.issue_details ?? {}) as Record<string, unknown>;
+                            const description =
+                              (typeof details.description === "string" && details.description) ||
+                              (typeof details.detailed_analysis === "string" && details.detailed_analysis) ||
+                              "";
                             return (
                               <motion.div
                                 key={r.id}
