@@ -109,7 +109,7 @@ export default function Business() {
       </div>
 
       {/* Stats */}
-      {isLoading ? (
+      {metricsLoading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
@@ -117,30 +117,39 @@ export default function Business() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Toplam Gelir"
-            value={`₺${totalPaid.toLocaleString("tr-TR")}`}
+            value={fmtTRY(metrics?.total_revenue ?? 0)}
             icon={DollarSign}
             variant="success"
           />
           <StatCard
-            title="Bekleyen"
-            value={`₺${totalPending.toLocaleString("tr-TR")}`}
-            icon={CreditCard}
-            variant={totalPending > 0 ? "warning" : "default"}
-          />
-          <StatCard
-            title="Toplam Ödeme"
-            value={String(payments.length)}
-            icon={Calendar}
+            title="E-Ticaret Geliri"
+            value={fmtTRY(metrics?.total_store_revenue ?? 0)}
+            icon={ShoppingBag}
             variant="default"
           />
           <StatCard
             title="Aktif Sporcular"
-            value={String(athletes.length)}
+            value={String(metrics?.active_athletes ?? 0)}
             icon={Users}
             variant="default"
           />
+          <StatCard
+            title="Bekleyen Ödemeler"
+            value={fmtTRY(metrics?.pending_custom_revenue ?? 0)}
+            icon={CreditCard}
+            variant={(metrics?.pending_custom_revenue ?? 0) > 0 ? "warning" : "default"}
+          />
         </div>
       )}
+
+      {/* Revenue Split Donut */}
+      <RevenueSplitCard
+        loading={metricsLoading}
+        packages={metrics?.total_package_revenue ?? 0}
+        store={metrics?.total_store_revenue ?? 0}
+        total={metrics?.total_revenue ?? 0}
+      />
+
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
