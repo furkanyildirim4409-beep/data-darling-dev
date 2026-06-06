@@ -16,6 +16,7 @@ export interface Profile {
   specialty: string | null;
   username: string | null;
   subscription_tier: string | null;
+  iban: string | null;
   notification_preferences: {
     email: boolean;
     push: boolean;
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         specialty: p.specialty ?? null,
         subscription_tier: p.subscription_tier ?? null,
         username: p.username ?? null,
+        iban: p.iban ?? null,
         notification_preferences: p.notification_preferences ?? null,
         notification_settings: p.notification_settings ?? null,
       };
