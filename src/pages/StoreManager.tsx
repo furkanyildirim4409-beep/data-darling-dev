@@ -647,20 +647,25 @@ export default function StoreManager() {
                 </p>
               </div>
 
-              <Button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className="w-full sm:w-auto"
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Yayınlanıyor...
-                  </>
-                ) : (
-                  "Yayınla ve Shopify'a Gönder"
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit}
+                  className="w-full sm:w-auto"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Onaya Gönderiliyor...
+                    </>
+                  ) : (
+                    "Yayınla ve Onaya Gönder"
+                  )}
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Ürününüz Shopify mağazasına <strong>Taslak</strong> olarak yüklenir ve admin onayından sonra satışa açılır.
+                </p>
+              </div>
             </div>
           </div>
         </div>
