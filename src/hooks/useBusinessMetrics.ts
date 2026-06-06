@@ -6,6 +6,7 @@ export interface BusinessMetrics {
   coaching_revenue: number;
   shopify_revenue: number;
   digital_revenue: number;
+  other_revenue: number;
   total_store_revenue: number;
   pending_custom_revenue: number;
   paid_custom_revenue: number;

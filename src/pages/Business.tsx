@@ -18,7 +18,7 @@ import { CoachingPackagesManager } from "@/components/business/CoachingPackagesM
 const REVENUE_COLORS = {
   coaching: "hsl(var(--success))",
   shopify: "hsl(var(--warning))",
-  digital: "hsl(var(--info))",
+  other: "hsl(var(--info))",
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
@@ -197,9 +197,10 @@ export default function Business() {
         loading={metricsLoading}
         coaching={metrics?.coaching_revenue ?? metrics?.total_package_revenue ?? 0}
         shopify={metrics?.shopify_revenue ?? 0}
-        digital={metrics?.digital_revenue ?? 0}
+        other={metrics?.other_revenue ?? metrics?.paid_custom_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
 
@@ -397,15 +398,15 @@ interface RevenueSplitCardProps {
   loading: boolean;
   coaching: number;
   shopify: number;
-  digital: number;
+  other: number;
   total: number;
 }
 
-function RevenueSplitCard({ loading, coaching, shopify, digital, total }: RevenueSplitCardProps) {
+function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueSplitCardProps) {
   const data = [
     { name: "Koçluk Paketleri", value: Number(coaching) || 0, color: REVENUE_COLORS.coaching },
-    { name: "Shopify", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
-    { name: "Dijital Ürünler", value: Number(digital) || 0, color: REVENUE_COLORS.digital },
+    { name: "E-Ticaret", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
+    { name: "Diğer Ödemeler", value: Number(other) || 0, color: REVENUE_COLORS.other },
   ];
   const hasData = data.some((d) => d.value > 0);
 
