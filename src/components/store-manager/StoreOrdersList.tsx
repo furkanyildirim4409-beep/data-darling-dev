@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Calendar, MapPin, User } from "lucide-react";
@@ -7,6 +7,7 @@ import OrderFulfillmentSheet from "./OrderFulfillmentSheet";
 interface OrderItem {
   id: string;
   user_id: string | null;
+  coach_id?: string | null;
   items: any;
   total_price: number;
   total_coins_used: number;
@@ -26,6 +27,15 @@ interface Props {
   orders: OrderItem[];
   isLoading?: boolean;
 }
+
+type StatusFilter = "all" | "pending" | "shipped" | "delivered";
+
+const FILTER_TABS: { key: StatusFilter; label: string; matches: (s: string) => boolean }[] = [
+  { key: "all", label: "Hepsi", matches: () => true },
+  { key: "pending", label: "Bekleyen", matches: (s) => s === "processing" || s === "paid" || s === "pending" },
+  { key: "shipped", label: "Kargolanan", matches: (s) => s === "shipped" },
+  { key: "delivered", label: "Teslim Edilen", matches: (s) => s === "completed" || s === "delivered" },
+];
 
 const formatDate = (iso: string) => {
   try {
