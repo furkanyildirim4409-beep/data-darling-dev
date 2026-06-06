@@ -36,6 +36,7 @@ interface CreateStoryPayload {
   media_url: string;
   duration_hours: number;
   category?: string;
+  link_url?: string;
 }
 
 export function useCreatePost() {
