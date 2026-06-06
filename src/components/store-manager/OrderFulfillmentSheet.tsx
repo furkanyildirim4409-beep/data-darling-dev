@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -20,16 +27,18 @@ import {
   ExternalLink,
   Printer,
   CheckCircle2,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import PackingSlipPrintView from "./PackingSlipPrintView";
 
 interface OrderItem {
   id: string;
   user_id: string | null;
+  coach_id?: string | null;
   items: any;
   total_price: number;
   total_coins_used: number;
@@ -50,6 +59,45 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// Extracts a variant label like "Mavi, L" from any of the shapes
+// products may use in the items[] JSONB payload.
+const extractVariantLabel = (it: any): string | null => {
+  if (!it || typeof it !== "object") return null;
+  const collect: string[] = [];
+
+  const pushVals = (input: any) => {
+    if (!input) return;
+    if (Array.isArray(input)) {
+      for (const opt of input) {
+        if (!opt) continue;
+        if (typeof opt === "string") collect.push(opt);
+        else if (typeof opt === "object") {
+          const v = opt.value ?? opt.name ?? opt.label;
+          if (v) collect.push(String(v));
+        }
+      }
+    } else if (typeof input === "object") {
+      for (const v of Object.values(input)) {
+        if (v) collect.push(String(v));
+      }
+    } else if (typeof input === "string") {
+      collect.push(input);
+    }
+  };
+
+  pushVals(it.selectedOptions);
+  if (collect.length === 0) pushVals(it.options);
+  if (collect.length === 0) pushVals(it.variant);
+  if (collect.length === 0 && it.variant_title) collect.push(String(it.variant_title));
+  if (collect.length === 0 && it.size) collect.push(String(it.size));
+  if (collect.length === 0 && it.color) collect.push(String(it.color));
+
+  const cleaned = collect
+    .map((s) => s.trim())
+    .filter((s) => s && s.toLowerCase() !== "default title");
+  return cleaned.length ? cleaned.join(", ") : null;
+};
 
 const shortId = (id: string) =>
   `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
