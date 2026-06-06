@@ -29,6 +29,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { sendCheckinReminder } from "@/utils/checkinReminder";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
@@ -70,6 +71,7 @@ export default function Alerts() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [bulkSending, setBulkSending] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -263,6 +265,34 @@ export default function Alerts() {
     }
     toast({ title: "Duyuru Gönderildi", description: "Mesaj tüm sporculara iletildi." });
     setQuickMessage("");
+  };
+
+  const uniqueCheckinAthleteIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          filteredAlerts
+            .map((a) => a.athleteId)
+            .filter((v): v is string => typeof v === "string" && v.length > 0)
+        )
+      ),
+    [filteredAlerts]
+  );
+
+  const handleBulkRemind = async () => {
+    if (uniqueCheckinAthleteIds.length === 0) return;
+    setBulkSending(true);
+    const results = await Promise.allSettled(
+      uniqueCheckinAthleteIds.map((id) =>
+        sendCheckinReminder(id, activeCoachId ?? null)
+      )
+    );
+    setBulkSending(false);
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    toast({
+      title: "Toplu hatırlatma",
+      description: `${ok}/${uniqueCheckinAthleteIds.length} sporcuya gönderildi.`,
+    });
   };
 
   return (
