@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink, MoreVertical, EyeOff, ListPlus, Loader2 } from "lucide-react";
+import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
