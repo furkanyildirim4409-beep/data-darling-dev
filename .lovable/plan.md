@@ -1,33 +1,44 @@
-## Goal
-Make "Yüce Divan" (`/disputes`) visible and accessible only to users with role `super_admin`. Standard coaches must not see the nav item and cannot reach the page by URL.
+## Root Cause
 
-## Approach
-Use the existing `useAuth()` hook (already exposes `role`). Extend the type to include `'super_admin'`, add a DB migration to allow the new role value on `profiles.role`, then filter the nav item and guard the route.
+The frontend already invokes `send-chat-push` with `{ userId, title, body }` for both "Hızlı Duyuru" (broadcast) and "Hatırlat" (single + bulk reminder). The actual bug is **server-side**: `supabase/functions/send-chat-push/index.ts` only handles the database webhook shape and short-circuits everything else:
 
-## Changes
+```ts
+if (type !== "INSERT" || table !== "messages") {
+  return new Response(JSON.stringify({ skipped: true }), ...);
+}
+```
 
-### 1. Database migration
-`profiles.role` is currently free text in the DB but typed as `'coach' | 'athlete' | null` in code. No `user_roles` table exists. Since the user confirmed no super-admin panel exists yet, the minimal non-disruptive change is:
-- Add a CHECK-free convention: allow `'super_admin'` as a valid value in `profiles.role`. If a CHECK constraint or enum exists, extend it; otherwise no schema change is needed beyond documentation. (We will inspect actual constraint via migration tool and only ALTER if a constraint exists.)
+So every announcement/reminder call returns `{ skipped: true }` and no native push is ever dispatched. That's why in-app inbox rows are created but mobile notifications never arrive.
 
-No new table, no RLS change. Existing coaches keep `role = 'coach'`. A super-admin is provisioned manually via SQL by the user later.
+## Fix Plan
 
-### 2. `src/contexts/AuthContext.tsx`
-- Widen `Profile.role` and `AuthContextType.role` from `'coach' | 'athlete' | null` to `'coach' | 'athlete' | 'super_admin' | null`.
-- No logic change — `fetchProfile` already passes through whatever string the DB returns.
+### 1. `supabase/functions/send-chat-push/index.ts` — accept direct payload
 
-### 3. `src/components/layout/AppSidebar.tsx`
-- Import `useAuth`.
-- Tag the `/disputes` entry in `navItems` with `superAdminOnly: true`.
-- Extend `filteredNavItems` memo to also drop items where `superAdminOnly && role !== 'super_admin'`.
+Detect two payload shapes:
 
-### 4. `src/components/layout/MobileNav.tsx`
-- `/disputes` is not currently in the mobile nav list — no change needed, but verify (already verified: absent).
+- **Webhook shape** (existing): `{ type: "INSERT", table: "messages", record: {...} }` → keep current behaviour (resolve sender name, build chat preview, route to `/messages`).
+- **Direct shape** (new): `{ userId, title, body, data? }` → look up `push_subscriptions` for `user_id = userId` and send the provided `title` / `body` verbatim, with a sensible default `data.url` (e.g. `/`) merged with any caller-supplied `data`.
 
-### 5. `src/App.tsx`
-- Wrap `<Route path="/disputes" element={<Disputes />} />` with a `SuperAdminRoute` guard (local component, similar to `PermissionRoute`) that reads `role` from `useAuth()` and `<Navigate to="/" replace />` when role is not `super_admin`.
+Shared logic (VAPID setup, `webpush.sendNotification`, 410 cleanup of expired endpoints, `Promise.allSettled` aggregation, CORS, error handling) is reused for both branches.
 
-## Out of scope
-- Creating a `user_roles` table / `app_role` enum / `has_role()` function. Not needed since the user explicitly wants minimal disruption and there is no super-admin panel yet.
-- Server-side RLS hardening on `disputes` data. The page-level + nav-level guard is sufficient for this hotfix; data-layer RLS can be a follow-up if requested.
-- Changes to `ProfileContext` (kept as social-profile only, per user's choice).
+If neither shape matches, return `400` with a clear error instead of silently skipping.
+
+### 2. Frontend — no functional change required
+
+The existing calls in `src/pages/Alerts.tsx` (`handleSendBroadcast`, `handleBulkRemind`) and `src/utils/checkinReminder.ts` (`sendCheckinReminder`, used by `AlertActionCard`) already match the new direct payload contract. Once the edge function honours it, "Hızlı Duyuru" and "Hatırlat" will dispatch native pushes.
+
+Optional polish (only if you want it included):
+- Standardise the broadcast title to `"Koçunuzdan Yeni Duyuru 📢"` (currently `"Koç Duyurusu 📢"`) to match the spec.
+- Add a `console.error` around each `functions.invoke` call so failures surface in dev tools.
+
+### 3. Verification
+
+- Deploy the updated function (automatic).
+- Trigger one broadcast and one reminder from `/alerts`, then check Edge Function logs for `"Push sent: { sent: N, failed: 0 }"` instead of `skipped`.
+- Confirm a real device with an active `push_subscriptions` row receives the notification.
+
+## Out of Scope
+
+- No schema/RLS/migration changes.
+- No changes to chat message push behaviour — webhook branch stays byte-for-byte the same.
+- No new secrets (VAPID keys already configured).
