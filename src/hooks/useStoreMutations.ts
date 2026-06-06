@@ -160,9 +160,13 @@ export function useCreateProduct() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["coach-products"] });
-      toast.success("Ürün yayınlandı ve Shopify'a gönderildi.");
+      if (variables.publishAsDraft) {
+        toast.success("Ürün onaya gönderildi. Admin incelemesinden sonra mağazada yayınlanacak.");
+      } else {
+        toast.success("Ürün yayınlandı ve Shopify'a gönderildi.");
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || "Ürün eklenemedi.");
