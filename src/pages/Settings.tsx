@@ -50,6 +50,35 @@ const subscriptionPlans = [
   }
 ];
 
+const formatIbanInput = (value: string): string => {
+  const cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 26);
+  return cleaned.replace(/(.{4})(?=.)/g, "$1 ");
+};
+
+const validateTRIban = (rawIban: string): boolean => {
+  const cleaned = rawIban.replace(/\s/g, "").toUpperCase();
+  if (cleaned.length !== 26) return false;
+  if (!/^TR[0-9]{24}$/.test(cleaned)) return false;
+
+  // ISO 7064 MOD 97-10
+  const rearranged = cleaned.slice(4) + cleaned.slice(0, 4);
+  let numeric = "";
+  for (const char of rearranged) {
+    if (/[0-9]/.test(char)) {
+      numeric += char;
+    } else {
+      numeric += (char.charCodeAt(0) - 55).toString();
+    }
+  }
+
+  let remainder = 0;
+  for (let i = 0; i < numeric.length; i += 7) {
+    const chunk = remainder.toString() + numeric.slice(i, i + 7);
+    remainder = parseInt(chunk, 10) % 97;
+  }
+  return remainder === 1;
+};
+
 export default function Settings() {
   const { profile, user, activeCoachId, refreshProfile, isSubCoach } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
