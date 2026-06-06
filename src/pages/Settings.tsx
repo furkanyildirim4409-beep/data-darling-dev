@@ -61,6 +61,7 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [iban, setIban] = useState<string>("");
+  const [ibanError, setIbanError] = useState<string>("");
   const [isSavingIban, setIsSavingIban] = useState(false);
 
   // Username states
