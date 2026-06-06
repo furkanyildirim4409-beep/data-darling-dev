@@ -341,47 +341,6 @@ export function AiDoctorRadar() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Popover
-                        open={openPopoverId === athlete.id}
-                        onOpenChange={(o) => setOpenPopoverId(o ? athlete.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={busyAthleteId === athlete.id}
-                            title="Eylem"
-                          >
-                            {busyAthleteId === athlete.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <MoreVertical className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="end"
-                          className="w-48 p-1.5 bg-popover/95 backdrop-blur border-border"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleLedgerAction(athlete.id, "ignored")}
-                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <EyeOff className="w-4 h-4" />
-                            Yok Say
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleLedgerAction(athlete.id, "pending")}
-                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-primary/10 text-primary transition-colors"
-                          >
-                            <ListPlus className="w-4 h-4" />
-                            Listeye Ekle
-                          </button>
-                        </PopoverContent>
-                      </Popover>
                       <Button
                         variant="outline"
                         size="sm"
