@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface BusinessMetrics {
   total_package_revenue: number;
+  coaching_revenue: number;
+  shopify_revenue: number;
+  digital_revenue: number;
   total_store_revenue: number;
   pending_custom_revenue: number;
   paid_custom_revenue: number;
