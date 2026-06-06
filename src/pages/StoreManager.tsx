@@ -815,15 +815,17 @@ export default function StoreManager() {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border">
                     <span className="text-xs text-muted-foreground">
-                      {p.is_active ? "Aktif" : "Pasif"}
+                      {isPending ? "Onay bekliyor" : isRejected ? "Reddedildi" : p.is_active ? "Aktif" : "Pasif"}
                     </span>
-                    <Switch
-                      checked={!!p.is_active}
-                      disabled={!canManageStore}
-                      onCheckedChange={(checked) =>
-                        updateStatus({ product_id: p.id, is_active: checked })
-                      }
-                    />
+                    {!isPending && !isRejected && (
+                      <Switch
+                        checked={!!p.is_active}
+                        disabled={!canManageStore}
+                        onCheckedChange={(checked) =>
+                          updateStatus({ product_id: p.id, is_active: checked })
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               </div>
