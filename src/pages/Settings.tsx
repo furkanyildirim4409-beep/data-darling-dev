@@ -609,31 +609,75 @@ export default function Settings() {
                     </Label>
                     <Input
                       id="iban-input"
-                      placeholder="TR00 0000 0000 0000 0000 0000 00"
+                      placeholder="TR76 0000 0000 0000 0000 0000 00"
                       value={iban}
+                      onFocus={() => {
+                        if (!iban) setIban("TR");
+                      }}
+                      onKeyDown={(e) => {
+                        // Allow navigation / editing keys
+                        const allowedKeys = [
+                          "Backspace", "Delete", "ArrowLeft", "ArrowRight",
+                          "ArrowUp", "ArrowDown", "Tab", "Home", "End", "Enter",
+                        ];
+                        if (allowedKeys.includes(e.key)) return;
+                        if (e.ctrlKey || e.metaKey) return;
+                        // After "TR" prefix, only digits accepted
+                        const stripped = iban.replace(/\s/g, "");
+                        if (stripped.length >= 2 && !/^[0-9]$/.test(e.key)) {
+                          e.preventDefault();
+                          setIbanError("Lütfen geçerli bir IBAN bilgisi girin.");
+                          setIbanShake(true);
+                          window.setTimeout(() => setIbanShake(false), 450);
+                        }
+                      }}
                       onChange={(e) => {
                         const formatted = formatIbanInput(e.target.value);
                         setIban(formatted);
-                        if (ibanError) {
-                          const stripped = formatted.replace(/\s/g, "");
-                          if (stripped.length === 0) {
-                            setIbanError("");
-                          } else if (stripped.length === 26) {
-                            setIbanError(validateTRIban(stripped) ? "" : "Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
-                          }
+                        const stripped = formatted.replace(/\s/g, "");
+                        if (stripped.length <= 2) {
+                          setIbanError("");
+                        } else if (stripped.length < 26) {
+                          // Typing valid digits — clear error
+                          if (ibanError) setIbanError("");
+                        } else if (stripped.length === 26) {
+                          setIbanError(validateTRIban(stripped) ? "" : "Lütfen geçerli bir IBAN bilgisi girin.");
                         }
                       }}
-                      onBlur={() => {
-                        const stripped = iban.replace(/\s/g, "");
-                        if (stripped.length > 0 && !validateTRIban(stripped)) {
-                          setIbanError("Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const text = e.clipboardData.getData("text") || "";
+                        const formatted = formatIbanInput(text);
+                        setIban(formatted);
+                        const stripped = formatted.replace(/\s/g, "");
+                        if (stripped.length === 26 && !validateTRIban(stripped)) {
+                          setIbanError("Lütfen geçerli bir IBAN bilgisi girin.");
+                          setIbanShake(true);
+                          window.setTimeout(() => setIbanShake(false), 450);
                         } else {
                           setIbanError("");
                         }
                       }}
-                      maxLength={31}
+                      onBlur={() => {
+                        const stripped = iban.replace(/\s/g, "");
+                        if (stripped === "TR" || stripped.length === 0) {
+                          setIbanError("");
+                          if (stripped.length === 0) return;
+                          return;
+                        }
+                        if (!validateTRIban(stripped)) {
+                          setIbanError("Lütfen geçerli bir IBAN bilgisi girin.");
+                        } else {
+                          setIbanError("");
+                        }
+                      }}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={32}
                       className={cn(
                         "font-mono tracking-widest bg-card focus:border-primary",
+                        ibanShake && "animate-shake",
                         ibanError
                           ? "border-destructive focus-visible:ring-destructive"
                           : "border-border"
@@ -646,6 +690,7 @@ export default function Settings() {
                         IBAN bilgileriniz yalnızca hakediş transferleri için kullanılır.
                       </p>
                     )}
+
                   </div>
 
                   <Button
