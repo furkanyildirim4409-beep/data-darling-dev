@@ -395,15 +395,17 @@ export default function Business() {
 
 interface RevenueSplitCardProps {
   loading: boolean;
-  packages: number;
-  store: number;
+  coaching: number;
+  shopify: number;
+  digital: number;
   total: number;
 }
 
-function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardProps) {
+function RevenueSplitCard({ loading, coaching, shopify, digital, total }: RevenueSplitCardProps) {
   const data = [
-    { name: "Koçluk Paketleri", value: Number(packages) || 0, color: REVENUE_COLORS.packages },
-    { name: "E-Ticaret", value: Number(store) || 0, color: REVENUE_COLORS.store },
+    { name: "Koçluk Paketleri", value: Number(coaching) || 0, color: REVENUE_COLORS.coaching },
+    { name: "Shopify", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
+    { name: "Dijital Ürünler", value: Number(digital) || 0, color: REVENUE_COLORS.digital },
   ];
   const hasData = data.some((d) => d.value > 0);
 
