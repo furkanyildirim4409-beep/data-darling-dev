@@ -16,8 +16,9 @@ import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDi
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 
 const REVENUE_COLORS = {
-  packages: "#10B981", // emerald — brand primary
-  store: "#F97316",    // orange — brand accent
+  coaching: "hsl(var(--success))",
+  shopify: "hsl(var(--warning))",
+  digital: "hsl(var(--info))",
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
@@ -194,10 +195,12 @@ export default function Business() {
       {/* Revenue Split Donut */}
       <RevenueSplitCard
         loading={metricsLoading}
-        packages={metrics?.total_package_revenue ?? 0}
-        store={metrics?.total_store_revenue ?? 0}
+        coaching={metrics?.coaching_revenue ?? metrics?.total_package_revenue ?? 0}
+        shopify={metrics?.shopify_revenue ?? 0}
+        digital={metrics?.digital_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
 
@@ -392,15 +395,17 @@ export default function Business() {
 
 interface RevenueSplitCardProps {
   loading: boolean;
-  packages: number;
-  store: number;
+  coaching: number;
+  shopify: number;
+  digital: number;
   total: number;
 }
 
-function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardProps) {
+function RevenueSplitCard({ loading, coaching, shopify, digital, total }: RevenueSplitCardProps) {
   const data = [
-    { name: "Koçluk Paketleri", value: Number(packages) || 0, color: REVENUE_COLORS.packages },
-    { name: "E-Ticaret", value: Number(store) || 0, color: REVENUE_COLORS.store },
+    { name: "Koçluk Paketleri", value: Number(coaching) || 0, color: REVENUE_COLORS.coaching },
+    { name: "Shopify", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
+    { name: "Dijital Ürünler", value: Number(digital) || 0, color: REVENUE_COLORS.digital },
   ];
   const hasData = data.some((d) => d.value > 0);
 
@@ -409,7 +414,7 @@ function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardP
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-semibold text-foreground">Gelir Dağılımı</h2>
-          <p className="text-xs text-muted-foreground">Tüm zamanlar — koçluk paketleri ve e-ticaret kırılımı</p>
+          <p className="text-xs text-muted-foreground">Koçluk paketleri, Shopify ve dijital ürün geliri kırılımı</p>
         </div>
         <span className="text-xs font-mono text-muted-foreground">{fmtTRY(total)}</span>
       </div>
