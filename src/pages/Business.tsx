@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2 } from "lucide-react";
+import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, Receipt } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
+import { useAssignedPayments, type AssignedInvoice } from "@/hooks/useAssignedPayments";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
