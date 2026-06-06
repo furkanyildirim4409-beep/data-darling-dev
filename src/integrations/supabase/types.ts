@@ -2146,6 +2146,7 @@ export type Database = {
           gym_name: string | null
           height_cm: number | null
           hide_from_leaderboard: boolean
+          iban: string | null
           id: string
           last_activity_date: string | null
           level: number | null
@@ -2190,6 +2191,7 @@ export type Database = {
           gym_name?: string | null
           height_cm?: number | null
           hide_from_leaderboard?: boolean
+          iban?: string | null
           id: string
           last_activity_date?: string | null
           level?: number | null
@@ -2234,6 +2236,7 @@ export type Database = {
           gym_name?: string | null
           height_cm?: number | null
           hide_from_leaderboard?: boolean
+          iban?: string | null
           id?: string
           last_activity_date?: string | null
           level?: number | null

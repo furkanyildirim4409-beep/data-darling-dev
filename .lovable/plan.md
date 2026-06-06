@@ -1,61 +1,41 @@
-## Part 5/6 — Overhaul `NewPaymentDialog` for Custom Coach Invoice Assignment
+## Part 1/3 — IBAN column + all-time business metrics RPC
 
-Refactor the existing payment dialog so coaches dispatch a **custom assigned invoice** to a single athlete that flows through the Stripe checkout built in Part 4. The current dialog writes legacy `payments` rows with a `status`/`payment_date` toggle — that flow does not match the marketplace model (athlete pays via Stripe, status flips on webhook).
+Single migration, no application code changes (frontend already consumes `get_coach_business_metrics` via `useBusinessMetrics`).
 
-### 1. `src/components/business/NewPaymentDialog.tsx` — full rewrite
+### Schema change
+- `ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS iban TEXT;`
+  - Nullable, no default. Coaches will populate via the "IBAN Bağla" CTA in `PayoutDesk` (wired in a later part).
 
-Dark glass dialog (`bg-card/80 backdrop-blur-xl border-border/60`) with these fields:
+### RPC overhaul — `public.get_coach_business_metrics(coach_uuid uuid)`
 
-| Field | Control | Validation (zod) |
+Replace the existing function body. Keeps the same signature and JSON keys the frontend already reads (`total_package_revenue`, `total_store_revenue`, `paid_custom_revenue` → renamed `total_custom_revenue` plus a kept alias, `pending_custom_revenue`, `total_revenue`, `active_athletes`). All sums are **all-time** (no date filter).
+
+Adaptations vs the prompt's SQL, because the referenced tables don't exist in this project:
+
+| Prompt SQL | Actual table used | Reason |
 |---|---|---|
-| Sporcu | shadcn `Select` of `athletes` from coach roster | required uuid |
-| Ödeme Başlığı | `Input` (e.g. "24 Haftalık Yarışma Hazırlık Ek Paketi") | trim, 3–120 chars |
-| Tutar (₺) | `Input type=number`, step 50, min 1, max 1,000,000 | positive number |
-| Açıklama | `Textarea` 4 rows | optional, ≤ 1000 chars |
+| `payments` WHERE `status = 'succeeded'` | `payments` WHERE `status IN ('paid','succeeded')` | Existing rows use `'paid'`; accept both so future Stripe webhook writes don't break the metric. |
+| `store_orders` WHERE `coach_id = …` | `orders o JOIN profiles p ON p.id = o.user_id` WHERE `p.coach_id = coach_uuid AND o.status = 'paid'` | No `store_orders` table; storefront orders attribute to a coach via the buyer's `profiles.coach_id`. |
+| `assigned_payments` | unchanged | Already in schema. |
+| `coaching_relationships` WHERE `status='active'` | `profiles` WHERE `coach_id = coach_uuid AND role = 'athlete'` | No `coaching_relationships` table; active athletes are profiles linked by `coach_id`. |
 
-Removed: `status` selector, `payment_date` calendar (status starts `pending`, timestamp auto-set; webhook flips to `paid`).
+`SECURITY DEFINER`, `SET search_path = public`, `LANGUAGE plpgsql` — matches existing definition.
 
-Submit handler calls a new `onSubmit({ athlete_id, title, amount, description })` prop and on success: emerald `toast.success("Fatura sporcuya iletildi")`, full state reset, dialog close, keeps the existing animated success overlay.
+### Return shape
 
-### 2. `src/hooks/usePayments.ts` — add `addAssignedPayment`
-
-New async function used by the dialog (kept alongside legacy `addPayment` so nothing else breaks):
-
-```ts
-const { data, error } = await supabase.from("assigned_payments").insert({
-  coach_id: activeCoachId,
-  athlete_id, title, description: description || null,
-  amount, currency: "TRY", status: "pending",
-}).select("id").single();
+```json
+{
+  "total_package_revenue":  <numeric>,
+  "total_store_revenue":    <numeric>,
+  "total_custom_revenue":   <numeric>,  // new key
+  "paid_custom_revenue":    <numeric>,  // alias kept for back-compat with existing frontend reads
+  "pending_custom_revenue": <numeric>,
+  "total_revenue":          package + store + custom,
+  "active_athletes":        <int>
+}
 ```
-
-After success, fire-and-forget insert into `athlete_notifications`:
-
-```ts
-await supabase.from("athlete_notifications").insert({
-  athlete_id, coach_id: activeCoachId,
-  type: "payment_assigned",
-  title: "Yeni Ek Hizmet Faturası",
-  message: "Koçunuz size yeni bir ek hizmet faturası atadı. Ödemenizi gerçekleştirmek için tıklayın.",
-  action_url: `/athlete/payments?invoice=${data.id}`,
-  metadata: { assigned_payment_id: data.id, amount, title },
-});
-```
-
-Push delivery: the existing `athlete_notifications` insert path already powers in-app + native push elsewhere in the app, so we reuse it (no new edge function required for Part 5).
-
-Export `addAssignedPayment` and re-fetch the payouts list via `fetchPayments` so `PayoutDesk` reflects new pending invoices.
-
-### 3. `src/pages/Business.tsx` — wire new prop
-
-Replace `onSubmit={addPayment}` with `onSubmit={addAssignedPayment}` and pull the new function from `usePayments()`.
 
 ### Out of scope
-- Stripe webhook → `status = 'paid'` (Part 6 territory or already deployed)
-- Native push edge function changes
-- Schema migrations (table + columns already exist)
-
-### Technical notes
-- RLS on `assigned_payments` already permits coach inserts where `coach_id = auth.uid()` (or via team membership via `activeCoachId`).
-- `athlete_notifications` insert is best-effort; failure is logged but does not roll back the invoice.
-- Zod schema lives at the top of the dialog file; errors render under each field with `text-destructive`.
+- IBAN write RPC, masking, validation (later part).
+- Frontend changes — `useBusinessMetrics` already reads these keys.
+- Indexes — existing `coach_id` / `status` indexes are sufficient at current volume.
