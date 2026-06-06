@@ -182,6 +182,66 @@ export type Database = {
         }
         Relationships: []
       }
+      assigned_payments: {
+        Row: {
+          amount: number
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          paid_at: string | null
+          status: string
+          stripe_checkout_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          status?: string
+          stripe_checkout_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          status?: string
+          stripe_checkout_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_payments_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_payments_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assigned_supplements: {
         Row: {
           athlete_id: string
@@ -3333,6 +3393,10 @@ export type Database = {
         }
       }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
+      get_coach_business_metrics: {
+        Args: { coach_uuid: string }
+        Returns: Json
+      }
       get_coach_info: { Args: { _coach_id: string }; Returns: Json }
       get_coach_leaderboard_v2: {
         Args: never
