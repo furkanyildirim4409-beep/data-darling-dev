@@ -121,11 +121,15 @@ function SortablePost({ post, onEdit, onDelete, canManage = true }: SortablePost
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-card border-border">
-            <DropdownMenuItem className="cursor-pointer" onClick={() => onEdit(post)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              Düzenle
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {post.status !== "published" && (
+              <>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => onEdit(post)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Düzenle
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => onDelete(post.id)}>
               <Trash2 className="w-4 h-4 mr-2" />
               Sil

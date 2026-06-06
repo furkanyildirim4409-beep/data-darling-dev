@@ -85,13 +85,15 @@ export function useCreateStory() {
         Date.now() + payload.duration_hours * 3600000
       ).toISOString();
 
+      const category = payload.category?.trim() || null;
       const { data, error } = await supabase
         .from("coach_stories")
         .insert({
           coach_id: user.id,
           media_url: payload.media_url,
           expires_at,
-          category: payload.category ?? null,
+          category,
+          is_highlighted: !!category,
         })
         .select()
         .single();

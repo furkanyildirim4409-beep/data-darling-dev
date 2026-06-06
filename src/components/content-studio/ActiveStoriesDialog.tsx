@@ -29,8 +29,11 @@ interface ActiveStoriesDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function timeRemaining(expiresAt: string) {
-  return formatDistanceToNow(new Date(expiresAt), { locale: tr, addSuffix: false });
+const ACTIVE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function timeRemainingFromCreation(createdAt: string) {
+  const expiry = new Date(new Date(createdAt).getTime() + ACTIVE_WINDOW_MS);
+  return formatDistanceToNow(expiry, { locale: tr, addSuffix: false });
 }
 
 interface ViewersPanelProps {
@@ -120,8 +123,10 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
     } catch {}
   };
 
+  // Strict 24h window based on created_at — highlights do NOT extend active life.
+  const twentyFourHoursAgo = new Date(Date.now() - ACTIVE_WINDOW_MS);
   const activeStories = (allStories ?? []).filter(
-    (s) => new Date(s.expires_at) > new Date()
+    (s) => new Date(s.created_at) >= twentyFourHoursAgo
   );
 
   const handleViewerClick = async (viewer: { viewerId: string; fullName: string; avatarUrl: string | null }) => {
@@ -199,7 +204,7 @@ export function ActiveStoriesDialog({ open, onOpenChange }: ActiveStoriesDialogP
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute bottom-1.5 left-1.5 right-1.5">
                       <span className="text-[10px] text-white/70">
-                        {timeRemaining(story.expires_at)} kaldı
+                        {timeRemainingFromCreation(story.created_at)} kaldı
                       </span>
                     </div>
                     <div className="absolute top-1.5 right-1.5">
