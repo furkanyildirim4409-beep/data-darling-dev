@@ -68,92 +68,23 @@ export function AiDoctorRadar() {
     setIsLoading(false);
   }, [user, isSubCoach, teamMember, teamMemberPermissions]);
 
-  const fetchLedgered = useCallback(async () => {
-    if (!user) return;
-    const { data } = await (supabase as any)
-      .from("coach_action_ledger")
-      .select("source_insight_id")
-      .not("source_insight_id", "is", null);
-    const set = new Set<string>();
-    ((data ?? []) as { source_insight_id: string | null }[]).forEach((r) => {
-      if (r.source_insight_id) set.add(r.source_insight_id);
-    });
-    setLedgeredIds(set);
-  }, [user]);
-
   useEffect(() => {
     fetchInsights();
-    fetchLedgered();
-  }, [fetchInsights, fetchLedgered]);
-
-  // Filter out insights already in the ledger (any status)
-  const visibleInsights = useMemo(
-    () => insights.filter((i) => !ledgeredIds.has(i.id)),
-    [insights, ledgeredIds]
-  );
-
-  const handleLedgerAction = async (
-    athleteId: string,
-    status: "ignored" | "pending"
-  ): Promise<void> => {
-    if (!user) return;
-    const targetInsights = visibleInsights.filter((i) => i.athlete_id === athleteId);
-    if (targetInsights.length === 0) return;
-    setBusyAthleteId(athleteId);
-    const rows = targetInsights.map((i) => ({
-      coach_id: user.id,
-      athlete_id: i.athlete_id,
-      issue_type: i.severity || "low",
-      issue_title: i.title,
-      issue_details: {
-        description: i.analysis,
-        detailed_analysis: i.analysis,
-        severity: i.severity,
-        source: "ai_doctor_radar",
-        suggested_manual_actions: [],
-        biometric_context: "",
-      },
-      source_insight_id: i.id,
-      status,
-    }));
-    const { error } = await (supabase as any)
-      .from("coach_action_ledger")
-      .insert(rows);
-    setBusyAthleteId(null);
-    setOpenPopoverId(null);
-    if (error) {
-      toast({
-        title: "Hata",
-        description: "Kayıt eklenemedi.",
-        variant: "destructive",
-      });
-      return;
-    }
-    // Optimistic: hide
-    setLedgeredIds((prev) => {
-      const next = new Set(prev);
-      targetInsights.forEach((i) => next.add(i.id));
-      return next;
-    });
-    toast({
-      title: status === "ignored" ? "Yok sayıldı" : "Takip listesine eklendi",
-    });
-  };
-
+  }, [fetchInsights]);
 
   // Deduplicate: keep only latest scan per athlete
   const latestInsights = useMemo(() => {
     const latestTimestampByAthlete = new Map<string, string>();
-    for (const i of visibleInsights) {
+    for (const i of insights) {
       const existing = latestTimestampByAthlete.get(i.athlete_id);
       if (!existing || i.created_at > existing) {
         latestTimestampByAthlete.set(i.athlete_id, i.created_at);
       }
     }
-    return visibleInsights.filter(
+    return insights.filter(
       (i) => i.created_at === latestTimestampByAthlete.get(i.athlete_id)
     );
-  }, [visibleInsights]);
+  }, [insights]);
 
   const grouped = useMemo(() => {
     const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
