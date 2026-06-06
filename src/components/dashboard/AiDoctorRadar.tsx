@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
