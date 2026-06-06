@@ -336,6 +336,7 @@ export default function OrderFulfillmentSheet({
                 const qty = Number(it.quantity ?? 1);
                 const price = Number(it.price ?? 0);
                 const subtotal = qty * price;
+                const variantLabel = extractVariantLabel(it);
                 return (
                   <div
                     key={it.id ?? idx}
@@ -353,10 +354,22 @@ export default function OrderFulfillmentSheet({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {it.title ?? "Ürün"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => setProductDetailItem(it)}
+                        className="text-left w-full group/title"
+                        title="Ürün detayını görüntüle"
+                      >
+                        <p className="text-sm font-medium text-foreground truncate group-hover/title:text-primary transition-colors underline-offset-4 group-hover/title:underline">
+                          {it.title ?? "Ürün"}
+                        </p>
+                      </button>
+                      {variantLabel && (
+                        <p className="text-[11px] text-primary/80 mt-0.5 truncate">
+                          Varyasyon: {variantLabel}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {qty} × {formatPrice(price)}
                       </p>
                     </div>
@@ -367,11 +380,26 @@ export default function OrderFulfillmentSheet({
                 );
               })}
             </div>
-            <div className="border-t border-white/5 pt-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Toplam</span>
-              <span className="text-lg font-bold text-primary">
-                {formatPrice(order.total_price)}
-              </span>
+
+            {/* Totals grid */}
+            <div className="border-t border-white/5 pt-3 space-y-1.5">
+              {discount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-emerald-300/90 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Yapılan İndirim
+                  </span>
+                  <span className="font-semibold text-emerald-300">
+                    −{formatPrice(discount)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm text-muted-foreground">Toplam</span>
+                <span className="text-lg font-bold text-primary">
+                  {formatPrice(order.total_price)}
+                </span>
+              </div>
             </div>
             {order.total_coins_used > 0 && (
               <p className="text-xs text-amber-300/80">
