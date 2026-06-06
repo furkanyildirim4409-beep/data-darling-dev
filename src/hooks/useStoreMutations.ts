@@ -15,6 +15,10 @@ interface CreateProductPayload {
   stockQuantity: number | null;
   /** Shopify Taxonomy GID, e.g. gid://shopify/TaxonomyCategory/sg-4-17-2-17 */
   shopifyCategoryId?: string | null;
+  /** When true, Shopify gets a DRAFT product and DB row is `pending_admin_approval`. */
+  publishAsDraft?: boolean;
+  /** Storage path inside `digital-products` bucket (for digital product downloads). */
+  digitalFileUrl?: string | null;
 }
 
 interface UpdateProductStatusPayload {
@@ -91,6 +95,7 @@ export function useCreateProduct() {
               trackInventory: payload.trackInventory,
               stockQuantity: payload.stockQuantity,
               shopifyCategoryId: payload.shopifyCategoryId ?? null,
+              publishAsDraft: payload.publishAsDraft ?? false,
             },
           },
         );
@@ -139,9 +144,12 @@ export function useCreateProduct() {
           shopify_product_id: shopifyProductId,
           shopify_variant_id: shopifyVariantId,
           product_type: payload.productType,
+          product_kind: payload.productType,
+          digital_file_url: payload.digitalFileUrl ?? null,
           track_inventory: payload.trackInventory,
           stock_quantity: payload.stockQuantity,
           is_active: true,
+          // status defaults to 'pending_admin_approval' via DB trigger for non-admins
         })
         .select()
         .single();
@@ -152,9 +160,13 @@ export function useCreateProduct() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["coach-products"] });
-      toast.success("Ürün yayınlandı ve Shopify'a gönderildi.");
+      if (variables.publishAsDraft) {
+        toast.success("Ürün onaya gönderildi. Admin incelemesinden sonra mağazada yayınlanacak.");
+      } else {
+        toast.success("Ürün yayınlandı ve Shopify'a gönderildi.");
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || "Ürün eklenemedi.");

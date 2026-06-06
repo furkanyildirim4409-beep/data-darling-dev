@@ -69,7 +69,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RotateCcw, UserX } from "lucide-react";
 
-const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
+const CATEGORIES = [
+  "Gıda Takviyeleri & Supplement",
+  "Antrenman Ekipmanları",
+  "Spor Giyim & Tekstil",
+  "Dijital Program & E-Kitap",
+  "Sağlıklı Atıştırmalıklar",
+  "Ortopedik Destek Ürünleri",
+] as const;
+const DIGITAL_CATEGORY = "Dijital Program & E-Kitap";
+const MAX_DIGITAL_BYTES = 50 * 1024 * 1024; // 50 MB
 
 /** Common Shopify Taxonomy categories for coach products.
  *  IDs are real Shopify Standard Product Taxonomy GIDs. */
@@ -123,7 +132,10 @@ export default function StoreManager() {
   const [productType, setProductType] = useState<"physical" | "digital">("physical");
   const [stockQty, setStockQty] = useState<string>("");
   const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
+  const [digitalFile, setDigitalFile] = useState<File | null>(null);
+  const [digitalDragActive, setDigitalDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const digitalInputRef = useRef<HTMLInputElement>(null);
 
   // ----- Edit dialog state -----
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -203,7 +215,9 @@ export default function StoreManager() {
     setProductType("physical");
     setStockQty("");
     setShopifyCategoryId("");
+    setDigitalFile(null);
     if (inputRef.current) inputRef.current.value = "";
+    if (digitalInputRef.current) digitalInputRef.current.value = "";
   };
 
   const handleFile = useCallback((file: File) => {
@@ -226,6 +240,40 @@ export default function StoreManager() {
     if (file) handleFile(file);
   };
 
+  const handleDigitalFile = useCallback((file: File) => {
+    const okExt = /\.(pdf|zip)$/i.test(file.name);
+    const okMime = ["application/pdf", "application/zip", "application/x-zip-compressed"].includes(
+      file.type,
+    );
+    if (!okExt && !okMime) {
+      toast.error("Sadece PDF veya ZIP dosyaları yüklenebilir.");
+      return;
+    }
+    if (file.size > MAX_DIGITAL_BYTES) {
+      toast.error("Dijital ürün dosyası 50 MB'dan büyük olamaz.");
+      return;
+    }
+    setDigitalFile(file);
+  }, []);
+
+  const onDigitalDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDigitalDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleDigitalFile(file);
+  };
+
+  // Auto-toggle product_kind based on category
+  useEffect(() => {
+    if (category === DIGITAL_CATEGORY && productType !== "digital") {
+      setProductType("digital");
+    } else if (category && category !== DIGITAL_CATEGORY && productType !== "physical") {
+      setProductType("physical");
+      setDigitalFile(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
   const isDigital = productType === "digital";
   // Physical: always track inventory and require stock qty.
   // Digital: never tracked (unlimited).
@@ -243,11 +291,28 @@ export default function StoreManager() {
     !!category &&
     !!imageFile &&
     !isCreating &&
-    (isDigital || (stockQty !== "" && Number(stockQty) >= 0));
+    (isDigital ? !!digitalFile : stockQty !== "" && Number(stockQty) >= 0);
+
+  const { user } = useAuth();
 
   const handleSubmit = async () => {
-    if (!canSubmit || !imageFile) return;
+    if (!canSubmit || !imageFile || !user) return;
     try {
+      // 1) If digital, upload secure asset to private bucket first
+      let digitalFileUrl: string | null = null;
+      if (isDigital && digitalFile) {
+        const safe = digitalFile.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-60);
+        const path = `${user.id}/${Date.now()}-${safe}`;
+        const { error: upErr } = await supabase.storage
+          .from("digital-products")
+          .upload(path, digitalFile, { cacheControl: "3600", upsert: false });
+        if (upErr) {
+          toast.error(`Dijital dosya yüklenemedi: ${upErr.message}`);
+          return;
+        }
+        digitalFileUrl = path;
+      }
+
       await createProduct({
         title: title.trim(),
         description: description.trim() || undefined,
@@ -258,6 +323,8 @@ export default function StoreManager() {
         trackInventory,
         stockQuantity,
         shopifyCategoryId: shopifyCategoryId || null,
+        publishAsDraft: true,
+        digitalFileUrl,
       });
       resetForm();
     } catch {
@@ -484,6 +551,76 @@ export default function StoreManager() {
                 </div>
               )}
 
+              {/* Digital asset uploader — only for digital products */}
+              {isDigital && (
+                <div className="rounded-lg border border-info/30 bg-info/5 p-3 space-y-2">
+                  <Label className="text-xs uppercase tracking-wide text-info">
+                    Dijital Ürün Belgesi Yükle <span className="text-destructive">*</span>
+                  </Label>
+                  <div
+                    onClick={() => digitalInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDigitalDragActive(true);
+                    }}
+                    onDragLeave={() => setDigitalDragActive(false)}
+                    onDrop={onDigitalDrop}
+                    className={`relative rounded-xl border-2 border-dashed cursor-pointer transition-colors p-5 flex flex-col items-center justify-center text-center ${
+                      digitalDragActive
+                        ? "border-info bg-info/10"
+                        : "border-border bg-background/40 hover:border-info/60"
+                    }`}
+                  >
+                    {digitalFile ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Cloud className="w-4 h-4 text-info" />
+                        <span className="font-medium text-foreground truncate max-w-[220px]">
+                          {digitalFile.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {(digitalFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDigitalFile(null);
+                            if (digitalInputRef.current) digitalInputRef.current.value = "";
+                          }}
+                          className="ml-2 text-destructive hover:opacity-80"
+                          aria-label="Dosyayı kaldır"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Cloud className="w-7 h-7 mb-1.5 text-info" />
+                        <p className="text-xs font-medium text-foreground">
+                          PDF veya ZIP dosyası sürükleyin
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          veya tıklayın · maks 50 MB · özel & güvenli
+                        </p>
+                      </>
+                    )}
+                    <input
+                      ref={digitalInputRef}
+                      type="file"
+                      accept=".pdf,.zip,application/pdf,application/zip"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleDigitalFile(f);
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Müşteri yalnızca onaylanmış siparişten sonra bu belgeye imzalı bir bağlantıyla erişebilir.
+                  </p>
+                </div>
+              )}
+
               {/* Shopify taxonomy category (optional) */}
               <div>
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -510,20 +647,25 @@ export default function StoreManager() {
                 </p>
               </div>
 
-              <Button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className="w-full sm:w-auto"
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Yayınlanıyor...
-                  </>
-                ) : (
-                  "Yayınla ve Shopify'a Gönder"
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit}
+                  className="w-full sm:w-auto"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Onaya Gönderiliyor...
+                    </>
+                  ) : (
+                    "Yayınla ve Onaya Gönder"
+                  )}
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Ürününüz Shopify mağazasına <strong>Taslak</strong> olarak yüklenir ve admin onayından sonra satışa açılır.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -567,21 +709,45 @@ export default function StoreManager() {
               const isPhysical = p.product_type !== "digital";
               const isSoldOut =
                 isPhysical && p.track_inventory && Number(p.stock_quantity) === 0;
+              const isPending = p.status === "pending_admin_approval";
+              const isRejected = p.status === "rejected";
               return (
               <div
                 key={p.id}
-                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors relative"
+                className={`group rounded-xl border bg-card overflow-hidden transition-colors relative ${
+                  isPending
+                    ? "border-warning/60 shadow-[0_0_28px_-8px_hsl(var(--warning)/0.55)]"
+                    : isRejected
+                    ? "border-destructive/60"
+                    : "border-border hover:border-primary/50"
+                }`}
               >
                 <div className="aspect-square bg-muted overflow-hidden relative">
                   <img
                     src={p.image_url}
                     alt={p.title}
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
-                      isSoldOut ? "opacity-60 grayscale" : ""
+                      isSoldOut || isPending || isRejected ? "opacity-60 grayscale" : ""
                     }`}
                     loading="lazy"
                   />
-                  {isSoldOut && (
+                  {isPending && (
+                    <div className="absolute top-2 left-2 right-2 flex justify-center pointer-events-none">
+                      <span
+                        className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning text-warning-foreground shadow-[0_0_18px_hsl(var(--warning)/0.7)] animate-pulse"
+                      >
+                        🟠 ONAY BEKLİYOR
+                      </span>
+                    </div>
+                  )}
+                  {isRejected && (
+                    <div className="absolute top-2 left-2 right-2 flex justify-center pointer-events-none">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-destructive text-destructive-foreground shadow-md">
+                        🚫 ONAYLANMADI
+                      </span>
+                    </div>
+                  )}
+                  {isSoldOut && !isPending && !isRejected && (
                     <Badge
                       variant="destructive"
                       className="absolute top-2 left-2 text-[10px] uppercase tracking-wider shadow-md"
@@ -649,15 +815,17 @@ export default function StoreManager() {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border">
                     <span className="text-xs text-muted-foreground">
-                      {p.is_active ? "Aktif" : "Pasif"}
+                      {isPending ? "Onay bekliyor" : isRejected ? "Reddedildi" : p.is_active ? "Aktif" : "Pasif"}
                     </span>
-                    <Switch
-                      checked={!!p.is_active}
-                      disabled={!canManageStore}
-                      onCheckedChange={(checked) =>
-                        updateStatus({ product_id: p.id, is_active: checked })
-                      }
-                    />
+                    {!isPending && !isRejected && (
+                      <Switch
+                        checked={!!p.is_active}
+                        disabled={!canManageStore}
+                        onCheckedChange={(checked) =>
+                          updateStatus({ product_id: p.id, is_active: checked })
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               </div>

@@ -31,6 +31,8 @@ const BodySchema = z
       .regex(/^gid:\/\/shopify\/TaxonomyCategory\/[A-Za-z0-9-]+$/)
       .nullable()
       .optional(),
+    /** When true, create the product as a Shopify DRAFT (hidden from sales channels) — admin approval workflow. */
+    publishAsDraft: z.boolean().optional().default(false),
   })
   .superRefine((val, ctx) => {
     if (val.productType === "physical") {
@@ -213,6 +215,7 @@ Deno.serve(async (req) => {
     trackInventory: trackInventoryRaw,
     stockQuantity,
     shopifyCategoryId,
+    publishAsDraft,
   } = parsed.data;
 
   const isDigital = productType === "digital";
@@ -230,13 +233,14 @@ Deno.serve(async (req) => {
     const productInput: Record<string, unknown> = {
       title,
       descriptionHtml: descriptionHtml ?? "",
-      status: "ACTIVE",
+      status: publishAsDraft ? "DRAFT" : "ACTIVE",
       productType: isDigital ? "Digital" : (category ?? "Physical"),
       vendor: vendorName ?? "",
       tags: [
         `coach:${userId}`,
         `type:${productType}`,
         ...(category ? [`category:${category}`] : []),
+        ...(publishAsDraft ? ["pending_admin_approval"] : []),
       ],
     };
     if (shopifyCategoryId) {

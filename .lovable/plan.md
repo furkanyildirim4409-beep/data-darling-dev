@@ -1,63 +1,83 @@
-# Shop Production Upgrade — Plan
+# Product Studio Overhaul & Admin Approval Gateway — Plan
 
-## Schema Reality Check (Important)
+## Reality check first
 
-The SQL you provided references `store_orders` and `shopify_products`, but those tables **do not exist** in this project. The actual tables are:
+A few important things diverge from your brief — calling them out so we don't waste a build cycle:
 
-- `public.orders` — has `user_id`, `items` (jsonb), `total_price`, `status`, `shipping_address`, `tracking_number`, `tracking_url`, `carrier_name`, etc. **No `coach_id` column today.** Coach attribution currently flows through `profiles.coach_id` of the buyer (see `get_coach_business_metrics`) and via `items[].coach_id` inside the JSONB cart payload (see `handle_coaching_order_paid`).
-- `public.coach_products` — has `coach_id`, `title`, `description`, `price`, `image_url`, `category`, `product_type`, `stock_quantity`, `shopify_product_id`, `shopify_variant_id`. **No `digital_file_url` or `product_kind` today.**
+1. **`ProductEditor.tsx` and `ProductList.tsx` are orphaned** in the live store flow. The production "Yeni Ürün Yükle" form lives in `src/pages/StoreManager.tsx` (lines 105–536); the "Ürünlerim" grid is also in that file (lines 564–667). Only `MobilePreview.tsx` imports `ProductData` as a type from `ProductEditor.tsx`.
+   → I'll do the real upgrade in `StoreManager.tsx` (and `useStoreMutations.ts` + the Shopify edge function). I'll keep `ProductEditor.tsx` aligned (same category list + digital-doc slot + new button label) so it stays consistent, but the gating workflow lives in the production path.
 
-I need to translate your SQL onto the real tables before running it.
+2. **`src/data/storyCategories.ts` is unrelated** — it's for Stories content, not products. The product `CATEGORIES` constant is at `StoreManager.tsx:72`. I'll change it there.
 
-## Status token mismatch
+3. **No `coach_products.status` column today.** `digital_file_url` and `product_kind` exist (added in Part 1). I'll add `status` via migration.
 
-Current `orders.status` values used in code: `processing`, `shipped`, `completed`, `cancelled`, `refunded`, plus `paid` (from RPC/triggers).
-Your filter tokens requested: `pending`, `shipped`, `delivered`.
+4. **Shopify draft mode**: `create-shopify-product/index.ts:233` hardcodes `status: "ACTIVE"`. I'll thread a `publishAsDraft` flag through `useCreateProduct` → edge function so it sets `status: "DRAFT"` for products pending admin approval.
 
-I'll map filters to the existing values:
-- **Hepsi** → no filter
-- **Bekleyen** → `processing` (and `paid` if surfaced)
-- **Kargolanan** → `shipped`
-- **Teslim Edilen** → `completed`
+5. **`digital-products` storage bucket doesn't exist yet** — I'll create it as private with RLS.
 
-If you want me to rename the tokens in the DB to `pending`/`delivered` instead, say so and I'll add a data migration.
+## Database migration
 
-## Plan
+1. `ALTER TABLE public.coach_products ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'approved';`
+   Allowed values: `pending_admin_approval`, `approved`, `rejected`. Existing rows backfill as `approved` (don't retroactively gate live inventory).
+2. CHECK constraint enforcing those three values.
+3. Index on `(coach_id, status)`.
+4. Trigger: when a coach inserts/updates a product, if they're not admin, force `status='pending_admin_approval'` (defense in depth alongside the client setting it).
+5. RPC `approve_product(product_id uuid, decision text)` callable only by admins (`has_role(auth.uid(), 'admin')`) that flips status to `approved` or `rejected` and also flips Shopify status back to ACTIVE via an edge call (or just sets `is_active`, leaving Shopify activation as a follow-up).
+6. New private storage bucket **`digital-products`** + RLS: owner coach can `INSERT/SELECT/DELETE` their own files (`auth.uid()::text = (storage.foldername(name))[1]`); admins can read all; signed URLs for purchasers handled out of scope here.
 
-### 1. Database migration (adapted to real schema)
-- `ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS coach_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL;` (FK to `profiles`, not `auth.users`, per project convention).
-- Backfill existing rows: set `orders.coach_id = profiles.coach_id` of the buyer where currently null.
-- Index `orders(coach_id, status, created_at desc)` for the orders list query.
-- `ALTER TABLE public.coach_products ADD COLUMN IF NOT EXISTS digital_file_url text;`
-- `ALTER TABLE public.coach_products ADD COLUMN IF NOT EXISTS product_kind text NOT NULL DEFAULT 'physical' CHECK (product_kind IN ('physical','digital'));`
-- Update `handle_coaching_order_paid` (or add a new trigger) so future `orders` rows have `coach_id` populated from `items[].coach_id` or buyer's `profiles.coach_id`.
-- Add/adjust RLS: coaches can `SELECT` orders where `coach_id = auth.uid()` OR `is_active_team_member_of(coach_id)`. Athletes keep current `user_id = auth.uid()` scope.
-- Update `get_coach_business_metrics` store revenue branch to prefer `orders.coach_id` and fall back to `profiles.coach_id`.
+## `src/pages/StoreManager.tsx` — production form upgrade
 
-### 2. `StoreOrdersList.tsx` — segmented filter bar
-- Add dark glassmorphic segmented control above the list: `Hepsi | Bekleyen | Kargolanan | Teslim Edilen`.
-- Local `useState<'all'|'processing'|'shipped'|'completed'>`; filter the `orders` prop client-side.
-- Show per-bucket counts on each pill.
-- Extend `OrderItem` type with optional `coach_id: string | null`.
+- **Replace `CATEGORIES`** with the new 6 specialized vectors:
+  ```ts
+  const CATEGORIES = [
+    "Gıda Takviyeleri & Supplement",
+    "Antrenman Ekipmanları",
+    "Spor Giyim & Tekstil",
+    "Dijital Program & E-Kitap",
+    "Sağlıklı Atıştırmalıklar",
+    "Ortopedik Destek Ürünleri",
+  ] as const;
+  const DIGITAL_CATEGORY = "Dijital Program & E-Kitap";
+  ```
+- **Auto-toggle `product_kind`**: a `useEffect` on `category` forces `productType = 'digital'` when category equals `DIGITAL_CATEGORY`, otherwise `'physical'`. The existing physical/digital segmented buttons stay but become read-only display when category is digital (or hide and replace with an info row).
+- **Digital file dropzone**: when `productType === 'digital'`, render a new section "Dijital Ürün Belgesi Yükle" — drag-and-drop accepting `.pdf` and `.zip`, max 50MB, uploads to `supabase.storage.from('digital-products')`. Stores the resulting path on the product row's `digital_file_url`. Required before submit when digital.
+- **Button overhaul**: replace the "Yayınla ve Shopify'a Gönder" CTA with **"Yayınla ve Onaya Gönder"** plus a small caption "Ürününüz admin onayından sonra mağazada görünecek".
+- **Submit flow**: pass `publishAsDraft: true` + `status: 'pending_admin_approval'` + `digitalFileUrl` to `useCreateProduct`.
+- **Product grid card** (lines 564–667): if `product.status === 'pending_admin_approval'`, render a glowing badge **"🟠 ONAY BEKLİYOR"** absolutely positioned above the thumbnail (top-2 left-2, amber gradient, soft glow shadow), and dim the card slightly. Hide the active/passive switch when pending (status overrides it). If `status === 'rejected'`, show a red "🚫 ONAYLANMADI" variant.
+- **Edit dialog**: also enforce the new category list. Editing a previously approved product keeps it approved; editing a pending one stays pending.
 
-### 3. `OrderFulfillmentSheet.tsx` — rich product rows
-For each line in `order.items`:
-- **Variant subtitle**: if item has `options` / `variant` / `selectedOptions` (size, color, etc.), render `Varyasyon: Mavi, L` underneath the title.
-- **Clickable title** opens a nested `Dialog` (luxury dark style) showing the product image, full description, category and specs — fetched from `coach_products` by `shopify_product_id` or `id` (cached via React Query).
-- Reuse `ProductDetailDialog.tsx` if its surface already matches; otherwise add a lightweight nested dialog inside the sheet.
+## `src/hooks/useStoreMutations.ts`
 
-### 4. Totals footer — `Yapılan İndirim` row
-Inside the totals grid (Subtotal / Tax / Shipping / Total):
-- Compute `discount = max(0, Σ(item.regular_price ?? item.price) * qty - order.total_price - shipping - tax)`.
-- Alternatively read `order.shipping_address.discount` or an `items[].discount` field if present (will check at implement time).
-- Render an emerald-accented row `Yapılan İndirim −₺X` only when `discount > 0`.
+- Extend `CreateProductPayload` with `publishAsDraft?: boolean` and `digitalFileUrl?: string | null`.
+- Pass `publishAsDraft` to the edge function body.
+- After Shopify create, insert into `coach_products` with `status: 'pending_admin_approval'` (when draft) and `digital_file_url` populated.
+- Update `useUpdateProductStatus` query invalidations to also refresh after admin approval RPC.
 
-### 5. Type & query updates
-- Regenerate `OrderItem` interface in `StoreOrdersList.tsx` and `OrderFulfillmentSheet.tsx` to include `coach_id`.
-- Update the orders fetch hook (wherever `from('orders').select(...)` runs for the store manager) to filter by `coach_id = activeCoachId` once the column is populated.
+## `supabase/functions/create-shopify-product/index.ts`
 
-## Questions before I implement
+- Accept `publishAsDraft: z.boolean().optional()` in `BodySchema`.
+- Set `productInput.status = publishAsDraft ? "DRAFT" : "ACTIVE"`.
+- Optional tag `pending_admin_approval` when draft, so Shopify-side filters can pick it up.
 
-1. Confirm I should map your filter tokens (`pending`/`delivered`) to the existing `processing`/`completed` values, **or** rename the DB values project-wide.
-2. Confirm `orders.coach_id` should FK to `public.profiles(id)` (project convention) rather than `auth.users(id)`.
-3. The `digital_file_url` will be a signed URL from a new private storage bucket on purchase, or a plain public URL stored on the product? (Affects whether we add a `digital-products` bucket + RLS now.)
+## `src/components/store-manager/ProductEditor.tsx` (orphan, but keep aligned)
+
+Light-touch:
+- Replace `defaultFeatures` / Replace any internal category arrays with the new 6 categories (currently it has no category UI, so just add a `<Select>` for category that drives `productType`).
+- Add the digital dropzone slot when `productType === 'digital'`.
+- Rename the save button to "Yayınla ve Onaya Gönder" to match spec wording.
+- I will NOT wire this to mutations (it's not used). A code comment marks it as preview-only.
+
+## `src/components/store-manager/ProductList.tsx` (orphan, but keep aligned)
+
+- Render the "🟠 ONAY BEKLİYOR" badge when `(product as any).status === 'pending_admin_approval'`.
+
+## Out of scope for this part
+
+- The admin approval UI itself (the page where admins review pending products and approve/reject). The DB + RPC are ready; we'll build the surface in Part 3 unless you want it now.
+- Automatic Shopify ACTIVE flip on admin approval — easy to wire next once you confirm.
+
+## Open questions (will assume the defaults below if you don't answer)
+
+1. **Digital file size limit**: default to **50MB** for PDFs/ZIPs. Bigger?
+2. **Existing products' `status`**: backfill all current rows to `approved`. Confirm — or should we force everything back to pending?
+3. **Edit semantics**: should re-editing an already-`approved` product re-enter `pending_admin_approval`? Default: **no, edits stay approved** (only fresh creates go to pending).
