@@ -551,6 +551,76 @@ export default function StoreManager() {
                 </div>
               )}
 
+              {/* Digital asset uploader — only for digital products */}
+              {isDigital && (
+                <div className="rounded-lg border border-info/30 bg-info/5 p-3 space-y-2">
+                  <Label className="text-xs uppercase tracking-wide text-info">
+                    Dijital Ürün Belgesi Yükle <span className="text-destructive">*</span>
+                  </Label>
+                  <div
+                    onClick={() => digitalInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDigitalDragActive(true);
+                    }}
+                    onDragLeave={() => setDigitalDragActive(false)}
+                    onDrop={onDigitalDrop}
+                    className={`relative rounded-xl border-2 border-dashed cursor-pointer transition-colors p-5 flex flex-col items-center justify-center text-center ${
+                      digitalDragActive
+                        ? "border-info bg-info/10"
+                        : "border-border bg-background/40 hover:border-info/60"
+                    }`}
+                  >
+                    {digitalFile ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Cloud className="w-4 h-4 text-info" />
+                        <span className="font-medium text-foreground truncate max-w-[220px]">
+                          {digitalFile.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {(digitalFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDigitalFile(null);
+                            if (digitalInputRef.current) digitalInputRef.current.value = "";
+                          }}
+                          className="ml-2 text-destructive hover:opacity-80"
+                          aria-label="Dosyayı kaldır"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Cloud className="w-7 h-7 mb-1.5 text-info" />
+                        <p className="text-xs font-medium text-foreground">
+                          PDF veya ZIP dosyası sürükleyin
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          veya tıklayın · maks 50 MB · özel & güvenli
+                        </p>
+                      </>
+                    )}
+                    <input
+                      ref={digitalInputRef}
+                      type="file"
+                      accept=".pdf,.zip,application/pdf,application/zip"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleDigitalFile(f);
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Müşteri yalnızca onaylanmış siparişten sonra bu belgeye imzalı bir bağlantıyla erişebilir.
+                  </p>
+                </div>
+              )}
+
               {/* Shopify taxonomy category (optional) */}
               <div>
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
