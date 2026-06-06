@@ -90,6 +90,42 @@ export default function Business() {
     return new Date(dateStr).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
   };
 
+  // Merge payments + assigned_payments into a single chronological ledger
+  type MergedRow = {
+    id: string;
+    kind: "payment" | "invoice";
+    athlete_name: string;
+    date: string;
+    description: string | null;
+    status: string;
+    amount: number;
+    raw: any;
+  };
+  const mergedRecords: MergedRow[] = [
+    ...payments.map<MergedRow>((p) => ({
+      id: `pay-${p.id}`,
+      kind: "payment",
+      athlete_name: p.athlete_name || "Bilinmeyen",
+      date: p.payment_date,
+      description: p.description,
+      status: p.status,
+      amount: Number(p.amount),
+      raw: p,
+    })),
+    ...(customInvoices ?? []).map<MergedRow>((i) => ({
+      id: `inv-${i.id}`,
+      kind: "invoice",
+      athlete_name: i.athlete_name,
+      date: i.created_at,
+      description: i.title,
+      status: i.status,
+      amount: Number(i.amount),
+      raw: i,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const recordsLoading = isLoading || invoicesLoading;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
