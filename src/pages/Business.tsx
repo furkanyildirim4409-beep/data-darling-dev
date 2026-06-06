@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, Receipt } from "lucide-react";
+import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
-import { useAssignedPayments, type AssignedInvoice } from "@/hooks/useAssignedPayments";
+import { useAssignedPayments } from "@/hooks/useAssignedPayments";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
@@ -90,6 +89,42 @@ export default function Business() {
     return new Date(dateStr).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
   };
 
+  // Merge payments + assigned_payments into a single chronological ledger
+  type MergedRow = {
+    id: string;
+    kind: "payment" | "invoice";
+    athlete_name: string;
+    date: string;
+    description: string | null;
+    status: string;
+    amount: number;
+    raw: any;
+  };
+  const mergedRecords: MergedRow[] = [
+    ...payments.map<MergedRow>((p) => ({
+      id: `pay-${p.id}`,
+      kind: "payment",
+      athlete_name: p.athlete_name || "Bilinmeyen",
+      date: p.payment_date,
+      description: p.description,
+      status: p.status,
+      amount: Number(p.amount),
+      raw: p,
+    })),
+    ...(customInvoices ?? []).map<MergedRow>((i) => ({
+      id: `inv-${i.id}`,
+      kind: "invoice",
+      athlete_name: i.athlete_name,
+      date: i.created_at,
+      description: i.title,
+      status: i.status,
+      amount: Number(i.amount),
+      raw: i,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const recordsLoading = isLoading || invoicesLoading;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -155,8 +190,6 @@ export default function Business() {
         </div>
       )}
 
-      {/* Custom Invoices Ledger */}
-      <CustomInvoicesLedger invoices={customInvoices ?? []} loading={invoicesLoading} />
 
       {/* Revenue Split Donut */}
       <RevenueSplitCard
@@ -175,14 +208,14 @@ export default function Business() {
         <div className="glass rounded-xl border border-border">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Ödeme Kayıtları</h2>
-            <span className="text-xs font-mono text-muted-foreground">{payments.length} kayıt</span>
+            <span className="text-xs font-mono text-muted-foreground">{mergedRecords.length} kayıt</span>
           </div>
 
-          {isLoading ? (
+          {recordsLoading ? (
             <div className="p-4 space-y-3">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
             </div>
-          ) : payments.length === 0 ? (
+          ) : mergedRecords.length === 0 ? (
             <div className="p-8 text-center">
               <DollarSign className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-muted-foreground">Henüz ödeme kaydı yok</p>
@@ -192,77 +225,86 @@ export default function Business() {
             </div>
           ) : (
             <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-              {payments.map((payment) => (
+              {mergedRecords.map((row) => (
                 <div
-                  key={payment.id}
+                  key={row.id}
                   className="p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {payment.athlete_name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground truncate">
+                        {row.athlete_name}
+                      </p>
+                      {row.kind === "invoice" && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-primary/30 text-primary bg-primary/5 px-1.5 py-0"
+                        >
+                          Özel Fatura
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(payment.payment_date)}
-                      {payment.description && ` • ${payment.description}`}
+                      {formatDate(row.date)}
+                      {row.description && ` • ${row.description}`}
                     </p>
                   </div>
 
-                    <div className="flex items-center gap-3">
-                    {/* Status dropdown - only interactive if canManageFinances */}
-                    {canManageFinances ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-xs border cursor-pointer hover:opacity-80",
-                            payment.status === "paid" && "bg-success/10 text-success border-success/20",
-                            payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
-                            payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
-                          )}
-                        >
-                          {statusLabels[payment.status] || payment.status}
-                        </Badge>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="bg-card border-border">
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "paid")}>
-                          <span className="w-2 h-2 rounded-full bg-success mr-2" />
-                          Ödendi
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "pending")}>
-                          <span className="w-2 h-2 rounded-full bg-warning mr-2" />
-                          Bekliyor
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "overdue")}>
-                          <span className="w-2 h-2 rounded-full bg-destructive mr-2" />
-                          Gecikmiş
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <div className="flex items-center gap-3">
+                    {row.kind === "payment" && canManageFinances ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs border cursor-pointer hover:opacity-80",
+                              row.status === "paid" && "bg-success/10 text-success border-success/20",
+                              row.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                              row.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                            )}
+                          >
+                            {statusLabels[row.status] || row.status}
+                          </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-card border-border">
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "paid")}>
+                            <span className="w-2 h-2 rounded-full bg-success mr-2" />
+                            Ödendi
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "pending")}>
+                            <span className="w-2 h-2 rounded-full bg-warning mr-2" />
+                            Bekliyor
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "overdue")}>
+                            <span className="w-2 h-2 rounded-full bg-destructive mr-2" />
+                            Gecikmiş
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <Badge
                         variant="outline"
                         className={cn(
                           "text-xs border",
-                          payment.status === "paid" && "bg-success/10 text-success border-success/20",
-                          payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
-                          payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                          row.status === "paid" && "bg-success/10 text-success border-success/20",
+                          row.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                          row.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
                         )}
                       >
-                        {statusLabels[payment.status] || payment.status}
+                        {statusLabels[row.status] || row.status}
                       </Badge>
                     )}
 
                     <span className="font-mono font-semibold text-foreground whitespace-nowrap">
-                      ₺{Number(payment.amount).toLocaleString("tr-TR")}
+                      ₺{Number(row.amount).toLocaleString("tr-TR")}
                     </span>
 
-                    {canManageFinances && (
+                    {row.kind === "payment" && canManageFinances && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(payment.id)}
+                        onClick={() => setDeleteTarget(row.raw.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -460,122 +502,6 @@ function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardP
               );
             })}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-interface CustomInvoicesLedgerProps {
-  invoices: AssignedInvoice[];
-  loading: boolean;
-}
-
-function CustomInvoicesLedger({ invoices, loading }: CustomInvoicesLedgerProps) {
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
-
-  const fmtAmount = (n: number) =>
-    new Intl.NumberFormat("tr-TR", {
-      style: "currency",
-      currency: "TRY",
-      minimumFractionDigits: 2,
-    }).format(Number(n || 0));
-
-  const initials = (name: string) =>
-    name
-      .split(" ")
-      .map((p) => p[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-
-  return (
-    <div className="glass rounded-xl border border-border">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-foreground">Özel Fatura ve Ödeme Kayıtları</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Sporculara atanan özel ödeme ve fatura geçmişi
-          </p>
-        </div>
-        <span className="text-xs font-mono text-muted-foreground">{invoices.length} kayıt</span>
-      </div>
-
-      {loading ? (
-        <div className="p-4 space-y-3">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-14 rounded-lg" />
-          ))}
-        </div>
-      ) : invoices.length === 0 ? (
-        <div className="p-12 text-center">
-          <Receipt className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground">
-            Henüz hiçbir sporcuya özel ödeme/fatura atamadınız.
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            "Yeni Ödeme" butonuyla ilk faturanızı oluşturun
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="text-left font-medium px-4 py-3">Tarih</th>
-                <th className="text-left font-medium px-4 py-3">Sporcu</th>
-                <th className="text-left font-medium px-4 py-3">Açıklama</th>
-                <th className="text-right font-medium px-4 py-3">Tutar</th>
-                <th className="text-right font-medium px-4 py-3">Durum</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {invoices.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="hover:bg-secondary/30 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {fmtDate(inv.created_at)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar className="w-7 h-7 shrink-0">
-                        {inv.athlete_avatar_url && (
-                          <AvatarImage src={inv.athlete_avatar_url} alt={inv.athlete_name} />
-                        )}
-                        <AvatarFallback className="text-[10px] bg-secondary text-foreground">
-                          {initials(inv.athlete_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium text-foreground truncate">
-                        {inv.athlete_name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-foreground/80 truncate max-w-[260px]">
-                    {inv.title}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-foreground whitespace-nowrap">
-                    {fmtAmount(inv.amount)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {inv.status === "paid" ? (
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10">
-                        🟢 Ödendi
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/10">
-                        🟠 Bekliyor
-                      </Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
     </div>
