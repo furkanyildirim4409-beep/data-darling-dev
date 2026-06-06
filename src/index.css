@@ -296,6 +296,15 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .recharts-no-focus .recharts-wrapper,
+  .recharts-no-focus .recharts-surface,
+  .recharts-no-focus .recharts-sector,
+  .recharts-no-focus svg,
+  .recharts-no-focus path {
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 /* ============ Print: Packing Slip ============ */
 @media screen {
