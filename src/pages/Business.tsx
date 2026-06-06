@@ -16,8 +16,9 @@ import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDi
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 
 const REVENUE_COLORS = {
-  packages: "#10B981", // emerald — brand primary
-  store: "#F97316",    // orange — brand accent
+  coaching: "hsl(var(--success))",
+  shopify: "hsl(var(--warning))",
+  digital: "hsl(var(--info))",
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
