@@ -141,6 +141,7 @@ export default function OrderFulfillmentSheet({
   const [trackingUrl, setTrackingUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [productDetailItem, setProductDetailItem] = useState<any | null>(null);
 
   const handlePrint = () => {
     requestAnimationFrame(() => window.print());
@@ -156,6 +157,42 @@ export default function OrderFulfillmentSheet({
     }
   }, [order]);
 
+  const items: any[] = useMemo(
+    () => (order && Array.isArray(order.items) ? order.items : []),
+    [order]
+  );
+
+  // Compute discount: sum(regular_price * qty) - sum(price * qty),
+  // falling back to explicit discount fields on items or shipping_address.
+  const discount = useMemo(() => {
+    let explicit = 0;
+    for (const it of items) {
+      const d = Number(it?.discount ?? it?.discount_amount ?? 0);
+      if (Number.isFinite(d) && d > 0) explicit += d;
+    }
+    const addrDiscount = Number(
+      (order?.shipping_address as any)?.discount ??
+        (order?.shipping_address as any)?.discount_amount ??
+        0
+    );
+    if (Number.isFinite(addrDiscount) && addrDiscount > 0) explicit += addrDiscount;
+    if (explicit > 0) return explicit;
+
+    let regularSum = 0;
+    let paidSum = 0;
+    for (const it of items) {
+      const qty = Number(it?.quantity ?? 1);
+      const price = Number(it?.price ?? 0);
+      const regular = Number(
+        it?.regular_price ?? it?.compare_at_price ?? it?.original_price ?? price
+      );
+      regularSum += regular * qty;
+      paidSum += price * qty;
+    }
+    const delta = regularSum - paidSum;
+    return delta > 0.001 ? delta : 0;
+  }, [items, order?.shipping_address]);
+
   if (!order) return null;
 
   const addr = order.shipping_address ?? {};
@@ -169,8 +206,6 @@ export default function OrderFulfillmentSheet({
   const cityLine = [addr.zip, addr.city, addr.province, addr.country]
     .filter(Boolean)
     .join(", ");
-
-  const items: any[] = Array.isArray(order.items) ? order.items : [];
 
   const handleSubmit = async () => {
     if (!trackingNumber.trim()) {
