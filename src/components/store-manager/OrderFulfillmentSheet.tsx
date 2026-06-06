@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -20,16 +27,18 @@ import {
   ExternalLink,
   Printer,
   CheckCircle2,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import PackingSlipPrintView from "./PackingSlipPrintView";
 
 interface OrderItem {
   id: string;
   user_id: string | null;
+  coach_id?: string | null;
   items: any;
   total_price: number;
   total_coins_used: number;
@@ -50,6 +59,45 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// Extracts a variant label like "Mavi, L" from any of the shapes
+// products may use in the items[] JSONB payload.
+const extractVariantLabel = (it: any): string | null => {
+  if (!it || typeof it !== "object") return null;
+  const collect: string[] = [];
+
+  const pushVals = (input: any) => {
+    if (!input) return;
+    if (Array.isArray(input)) {
+      for (const opt of input) {
+        if (!opt) continue;
+        if (typeof opt === "string") collect.push(opt);
+        else if (typeof opt === "object") {
+          const v = opt.value ?? opt.name ?? opt.label;
+          if (v) collect.push(String(v));
+        }
+      }
+    } else if (typeof input === "object") {
+      for (const v of Object.values(input)) {
+        if (v) collect.push(String(v));
+      }
+    } else if (typeof input === "string") {
+      collect.push(input);
+    }
+  };
+
+  pushVals(it.selectedOptions);
+  if (collect.length === 0) pushVals(it.options);
+  if (collect.length === 0) pushVals(it.variant);
+  if (collect.length === 0 && it.variant_title) collect.push(String(it.variant_title));
+  if (collect.length === 0 && it.size) collect.push(String(it.size));
+  if (collect.length === 0 && it.color) collect.push(String(it.color));
+
+  const cleaned = collect
+    .map((s) => s.trim())
+    .filter((s) => s && s.toLowerCase() !== "default title");
+  return cleaned.length ? cleaned.join(", ") : null;
+};
 
 const shortId = (id: string) =>
   `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
@@ -93,6 +141,7 @@ export default function OrderFulfillmentSheet({
   const [trackingUrl, setTrackingUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [productDetailItem, setProductDetailItem] = useState<any | null>(null);
 
   const handlePrint = () => {
     requestAnimationFrame(() => window.print());
@@ -108,6 +157,42 @@ export default function OrderFulfillmentSheet({
     }
   }, [order]);
 
+  const items: any[] = useMemo(
+    () => (order && Array.isArray(order.items) ? order.items : []),
+    [order]
+  );
+
+  // Compute discount: sum(regular_price * qty) - sum(price * qty),
+  // falling back to explicit discount fields on items or shipping_address.
+  const discount = useMemo(() => {
+    let explicit = 0;
+    for (const it of items) {
+      const d = Number(it?.discount ?? it?.discount_amount ?? 0);
+      if (Number.isFinite(d) && d > 0) explicit += d;
+    }
+    const addrDiscount = Number(
+      (order?.shipping_address as any)?.discount ??
+        (order?.shipping_address as any)?.discount_amount ??
+        0
+    );
+    if (Number.isFinite(addrDiscount) && addrDiscount > 0) explicit += addrDiscount;
+    if (explicit > 0) return explicit;
+
+    let regularSum = 0;
+    let paidSum = 0;
+    for (const it of items) {
+      const qty = Number(it?.quantity ?? 1);
+      const price = Number(it?.price ?? 0);
+      const regular = Number(
+        it?.regular_price ?? it?.compare_at_price ?? it?.original_price ?? price
+      );
+      regularSum += regular * qty;
+      paidSum += price * qty;
+    }
+    const delta = regularSum - paidSum;
+    return delta > 0.001 ? delta : 0;
+  }, [items, order?.shipping_address]);
+
   if (!order) return null;
 
   const addr = order.shipping_address ?? {};
@@ -121,8 +206,6 @@ export default function OrderFulfillmentSheet({
   const cityLine = [addr.zip, addr.city, addr.province, addr.country]
     .filter(Boolean)
     .join(", ");
-
-  const items: any[] = Array.isArray(order.items) ? order.items : [];
 
   const handleSubmit = async () => {
     if (!trackingNumber.trim()) {
@@ -253,6 +336,7 @@ export default function OrderFulfillmentSheet({
                 const qty = Number(it.quantity ?? 1);
                 const price = Number(it.price ?? 0);
                 const subtotal = qty * price;
+                const variantLabel = extractVariantLabel(it);
                 return (
                   <div
                     key={it.id ?? idx}
@@ -270,10 +354,22 @@ export default function OrderFulfillmentSheet({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {it.title ?? "Ürün"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => setProductDetailItem(it)}
+                        className="text-left w-full group/title"
+                        title="Ürün detayını görüntüle"
+                      >
+                        <p className="text-sm font-medium text-foreground truncate group-hover/title:text-primary transition-colors underline-offset-4 group-hover/title:underline">
+                          {it.title ?? "Ürün"}
+                        </p>
+                      </button>
+                      {variantLabel && (
+                        <p className="text-[11px] text-primary/80 mt-0.5 truncate">
+                          Varyasyon: {variantLabel}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {qty} × {formatPrice(price)}
                       </p>
                     </div>
@@ -284,11 +380,26 @@ export default function OrderFulfillmentSheet({
                 );
               })}
             </div>
-            <div className="border-t border-white/5 pt-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Toplam</span>
-              <span className="text-lg font-bold text-primary">
-                {formatPrice(order.total_price)}
-              </span>
+
+            {/* Totals grid */}
+            <div className="border-t border-white/5 pt-3 space-y-1.5">
+              {discount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-emerald-300/90 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Yapılan İndirim
+                  </span>
+                  <span className="font-semibold text-emerald-300">
+                    −{formatPrice(discount)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm text-muted-foreground">Toplam</span>
+                <span className="text-lg font-bold text-primary">
+                  {formatPrice(order.total_price)}
+                </span>
+              </div>
             </div>
             {order.total_coins_used > 0 && (
               <p className="text-xs text-amber-300/80">
@@ -420,6 +531,165 @@ export default function OrderFulfillmentSheet({
         {/* Hidden print-only view */}
         <PackingSlipPrintView order={order} coachName={coachName} />
       </SheetContent>
+
+      <ProductDetailNestedDialog
+        item={productDetailItem}
+        onClose={() => setProductDetailItem(null)}
+      />
     </Sheet>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nested luxury dialog for product preview inside the order sheet
+// ─────────────────────────────────────────────────────────────────────────────
+function ProductDetailNestedDialog({
+  item,
+  onClose,
+}: {
+  item: any | null;
+  onClose: () => void;
+}) {
+  const lookupId: string | null =
+    item?.product_id ?? item?.coach_product_id ?? item?.id ?? null;
+  const shopifyId: string | null =
+    item?.shopify_product_id ?? item?.shopifyProductId ?? null;
+
+  const { data: product, isLoading } = useQuery({
+    enabled: !!item && (!!lookupId || !!shopifyId),
+    queryKey: ["coach-product-detail", lookupId, shopifyId],
+    queryFn: async () => {
+      let query = supabase
+        .from("coach_products")
+        .select(
+          "id, title, description, image_url, category, product_type, price, stock_quantity, product_kind, digital_file_url"
+        )
+        .limit(1);
+
+      if (lookupId) query = query.eq("id", lookupId);
+      else if (shopifyId) query = query.eq("shopify_product_id", shopifyId);
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const title = product?.title ?? item?.title ?? "Ürün";
+  const image = product?.image_url ?? item?.image ?? null;
+  const description = product?.description ?? item?.description ?? null;
+  const category = product?.category ?? item?.category ?? null;
+  const productType = product?.product_type ?? item?.product_type ?? null;
+  const productKind = product?.product_kind ?? "physical";
+  const price = Number(product?.price ?? item?.price ?? 0);
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg bg-background/95 backdrop-blur-xl border border-white/10 p-0 overflow-hidden">
+        <div className="relative">
+          {image ? (
+            <div className="w-full aspect-[16/10] bg-muted overflow-hidden">
+              <img
+                src={image}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-full aspect-[16/10] bg-gradient-to-br from-primary/10 via-background to-background flex items-center justify-center">
+              <Package className="w-14 h-14 text-muted-foreground/50" />
+            </div>
+          )}
+          <div className="absolute top-3 right-3 flex flex-wrap gap-1.5 justify-end">
+            {productKind === "digital" && (
+              <Badge className="bg-violet-500/90 text-white border-0 uppercase tracking-wider text-[10px]">
+                Dijital
+              </Badge>
+            )}
+            {category && (
+              <Badge
+                variant="outline"
+                className="bg-background/70 backdrop-blur-md border-white/20 text-foreground text-[10px] uppercase tracking-wider"
+              >
+                {category}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+              {title}
+            </DialogTitle>
+            {price > 0 && (
+              <DialogDescription className="text-lg font-semibold text-primary">
+                ₺{price.toLocaleString("tr-TR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Yükleniyor…</p>
+          ) : (
+            <>
+              {description ? (
+                <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                  {description}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  Bu ürün için kayıtlı açıklama bulunmuyor.
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                {productType && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Kategori
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {productType}
+                    </p>
+                  </div>
+                )}
+                {category && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Alt Kategori
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {category}
+                    </p>
+                  </div>
+                )}
+                <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    Tür
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {productKind === "digital" ? "Dijital" : "Fiziksel"}
+                  </p>
+                </div>
+                {product?.stock_quantity != null && productKind !== "digital" && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Stok
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {product.stock_quantity}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

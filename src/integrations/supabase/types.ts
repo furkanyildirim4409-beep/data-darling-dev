@@ -1141,10 +1141,12 @@ export type Database = {
           coach_id: string | null
           created_at: string
           description: string | null
+          digital_file_url: string | null
           id: string
           image_url: string
           is_active: boolean | null
           price: number
+          product_kind: string
           product_type: string
           shopify_product_id: string | null
           shopify_variant_id: string | null
@@ -1157,10 +1159,12 @@ export type Database = {
           coach_id?: string | null
           created_at?: string
           description?: string | null
+          digital_file_url?: string | null
           id?: string
           image_url: string
           is_active?: boolean | null
           price: number
+          product_kind?: string
           product_type?: string
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
@@ -1173,10 +1177,12 @@ export type Database = {
           coach_id?: string | null
           created_at?: string
           description?: string | null
+          digital_file_url?: string | null
           id?: string
           image_url?: string
           is_active?: boolean | null
           price?: number
+          product_kind?: string
           product_type?: string
           shopify_product_id?: string | null
           shopify_variant_id?: string | null
@@ -1888,6 +1894,7 @@ export type Database = {
       orders: {
         Row: {
           carrier_name: string | null
+          coach_id: string | null
           created_at: string | null
           expires_at: string | null
           external_reference_id: string | null
@@ -1905,6 +1912,7 @@ export type Database = {
         }
         Insert: {
           carrier_name?: string | null
+          coach_id?: string | null
           created_at?: string | null
           expires_at?: string | null
           external_reference_id?: string | null
@@ -1922,6 +1930,7 @@ export type Database = {
         }
         Update: {
           carrier_name?: string | null
+          coach_id?: string | null
           created_at?: string | null
           expires_at?: string | null
           external_reference_id?: string | null
@@ -1937,7 +1946,22 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

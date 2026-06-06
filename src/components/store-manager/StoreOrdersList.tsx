@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Calendar, MapPin, User } from "lucide-react";
@@ -7,6 +7,7 @@ import OrderFulfillmentSheet from "./OrderFulfillmentSheet";
 interface OrderItem {
   id: string;
   user_id: string | null;
+  coach_id?: string | null;
   items: any;
   total_price: number;
   total_coins_used: number;
@@ -26,6 +27,15 @@ interface Props {
   orders: OrderItem[];
   isLoading?: boolean;
 }
+
+type StatusFilter = "all" | "pending" | "shipped" | "delivered";
+
+const FILTER_TABS: { key: StatusFilter; label: string; matches: (s: string) => boolean }[] = [
+  { key: "all", label: "Hepsi", matches: () => true },
+  { key: "pending", label: "Bekleyen", matches: (s) => s === "processing" || s === "paid" || s === "pending" },
+  { key: "shipped", label: "Kargolanan", matches: (s) => s === "shipped" },
+  { key: "delivered", label: "Teslim Edilen", matches: (s) => s === "completed" || s === "delivered" },
+];
 
 const formatDate = (iso: string) => {
   try {
@@ -100,6 +110,20 @@ const StatusBadge = ({ status }: { status: string }) => {
 export default function StoreOrdersList({ orders, isLoading }: Props) {
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const counts = useMemo(() => {
+    const safe = orders ?? [];
+    return FILTER_TABS.reduce<Record<StatusFilter, number>>((acc, tab) => {
+      acc[tab.key] = safe.filter((o) => tab.matches(o.status)).length;
+      return acc;
+    }, { all: 0, pending: 0, shipped: 0, delivered: 0 });
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    const tab = FILTER_TABS.find((t) => t.key === statusFilter)!;
+    return (orders ?? []).filter((o) => tab.matches(o.status));
+  }, [orders, statusFilter]);
 
   if (isLoading) {
     return (
@@ -118,76 +142,120 @@ export default function StoreOrdersList({ orders, isLoading }: Props) {
     );
   }
 
+  const FilterBar = (
+    <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-background/40 backdrop-blur-md border border-white/5">
+      {FILTER_TABS.map((tab) => {
+        const active = statusFilter === tab.key;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setStatusFilter(tab.key)}
+            className={`relative px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+              active
+                ? "bg-primary text-primary-foreground shadow-[0_0_24px_-6px_hsl(var(--primary)/0.7)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+            }`}
+          >
+            <span>{tab.label}</span>
+            <span
+              className={`ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold ${
+                active
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground"
+              }`}
+            >
+              {counts[tab.key]}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   if (!orders || orders.length === 0) {
     return (
-      <div className="glass rounded-xl border border-border p-12 flex flex-col items-center justify-center text-center text-muted-foreground">
-        <div className="w-14 h-14 rounded-2xl bg-muted/40 border border-border flex items-center justify-center mb-4">
-          <Package className="w-7 h-7 text-muted-foreground" />
+      <div className="space-y-4">
+        {FilterBar}
+        <div className="glass rounded-xl border border-border p-12 flex flex-col items-center justify-center text-center text-muted-foreground">
+          <div className="w-14 h-14 rounded-2xl bg-muted/40 border border-border flex items-center justify-center mb-4">
+            <Package className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-1">
+            Henüz sipariş bulunmuyor
+          </h3>
+          <p className="text-sm">
+            Yeni siparişler geldiğinde burada görünecek.
+          </p>
         </div>
-        <h3 className="text-lg font-semibold text-foreground mb-1">
-          Henüz sipariş bulunmuyor
-        </h3>
-        <p className="text-sm">
-          Yeni siparişler geldiğinde burada görünecek.
-        </p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-3">
-        {orders.map((order) => {
-          const addr = order.shipping_address ?? {};
-          const fullName =
-            [addr.firstName, addr.lastName].filter(Boolean).join(" ") ||
-            "Bilinmeyen Müşteri";
-          const location =
-            [addr.city, addr.province].filter(Boolean).join(" / ") || "—";
+      <div className="space-y-4">
+        {FilterBar}
 
-          return (
-            <button
-              key={order.id}
-              type="button"
-              onClick={() => {
-                setSelectedOrder(order);
-                setSheetOpen(true);
-              }}
-              className="w-full text-left bg-background/40 backdrop-blur-md border border-white/5 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[1.2fr_1.4fr_1fr] gap-4 md:items-center hover:border-primary/30 hover:bg-background/60 transition-all duration-200 group cursor-pointer"
-            >
-              {/* Left: Order ID + Date */}
-              <div className="flex flex-col gap-1.5">
-                <span className="font-mono text-sm font-bold text-primary tracking-wider">
-                  {shortId(order.id)}
-                </span>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{formatDate(order.created_at)}</span>
-                </div>
-              </div>
+        {filteredOrders.length === 0 ? (
+          <div className="glass rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">
+            Bu filtre için sipariş bulunamadı.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredOrders.map((order) => {
+              const addr = order.shipping_address ?? {};
+              const fullName =
+                [addr.firstName, addr.lastName].filter(Boolean).join(" ") ||
+                "Bilinmeyen Müşteri";
+              const location =
+                [addr.city, addr.province].filter(Boolean).join(" / ") || "—";
 
-              {/* Mid: Customer */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <User className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>{fullName}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>{location}</span>
-                </div>
-              </div>
+              return (
+                <button
+                  key={order.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    setSheetOpen(true);
+                  }}
+                  className="w-full text-left bg-background/40 backdrop-blur-md border border-white/5 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[1.2fr_1.4fr_1fr] gap-4 md:items-center hover:border-primary/30 hover:bg-background/60 transition-all duration-200 group cursor-pointer"
+                >
+                  {/* Left: Order ID + Date */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="font-mono text-sm font-bold text-primary tracking-wider">
+                      {shortId(order.id)}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{formatDate(order.created_at)}</span>
+                    </div>
+                  </div>
 
-              {/* Right: Total + Status */}
-              <div className="flex md:flex-col md:items-end items-center justify-between gap-2">
-                <span className="text-lg font-bold text-foreground tracking-tight">
-                  {formatPrice(order.total_price)}
-                </span>
-                <StatusBadge status={order.status} />
-              </div>
-            </button>
-          );
-        })}
+                  {/* Mid: Customer */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <User className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{fullName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>{location}</span>
+                    </div>
+                  </div>
+
+                  {/* Right: Total + Status */}
+                  <div className="flex md:flex-col md:items-end items-center justify-between gap-2">
+                    <span className="text-lg font-bold text-foreground tracking-tight">
+                      {formatPrice(order.total_price)}
+                    </span>
+                    <StatusBadge status={order.status} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <OrderFulfillmentSheet
