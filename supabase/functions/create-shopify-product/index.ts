@@ -233,13 +233,14 @@ Deno.serve(async (req) => {
     const productInput: Record<string, unknown> = {
       title,
       descriptionHtml: descriptionHtml ?? "",
-      status: "ACTIVE",
+      status: publishAsDraft ? "DRAFT" : "ACTIVE",
       productType: isDigital ? "Digital" : (category ?? "Physical"),
       vendor: vendorName ?? "",
       tags: [
         `coach:${userId}`,
         `type:${productType}`,
         ...(category ? [`category:${category}`] : []),
+        ...(publishAsDraft ? ["pending_admin_approval"] : []),
       ],
     };
     if (shopifyCategoryId) {
