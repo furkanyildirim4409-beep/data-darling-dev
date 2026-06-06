@@ -215,7 +215,9 @@ export default function StoreManager() {
     setProductType("physical");
     setStockQty("");
     setShopifyCategoryId("");
+    setDigitalFile(null);
     if (inputRef.current) inputRef.current.value = "";
+    if (digitalInputRef.current) digitalInputRef.current.value = "";
   };
 
   const handleFile = useCallback((file: File) => {
@@ -238,6 +240,40 @@ export default function StoreManager() {
     if (file) handleFile(file);
   };
 
+  const handleDigitalFile = useCallback((file: File) => {
+    const okExt = /\.(pdf|zip)$/i.test(file.name);
+    const okMime = ["application/pdf", "application/zip", "application/x-zip-compressed"].includes(
+      file.type,
+    );
+    if (!okExt && !okMime) {
+      toast.error("Sadece PDF veya ZIP dosyaları yüklenebilir.");
+      return;
+    }
+    if (file.size > MAX_DIGITAL_BYTES) {
+      toast.error("Dijital ürün dosyası 50 MB'dan büyük olamaz.");
+      return;
+    }
+    setDigitalFile(file);
+  }, []);
+
+  const onDigitalDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDigitalDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleDigitalFile(file);
+  };
+
+  // Auto-toggle product_kind based on category
+  useEffect(() => {
+    if (category === DIGITAL_CATEGORY && productType !== "digital") {
+      setProductType("digital");
+    } else if (category && category !== DIGITAL_CATEGORY && productType !== "physical") {
+      setProductType("physical");
+      setDigitalFile(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
   const isDigital = productType === "digital";
   // Physical: always track inventory and require stock qty.
   // Digital: never tracked (unlimited).
@@ -255,11 +291,28 @@ export default function StoreManager() {
     !!category &&
     !!imageFile &&
     !isCreating &&
-    (isDigital || (stockQty !== "" && Number(stockQty) >= 0));
+    (isDigital ? !!digitalFile : stockQty !== "" && Number(stockQty) >= 0);
+
+  const { user } = useAuth();
 
   const handleSubmit = async () => {
-    if (!canSubmit || !imageFile) return;
+    if (!canSubmit || !imageFile || !user) return;
     try {
+      // 1) If digital, upload secure asset to private bucket first
+      let digitalFileUrl: string | null = null;
+      if (isDigital && digitalFile) {
+        const safe = digitalFile.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-60);
+        const path = `${user.id}/${Date.now()}-${safe}`;
+        const { error: upErr } = await supabase.storage
+          .from("digital-products")
+          .upload(path, digitalFile, { cacheControl: "3600", upsert: false });
+        if (upErr) {
+          toast.error(`Dijital dosya yüklenemedi: ${upErr.message}`);
+          return;
+        }
+        digitalFileUrl = path;
+      }
+
       await createProduct({
         title: title.trim(),
         description: description.trim() || undefined,
@@ -270,6 +323,8 @@ export default function StoreManager() {
         trackInventory,
         stockQuantity,
         shopifyCategoryId: shopifyCategoryId || null,
+        publishAsDraft: true,
+        digitalFileUrl,
       });
       resetForm();
     } catch {
