@@ -398,15 +398,15 @@ interface RevenueSplitCardProps {
   loading: boolean;
   coaching: number;
   shopify: number;
-  digital: number;
+  other: number;
   total: number;
 }
 
-function RevenueSplitCard({ loading, coaching, shopify, digital, total }: RevenueSplitCardProps) {
+function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueSplitCardProps) {
   const data = [
     { name: "Koçluk Paketleri", value: Number(coaching) || 0, color: REVENUE_COLORS.coaching },
-    { name: "Shopify", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
-    { name: "Dijital Ürünler", value: Number(digital) || 0, color: REVENUE_COLORS.digital },
+    { name: "E-Ticaret", value: Number(shopify) || 0, color: REVENUE_COLORS.shopify },
+    { name: "Diğer Ödemeler", value: Number(other) || 0, color: REVENUE_COLORS.other },
   ];
   const hasData = data.some((d) => d.value > 0);
 
