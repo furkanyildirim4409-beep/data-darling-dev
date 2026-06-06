@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
-import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
+import { PayoutDesk } from "@/components/business/PayoutDesk";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 
 const REVENUE_COLORS = {
@@ -257,8 +257,8 @@ export default function Business() {
           )}
         </div>
 
-        {/* Athlete Payment Status Widget */}
-        <AthletePaymentStatus payments={payments} athletes={athletes} />
+        {/* Marketplace Payout Desk */}
+        <PayoutDesk payments={payments} />
         </div>
 
         {/* Today's Schedule */}

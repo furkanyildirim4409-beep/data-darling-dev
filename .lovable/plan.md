@@ -1,70 +1,26 @@
-# Hydrate Business Dashboard with Real Metrics (Part 2/6)
+## Part 3/6 — Marketplace Escrow & Payout Ledger
 
-## Naming conflict — important
+Replace the athlete payment status compartment on `/business` with a marketplace-style **Hakediş ve Transfer Takip Masası**. No DB schema work in this part (no IBAN column / payout table yet — those rows will be derived from existing data and a coach-profile field check, with empty states where needed).
 
-`useBusinessPulse.ts` already exists and powers the **30-day area chart** on the main dashboard (`BusinessPulse.tsx`, used in `CommandCenter`). It returns `{ chartData, currentAthletes, currentWorkouts, totalRevenue, athleteGrowth, workoutGrowth, revenueGrowth, isLoading }` — a different contract from the RPC.
+### Files
 
-Repurposing it to return the RPC payload would **silently break the dashboard chart**. So:
+**Edit `src/pages/Business.tsx`**
+- Remove `<AthletePaymentStatus ... />` from the layout (also drop its import).
+- Insert a new `<PayoutDesk coachId={activeCoachId} payments={payments} />` component below the payments list (same column).
 
-- I'll create a **new hook `useBusinessMetrics(coachId?)`** that wraps `supabase.rpc('get_coach_business_metrics', { coach_uuid })` via React Query, matching your spec exactly.
-- `useBusinessPulse.ts` stays untouched — it still feeds the 30-day chart on the main dashboard. No mock data is present there; it already reads live `payments`, `workout_logs`, and `profiles`.
+**New `src/components/business/PayoutDesk.tsx`**
+- Top: section header "Hakediş ve Transfer Takip Masası" + subtitle "Marketplace tahsilat ve transfer akışı".
+- **Bento (3 cards, grid-cols-1 md:grid-cols-3):**
+  1. 🏦 **Hakediş (Escrow Balance)** — sum of `payments.amount` where `status in ('paid','succeeded')` AND `payment_date >= now() - 14 days`, scoped to `coach_id = activeCoachId`. Computed client-side from the `payments` prop already loaded.
+  2. 🗓️ **Gelecek Transfer Günü** — static label "Her Ayın 1. ve 15. Günü" plus a computed "Sonraki: <date>" line (next 1st or 15th from today, `date-fns`).
+  3. 💳 **Banka Hesap Bilgisi (IBAN)** — reads `profiles.payout_iban` (if column exists in current types) else falls back to `null`. Renders masked IBAN `TR•• •••• •••• •••• •••• ••XX` using last 2 digits, or a "IBAN Bağla" button (opens a placeholder toast — wiring deferred to a later part).
+- **Payouts History Table** (shadcn `Table`):
+  - Columns: Transfer ID (short uuid), Dönem/Tarih (formatted), Tutar (₺), Transfer Durumu.
+  - Data source: derive synthetic payout rows by bucketing `payments` (status paid/succeeded) into 14-day clearance windows — rows older than 14 days → `TR GÖNDERİLDİ` (emerald badge), rows within last 14 days → `İŞLEMDE` (amber badge).
+  - Empty state when there are no eligible payments.
+- Uses semantic tokens for surfaces (`glass`, `border-border`); keeps the spec's exact emerald/amber badge classes as requested.
 
-## Files to change
-
-### 1. `src/hooks/useBusinessMetrics.ts` (new)
-
-```ts
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-
-export interface BusinessMetrics {
-  total_package_revenue: number;
-  total_store_revenue: number;
-  pending_custom_revenue: number;
-  paid_custom_revenue: number;
-  total_revenue: number;
-  active_athletes: number;
-}
-
-export function useBusinessMetrics(coachId?: string) {
-  return useQuery<BusinessMetrics | null>({
-    queryKey: ["business_metrics", coachId],
-    queryFn: async () => {
-      if (!coachId) return null;
-      const { data, error } = await supabase.rpc("get_coach_business_metrics", {
-        coach_uuid: coachId,
-      });
-      if (error) throw error;
-      return data as unknown as BusinessMetrics;
-    },
-    enabled: !!coachId,
-    staleTime: 60_000,
-  });
-}
-```
-
-### 2. `src/pages/Business.tsx`
-
-- Pull `activeCoachId` from `useAuth()` and call `useBusinessMetrics(activeCoachId)`.
-- Replace the four `StatCard`s with the RPC-driven labels:
-  - **Toplam Gelir** → `data.total_revenue`
-  - **E-Ticaret Geliri** → `data.total_store_revenue`
-  - **Aktif Sporcular** → `data.active_athletes`
-  - **Bekleyen Ödemeler** → `data.pending_custom_revenue`
-- The existing `usePayments()` data continues to drive the Payment Records list + delete/status flows (out of scope to rewire here).
-- Add a new **Revenue Split donut** card directly under the StatCards using `recharts` (`PieChart`, `Pie`, `Cell`, `Tooltip`, `ResponsiveContainer`, `Legend`):
-  - Slice 1: "Koçluk Paketleri" → `total_package_revenue` — emerald `#10B981`
-  - Slice 2: "E-Ticaret" → `total_store_revenue` — blue `#3B82F6`
-  - Empty state when both are 0: show centered muted-foreground message "Henüz gelir kaydı yok" (no mock data per project core rule).
-  - Custom tooltip uses semantic tokens + the slice color for the value; center label shows `₺{total_revenue}`.
-- Keep skeleton loading state while `isLoading`.
-
-## Out of scope (per part splitting)
-
-- Wiring an "Assign Custom Payment" dialog into `assigned_payments` — that's a later part.
-- Modifying `BusinessPulse.tsx` / `useBusinessPulse.ts`.
-- Touching `usePayments` or the existing payment records list.
-
-## Open question
-
-The four stat cards currently include "Toplam Ödeme" (count of payment rows). Your spec replaces it with "E-Ticaret Geliri". I'll go with your spec (drop the count card). Confirm if you'd rather keep 5 cards instead.
+### Out of scope (later parts)
+- Real `payout_iban` column + IBAN form submission.
+- Real Stripe Connect payout ingestion / dedicated `payouts` table.
+- Removing/refactoring `AthletePaymentStatus.tsx` file itself (left in place, simply unused on this page).
