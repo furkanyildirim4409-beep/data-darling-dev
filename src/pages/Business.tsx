@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
-import { PayoutDesk } from "@/components/business/PayoutDesk";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 
 const REVENUE_COLORS = {
-  packages: "#10B981",
-  store: "#3B82F6",
+  packages: "#10B981", // emerald — brand primary
+  store: "#F97316",    // orange — brand accent
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
+
+const nextPayoutLabel = () => {
+  const now = new Date();
+  const d = now.getDate();
+  const target = d < 15
+    ? new Date(now.getFullYear(), now.getMonth(), 15)
+    : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return target.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+};
+
 import {
   AlertDialog,
   AlertDialogAction,
