@@ -155,8 +155,6 @@ export default function Business() {
         </div>
       )}
 
-      {/* Custom Invoices Ledger */}
-      <CustomInvoicesLedger invoices={customInvoices ?? []} loading={invoicesLoading} />
 
       {/* Revenue Split Donut */}
       <RevenueSplitCard
