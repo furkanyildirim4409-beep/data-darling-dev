@@ -415,7 +415,7 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-semibold text-foreground">Gelir Dağılımı</h2>
-          <p className="text-xs text-muted-foreground">Koçluk paketleri, Shopify ve dijital ürün geliri kırılımı</p>
+          <p className="text-xs text-muted-foreground">Koçluk paketleri, e-ticaret ve diğer ödemeler</p>
         </div>
         <span className="text-xs font-mono text-muted-foreground">{fmtTRY(total)}</span>
       </div>
@@ -442,6 +442,7 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
                   innerRadius={60}
                   outerRadius={90}
                   paddingAngle={2}
+                  minAngle={6}
                   dataKey="value"
                   stroke="hsl(var(--background))"
                   strokeWidth={2}
@@ -483,8 +484,9 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
           <div className="space-y-3">
             {data.map((d) => {
               const pct = total > 0 ? (d.value / total) * 100 : 0;
+              const isEmpty = d.value === 0;
               return (
-                <div key={d.name} className="space-y-1">
+                <div key={d.name} className={cn("space-y-1", isEmpty && "opacity-60")}>
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span
