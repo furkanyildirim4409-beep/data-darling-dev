@@ -24,6 +24,7 @@ import {
   EyeOff,
   ListPlus,
   Zap,
+  Loader2,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -72,6 +73,7 @@ export default function Alerts() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
+  const [broadcastSending, setBroadcastSending] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -258,13 +260,80 @@ export default function Alerts() {
     toast({ title: "Tümü Okundu", description: "Tüm uyarılar okundu olarak işaretlendi." });
   };
 
-  const handleSendBroadcast = () => {
-    if (!quickMessage.trim()) {
+  const handleSendBroadcast = async () => {
+    const message = quickMessage.trim();
+    if (!message) {
       toast({ title: "Hata", description: "Lütfen bir mesaj yazın.", variant: "destructive" });
       return;
     }
-    toast({ title: "Duyuru Gönderildi", description: "Mesaj tüm sporculara iletildi." });
-    setQuickMessage("");
+    if (!activeCoachId) {
+      toast({ title: "Hata", description: "Koç bağlamı bulunamadı.", variant: "destructive" });
+      return;
+    }
+
+    setBroadcastSending(true);
+    try {
+      // Resolve audience
+      let athleteIds: string[] = [];
+      if (isSubCoach && teamMemberPermissions !== "full" && teamMember?.id) {
+        const { data } = await supabase
+          .from("team_member_athletes")
+          .select("athlete_id")
+          .eq("team_member_id", teamMember.id);
+        athleteIds = (data ?? []).map((r) => r.athlete_id);
+      } else {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("coach_id", activeCoachId)
+          .eq("role", "athlete");
+        athleteIds = (data ?? []).map((r) => r.id);
+      }
+
+      if (athleteIds.length === 0) {
+        toast({ title: "Bağlı sporcu bulunamadı.", variant: "destructive" });
+        return;
+      }
+
+      // Batch insert in 500-row chunks
+      const rows = athleteIds.map((athlete_id) => ({
+        athlete_id,
+        coach_id: activeCoachId,
+        title: "Koçunuzdan Yeni Duyuru 📢",
+        message,
+        type: "announcement",
+        is_read: false,
+      }));
+
+      for (let i = 0; i < rows.length; i += 500) {
+        const chunk = rows.slice(i, i + 500);
+        const { error } = await supabase.from("athlete_notifications").insert(chunk);
+        if (error) throw error;
+      }
+
+      // Fan-out push (silent per-athlete failure)
+      await Promise.allSettled(
+        athleteIds.map((userId) =>
+          supabase.functions.invoke("send-chat-push", {
+            body: { userId, title: "Koç Duyurusu 📢", body: message },
+          })
+        )
+      );
+
+      setQuickMessage("");
+      toast({
+        title: "Duyuru gönderildi",
+        description: `${athleteIds.length} sporcuya iletildi.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Hata",
+        description: "Duyuru gönderilemedi.",
+        variant: "destructive",
+      });
+    } finally {
+      setBroadcastSending(false);
+    }
   };
 
   const uniqueCheckinAthleteIds = useMemo(
@@ -610,14 +679,20 @@ export default function Alerts() {
               placeholder="Tüm sporculara mesaj gönderin..."
               value={quickMessage}
               onChange={(e) => setQuickMessage(e.target.value)}
+              disabled={broadcastSending}
               className="min-h-[100px] bg-card border-border focus:border-primary resize-none mb-3"
             />
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleSendBroadcast}
+              disabled={broadcastSending || !quickMessage.trim()}
             >
-              <Send className="w-4 h-4 mr-2" />
-              Hepsine Gönder
+              {broadcastSending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              {broadcastSending ? "Gönderiliyor…" : "Hepsine Gönder"}
             </Button>
           </div>
         </div>
