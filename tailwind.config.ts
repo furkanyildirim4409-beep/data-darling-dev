@@ -106,6 +106,11 @@ export default {
           from: { transform: "translateX(-100%)" },
           to: { transform: "translateX(0)" },
         },
+        "shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "20%, 60%": { transform: "translateX(-6px)" },
+          "40%, 80%": { transform: "translateX(6px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -113,6 +118,7 @@ export default {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "slide-in-left": "slide-in-left 0.3s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
+        "shake": "shake 0.4s ease-in-out",
       },
       boxShadow: {
         "glow-lime": "0 0 20px hsl(68 100% 50% / 0.3)",
