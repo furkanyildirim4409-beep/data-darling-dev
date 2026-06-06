@@ -87,6 +87,7 @@ export function useCreateStory() {
       ).toISOString();
 
       const category = payload.category?.trim() || null;
+      const link_url = payload.link_url?.trim() || null;
       const { data, error } = await supabase
         .from("coach_stories")
         .insert({
@@ -95,7 +96,8 @@ export function useCreateStory() {
           expires_at,
           category,
           is_highlighted: !!category,
-        })
+          link_url,
+        } as any)
         .select()
         .single();
       if (error) throw error;
