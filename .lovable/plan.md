@@ -1,43 +1,24 @@
-## Part 2/3 — Business dashboard surgical cleanup
+## Plan: Add IBAN Management to Subscription Section
 
-Single file: `src/pages/Business.tsx`. Deterministic edits, no behavior changes.
+Edit `src/pages/Settings.tsx` only.
 
-### A. Remove the Payout Desk
-- Delete the `<PayoutDesk payments={payments} />` render (currently inside the left column of the main grid).
-- Drop the `PayoutDesk` import. Keep `PayoutDesk.tsx` on disk (unused) so future re-introduction is trivial.
+### Changes
 
-### B. Re-map the 4 StatCards (order + titles + values)
+1. **Rename sidebar item** — Update `settingsSections` entry `subscription` label from `"Abonelik"` to `"Abonelik & Ödeme Bilgisi"`.
 
-| # | Title | Value | Icon | Variant |
-|---|---|---|---|---|
-| 1 | `Gelir` | `fmtTRY(metrics?.total_revenue ?? 0)` | `DollarSign` | `success` |
-| 2 | `Aktif Sporcular` | `String(metrics?.active_athletes ?? 0)` | `Users` | `default` |
-| 3 | `Hakediş` | `fmtTRY(metrics?.pending_custom_revenue ?? 0)` | `CreditCard` | `pending>0 ? "warning" : "default"` |
-| 4 | `Sonraki Ödeme Günü` | computed next 1st/15th, fallback `"15 Haz"` | `Calendar` | `default` |
+2. **Local IBAN state** — Add `iban` state synced from `profile.iban` via the existing `useEffect` that already syncs profile fields. Add `isSavingIban` flag for the save button.
 
-Next-payout helper (local, inline):
-```ts
-const nextPayoutLabel = () => {
-  const now = new Date();
-  const d = now.getDate();
-  const target = d < 15 ? new Date(now.getFullYear(), now.getMonth(), 15)
-                        : new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return target.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
-};
-```
+3. **Save handler** — `handleSaveIban` updates `profiles.iban` for `user.id` via supabase, refreshes profile through `refreshProfile()`, and toasts success/error in Turkish.
 
-E-Ticaret card is removed entirely. ShoppingBag import dropped.
+4. **UI block** — Append a new Card-style panel inside the `activeSection === "subscription"` branch (after the plans grid, inside the same outer wrapper). Use the existing project's `glass`/`border-border` styling to stay consistent with current Settings cards (rather than literal `bg-black/20` overrides) so it matches the dark glass aesthetic and theme tokens. Contents:
+   - Heading: "Banka ve Hakediş Bilgileri"
+   - Description: "Hakedişlerinizin yatırılacağı IBAN adresini buradan yönetebilirsiniz."
+   - `<Label>` + `<Input>` with `placeholder="TR00 0000 0000 0000 0000 0000 00"`, `font-mono tracking-widest`, value/onChange bound to `iban`
+   - Save `<Button>` "Banka Bilgilerini Kaydet" wired to `handleSaveIban`, disabled while saving
 
-### C. Donut chart colors
-Update `REVENUE_COLORS`:
-```ts
-const REVENUE_COLORS = {
-  packages: "#10B981", // emerald — brand primary
-  store:    "#F97316", // orange — brand accent
-};
-```
-Subtitle under "Gelir Dağılımı" → `"Tüm zamanlar — koçluk paketleri ve e-ticaret kırılımı"` so the legend/tooltip context reads as all-time.
+5. **Imports** — Add `Label` from `@/components/ui/label` (Card components not needed since we'll reuse the existing `glass rounded-xl` wrapper pattern used throughout this file).
 
 ### Out of scope
-- No changes to `PayoutDesk.tsx`, `useBusinessMetrics`, or the payments list / today's schedule sections.
-- No backend changes.
+- No schema changes (column already exists).
+- No changes to `AuthContext` `Profile` type (read `iban` via cast since the file already uses `as any` casts for similar new columns).
+- No changes to other Settings sections.
