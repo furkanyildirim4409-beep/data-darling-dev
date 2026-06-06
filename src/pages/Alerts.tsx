@@ -481,6 +481,18 @@ export default function Alerts() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts List */}
         <div className="lg:col-span-2 space-y-4">
+          {quickFilter === "checkin" && uniqueCheckinAthleteIds.length > 1 && (
+            <Button
+              onClick={handleBulkRemind}
+              disabled={bulkSending}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold tracking-widest shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              {bulkSending
+                ? "GÖNDERİLİYOR…"
+                : `⚡ TÜMÜ İÇİN GÖNDER: HATIRLAT (${uniqueCheckinAthleteIds.length})`}
+            </Button>
+          )}
           {/* Type Filter Tabs */}
           <div className="flex items-center gap-2">
             <Badge
