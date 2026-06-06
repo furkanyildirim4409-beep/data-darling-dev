@@ -15,6 +15,7 @@ export interface Profile {
   gym_name: string | null;
   specialty: string | null;
   username: string | null;
+  instagram_sync_active: boolean | null;
   subscription_tier: string | null;
   iban: string | null;
   notification_preferences: {
