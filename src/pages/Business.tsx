@@ -59,9 +59,10 @@ export default function Business() {
   const {
     payments, athletes, isLoading,
     addPayment, updatePaymentStatus, deletePayment,
-    totalPaid, totalPending,
   } = usePayments();
   const { canManageFinances } = usePermissions();
+  const { activeCoachId } = useAuth();
+  const { data: metrics, isLoading: metricsLoading } = useBusinessMetrics(activeCoachId ?? undefined);
 
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
