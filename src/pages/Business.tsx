@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
-import { PayoutDesk } from "@/components/business/PayoutDesk";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 
 const REVENUE_COLORS = {
-  packages: "#10B981",
-  store: "#3B82F6",
+  packages: "#10B981", // emerald — brand primary
+  store: "#F97316",    // orange — brand accent
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
+
+const nextPayoutLabel = () => {
+  const now = new Date();
+  const d = now.getDate();
+  const target = d < 15
+    ? new Date(now.getFullYear(), now.getMonth(), 15)
+    : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return target.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+};
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,16 +126,10 @@ export default function Business() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Toplam Gelir"
+            title="Gelir"
             value={fmtTRY(metrics?.total_revenue ?? 0)}
             icon={DollarSign}
             variant="success"
-          />
-          <StatCard
-            title="E-Ticaret Geliri"
-            value={fmtTRY(metrics?.total_store_revenue ?? 0)}
-            icon={ShoppingBag}
-            variant="default"
           />
           <StatCard
             title="Aktif Sporcular"
@@ -135,10 +138,16 @@ export default function Business() {
             variant="default"
           />
           <StatCard
-            title="Bekleyen Ödemeler"
+            title="Hakediş"
             value={fmtTRY(metrics?.pending_custom_revenue ?? 0)}
             icon={CreditCard}
             variant={(metrics?.pending_custom_revenue ?? 0) > 0 ? "warning" : "default"}
+          />
+          <StatCard
+            title="Sonraki Ödeme Günü"
+            value={nextPayoutLabel()}
+            icon={Calendar}
+            variant="default"
           />
         </div>
       )}
@@ -150,6 +159,7 @@ export default function Business() {
         store={metrics?.total_store_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
       {/* Main Grid */}
@@ -258,8 +268,6 @@ export default function Business() {
           )}
         </div>
 
-        {/* Marketplace Payout Desk */}
-        <PayoutDesk payments={payments} />
         </div>
 
         {/* Today's Schedule */}
@@ -353,7 +361,7 @@ function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardP
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-semibold text-foreground">Gelir Dağılımı</h2>
-          <p className="text-xs text-muted-foreground">Koçluk paketleri ve e-ticaret kırılımı</p>
+          <p className="text-xs text-muted-foreground">Tüm zamanlar — koçluk paketleri ve e-ticaret kırılımı</p>
         </div>
         <span className="text-xs font-mono text-muted-foreground">{fmtTRY(total)}</span>
       </div>
