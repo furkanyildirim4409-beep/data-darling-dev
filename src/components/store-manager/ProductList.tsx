@@ -75,12 +75,17 @@ export function ProductList({
           >
             <div className="flex items-start gap-3">
               <div className={cn(
-                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 relative",
                 product.type === "service" ? "bg-primary/20 text-primary" :
                 product.type === "digital" ? "bg-info/20 text-info" :
                 "bg-warning/20 text-warning"
               )}>
                 <Icon className="w-5 h-5" />
+                {(product as any).status === "pending_admin_approval" && (
+                  <span className="absolute -top-2 -left-2 px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-warning text-warning-foreground shadow-[0_0_10px_hsl(var(--warning)/0.7)] animate-pulse whitespace-nowrap">
+                    🟠 ONAY BEKLİYOR
+                  </span>
+                )}
               </div>
               
               <div className="flex-1 min-w-0">
