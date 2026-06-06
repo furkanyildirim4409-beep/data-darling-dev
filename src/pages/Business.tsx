@@ -484,8 +484,9 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
           <div className="space-y-3">
             {data.map((d) => {
               const pct = total > 0 ? (d.value / total) * 100 : 0;
+              const isEmpty = d.value === 0;
               return (
-                <div key={d.name} className="space-y-1">
+                <div key={d.name} className={cn("space-y-1", isEmpty && "opacity-60")}>
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span
