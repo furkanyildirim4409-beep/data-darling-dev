@@ -50,6 +50,35 @@ const subscriptionPlans = [
   }
 ];
 
+const formatIbanInput = (value: string): string => {
+  const cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 26);
+  return cleaned.replace(/(.{4})(?=.)/g, "$1 ");
+};
+
+const validateTRIban = (rawIban: string): boolean => {
+  const cleaned = rawIban.replace(/\s/g, "").toUpperCase();
+  if (cleaned.length !== 26) return false;
+  if (!/^TR[0-9]{24}$/.test(cleaned)) return false;
+
+  // ISO 7064 MOD 97-10
+  const rearranged = cleaned.slice(4) + cleaned.slice(0, 4);
+  let numeric = "";
+  for (const char of rearranged) {
+    if (/[0-9]/.test(char)) {
+      numeric += char;
+    } else {
+      numeric += (char.charCodeAt(0) - 55).toString();
+    }
+  }
+
+  let remainder = 0;
+  for (let i = 0; i < numeric.length; i += 7) {
+    const chunk = remainder.toString() + numeric.slice(i, i + 7);
+    remainder = parseInt(chunk, 10) % 97;
+  }
+  return remainder === 1;
+};
+
 export default function Settings() {
   const { profile, user, activeCoachId, refreshProfile, isSubCoach } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +90,7 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [iban, setIban] = useState<string>("");
+  const [ibanError, setIbanError] = useState<string>("");
   const [isSavingIban, setIsSavingIban] = useState(false);
 
   // Username states
@@ -124,7 +154,7 @@ export default function Settings() {
         email: profile.email || "",
       }));
       setUsername(profile.username || "");
-      setIban(((profile as any).iban as string) || "");
+      setIban(formatIbanInput(((profile as any).iban as string) || ""));
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
@@ -250,11 +280,18 @@ export default function Settings() {
 
   const handleSaveIban = async () => {
     if (!user) return;
+    const stripped = iban.replace(/\s/g, "");
+    if (!validateTRIban(stripped)) {
+      setIbanError("Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+      toast.error("Geçersiz IBAN adresi.");
+      return;
+    }
+    setIbanError("");
     setIsSavingIban(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ iban: iban.trim() || null } as any)
+        .update({ iban: stripped || null } as any)
         .eq("id", user.id);
       if (error) throw error;
       await refreshProfile();
@@ -566,18 +603,46 @@ export default function Settings() {
                       id="iban-input"
                       placeholder="TR00 0000 0000 0000 0000 0000 00"
                       value={iban}
-                      onChange={(e) => setIban(e.target.value.toUpperCase())}
-                      maxLength={34}
-                      className="font-mono tracking-widest bg-card border-border focus:border-primary"
+                      onChange={(e) => {
+                        const formatted = formatIbanInput(e.target.value);
+                        setIban(formatted);
+                        if (ibanError) {
+                          const stripped = formatted.replace(/\s/g, "");
+                          if (stripped.length === 0) {
+                            setIbanError("");
+                          } else if (stripped.length === 26) {
+                            setIbanError(validateTRIban(stripped) ? "" : "Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        const stripped = iban.replace(/\s/g, "");
+                        if (stripped.length > 0 && !validateTRIban(stripped)) {
+                          setIbanError("Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+                        } else {
+                          setIbanError("");
+                        }
+                      }}
+                      maxLength={31}
+                      className={cn(
+                        "font-mono tracking-widest bg-card focus:border-primary",
+                        ibanError
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : "border-border"
+                      )}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      IBAN bilgileriniz yalnızca hakediş transferleri için kullanılır.
-                    </p>
+                    {ibanError ? (
+                      <p className="text-xs text-destructive">{ibanError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        IBAN bilgileriniz yalnızca hakediş transferleri için kullanılır.
+                      </p>
+                    )}
                   </div>
 
                   <Button
                     onClick={handleSaveIban}
-                    disabled={isSavingIban}
+                    disabled={isSavingIban || iban.replace(/\s/g, "").length !== 26 || !!ibanError}
                     className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     {isSavingIban ? (
