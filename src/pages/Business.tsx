@@ -197,9 +197,10 @@ export default function Business() {
         loading={metricsLoading}
         coaching={metrics?.coaching_revenue ?? metrics?.total_package_revenue ?? 0}
         shopify={metrics?.shopify_revenue ?? 0}
-        digital={metrics?.digital_revenue ?? 0}
+        other={metrics?.other_revenue ?? metrics?.paid_custom_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
 
