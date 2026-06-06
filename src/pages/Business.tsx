@@ -209,14 +209,14 @@ export default function Business() {
         <div className="glass rounded-xl border border-border">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Ödeme Kayıtları</h2>
-            <span className="text-xs font-mono text-muted-foreground">{payments.length} kayıt</span>
+            <span className="text-xs font-mono text-muted-foreground">{mergedRecords.length} kayıt</span>
           </div>
 
-          {isLoading ? (
+          {recordsLoading ? (
             <div className="p-4 space-y-3">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
             </div>
-          ) : payments.length === 0 ? (
+          ) : mergedRecords.length === 0 ? (
             <div className="p-8 text-center">
               <DollarSign className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-muted-foreground">Henüz ödeme kaydı yok</p>
@@ -226,77 +226,86 @@ export default function Business() {
             </div>
           ) : (
             <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-              {payments.map((payment) => (
+              {mergedRecords.map((row) => (
                 <div
-                  key={payment.id}
+                  key={row.id}
                   className="p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {payment.athlete_name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground truncate">
+                        {row.athlete_name}
+                      </p>
+                      {row.kind === "invoice" && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-primary/30 text-primary bg-primary/5 px-1.5 py-0"
+                        >
+                          Özel Fatura
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(payment.payment_date)}
-                      {payment.description && ` • ${payment.description}`}
+                      {formatDate(row.date)}
+                      {row.description && ` • ${row.description}`}
                     </p>
                   </div>
 
-                    <div className="flex items-center gap-3">
-                    {/* Status dropdown - only interactive if canManageFinances */}
-                    {canManageFinances ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-xs border cursor-pointer hover:opacity-80",
-                            payment.status === "paid" && "bg-success/10 text-success border-success/20",
-                            payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
-                            payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
-                          )}
-                        >
-                          {statusLabels[payment.status] || payment.status}
-                        </Badge>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="bg-card border-border">
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "paid")}>
-                          <span className="w-2 h-2 rounded-full bg-success mr-2" />
-                          Ödendi
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "pending")}>
-                          <span className="w-2 h-2 rounded-full bg-warning mr-2" />
-                          Bekliyor
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updatePaymentStatus(payment.id, "overdue")}>
-                          <span className="w-2 h-2 rounded-full bg-destructive mr-2" />
-                          Gecikmiş
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <div className="flex items-center gap-3">
+                    {row.kind === "payment" && canManageFinances ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs border cursor-pointer hover:opacity-80",
+                              row.status === "paid" && "bg-success/10 text-success border-success/20",
+                              row.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                              row.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                            )}
+                          >
+                            {statusLabels[row.status] || row.status}
+                          </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-card border-border">
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "paid")}>
+                            <span className="w-2 h-2 rounded-full bg-success mr-2" />
+                            Ödendi
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "pending")}>
+                            <span className="w-2 h-2 rounded-full bg-warning mr-2" />
+                            Bekliyor
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updatePaymentStatus(row.raw.id, "overdue")}>
+                            <span className="w-2 h-2 rounded-full bg-destructive mr-2" />
+                            Gecikmiş
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <Badge
                         variant="outline"
                         className={cn(
                           "text-xs border",
-                          payment.status === "paid" && "bg-success/10 text-success border-success/20",
-                          payment.status === "pending" && "bg-warning/10 text-warning border-warning/20",
-                          payment.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
+                          row.status === "paid" && "bg-success/10 text-success border-success/20",
+                          row.status === "pending" && "bg-warning/10 text-warning border-warning/20",
+                          row.status === "overdue" && "bg-destructive/10 text-destructive border-destructive/20"
                         )}
                       >
-                        {statusLabels[payment.status] || payment.status}
+                        {statusLabels[row.status] || row.status}
                       </Badge>
                     )}
 
                     <span className="font-mono font-semibold text-foreground whitespace-nowrap">
-                      ₺{Number(payment.amount).toLocaleString("tr-TR")}
+                      ₺{Number(row.amount).toLocaleString("tr-TR")}
                     </span>
 
-                    {canManageFinances && (
+                    {row.kind === "payment" && canManageFinances && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(payment.id)}
+                        onClick={() => setDeleteTarget(row.raw.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
