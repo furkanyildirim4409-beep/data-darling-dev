@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink, MoreVertical, EyeOff, ListPlus, Loader2 } from "lucide-react";
+import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
+
 
 interface AiInsight {
   id: string;
@@ -28,11 +28,8 @@ type SeverityKey = "high" | "medium" | "low";
 export function AiDoctorRadar() {
   const { user, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [insights, setInsights] = useState<AiInsight[]>([]);
-  const [ledgeredIds, setLedgeredIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
-  const [busyAthleteId, setBusyAthleteId] = useState<string | null>(null);
-  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchInsights = useCallback(async () => {
@@ -71,92 +68,23 @@ export function AiDoctorRadar() {
     setIsLoading(false);
   }, [user, isSubCoach, teamMember, teamMemberPermissions]);
 
-  const fetchLedgered = useCallback(async () => {
-    if (!user) return;
-    const { data } = await (supabase as any)
-      .from("coach_action_ledger")
-      .select("source_insight_id")
-      .not("source_insight_id", "is", null);
-    const set = new Set<string>();
-    ((data ?? []) as { source_insight_id: string | null }[]).forEach((r) => {
-      if (r.source_insight_id) set.add(r.source_insight_id);
-    });
-    setLedgeredIds(set);
-  }, [user]);
-
   useEffect(() => {
     fetchInsights();
-    fetchLedgered();
-  }, [fetchInsights, fetchLedgered]);
-
-  // Filter out insights already in the ledger (any status)
-  const visibleInsights = useMemo(
-    () => insights.filter((i) => !ledgeredIds.has(i.id)),
-    [insights, ledgeredIds]
-  );
-
-  const handleLedgerAction = async (
-    athleteId: string,
-    status: "ignored" | "pending"
-  ): Promise<void> => {
-    if (!user) return;
-    const targetInsights = visibleInsights.filter((i) => i.athlete_id === athleteId);
-    if (targetInsights.length === 0) return;
-    setBusyAthleteId(athleteId);
-    const rows = targetInsights.map((i) => ({
-      coach_id: user.id,
-      athlete_id: i.athlete_id,
-      issue_type: i.severity || "low",
-      issue_title: i.title,
-      issue_details: {
-        description: i.analysis,
-        detailed_analysis: i.analysis,
-        severity: i.severity,
-        source: "ai_doctor_radar",
-        suggested_manual_actions: [],
-        biometric_context: "",
-      },
-      source_insight_id: i.id,
-      status,
-    }));
-    const { error } = await (supabase as any)
-      .from("coach_action_ledger")
-      .insert(rows);
-    setBusyAthleteId(null);
-    setOpenPopoverId(null);
-    if (error) {
-      toast({
-        title: "Hata",
-        description: "Kayıt eklenemedi.",
-        variant: "destructive",
-      });
-      return;
-    }
-    // Optimistic: hide
-    setLedgeredIds((prev) => {
-      const next = new Set(prev);
-      targetInsights.forEach((i) => next.add(i.id));
-      return next;
-    });
-    toast({
-      title: status === "ignored" ? "Yok sayıldı" : "Takip listesine eklendi",
-    });
-  };
-
+  }, [fetchInsights]);
 
   // Deduplicate: keep only latest scan per athlete
   const latestInsights = useMemo(() => {
     const latestTimestampByAthlete = new Map<string, string>();
-    for (const i of visibleInsights) {
+    for (const i of insights) {
       const existing = latestTimestampByAthlete.get(i.athlete_id);
       if (!existing || i.created_at > existing) {
         latestTimestampByAthlete.set(i.athlete_id, i.created_at);
       }
     }
-    return visibleInsights.filter(
+    return insights.filter(
       (i) => i.created_at === latestTimestampByAthlete.get(i.athlete_id)
     );
-  }, [visibleInsights]);
+  }, [insights]);
 
   const grouped = useMemo(() => {
     const map: Record<SeverityKey, AiInsight[]> = { high: [], medium: [], low: [] };
@@ -341,47 +269,6 @@ export function AiDoctorRadar() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Popover
-                        open={openPopoverId === athlete.id}
-                        onOpenChange={(o) => setOpenPopoverId(o ? athlete.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={busyAthleteId === athlete.id}
-                            title="Eylem"
-                          >
-                            {busyAthleteId === athlete.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <MoreVertical className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="end"
-                          className="w-48 p-1.5 bg-popover/95 backdrop-blur border-border"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleLedgerAction(athlete.id, "ignored")}
-                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <EyeOff className="w-4 h-4" />
-                            Yok Say
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleLedgerAction(athlete.id, "pending")}
-                            className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-primary/10 text-primary transition-colors"
-                          >
-                            <ListPlus className="w-4 h-4" />
-                            Listeye Ekle
-                          </button>
-                        </PopoverContent>
-                      </Popover>
                       <Button
                         variant="outline"
                         size="sm"
