@@ -75,6 +75,7 @@ export default function Business() {
   const { canManageFinances } = usePermissions();
   const { activeCoachId } = useAuth();
   const { data: metrics, isLoading: metricsLoading } = useBusinessMetrics(activeCoachId ?? undefined);
+  const { data: customInvoices, isLoading: invoicesLoading } = useAssignedPayments(activeCoachId ?? undefined);
 
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -153,6 +154,9 @@ export default function Business() {
           />
         </div>
       )}
+
+      {/* Custom Invoices Ledger */}
+      <CustomInvoicesLedger invoices={customInvoices ?? []} loading={invoicesLoading} />
 
       {/* Revenue Split Donut */}
       <RevenueSplitCard
