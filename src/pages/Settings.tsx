@@ -704,9 +704,11 @@ export default function Settings() {
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Kaydediliyor...
                       </>
+                    ) : ((profile as any).iban ? (
+                      "Güncelle"
                     ) : (
                       "Banka Bilgilerini Kaydet"
-                    )}
+                    ))}
                   </Button>
                 </div>
               </div>
