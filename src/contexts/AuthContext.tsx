@@ -16,6 +16,7 @@ export interface Profile {
   specialty: string | null;
   username: string | null;
   subscription_tier: string | null;
+  iban: string | null;
   notification_preferences: {
     email: boolean;
     push: boolean;
