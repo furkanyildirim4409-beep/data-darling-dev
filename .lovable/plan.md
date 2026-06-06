@@ -1,31 +1,61 @@
-## Part 4/6 — Stripe Checkout for Assigned Invoices
+## Part 5/6 — Overhaul `NewPaymentDialog` for Custom Coach Invoice Assignment
 
-Create a new edge function that mints a Stripe Checkout Session for a row in `assigned_payments` and returns the redirect URL.
+Refactor the existing payment dialog so coaches dispatch a **custom assigned invoice** to a single athlete that flows through the Stripe checkout built in Part 4. The current dialog writes legacy `payments` rows with a `status`/`payment_date` toggle — that flow does not match the marketplace model (athlete pays via Stripe, status flips on webhook).
 
-### New file: `supabase/functions/create-custom-checkout/index.ts`
+### 1. `src/components/business/NewPaymentDialog.tsx` — full rewrite
 
-**Flow**
-1. CORS preflight (`OPTIONS` → `corsHeaders`).
-2. Auth: read `Authorization` header, create a Supabase client with the caller JWT, call `auth.getUser()` — reject 401 if missing.
-3. Parse JSON body, validate with Zod: `{ paymentId: string().uuid() }`.
-4. Fetch `assigned_payments` row by `paymentId` using the JWT-scoped client (RLS enforces `athlete_id = auth.uid()`).
-   - 404 if not found, 400 if `status !== 'pending'` (already paid / cancelled).
-5. Initialize Stripe with `STRIPE_SECRET_KEY` (already set as a secret) using `apiVersion: '2024-06-20'`.
-6. Create Checkout Session exactly as specified:
-   - `mode: 'payment'`, `payment_method_types: ['card']`
-   - Single `line_items[0].price_data` (`currency: paymentRow.currency || 'try'`, `unit_amount: Math.round(amount * 100)`, product name/description)
-   - `quantity: 1`
-   - `metadata: { payment_id, coach_id, athlete_id, payment_type: 'custom_assigned_invoice' }`
-   - `customer_email: user.email`
-   - `success_url` / `cancel_url` built from `origin` header (fallback `Deno.env.get('CLIENT_URL')`), pointing to `/athlete/payments?success=true|cancelled=true&payment_id=...`
-7. Persist `session.id` into `assigned_payments.stripe_checkout_id` via a **service-role** Supabase client (since `assigned_payments` UPDATE policy only grants coaches/team-members, not athletes).
-8. Return `{ url: session.url, sessionId: session.id }` with CORS + JSON headers. Wrap everything in try/catch returning `{ error }` with proper status codes.
+Dark glass dialog (`bg-card/80 backdrop-blur-xl border-border/60`) with these fields:
 
-**Secrets** — `STRIPE_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are all already configured.
+| Field | Control | Validation (zod) |
+|---|---|---|
+| Sporcu | shadcn `Select` of `athletes` from coach roster | required uuid |
+| Ödeme Başlığı | `Input` (e.g. "24 Haftalık Yarışma Hazırlık Ek Paketi") | trim, 3–120 chars |
+| Tutar (₺) | `Input type=number`, step 50, min 1, max 1,000,000 | positive number |
+| Açıklama | `Textarea` 4 rows | optional, ≤ 1000 chars |
 
-**Config** — `supabase/config.toml` gets a new entry `[functions.create-custom-checkout]` with `verify_jwt = false` (we validate JWT in code, matching the project's existing pattern).
+Removed: `status` selector, `payment_date` calendar (status starts `pending`, timestamp auto-set; webhook flips to `paid`).
 
-### Out of scope (later parts)
-- Stripe webhook → flipping `status` to `'paid'` and stamping `paid_at` (Part 5).
-- Frontend "Pay Now" button on the athlete payments page (Part 6).
-- Any schema changes — `assigned_payments` already has `stripe_checkout_id`.
+Submit handler calls a new `onSubmit({ athlete_id, title, amount, description })` prop and on success: emerald `toast.success("Fatura sporcuya iletildi")`, full state reset, dialog close, keeps the existing animated success overlay.
+
+### 2. `src/hooks/usePayments.ts` — add `addAssignedPayment`
+
+New async function used by the dialog (kept alongside legacy `addPayment` so nothing else breaks):
+
+```ts
+const { data, error } = await supabase.from("assigned_payments").insert({
+  coach_id: activeCoachId,
+  athlete_id, title, description: description || null,
+  amount, currency: "TRY", status: "pending",
+}).select("id").single();
+```
+
+After success, fire-and-forget insert into `athlete_notifications`:
+
+```ts
+await supabase.from("athlete_notifications").insert({
+  athlete_id, coach_id: activeCoachId,
+  type: "payment_assigned",
+  title: "Yeni Ek Hizmet Faturası",
+  message: "Koçunuz size yeni bir ek hizmet faturası atadı. Ödemenizi gerçekleştirmek için tıklayın.",
+  action_url: `/athlete/payments?invoice=${data.id}`,
+  metadata: { assigned_payment_id: data.id, amount, title },
+});
+```
+
+Push delivery: the existing `athlete_notifications` insert path already powers in-app + native push elsewhere in the app, so we reuse it (no new edge function required for Part 5).
+
+Export `addAssignedPayment` and re-fetch the payouts list via `fetchPayments` so `PayoutDesk` reflects new pending invoices.
+
+### 3. `src/pages/Business.tsx` — wire new prop
+
+Replace `onSubmit={addPayment}` with `onSubmit={addAssignedPayment}` and pull the new function from `usePayments()`.
+
+### Out of scope
+- Stripe webhook → `status = 'paid'` (Part 6 territory or already deployed)
+- Native push edge function changes
+- Schema migrations (table + columns already exist)
+
+### Technical notes
+- RLS on `assigned_payments` already permits coach inserts where `coach_id = auth.uid()` (or via team membership via `activeCoachId`).
+- `athlete_notifications` insert is best-effort; failure is logged but does not roll back the invoice.
+- Zod schema lives at the top of the dialog file; errors render under each field with `text-destructive`.
