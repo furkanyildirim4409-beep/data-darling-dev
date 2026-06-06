@@ -51,9 +51,17 @@ const subscriptionPlans = [
 ];
 
 const formatIbanInput = (value: string): string => {
-  const cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 26);
-  return cleaned.replace(/(.{4})(?=.)/g, "$1 ");
+  // Strip everything non-alphanumeric, force uppercase, cap at 26
+  let cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 26);
+  // Lock TR prefix: positions 0-1 must always be "TR"; the rest must be digits
+  if (cleaned.length === 0) return "TR";
+  if (cleaned.length === 1) return "TR";
+  // Drop user-typed prefix if not TR, then only allow digits after position 2
+  const rest = cleaned.slice(2).replace(/\D/g, "");
+  const normalized = ("TR" + rest).slice(0, 26);
+  return normalized.replace(/(.{4})(?=.)/g, "$1 ");
 };
+
 
 const validateTRIban = (rawIban: string): boolean => {
   const cleaned = rawIban.replace(/\s/g, "").toUpperCase();
