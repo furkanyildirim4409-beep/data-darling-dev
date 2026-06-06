@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard, Loader2, Mail } from "lucide-react";
+import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
   { id: "branding", label: "Marka Kimliği", icon: Building },
-  { id: "subscription", label: "Abonelik", icon: CreditCard },
+  { id: "subscription", label: "Abonelik & Ödeme Bilgisi", icon: CreditCard },
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "security", label: "Güvenlik", icon: Lock },
   { id: "appearance", label: "Görünüm", icon: Palette },
@@ -59,6 +60,8 @@ export default function Settings() {
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [iban, setIban] = useState<string>("");
+  const [isSavingIban, setIsSavingIban] = useState(false);
 
   // Username states
   const [username, setUsername] = useState(profile?.username || "");
@@ -121,6 +124,7 @@ export default function Settings() {
         email: profile.email || "",
       }));
       setUsername(profile.username || "");
+      setIban(((profile as any).iban as string) || "");
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
