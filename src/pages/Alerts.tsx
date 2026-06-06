@@ -29,6 +29,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { sendCheckinReminder } from "@/utils/checkinReminder";
 
 type TypeFilter = "all" | "critical" | "warning" | "info";
 
@@ -70,6 +71,7 @@ export default function Alerts() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [bulkSending, setBulkSending] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -265,6 +267,34 @@ export default function Alerts() {
     setQuickMessage("");
   };
 
+  const uniqueCheckinAthleteIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          filteredAlerts
+            .map((a) => a.athleteId)
+            .filter((v): v is string => typeof v === "string" && v.length > 0)
+        )
+      ),
+    [filteredAlerts]
+  );
+
+  const handleBulkRemind = async () => {
+    if (uniqueCheckinAthleteIds.length === 0) return;
+    setBulkSending(true);
+    const results = await Promise.allSettled(
+      uniqueCheckinAthleteIds.map((id) =>
+        sendCheckinReminder(id, activeCoachId ?? null)
+      )
+    );
+    setBulkSending(false);
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    toast({
+      title: "Toplu hatırlatma",
+      description: `${ok}/${uniqueCheckinAthleteIds.length} sporcuya gönderildi.`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -451,6 +481,18 @@ export default function Alerts() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts List */}
         <div className="lg:col-span-2 space-y-4">
+          {quickFilter === "checkin" && uniqueCheckinAthleteIds.length > 1 && (
+            <Button
+              onClick={handleBulkRemind}
+              disabled={bulkSending}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold tracking-widest shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              {bulkSending
+                ? "GÖNDERİLİYOR…"
+                : `⚡ TÜMÜ İÇİN GÖNDER: HATIRLAT (${uniqueCheckinAthleteIds.length})`}
+            </Button>
+          )}
           {/* Type Filter Tabs */}
           <div className="flex items-center gap-2">
             <Badge
