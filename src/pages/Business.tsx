@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, RefreshCw } from "lucide-react";
+import { DollarSign, CreditCard, Calendar, Users, Clock, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { usePayments, type Payment } from "@/hooks/usePayments";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
 import { NewPaymentDialog } from "@/components/business/NewPaymentDialog";
 import { SessionSchedulerDialog } from "@/components/business/SessionSchedulerDialog";
 import { AthletePaymentStatus } from "@/components/business/AthletePaymentStatus";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
+
+const REVENUE_COLORS = {
+  packages: "#10B981",
+  store: "#3B82F6",
+};
+
+const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
 import {
   AlertDialog,
   AlertDialogAction,
