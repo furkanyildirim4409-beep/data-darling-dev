@@ -1,26 +1,31 @@
-## Part 3/6 — Marketplace Escrow & Payout Ledger
+## Part 4/6 — Stripe Checkout for Assigned Invoices
 
-Replace the athlete payment status compartment on `/business` with a marketplace-style **Hakediş ve Transfer Takip Masası**. No DB schema work in this part (no IBAN column / payout table yet — those rows will be derived from existing data and a coach-profile field check, with empty states where needed).
+Create a new edge function that mints a Stripe Checkout Session for a row in `assigned_payments` and returns the redirect URL.
 
-### Files
+### New file: `supabase/functions/create-custom-checkout/index.ts`
 
-**Edit `src/pages/Business.tsx`**
-- Remove `<AthletePaymentStatus ... />` from the layout (also drop its import).
-- Insert a new `<PayoutDesk coachId={activeCoachId} payments={payments} />` component below the payments list (same column).
+**Flow**
+1. CORS preflight (`OPTIONS` → `corsHeaders`).
+2. Auth: read `Authorization` header, create a Supabase client with the caller JWT, call `auth.getUser()` — reject 401 if missing.
+3. Parse JSON body, validate with Zod: `{ paymentId: string().uuid() }`.
+4. Fetch `assigned_payments` row by `paymentId` using the JWT-scoped client (RLS enforces `athlete_id = auth.uid()`).
+   - 404 if not found, 400 if `status !== 'pending'` (already paid / cancelled).
+5. Initialize Stripe with `STRIPE_SECRET_KEY` (already set as a secret) using `apiVersion: '2024-06-20'`.
+6. Create Checkout Session exactly as specified:
+   - `mode: 'payment'`, `payment_method_types: ['card']`
+   - Single `line_items[0].price_data` (`currency: paymentRow.currency || 'try'`, `unit_amount: Math.round(amount * 100)`, product name/description)
+   - `quantity: 1`
+   - `metadata: { payment_id, coach_id, athlete_id, payment_type: 'custom_assigned_invoice' }`
+   - `customer_email: user.email`
+   - `success_url` / `cancel_url` built from `origin` header (fallback `Deno.env.get('CLIENT_URL')`), pointing to `/athlete/payments?success=true|cancelled=true&payment_id=...`
+7. Persist `session.id` into `assigned_payments.stripe_checkout_id` via a **service-role** Supabase client (since `assigned_payments` UPDATE policy only grants coaches/team-members, not athletes).
+8. Return `{ url: session.url, sessionId: session.id }` with CORS + JSON headers. Wrap everything in try/catch returning `{ error }` with proper status codes.
 
-**New `src/components/business/PayoutDesk.tsx`**
-- Top: section header "Hakediş ve Transfer Takip Masası" + subtitle "Marketplace tahsilat ve transfer akışı".
-- **Bento (3 cards, grid-cols-1 md:grid-cols-3):**
-  1. 🏦 **Hakediş (Escrow Balance)** — sum of `payments.amount` where `status in ('paid','succeeded')` AND `payment_date >= now() - 14 days`, scoped to `coach_id = activeCoachId`. Computed client-side from the `payments` prop already loaded.
-  2. 🗓️ **Gelecek Transfer Günü** — static label "Her Ayın 1. ve 15. Günü" plus a computed "Sonraki: <date>" line (next 1st or 15th from today, `date-fns`).
-  3. 💳 **Banka Hesap Bilgisi (IBAN)** — reads `profiles.payout_iban` (if column exists in current types) else falls back to `null`. Renders masked IBAN `TR•• •••• •••• •••• •••• ••XX` using last 2 digits, or a "IBAN Bağla" button (opens a placeholder toast — wiring deferred to a later part).
-- **Payouts History Table** (shadcn `Table`):
-  - Columns: Transfer ID (short uuid), Dönem/Tarih (formatted), Tutar (₺), Transfer Durumu.
-  - Data source: derive synthetic payout rows by bucketing `payments` (status paid/succeeded) into 14-day clearance windows — rows older than 14 days → `TR GÖNDERİLDİ` (emerald badge), rows within last 14 days → `İŞLEMDE` (amber badge).
-  - Empty state when there are no eligible payments.
-- Uses semantic tokens for surfaces (`glass`, `border-border`); keeps the spec's exact emerald/amber badge classes as requested.
+**Secrets** — `STRIPE_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are all already configured.
+
+**Config** — `supabase/config.toml` gets a new entry `[functions.create-custom-checkout]` with `verify_jwt = false` (we validate JWT in code, matching the project's existing pattern).
 
 ### Out of scope (later parts)
-- Real `payout_iban` column + IBAN form submission.
-- Real Stripe Connect payout ingestion / dedicated `payouts` table.
-- Removing/refactoring `AthletePaymentStatus.tsx` file itself (left in place, simply unused on this page).
+- Stripe webhook → flipping `status` to `'paid'` and stamping `paid_at` (Part 5).
+- Frontend "Pay Now" button on the athlete payments page (Part 6).
+- Any schema changes — `assigned_payments` already has `stripe_checkout_id`.
