@@ -298,7 +298,7 @@ export default function Business() {
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         athletes={athletes}
-        onSubmit={addPayment}
+        onSubmit={addAssignedPayment}
       />
 
       <SessionSchedulerDialog
