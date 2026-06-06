@@ -7,7 +7,7 @@ export interface Profile {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: 'coach' | 'athlete' | null;
+  role: 'coach' | 'athlete' | 'super_admin' | null;
   avatar_url: string | null;
   coach_id: string | null;
   created_at: string | null;
@@ -32,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  role: 'coach' | 'athlete' | null;
+  role: 'coach' | 'athlete' | 'super_admin' | null;
   isLoading: boolean;
   teamMember: any | null;
   isSubCoach: boolean;
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<'coach' | 'athlete' | null>(null);
+  const [role, setRole] = useState<'coach' | 'athlete' | 'super_admin' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [teamMember, setTeamMember] = useState<any | null>(null);
 

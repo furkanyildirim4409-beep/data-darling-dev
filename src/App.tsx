@@ -37,6 +37,12 @@ function PermissionRoute({ children, permissionKey }: { children: React.ReactNod
   return <>{children}</>;
 }
 
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { role } = useAuth();
+  if (role !== 'super_admin') return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -72,7 +78,7 @@ const App = () => (
                 <Route path="/settings" element={<PermissionRoute permissionKey="canViewTeam"><Settings /></PermissionRoute>} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/messages" element={<Messages />} />
-                <Route path="/disputes" element={<Disputes />} />
+                <Route path="/disputes" element={<SuperAdminRoute><Disputes /></SuperAdminRoute>} />
                 <Route path="/akademi" element={<Akademi />} />
                 <Route path="/mailbox" element={<Mailbox />} />
                 <Route path="/mailbox/templates" element={<EmailTemplates />} />

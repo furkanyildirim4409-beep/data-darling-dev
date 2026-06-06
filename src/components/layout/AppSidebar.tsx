@@ -4,6 +4,7 @@ import { useTeamChat } from "@/hooks/useTeamChat";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useUnreadEmails } from "@/hooks/useUnreadEmails";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -33,7 +34,7 @@ const navItems = [
   { path: "/athletes", label: "Sporcular", icon: Users },
   { path: "/programs", label: "Program Mimarı", icon: ClipboardList },
   { path: "/alerts", label: "Hızlı Müdahale", icon: Zap, showBadge: true },
-  { path: "/disputes", label: "Yüce Divan", icon: Scale },
+  { path: "/disputes", label: "Yüce Divan", icon: Scale, superAdminOnly: true },
   { path: "/business", label: "İş Yönetimi", icon: Briefcase, permissionKey: "canViewFinances" as keyof Permissions },
   { path: "/store", label: "Mağaza", icon: ShoppingBag, permissionKey: "canViewStore" as keyof Permissions },
   { path: "/content", label: "İçerik Stüdyosu", icon: Palette, permissionKey: "canViewContent" as keyof Permissions },
@@ -56,12 +57,17 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { totalUnread: teamUnread } = useTeamChat();
   const totalUnread = athleteUnread + teamUnread;
   const permissions = usePermissions();
+  const { role } = useAuth();
   const { criticalCount, warningCount } = useAlerts();
   const { unreadCount: unreadEmails } = useUnreadEmails();
 
   const filteredNavItems = useMemo(
-    () => navItems.filter(item => !item.permissionKey || permissions[item.permissionKey]),
-    [permissions]
+    () => navItems.filter(item => {
+      if ((item as any).superAdminOnly && role !== 'super_admin') return false;
+      if (item.permissionKey && !permissions[item.permissionKey]) return false;
+      return true;
+    }),
+    [permissions, role]
   );
 
   const alertCounts = useMemo(() => ({
