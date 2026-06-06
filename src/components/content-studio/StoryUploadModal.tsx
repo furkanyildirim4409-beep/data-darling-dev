@@ -17,13 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Image, X, Video, Play, Loader2 } from "lucide-react";
+import { Upload, Image, X, Video, Play, Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCreateStory } from "@/hooks/useSocialMutations";
+import { useCreateStory, useCoachHighlights } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { storyCategories } from "@/data/storyCategories";
 
 interface StoryUploadModalProps {
   open: boolean;
@@ -33,7 +32,7 @@ interface StoryUploadModalProps {
 
 type MediaType = "image" | "video" | null;
 
-const categories = storyCategories;
+const NONE_VALUE = "none";
 const TARGET_RATIO = 9 / 16; // width / height
 
 export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadModalProps) {
@@ -48,7 +47,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [zoom, setZoom] = useState<number>(1); // ≥1, multiplies the cover-fit scale
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("none");
+  const [selectedCategory, setSelectedCategory] = useState<string>(NONE_VALUE);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing] = useState(false);
@@ -59,6 +58,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
+  const { data: highlightGroups = [], isLoading: highlightsLoading } = useCoachHighlights();
 
   // Contain-fit base scale: largest scale that fully fits inside the stage (no auto-crop)
   const baseScale = naturalSize && stageSize.w && stageSize.h
