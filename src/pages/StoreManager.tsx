@@ -709,21 +709,45 @@ export default function StoreManager() {
               const isPhysical = p.product_type !== "digital";
               const isSoldOut =
                 isPhysical && p.track_inventory && Number(p.stock_quantity) === 0;
+              const isPending = p.status === "pending_admin_approval";
+              const isRejected = p.status === "rejected";
               return (
               <div
                 key={p.id}
-                className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-colors relative"
+                className={`group rounded-xl border bg-card overflow-hidden transition-colors relative ${
+                  isPending
+                    ? "border-warning/60 shadow-[0_0_28px_-8px_hsl(var(--warning)/0.55)]"
+                    : isRejected
+                    ? "border-destructive/60"
+                    : "border-border hover:border-primary/50"
+                }`}
               >
                 <div className="aspect-square bg-muted overflow-hidden relative">
                   <img
                     src={p.image_url}
                     alt={p.title}
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
-                      isSoldOut ? "opacity-60 grayscale" : ""
+                      isSoldOut || isPending || isRejected ? "opacity-60 grayscale" : ""
                     }`}
                     loading="lazy"
                   />
-                  {isSoldOut && (
+                  {isPending && (
+                    <div className="absolute top-2 left-2 right-2 flex justify-center pointer-events-none">
+                      <span
+                        className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning text-warning-foreground shadow-[0_0_18px_hsl(var(--warning)/0.7)] animate-pulse"
+                      >
+                        🟠 ONAY BEKLİYOR
+                      </span>
+                    </div>
+                  )}
+                  {isRejected && (
+                    <div className="absolute top-2 left-2 right-2 flex justify-center pointer-events-none">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-destructive text-destructive-foreground shadow-md">
+                        🚫 ONAYLANMADI
+                      </span>
+                    </div>
+                  )}
+                  {isSoldOut && !isPending && !isRejected && (
                     <Badge
                       variant="destructive"
                       className="absolute top-2 left-2 text-[10px] uppercase tracking-wider shadow-md"
