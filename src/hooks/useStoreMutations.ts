@@ -144,9 +144,12 @@ export function useCreateProduct() {
           shopify_product_id: shopifyProductId,
           shopify_variant_id: shopifyVariantId,
           product_type: payload.productType,
+          product_kind: payload.productType,
+          digital_file_url: payload.digitalFileUrl ?? null,
           track_inventory: payload.trackInventory,
           stock_quantity: payload.stockQuantity,
           is_active: true,
+          // status defaults to 'pending_admin_approval' via DB trigger for non-admins
         })
         .select()
         .single();
