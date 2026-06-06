@@ -28,11 +28,8 @@ type SeverityKey = "high" | "medium" | "low";
 export function AiDoctorRadar() {
   const { user, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
   const [insights, setInsights] = useState<AiInsight[]>([]);
-  const [ledgeredIds, setLedgeredIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityKey | null>(null);
-  const [busyAthleteId, setBusyAthleteId] = useState<string | null>(null);
-  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchInsights = useCallback(async () => {
