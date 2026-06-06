@@ -69,7 +69,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RotateCcw, UserX } from "lucide-react";
 
-const CATEGORIES = ["Takviye", "Ekipman", "Dijital İçerik", "Giyim"] as const;
+const CATEGORIES = [
+  "Gıda Takviyeleri & Supplement",
+  "Antrenman Ekipmanları",
+  "Spor Giyim & Tekstil",
+  "Dijital Program & E-Kitap",
+  "Sağlıklı Atıştırmalıklar",
+  "Ortopedik Destek Ürünleri",
+] as const;
+const DIGITAL_CATEGORY = "Dijital Program & E-Kitap";
+const MAX_DIGITAL_BYTES = 50 * 1024 * 1024; // 50 MB
 
 /** Common Shopify Taxonomy categories for coach products.
  *  IDs are real Shopify Standard Product Taxonomy GIDs. */
