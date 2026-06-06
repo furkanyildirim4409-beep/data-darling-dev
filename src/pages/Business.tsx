@@ -414,7 +414,7 @@ function RevenueSplitCard({ loading, coaching, shopify, digital, total }: Revenu
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-semibold text-foreground">Gelir Dağılımı</h2>
-          <p className="text-xs text-muted-foreground">Tüm zamanlar — koçluk paketleri ve e-ticaret kırılımı</p>
+          <p className="text-xs text-muted-foreground">Koçluk paketleri, Shopify ve dijital ürün geliri kırılımı</p>
         </div>
         <span className="text-xs font-mono text-muted-foreground">{fmtTRY(total)}</span>
       </div>
