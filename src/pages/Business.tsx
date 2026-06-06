@@ -126,16 +126,10 @@ export default function Business() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Toplam Gelir"
+            title="Gelir"
             value={fmtTRY(metrics?.total_revenue ?? 0)}
             icon={DollarSign}
             variant="success"
-          />
-          <StatCard
-            title="E-Ticaret Geliri"
-            value={fmtTRY(metrics?.total_store_revenue ?? 0)}
-            icon={ShoppingBag}
-            variant="default"
           />
           <StatCard
             title="Aktif Sporcular"
@@ -144,10 +138,16 @@ export default function Business() {
             variant="default"
           />
           <StatCard
-            title="Bekleyen Ödemeler"
+            title="Hakediş"
             value={fmtTRY(metrics?.pending_custom_revenue ?? 0)}
             icon={CreditCard}
             variant={(metrics?.pending_custom_revenue ?? 0) > 0 ? "warning" : "default"}
+          />
+          <StatCard
+            title="Sonraki Ödeme Günü"
+            value={nextPayoutLabel()}
+            icon={Calendar}
+            variant="default"
           />
         </div>
       )}
@@ -159,6 +159,7 @@ export default function Business() {
         store={metrics?.total_store_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
       {/* Main Grid */}
