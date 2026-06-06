@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { toBlob } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCreateStory } from "@/hooks/useSocialMutations";
 
 // Overlay Templates
