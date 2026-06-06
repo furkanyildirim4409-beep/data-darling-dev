@@ -268,8 +268,6 @@ export default function Business() {
           )}
         </div>
 
-        {/* Marketplace Payout Desk */}
-        <PayoutDesk payments={payments} />
         </div>
 
         {/* Today's Schedule */}
