@@ -17,13 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Image, X, Video, Play, Loader2 } from "lucide-react";
+import { Upload, Image, X, Video, Play, Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCreateStory } from "@/hooks/useSocialMutations";
+import { useCreateStory, useCoachHighlights } from "@/hooks/useSocialMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { storyCategories } from "@/data/storyCategories";
 
 interface StoryUploadModalProps {
   open: boolean;
@@ -33,7 +32,7 @@ interface StoryUploadModalProps {
 
 type MediaType = "image" | "video" | null;
 
-const categories = storyCategories;
+const NONE_VALUE = "none";
 const TARGET_RATIO = 9 / 16; // width / height
 
 export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadModalProps) {
@@ -48,7 +47,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
   const [zoom, setZoom] = useState<number>(1); // ≥1, multiplies the cover-fit scale
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("none");
+  const [selectedCategory, setSelectedCategory] = useState<string>(NONE_VALUE);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing] = useState(false);
@@ -59,6 +58,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
   const { user } = useAuth();
   const { mutateAsync: createStory, isPending: isCreatingStory } = useCreateStory();
+  const { data: highlightGroups = [], isLoading: highlightsLoading } = useCoachHighlights();
 
   // Contain-fit base scale: largest scale that fully fits inside the stage (no auto-crop)
   const baseScale = naturalSize && stageSize.w && stageSize.h
@@ -319,9 +319,8 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from("social-media").getPublicUrl(path);
 
-      const categoryName = selectedCategory && selectedCategory !== "none"
-        ? categories.find(c => c.id === selectedCategory)?.name
-        : undefined;
+      const categoryName =
+        selectedCategory && selectedCategory !== NONE_VALUE ? selectedCategory : undefined;
       await createStory({ media_url: urlData.publicUrl, duration_hours: 24, category: categoryName });
 
       onUpload(fileToUpload, selectedCategory);
@@ -346,7 +345,7 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
 
   const handleClose = () => {
     resetState();
-    setSelectedCategory("none");
+    setSelectedCategory(NONE_VALUE);
     onOpenChange(false);
   };
 
@@ -504,19 +503,42 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
           </div>
 
           <div className="space-y-2">
-            <Label>Kategori Seçin</Label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Label>Öne Çıkanlara Ekle (Opsiyonel)</Label>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={highlightsLoading}>
               <SelectTrigger className="bg-background/50">
-                <SelectValue placeholder="Kategori seçin" />
+                <SelectValue placeholder={highlightsLoading ? "Yükleniyor..." : "Sadece 24 saat aktif kalsın"} />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
-                {categories.map((category) => {
-                  const Icon = category.icon;
+                <SelectItem value={NONE_VALUE}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </div>
+                    <span>Hiçbiri — Sadece 24 saat aktif</span>
+                  </div>
+                </SelectItem>
+                {highlightGroups.length === 0 && !highlightsLoading && (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Henüz öne çıkan grup yok — önce "+ Yeni Grup" oluştur.
+                  </div>
+                )}
+                {highlightGroups.map((group) => {
+                  const coverSrc = group.customCoverUrl ?? group.stories[0]?.media_url ?? null;
+                  const isVideoCover = coverSrc && /\.(mp4|webm|mov)$/i.test(coverSrc);
                   return (
-                    <SelectItem key={category.id} value={category.id}>
+                    <SelectItem key={group.category} value={group.category}>
                       <div className="flex items-center gap-2">
-                        <Icon className={cn("w-4 h-4", category.color)} />
-                        <span>{category.name}</span>
+                        <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center shrink-0">
+                          {coverSrc && !isVideoCover ? (
+                            <img src={coverSrc} alt={group.category} className="w-full h-full object-cover" />
+                          ) : coverSrc && isVideoCover ? (
+                            <video src={coverSrc} className="w-full h-full object-cover" muted playsInline />
+                          ) : (
+                            <Star className="w-3.5 h-3.5 text-white" />
+                          )}
+                        </div>
+                        <span className="truncate">{group.category}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground font-mono">{group.count}</span>
                       </div>
                     </SelectItem>
                   );
@@ -525,40 +547,33 @@ export function StoryUploadModal({ open, onOpenChange, onUpload }: StoryUploadMo
             </Select>
           </div>
 
-          {selectedCategory && (
-            <div className="glass rounded-lg p-3 border border-border">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const cat = categories.find(c => c.id === selectedCategory);
-                  if (!cat) return null;
-                  const Icon = cat.icon;
-                  return (
-                    <>
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center",
-                        selectedCategory === "none" ? "bg-muted" :
-                        selectedCategory === "1" ? "bg-primary/20" :
-                        selectedCategory === "2" ? "bg-info/20" :
-                        selectedCategory === "3" ? "bg-warning/20" :
-                        selectedCategory === "4" ? "bg-success/20" :
-                        "bg-destructive/20"
-                      )}>
-                        <Icon className={cn("w-5 h-5", cat.color)} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{cat.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedCategory === "none"
-                            ? "Normal 24 saatlik hikaye olarak paylaşılacak"
-                            : "Bu kategoriye hikaye eklenecek"}
-                        </p>
-                      </div>
-                    </>
-                  );
-                })()}
+          {selectedCategory && selectedCategory !== NONE_VALUE && (() => {
+            const group = highlightGroups.find((g) => g.category === selectedCategory);
+            if (!group) return null;
+            const coverSrc = group.customCoverUrl ?? group.stories[0]?.media_url ?? null;
+            const isVideoCover = coverSrc && /\.(mp4|webm|mov)$/i.test(coverSrc);
+            return (
+              <div className="glass rounded-lg p-3 border border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center shrink-0">
+                    {coverSrc && !isVideoCover ? (
+                      <img src={coverSrc} alt={group.category} className="w-full h-full object-cover" />
+                    ) : coverSrc && isVideoCover ? (
+                      <video src={coverSrc} className="w-full h-full object-cover" muted playsInline />
+                    ) : (
+                      <Star className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{group.category}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Bu öne çıkan gruba eklenecek — 24 saatten sonra Aktif Hikayeler'den otomatik düşer.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         <DialogFooter>

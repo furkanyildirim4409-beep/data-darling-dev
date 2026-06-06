@@ -1,42 +1,57 @@
-## Tespit edilen sorunlar
+## Content Studio Stories Engine — Düzeltmeler
 
-DB sorgularıyla doğruladım (aktif koç `c21a5a19...`):
+### 1) 24 saatlik Aktif Hikaye filtresi (sıkı kural)
 
-| Kanal | Gerçek tutar | Neden bozuk görünüyor |
-|---|---|---|
-| **Koçluk Paketleri** | **0 ₺** | `payments` tablosunda hiç satır yok. 3 adet `orders.order_type='coaching' status='paid'` kaydı var **ama hepsinin `coach_id`'si `NULL` ve sporcunun `profiles.coach_id`'si de `NULL`** — orphan kayıtlar olduğu için RPC bunları koça bağlayamıyor → segment 0 ₺ çıkıyor |
-| **Diğer Ödemeler** | 310 ₺ | RPC doğru hesaplıyor, dilim çiziliyor ama Shopify (~7.063 ₺) yanında çok küçük kalıyor; aslında legend'de görünüyor |
+**Dosya:** `src/components/content-studio/ActiveStoriesDialog.tsx` (satır 123-125)
 
-Yani "Diğer Ödemeler grafiği yok" şikayetinin asıl sebebi orantı (310 / 7373 ≈ %4) ve **koçluk paketleri sıfır** olduğu için listenin görsel olarak bozulması.
+Şu an aktif listeyi sadece `expires_at > now()` ile filtreliyor. Bir hikaye Öne Çıkanlara eklendiğinde `expires_at` ileri taşınmış olabiliyor; bu yüzden 24 saat geçse bile "Aktif" halkasında kalıyor. Instagram benzeri davranış için filtreyi **kesinlikle `created_at`** üzerinden uygulayacağız:
 
-## Çözüm
+```ts
+const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+const activeStories = (allStories ?? []).filter(
+  (s) => new Date(s.created_at) >= twentyFourHoursAgo
+);
+```
 
-### 1. Orphan koçluk siparişlerini koça bağla (veri tamiri)
+- 24 saatten eski hikayeler Aktif Hikayeler diyaloğunda görünmeyecek.
+- Mapped oldukları Öne Çıkan gruplarında (`HighlightsSection` + `HighlightDetailSheet`, `useCoachHighlights`) görünmeye devam ediyorlar çünkü orada `is_highlighted=true` filtresi var; herhangi bir değişiklik gerekmiyor.
+- `timeRemaining(expires_at)` etiketi yerine "kalan süreyi" `created_at + 24h`'a göre hesaplayacağız ki gösterilen "X kaldı" değeri her zaman tutarlı olsun.
 
-`orders` tablosundaki `coach_id IS NULL` olan `order_type='coaching'` kayıtlar için, `items` JSONB içindeki `coach_id` ya da sporcunun profilinde sonradan oluşmuş `coach_id` ile **backfill** yapılır. Aynı şekilde sporcunun `profiles.coach_id`'si hâlâ NULL ise, ödenmiş koçluk siparişinden gelen koç ile doldurulur (`handle_coaching_order_paid` triggeri sadece status transition anında çalıştığı için geçmiş kayıtları kaçırmış).
+### 2) StoryUploadModal — Gerçek Öne Çıkan grupları
 
-### 2. RPC'yi savunmacı hâle getir
+**Dosya:** `src/components/content-studio/StoryUploadModal.tsx`
 
-`get_coach_business_metrics` koçluk geliri toplarken, `o.coach_id` ve `p.coach_id` yanına bir de **`items` JSONB içindeki `coach_id`** eşleşmesini ekler — böylece backfill dışında kalan veya gelecekte unutulan kayıtlar da dilime düşer.
+- Etiket: **"Kategori Seçimi" → "Öne Çıkanlara Ekle (Opsiyonel)"**.
+- `storyCategories` mock importunu ve `categories` sabitini kaldır.
+- Mevcut `useCoachHighlights()` hook'unu kullanarak koçun gerçek Öne Çıkan gruplarını çek (zaten `coach_highlight_metadata` + `coach_stories` üzerinden çalışıyor ve `customCoverUrl` ile `category` adını döndürüyor — yeni hook gerekmiyor).
+- Select açılır listede her seçeneğin yanına kapak küçük resmini (`group.customCoverUrl ?? group.stories[0]?.media_url`) bir `Avatar`/`img` ile göster; metin olarak `group.category`. Hiç grup yoksa: "Henüz öne çıkan grup yok — önce 'Yeni Grup' oluştur" placeholder.
+- "Yok / Sadece 24 saat aktif kalsın" şeklinde bir `none` seçeneği baş tarafta dursun (zaten varsayılan).
+- `handleUpload` içinde `createStory({ media_url, duration_hours: 24, category })` çağrısı zaten kategori parametresini destekliyor; sadece seçilen grubun `category` adını geçeceğiz. Ayrı bir mapping tablosu yok — projedeki şema **`coach_stories.category` text + `is_highlighted` boolean** ile çalışıyor (gerçek tablo: `coach_stories` + `coach_highlight_metadata`).
+- `useCreateStory` hook'unu kategori verildiğinde `is_highlighted=true` da yazacak şekilde küçük bir güncellemeyle düzeltmek gerekirse `src/hooks/useSocialMutations.ts` içindeki `useCreateStory` payload'una eklenecek (gerekiyorsa yapılacak; mevcut davranış kontrol edilecek).
 
-### 3. Frontend dilim okunabilirliği
+### 3) Yayındaki içeriklerden "Düzenle" butonlarını kaldır
 
-`RevenueSplitCard`:
-- Pie'da çok küçük dilimler için `minAngle={4}` ekle → 310 ₺ gibi küçük değer de görsel olarak farkedilebilir bir dilim çizer.
-- Sağ taraftaki legend listesi zaten her 3 kanalı tutar; "0 ₺" satırı opak (`opacity-60`) gösterilerek "veri yok" olduğu daha açık iletilir.
-- Boş açıklama metni güncellenir: "Koçluk paketleri, e-ticaret ve diğer ödemeler".
+- **`src/components/content-studio/FeedPlanner.tsx`** (satır ~113-135 PostCard menüsü): Sadece `post.status === "published"` olan kartlarda **Düzenle** `DropdownMenuItem`'ı render edilmesin. "Sil" kalabilir; published olmayan (draft/scheduled) kartlarda Düzenle korunur. Edit dialog (satır 608+) draft/scheduled için kullanılmaya devam eder.
+- **`src/components/content-studio/HighlightsSection.tsx`**: Buradaki "Düzenle" butonu yayında olan içerik değil, highlight grubu yeniden sıralama moduydu. User direktifi "yayında olan içerikler" üzerine olduğundan bu dokunulmaz; **kapsam dışı** (gerekirse ikinci turda kaldırılır).
+- **`src/pages/ContentStudio.tsx`**: Üst seviye taramada başka "Düzenle" tetikleyicisi yok; ek değişiklik gerekmiyor.
 
-## Teknik detaylar
+### Veritabanı
 
-- Backfill iki adımlı SQL (data update, migration değil): önce `orders.coach_id := items->coach_id`, sonra `profiles.coach_id := COALESCE(profiles.coach_id, items->coach_id)` ödenmiş koçluk siparişleri için.
-- RPC değişikliği: `coaching_orders_revenue` sorgusuna `OR EXISTS (SELECT 1 FROM jsonb_array_elements(o.items) it WHERE NULLIF(it->>'coach_id','')::uuid = coach_uuid)` eklenir.
-- Frontend: `Pie` propuna `minAngle={4}`; legend itemine `data.value === 0 && "opacity-60"` class.
-- Aktif sporcular sayısı RPC mantığı korunur, sadece toplama değişir.
+Şema değişikliği gerekmiyor. Mevcut tablolar:
+- `coach_stories(id, coach_id, media_url, expires_at, created_at, category, is_highlighted)`
+- `coach_highlight_metadata(coach_id, category_name, custom_cover_url, order_index, is_pinned_to_kokpit, show_on_profile)`
 
-## Beklenen sonuç
+### Dokunulacak dosyalar
 
-Koç `c21a5a19` için:
-- Koçluk Paketleri: 0 → **300 ₺** (3 orphan order backfill sonrası, sporcu profilleri de koça bağlanır)
-- E-Ticaret: 7.063,70 ₺ (değişmez)
-- Diğer Ödemeler: **310 ₺** (zaten doğru, artık daha okunabilir dilimle)
-- Toplam: 7.673,70 ₺
+```text
+src/components/content-studio/ActiveStoriesDialog.tsx   (24h created_at filtresi + kalan süre etiketi)
+src/components/content-studio/StoryUploadModal.tsx      (mock kaldır, gerçek highlight listesi + label)
+src/components/content-studio/FeedPlanner.tsx           (published kartlarda Düzenle gizle)
+src/hooks/useSocialMutations.ts                         (gerekiyorsa createStory is_highlighted senkronu)
+```
+
+### Doğrulama
+
+- 25 saat önce oluşturulmuş bir hikaye Aktif Hikayeler diyaloğunda görünmemeli, ama bağlı olduğu Öne Çıkan grubunda görünmeli.
+- StoryUploadModal açılır listesinde gerçek grup adları ve kapakları çıkmalı; seçilip yüklenince yeni hikaye o grupta görünmeli.
+- Yayınlanmış post kartının kebap menüsünde sadece "Sil" olmalı; taslak/planlı kartlarda Düzenle kalmalı.
