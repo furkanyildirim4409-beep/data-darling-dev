@@ -332,3 +332,122 @@ export default function Business() {
     </div>
   );
 }
+
+interface RevenueSplitCardProps {
+  loading: boolean;
+  packages: number;
+  store: number;
+  total: number;
+}
+
+function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardProps) {
+  const data = [
+    { name: "Koçluk Paketleri", value: Number(packages) || 0, color: REVENUE_COLORS.packages },
+    { name: "E-Ticaret", value: Number(store) || 0, color: REVENUE_COLORS.store },
+  ];
+  const hasData = data.some((d) => d.value > 0);
+
+  return (
+    <div className="glass rounded-xl border border-border p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-semibold text-foreground">Gelir Dağılımı</h2>
+          <p className="text-xs text-muted-foreground">Koçluk paketleri ve e-ticaret kırılımı</p>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{fmtTRY(total)}</span>
+      </div>
+
+      {loading ? (
+        <Skeleton className="h-64 rounded-lg" />
+      ) : !hasData ? (
+        <div className="h-64 flex flex-col items-center justify-center text-center">
+          <DollarSign className="w-10 h-10 text-muted-foreground/40 mb-3" />
+          <p className="text-muted-foreground">Henüz gelir kaydı yok</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Koçluk paketi satışları ve e-ticaret siparişleri burada görünecek
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+          <div className="relative h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                  stroke="hsl(var(--background))"
+                  strokeWidth={2}
+                >
+                  {data.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RTooltip
+                  content={({ active, payload }) =>
+                    active && payload?.length ? (
+                      <div className="glass border border-border rounded-lg px-3 py-2 shadow-lg">
+                        <p className="text-xs text-muted-foreground">{payload[0].name}</p>
+                        <p
+                          className="font-mono font-semibold"
+                          style={{ color: (payload[0].payload as any).color }}
+                        >
+                          {fmtTRY(Number(payload[0].value))}
+                        </p>
+                      </div>
+                    ) : null
+                  }
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  formatter={(value: string) => (
+                    <span className="text-xs text-muted-foreground">{value}</span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-6">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Toplam</span>
+              <span className="text-lg font-bold font-mono text-foreground">{fmtTRY(total)}</span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {data.map((d) => {
+              const pct = total > 0 ? (d.value / total) * 100 : 0;
+              return (
+                <div key={d.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: d.color }}
+                      />
+                      <span className="text-foreground">{d.name}</span>
+                    </div>
+                    <span className="font-mono font-medium text-foreground">{fmtTRY(d.value)}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: d.color }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-mono text-right">
+                    %{pct.toFixed(1)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
