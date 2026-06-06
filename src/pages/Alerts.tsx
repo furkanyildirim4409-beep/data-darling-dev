@@ -679,14 +679,20 @@ export default function Alerts() {
               placeholder="Tüm sporculara mesaj gönderin..."
               value={quickMessage}
               onChange={(e) => setQuickMessage(e.target.value)}
+              disabled={broadcastSending}
               className="min-h-[100px] bg-card border-border focus:border-primary resize-none mb-3"
             />
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleSendBroadcast}
+              disabled={broadcastSending || !quickMessage.trim()}
             >
-              <Send className="w-4 h-4 mr-2" />
-              Hepsine Gönder
+              {broadcastSending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              {broadcastSending ? "Gönderiliyor…" : "Hepsine Gönder"}
             </Button>
           </div>
         </div>
