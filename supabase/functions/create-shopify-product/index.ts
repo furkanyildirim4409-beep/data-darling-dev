@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
     trackInventory: trackInventoryRaw,
     stockQuantity,
     shopifyCategoryId,
+    publishAsDraft,
   } = parsed.data;
 
   const isDigital = productType === "digital";
