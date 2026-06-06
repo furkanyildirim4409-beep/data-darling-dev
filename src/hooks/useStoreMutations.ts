@@ -95,6 +95,7 @@ export function useCreateProduct() {
               trackInventory: payload.trackInventory,
               stockQuantity: payload.stockQuantity,
               shopifyCategoryId: payload.shopifyCategoryId ?? null,
+              publishAsDraft: payload.publishAsDraft ?? false,
             },
           },
         );
