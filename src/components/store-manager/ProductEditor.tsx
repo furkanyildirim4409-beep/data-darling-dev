@@ -250,11 +250,11 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Ürün Ekleniyor...
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Onaya Gönderiliyor...
           </>
         ) : (
           <>
-            <Save className="w-4 h-4 mr-2" /> Değişiklikleri Kaydet
+            <Save className="w-4 h-4 mr-2" /> Yayınla ve Onaya Gönder
           </>
         )}
       </Button>
