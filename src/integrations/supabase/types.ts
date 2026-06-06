@@ -1215,6 +1215,7 @@ export type Database = {
           expires_at: string
           id: string
           is_highlighted: boolean
+          link_url: string | null
           media_url: string
         }
         Insert: {
@@ -1224,6 +1225,7 @@ export type Database = {
           expires_at: string
           id?: string
           is_highlighted?: boolean
+          link_url?: string | null
           media_url: string
         }
         Update: {
@@ -1233,6 +1235,7 @@ export type Database = {
           expires_at?: string
           id?: string
           is_highlighted?: boolean
+          link_url?: string | null
           media_url?: string
         }
         Relationships: [

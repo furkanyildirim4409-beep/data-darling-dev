@@ -1,57 +1,74 @@
-## Content Studio Stories Engine — Düzeltmeler
+# Story Template Builder — Production Overhaul (Part 2/3)
 
-### 1) 24 saatlik Aktif Hikaye filtresi (sıkı kural)
+Fixes the broken modal layout, adds a redirect-link tool, and turns "Save Template" into a one-click publisher that pushes the canvas straight to the live 24h stories pipeline (same path as `StoryUploadModal`).
 
-**Dosya:** `src/components/content-studio/ActiveStoriesDialog.tsx` (satır 123-125)
+## 1. Layout & scroll fix (`StoryTemplateBuilder.tsx`)
 
-Şu an aktif listeyi sadece `expires_at > now()` ile filtreliyor. Bir hikaye Öne Çıkanlara eklendiğinde `expires_at` ileri taşınmış olabiliyor; bu yüzden 24 saat geçse bile "Aktif" halkasında kalıyor. Instagram benzeri davranış için filtreyi **kesinlikle `created_at`** üzerinden uygulayacağız:
+Current modal uses `h-[90vh]` + nested `flex h-full` with a fixed-width 320px sidebar and a non-scrollable preview pane. On laptops it overflows the viewport and the preview gets cut off.
 
-```ts
-const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-const activeStories = (allStories ?? []).filter(
-  (s) => new Date(s.created_at) >= twentyFourHoursAgo
-);
+Changes:
+- `DialogContent`: switch to `max-w-5xl w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col`.
+- Replace outer `<div className="flex h-full">` with a responsive wrapper:
+  `flex flex-col md:flex-row h-full w-full max-h-[85vh] overflow-y-auto md:overflow-hidden`.
+- Left controls panel: `w-full md:w-80 md:border-r border-b md:border-b-0` + keep internal `ScrollArea` so tools scroll independently on desktop. On mobile the whole modal scrolls vertically (controls, then preview).
+- Right preview panel: `flex-1 overflow-y-auto` with the phone frame centered via `min-h-full flex items-center justify-center p-4 md:p-8`. Scale phone frame down on mobile (`w-[220px] h-[390px] md:w-[270px] md:h-[480px]`).
+- Title header stays sticky inside the left panel (already inside `DialogHeader`).
+
+Result: zero clipping at 100% zoom, controls and preview scroll independently on desktop, stacked + scrollable on mobile.
+
+## 2. Redirect-link tool
+
+Add a new control block inside the left panel scroll area, between "Animasyon Efekti" and "Logo Göster":
+
+```
+🔗 Yönlendirme Linki (Swipe Up)
+[ https://... ] input
 ```
 
-- 24 saatten eski hikayeler Aktif Hikayeler diyaloğunda görünmeyecek.
-- Mapped oldukları Öne Çıkan gruplarında (`HighlightsSection` + `HighlightDetailSheet`, `useCoachHighlights`) görünmeye devam ediyorlar çünkü orada `is_highlighted=true` filtresi var; herhangi bir değişiklik gerekmiyor.
-- `timeRemaining(expires_at)` etiketi yerine "kalan süreyi" `created_at + 24h`'a göre hesaplayacağız ki gösterilen "X kaldı" değeri her zaman tutarlı olsun.
+- New state: `const [linkUrl, setLinkUrl] = useState("");`
+- Light client validation: trim + warn (toast) if non-empty and `URL` constructor throws.
+- The value is passed into the publish payload and the swipe-up indicator text changes to "Bağlantıya kaydır" when a link is set (purely visual hint in the preview).
 
-### 2) StoryUploadModal — Gerçek Öne Çıkan grupları
+Typography pass on the controls panel: tighten label spacing (`space-y-2`), add subtle section dividers (`border-t border-border/50 pt-4`) between blocks, swap raw labels to `text-xs uppercase tracking-wider text-muted-foreground` so it reads like a premium SaaS editor.
 
-**Dosya:** `src/components/content-studio/StoryUploadModal.tsx`
+## 3. "Share" routing — publish to live stories
 
-- Etiket: **"Kategori Seçimi" → "Öne Çıkanlara Ekle (Opsiyonel)"**.
-- `storyCategories` mock importunu ve `categories` sabitini kaldır.
-- Mevcut `useCoachHighlights()` hook'unu kullanarak koçun gerçek Öne Çıkan gruplarını çek (zaten `coach_highlight_metadata` + `coach_stories` üzerinden çalışıyor ve `customCoverUrl` ile `category` adını döndürüyor — yeni hook gerekmiyor).
-- Select açılır listede her seçeneğin yanına kapak küçük resmini (`group.customCoverUrl ?? group.stories[0]?.media_url`) bir `Avatar`/`img` ile göster; metin olarak `group.category`. Hiç grup yoksa: "Henüz öne çıkan grup yok — önce 'Yeni Grup' oluştur" placeholder.
-- "Yok / Sadece 24 saat aktif kalsın" şeklinde bir `none` seçeneği baş tarafta dursun (zaten varsayılan).
-- `handleUpload` içinde `createStory({ media_url, duration_hours: 24, category })` çağrısı zaten kategori parametresini destekliyor; sadece seçilen grubun `category` adını geçeceğiz. Ayrı bir mapping tablosu yok — projedeki şema **`coach_stories.category` text + `is_highlighted` boolean** ile çalışıyor (gerçek tablo: `coach_stories` + `coach_highlight_metadata`).
-- `useCreateStory` hook'unu kategori verildiğinde `is_highlighted=true` da yazacak şekilde küçük bir güncellemeyle düzeltmek gerekirse `src/hooks/useSocialMutations.ts` içindeki `useCreateStory` payload'una eklenecek (gerekiyorsa yapılacak; mevcut davranış kontrol edilecek).
+Rename action button (line 433–436) to **🚀 Hikayeyi Paylaş** and rewire `onClick` to publish via the exact same pipeline as `StoryUploadModal.handleUpload`:
 
-### 3) Yayındaki içeriklerden "Düzenle" butonlarını kaldır
+1. Snapshot the preview phone-screen DOM node to a PNG blob.
+   - Add dependency `html-to-image` (lightweight, no canvas-taint issues with same-origin images).
+   - `ref` on the inner `.rounded-[26px]` screen div; call `toBlob(node, { pixelRatio: 4, cacheBust: true })` to produce a ~1080×1920 PNG.
+   - If the background is a user-uploaded `blob:` URL it's same-origin and renders fine. For the default Unsplash fallback we proxy via `crossOrigin` skip — acceptable since coaches typically upload their own background before sharing.
+2. Upload to `social-media` bucket: `path = ${user.id}/${Date.now()}.png`, `supabase.storage.from("social-media").upload(path, blob)` then `getPublicUrl`.
+3. Call `useCreateStory` mutation with `{ media_url, duration_hours: 24, category: undefined, link_url: linkUrl || undefined }`.
+4. On success: `toast.success`, close the modal, invalidate `coach-stories` (already done by the mutation).
 
-- **`src/components/content-studio/FeedPlanner.tsx`** (satır ~113-135 PostCard menüsü): Sadece `post.status === "published"` olan kartlarda **Düzenle** `DropdownMenuItem`'ı render edilmesin. "Sil" kalabilir; published olmayan (draft/scheduled) kartlarda Düzenle korunur. Edit dialog (satır 608+) draft/scheduled için kullanılmaya devam eder.
-- **`src/components/content-studio/HighlightsSection.tsx`**: Buradaki "Düzenle" butonu yayında olan içerik değil, highlight grubu yeniden sıralama moduydu. User direktifi "yayında olan içerikler" üzerine olduğundan bu dokunulmaz; **kapsam dışı** (gerekirse ikinci turda kaldırılır).
-- **`src/pages/ContentStudio.tsx`**: Üst seviye taramada başka "Düzenle" tetikleyicisi yok; ek değişiklik gerekmiyor.
+Button shows a spinner + "Paylaşılıyor..." while in-flight (`isUploading || isCreatingStory`).
+Keep `Önizlemeyi Yenile` as a secondary action.
 
-### Veritabanı
+## 4. Database — add `link_url` to stories
 
-Şema değişikliği gerekmiyor. Mevcut tablolar:
-- `coach_stories(id, coach_id, media_url, expires_at, created_at, category, is_highlighted)`
-- `coach_highlight_metadata(coach_id, category_name, custom_cover_url, order_index, is_pinned_to_kokpit, show_on_profile)`
+`coach_stories` currently has no `link_url` column. Migration:
 
-### Dokunulacak dosyalar
-
-```text
-src/components/content-studio/ActiveStoriesDialog.tsx   (24h created_at filtresi + kalan süre etiketi)
-src/components/content-studio/StoryUploadModal.tsx      (mock kaldır, gerçek highlight listesi + label)
-src/components/content-studio/FeedPlanner.tsx           (published kartlarda Düzenle gizle)
-src/hooks/useSocialMutations.ts                         (gerekiyorsa createStory is_highlighted senkronu)
+```sql
+ALTER TABLE public.coach_stories ADD COLUMN link_url text;
 ```
 
-### Doğrulama
+No RLS changes needed (existing policies cover the column).
 
-- 25 saat önce oluşturulmuş bir hikaye Aktif Hikayeler diyaloğunda görünmemeli, ama bağlı olduğu Öne Çıkan grubunda görünmeli.
-- StoryUploadModal açılır listesinde gerçek grup adları ve kapakları çıkmalı; seçilip yüklenince yeni hikaye o grupta görünmeli.
-- Yayınlanmış post kartının kebap menüsünde sadece "Sil" olmalı; taslak/planlı kartlarda Düzenle kalmalı.
+Then extend `CreateStoryPayload` in `useSocialMutations.ts` with optional `link_url?: string` and include it in the `.insert(...)` payload. This same field will be consumed by `StoryUploadModal` later if desired (out of scope for this part — only the type is widened).
+
+## 5. Files touched
+
+- `supabase/migrations/<new>.sql` — add `link_url` column
+- `src/hooks/useSocialMutations.ts` — widen `CreateStoryPayload` + insert payload
+- `src/components/content-studio/StoryTemplateBuilder.tsx` — layout fix, link input, share wiring
+- `package.json` — add `html-to-image`
+
+## Technical notes
+
+- `html-to-image` is ~15KB gzipped and works inside React with refs; no DOM walking needed by us.
+- We capture the existing live preview node (already styled at 270×480) and upscale via `pixelRatio: 4` → ~1080×1920, matching Instagram story spec without re-rendering at full resolution.
+- Animated overlays (`animate-pulse`, etc.) snapshot at their current frame — acceptable since stories are static images.
+- Video backgrounds: if `isBackgroundVideo`, we capture the current frame painted in the `<video>` element (same-origin blob URL → works).
+- Out of scope: changing `StoryUploadModal`, highlights logic, or Part 1 fixes.
