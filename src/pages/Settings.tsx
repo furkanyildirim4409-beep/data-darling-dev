@@ -154,7 +154,7 @@ export default function Settings() {
         email: profile.email || "",
       }));
       setUsername(profile.username || "");
-      setIban(((profile as any).iban as string) || "");
+      setIban(formatIbanInput(((profile as any).iban as string) || ""));
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
