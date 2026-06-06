@@ -18,7 +18,7 @@ import { CoachingPackagesManager } from "@/components/business/CoachingPackagesM
 const REVENUE_COLORS = {
   coaching: "hsl(var(--success))",
   shopify: "hsl(var(--warning))",
-  other: "hsl(var(--info))",
+  other: "hsl(210 100% 60%)",
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;

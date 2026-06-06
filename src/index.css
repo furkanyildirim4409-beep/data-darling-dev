@@ -48,6 +48,10 @@
     --success: 68 100% 50%;
     --success-foreground: 0 0% 0%;
 
+    /* Info - Electric Blue */
+    --info: 210 100% 60%;
+    --info-foreground: 0 0% 100%;
+
     /* Borders & Inputs */
     --border: 240 4% 16%;
     --input: 240 4% 16%;
