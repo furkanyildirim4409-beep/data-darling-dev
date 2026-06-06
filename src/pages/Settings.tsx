@@ -280,11 +280,18 @@ export default function Settings() {
 
   const handleSaveIban = async () => {
     if (!user) return;
+    const stripped = iban.replace(/\s/g, "");
+    if (!validateTRIban(stripped)) {
+      setIbanError("Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+      toast.error("Geçersiz IBAN adresi.");
+      return;
+    }
+    setIbanError("");
     setIsSavingIban(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ iban: iban.trim() || null } as any)
+        .update({ iban: stripped || null } as any)
         .eq("id", user.id);
       if (error) throw error;
       await refreshProfile();
