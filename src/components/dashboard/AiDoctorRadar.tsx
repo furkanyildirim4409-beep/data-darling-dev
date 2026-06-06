@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Brain, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
+
 
 interface AiInsight {
   id: string;
