@@ -58,8 +58,9 @@ const statusLabels: Record<string, string> = {
 export default function Business() {
   const {
     payments, athletes, isLoading,
-    addPayment, updatePaymentStatus, deletePayment,
+    addPayment, addAssignedPayment, updatePaymentStatus, deletePayment,
   } = usePayments();
+
   const { canManageFinances } = usePermissions();
   const { activeCoachId } = useAuth();
   const { data: metrics, isLoading: metricsLoading } = useBusinessMetrics(activeCoachId ?? undefined);
@@ -297,7 +298,7 @@ export default function Business() {
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         athletes={athletes}
-        onSubmit={addPayment}
+        onSubmit={addAssignedPayment}
       />
 
       <SessionSchedulerDialog

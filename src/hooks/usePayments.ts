@@ -86,6 +86,59 @@ export function usePayments() {
     return true;
   };
 
+  const addAssignedPayment = async (data: {
+    athlete_id: string;
+    title: string;
+    amount: number;
+    description?: string;
+  }) => {
+    if (!user || !activeCoachId) return false;
+
+    const { data: inserted, error } = await supabase
+      .from("assigned_payments")
+      .insert({
+        coach_id: activeCoachId,
+        athlete_id: data.athlete_id,
+        title: data.title,
+        description: data.description || null,
+        amount: data.amount,
+        currency: "TRY",
+        status: "pending",
+      } as any)
+      .select("id")
+      .single();
+
+    if (error) {
+      toast.error("Fatura oluşturulamadı: " + error.message);
+      return false;
+    }
+
+    // Best-effort in-app + push notification to athlete
+    try {
+      await supabase.from("athlete_notifications").insert({
+        athlete_id: data.athlete_id,
+        coach_id: activeCoachId,
+        type: "payment_assigned",
+        title: "Yeni Ek Hizmet Faturası",
+        message:
+          "Koçunuz size yeni bir ek hizmet faturası atadı. Ödemenizi gerçekleştirmek için tıklayın.",
+        action_url: `/athlete/payments?invoice=${inserted.id}`,
+        metadata: {
+          assigned_payment_id: inserted.id,
+          amount: data.amount,
+          title: data.title,
+        },
+      } as any);
+    } catch (err) {
+      console.warn("athlete_notifications insert failed", err);
+    }
+
+    toast.success("Fatura sporcuya iletildi");
+    await fetchPayments();
+    return true;
+  };
+
+
   const updatePaymentStatus = async (paymentId: string, newStatus: string) => {
     if (!user) return;
 
@@ -136,6 +189,7 @@ export function usePayments() {
     athletes,
     isLoading,
     addPayment,
+    addAssignedPayment,
     updatePaymentStatus,
     deletePayment,
     totalPaid,
@@ -143,3 +197,4 @@ export function usePayments() {
     refetch: fetchPayments,
   };
 }
+
