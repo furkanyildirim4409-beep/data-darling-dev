@@ -466,3 +466,118 @@ function RevenueSplitCard({ loading, packages, store, total }: RevenueSplitCardP
   );
 }
 
+
+interface CustomInvoicesLedgerProps {
+  invoices: AssignedInvoice[];
+  loading: boolean;
+}
+
+function CustomInvoicesLedger({ invoices, loading }: CustomInvoicesLedgerProps) {
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+
+  const fmtAmount = (n: number) =>
+    new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: "TRY",
+      minimumFractionDigits: 2,
+    }).format(Number(n || 0));
+
+  const initials = (name: string) =>
+    name
+      .split(" ")
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+
+  return (
+    <div className="glass rounded-xl border border-border">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-foreground">Özel Fatura ve Ödeme Kayıtları</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Sporculara atanan özel ödeme ve fatura geçmişi
+          </p>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{invoices.length} kayıt</span>
+      </div>
+
+      {loading ? (
+        <div className="p-4 space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-lg" />
+          ))}
+        </div>
+      ) : invoices.length === 0 ? (
+        <div className="p-12 text-center">
+          <Receipt className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-muted-foreground">
+            Henüz hiçbir sporcuya özel ödeme/fatura atamadınız.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            "Yeni Ödeme" butonuyla ilk faturanızı oluşturun
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="text-left font-medium px-4 py-3">Tarih</th>
+                <th className="text-left font-medium px-4 py-3">Sporcu</th>
+                <th className="text-left font-medium px-4 py-3">Açıklama</th>
+                <th className="text-right font-medium px-4 py-3">Tutar</th>
+                <th className="text-right font-medium px-4 py-3">Durum</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {invoices.map((inv) => (
+                <tr
+                  key={inv.id}
+                  className="hover:bg-secondary/30 transition-colors"
+                >
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    {fmtDate(inv.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="w-7 h-7 shrink-0">
+                        {inv.athlete_avatar_url && (
+                          <AvatarImage src={inv.athlete_avatar_url} alt={inv.athlete_name} />
+                        )}
+                        <AvatarFallback className="text-[10px] bg-secondary text-foreground">
+                          {initials(inv.athlete_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground truncate">
+                        {inv.athlete_name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-foreground/80 truncate max-w-[260px]">
+                    {inv.title}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono font-semibold text-foreground whitespace-nowrap">
+                    {fmtAmount(inv.amount)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {inv.status === "paid" ? (
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10">
+                        🟢 Ödendi
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/10">
+                        🟠 Bekliyor
+                      </Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
