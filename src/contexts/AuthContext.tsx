@@ -15,6 +15,7 @@ export interface Profile {
   gym_name: string | null;
   specialty: string | null;
   username: string | null;
+  instagram_sync_active: boolean | null;
   subscription_tier: string | null;
   iban: string | null;
   notification_preferences: {
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         specialty: p.specialty ?? null,
         subscription_tier: p.subscription_tier ?? null,
         username: p.username ?? null,
+        instagram_sync_active: p.instagram_sync_active ?? true,
         iban: p.iban ?? null,
         notification_preferences: p.notification_preferences ?? null,
         notification_settings: p.notification_settings ?? null,

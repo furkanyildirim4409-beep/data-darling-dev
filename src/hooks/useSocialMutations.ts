@@ -499,7 +499,87 @@ export function useMyFollowerCount() {
   });
 }
 
-// ── Highlights Manager (Part 8) ──
+// ── Coach audience stats (real follower analytics) ──
+
+export function useCoachAudienceStats() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["coach-audience-stats", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return { totalFollowers: 0, activeStudents: 0, nonStudentFollowers: 0 };
+      const [followersRes, studentsRes] = await Promise.all([
+        supabase.from("user_follows").select("id", { count: "exact", head: true }).eq("followed_id", user.id),
+        supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("coach_id", user.id)
+          .eq("role", "athlete"),
+      ]);
+      const totalFollowers = followersRes.count ?? 0;
+      const activeStudents = studentsRes.count ?? 0;
+      return {
+        totalFollowers,
+        activeStudents,
+        nonStudentFollowers: Math.max(totalFollowers - activeStudents, 0),
+      };
+    },
+  });
+}
+
+// ── Published posts (for Mobile Profile Preview grid) ──
+
+export interface PublishedPostThumb {
+  id: string;
+  thumb: string | null;
+  isVideo: boolean;
+  created_at: string;
+}
+
+export function useMyPublishedPosts(limit = 9) {
+  const { user } = useAuth();
+  return useQuery<PublishedPostThumb[]>({
+    queryKey: ["my-published-posts", user?.id, limit],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("social_posts")
+        .select("id, image_url, before_image_url, after_image_url, video_url, video_thumbnail_url, created_at")
+        .eq("coach_id", user.id)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        thumb: p.image_url || p.video_thumbnail_url || p.before_image_url || p.after_image_url || null,
+        isVideo: !!p.video_url,
+        created_at: p.created_at,
+      }));
+    },
+  });
+}
+
+export function useMyPublishedPostsCount() {
+  const { user } = useAuth();
+  return useQuery<number>({
+    queryKey: ["my-published-posts-count", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count, error } = await supabase
+        .from("social_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("coach_id", user.id)
+        .eq("status", "published");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
+
 
 async function uploadToSocialMedia(file: File, userId: string, prefix = "") {
   const ext = file.name.split(".").pop() || "jpg";

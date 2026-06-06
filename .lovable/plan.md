@@ -1,74 +1,94 @@
-# Story Template Builder — Production Overhaul (Part 2/3)
+# Content Studio — Real Analytics, IG Sync & 1:1 Mobile Preview (Part 3/3)
 
-Fixes the broken modal layout, adds a redirect-link tool, and turns "Save Template" into a one-click publisher that pushes the canvas straight to the live 24h stories pipeline (same path as `StoryUploadModal`).
-
-## 1. Layout & scroll fix (`StoryTemplateBuilder.tsx`)
-
-Current modal uses `h-[90vh]` + nested `flex h-full` with a fixed-width 320px sidebar and a non-scrollable preview pane. On laptops it overflows the viewport and the preview gets cut off.
-
-Changes:
-- `DialogContent`: switch to `max-w-5xl w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col`.
-- Replace outer `<div className="flex h-full">` with a responsive wrapper:
-  `flex flex-col md:flex-row h-full w-full max-h-[85vh] overflow-y-auto md:overflow-hidden`.
-- Left controls panel: `w-full md:w-80 md:border-r border-b md:border-b-0` + keep internal `ScrollArea` so tools scroll independently on desktop. On mobile the whole modal scrolls vertically (controls, then preview).
-- Right preview panel: `flex-1 overflow-y-auto` with the phone frame centered via `min-h-full flex items-center justify-center p-4 md:p-8`. Scale phone frame down on mobile (`w-[220px] h-[390px] md:w-[270px] md:h-[480px]`).
-- Title header stays sticky inside the left panel (already inside `DialogHeader`).
-
-Result: zero clipping at 100% zoom, controls and preview scroll independently on desktop, stacked + scrollable on mobile.
-
-## 2. Redirect-link tool
-
-Add a new control block inside the left panel scroll area, between "Animasyon Efekti" and "Logo Göster":
-
-```
-🔗 Yönlendirme Linki (Swipe Up)
-[ https://... ] input
-```
-
-- New state: `const [linkUrl, setLinkUrl] = useState("");`
-- Light client validation: trim + warn (toast) if non-empty and `URL` constructor throws.
-- The value is passed into the publish payload and the swipe-up indicator text changes to "Bağlantıya kaydır" when a link is set (purely visual hint in the preview).
-
-Typography pass on the controls panel: tighten label spacing (`space-y-2`), add subtle section dividers (`border-t border-border/50 pt-4`) between blocks, swap raw labels to `text-xs uppercase tracking-wider text-muted-foreground` so it reads like a premium SaaS editor.
-
-## 3. "Share" routing — publish to live stories
-
-Rename action button (line 433–436) to **🚀 Hikayeyi Paylaş** and rewire `onClick` to publish via the exact same pipeline as `StoryUploadModal.handleUpload`:
-
-1. Snapshot the preview phone-screen DOM node to a PNG blob.
-   - Add dependency `html-to-image` (lightweight, no canvas-taint issues with same-origin images).
-   - `ref` on the inner `.rounded-[26px]` screen div; call `toBlob(node, { pixelRatio: 4, cacheBust: true })` to produce a ~1080×1920 PNG.
-   - If the background is a user-uploaded `blob:` URL it's same-origin and renders fine. For the default Unsplash fallback we proxy via `crossOrigin` skip — acceptable since coaches typically upload their own background before sharing.
-2. Upload to `social-media` bucket: `path = ${user.id}/${Date.now()}.png`, `supabase.storage.from("social-media").upload(path, blob)` then `getPublicUrl`.
-3. Call `useCreateStory` mutation with `{ media_url, duration_hours: 24, category: undefined, link_url: linkUrl || undefined }`.
-4. On success: `toast.success`, close the modal, invalidate `coach-stories` (already done by the mutation).
-
-Button shows a spinner + "Paylaşılıyor..." while in-flight (`isUploading || isCreatingStory`).
-Keep `Önizlemeyi Yenile` as a secondary action.
-
-## 4. Database — add `link_url` to stories
-
-`coach_stories` currently has no `link_url` column. Migration:
+## 1. Database migration
 
 ```sql
-ALTER TABLE public.coach_stories ADD COLUMN link_url text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS instagram_sync_active boolean NOT NULL DEFAULT true;
 ```
 
-No RLS changes needed (existing policies cover the column).
+Extend `update_own_profile` RPC (security definer, whitelist pattern) with two new params so the field can be updated safely from the client:
+- `_username text`
+- `_instagram_sync_active boolean`
 
-Then extend `CreateStoryPayload` in `useSocialMutations.ts` with optional `link_url?: string` and include it in the `.insert(...)` payload. This same field will be consumed by `StoryUploadModal` later if desired (out of scope for this part — only the type is widened).
+Both `COALESCE`-merged into `profiles` like the other fields.
+
+## 2. `ProfileSettings.tsx`
+
+- Bind a new "Kullanıcı Adı" field directly to `profiles.username`. Local state `username` initialized from `authProfile.username`, saved via `update_own_profile({ _username })`.
+- Light validation: lowercased, `^[a-z0-9._]{3,30}$`. On conflict (`23505`), toast "Bu kullanıcı adı zaten alınmış".
+- Rename the "İstatistikleri Eşitle" card to **"Instagram İçeriklerini Eşitle"** and add the toggle label **"Otomatik Eşitleme (Arka Plan)"**.
+- Replace local `syncStats` state with `instagramSyncActive` bound to `profiles.instagram_sync_active`. Saving toggles call `update_own_profile({ _instagram_sync_active: next })` immediately (optimistic) so the preview reacts live.
+- **Delete the "Doğrulanmış Profil" card entirely.**
+- **Purge the four mock stat tiles** (Takipçi/Takip/Gönderi/Etkileşim using `profile.*` mock numbers).
+
+## 3. Real follower stats
+
+New hook `useCoachAudienceStats()` in `useSocialMutations.ts`:
+
+```ts
+// Parallel queries
+const [followers, students] = await Promise.all([
+  supabase.from("user_follows").select("id", { count: "exact", head: true }).eq("followed_id", user.id),
+  supabase.from("profiles").select("id", { count: "exact", head: true })
+    .eq("coach_id", user.id).eq("role", "athlete"),
+]);
+return {
+  totalFollowers: followers.count ?? 0,
+  activeStudents: students.count ?? 0,
+  nonStudentFollowers: Math.max((followers.count ?? 0) - (students.count ?? 0), 0),
+};
+```
+
+Two cards in `ProfileSettings.tsx` (replacing the four mock tiles):
+- **Toplam Takipçi** — `totalFollowers` (Users icon)
+- **Öğrenci Olmayan Takipçiler** — `nonStudentFollowers` (UserMinus icon), subtitle: `{activeStudents} aktif öğrenci`
+
+Loading state: skeleton placeholders. Empty state: "0" with muted styling (no mock fallbacks).
+
+## 4. `MobileProfilePreview.tsx` — Instagram-style real data
+
+Mirror an Instagram-style coach profile populated from the live database, matching the avatar-app's coach profile layout:
+
+**Data sources (React Query)**
+- Bio/avatar/name/username/title → existing `ProfileContext` (already authProfile-backed)
+- Audience stats → `useCoachAudienceStats()`
+- Posts count → number of published `social_posts` for this coach (new `useMyPublishedPostsCount`) — already available via existing query patterns
+- Highlights row → `useCoachHighlights()` filtered to `showOnProfile && count > 0`
+- Grid → `useMyPublishedPosts()` new lightweight query: `social_posts where coach_id = user.id and status='published' order by created_at desc limit 9`, return first non-null of `image_url | before_image_url | after_image_url | video_thumbnail_url`. Gate behind `instagram_sync_active` (when false the grid renders a paused empty state — "Eşitleme duraklatıldı").
+
+**Layout (220×~440 phone frame)**
+```
+┌──────────────────────────┐
+│  status bar              │
+│  @username    ⚙          │  ← top header with real username
+├──────────────────────────┤
+│  ◯avatar    posts followers following │  ← real counts
+│  Full Name (bold)                     │
+│  Title (primary muted)                │
+│  Bio (3 lines)                        │
+│  [Takip Et] [Mesaj]                   │
+│  ◯◯◯◯◯ highlights (real covers, names)│
+├──────────────────────────┤
+│  ▦ ▷ 👤  (tab bar)                    │
+├──────────────────────────┤
+│  3-col grid of real post thumbs       │
+└──────────────────────────┘
+```
+
+- Highlight circles: rendered from `useCoachHighlights()`, max 5 visible, horizontal scroll, names truncated under each circle.
+- Empty grid → 9 muted dashed placeholders with "Henüz gönderi yok".
+- When `instagram_sync_active === false` → grid replaced by centered icon + "Otomatik eşitleme kapalı" so the visual pause is obvious.
+- Remove all `unsplash.com` mock URLs and any `profile.followers/posts/following` reads.
 
 ## 5. Files touched
 
-- `supabase/migrations/<new>.sql` — add `link_url` column
-- `src/hooks/useSocialMutations.ts` — widen `CreateStoryPayload` + insert payload
-- `src/components/content-studio/StoryTemplateBuilder.tsx` — layout fix, link input, share wiring
-- `package.json` — add `html-to-image`
+- `supabase/migrations/<new>.sql` — `instagram_sync_active` column + updated `update_own_profile` RPC
+- `src/hooks/useSocialMutations.ts` — add `useCoachAudienceStats`, `useMyPublishedPosts`, `useMyPublishedPostsCount`
+- `src/contexts/AuthContext.tsx` — ensure `profile.username` and `profile.instagram_sync_active` are selected (verify selector)
+- `src/components/content-studio/ProfileSettings.tsx` — username field, IG sync rename + toggle binding, delete verified card, replace mock stats with real cards
+- `src/components/content-studio/MobileProfilePreview.tsx` — full rewrite to real data + IG sync gating
 
-## Technical notes
+## Out of scope
 
-- `html-to-image` is ~15KB gzipped and works inside React with refs; no DOM walking needed by us.
-- We capture the existing live preview node (already styled at 270×480) and upscale via `pixelRatio: 4` → ~1080×1920, matching Instagram story spec without re-rendering at full resolution.
-- Animated overlays (`animate-pulse`, etc.) snapshot at their current frame — acceptable since stories are static images.
-- Video backgrounds: if `isBackgroundVideo`, we capture the current frame painted in the `<video>` element (same-origin blob URL → works).
-- Out of scope: changing `StoryUploadModal`, highlights logic, or Part 1 fixes.
+- ContentStudio.tsx page-level toolbar (the IG sync card lives inside ProfileSettings per current structure; no separate page-level card exists). If the user expected a top-level "İstatistikleri Eşitle" card, confirm and I'll move it.
+- No new RLS — `profiles` policies already let users update their own row via the existing RPC pattern.
