@@ -132,7 +132,10 @@ export default function StoreManager() {
   const [productType, setProductType] = useState<"physical" | "digital">("physical");
   const [stockQty, setStockQty] = useState<string>("");
   const [shopifyCategoryId, setShopifyCategoryId] = useState<string>("");
+  const [digitalFile, setDigitalFile] = useState<File | null>(null);
+  const [digitalDragActive, setDigitalDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const digitalInputRef = useRef<HTMLInputElement>(null);
 
   // ----- Edit dialog state -----
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
