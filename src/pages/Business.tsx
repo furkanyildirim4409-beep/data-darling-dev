@@ -432,9 +432,12 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-          <div className="relative h-64">
+          <div
+            className="relative h-64 focus:outline-none [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none"
+            onMouseDown={(event) => event.preventDefault()}
+          >
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart className="focus:outline-none">
                 <Pie
                   data={data}
                   cx="50%"
