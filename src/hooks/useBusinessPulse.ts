@@ -44,7 +44,8 @@ export function useBusinessPulse(): BusinessPulseData {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const [athletesRes, workoutLogsRes, paymentsRes] = await Promise.all([
+      // 1. Fetch 30-day metric data for charts and growth rates + ALL-TIME revenue via RPC
+      const [athletesRes, workoutLogsRes, metricsRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, created_at")
@@ -54,22 +55,20 @@ export function useBusinessPulse(): BusinessPulseData {
           .from("workout_logs")
           .select("id, logged_at, user_id")
           .gte("logged_at", thirtyDaysAgo.toISOString()),
-        supabase
-          .from("payments")
-          .select("id, amount, payment_date, status")
-          .eq("coach_id", coachId)
-          .eq("status", "paid")
-          .gte("payment_date", thirtyDaysAgo.toISOString()),
+        supabase.rpc("get_coach_business_metrics", { coach_uuid: coachId }),
       ]);
 
       const athletes = athletesRes.data ?? [];
       const workoutLogs = workoutLogsRes.data ?? [];
-      const payments = (paymentsRes.data as any[]) ?? [];
-
       const athleteIds = new Set(athletes.map((a) => a.id));
       const coachWorkouts = workoutLogs.filter((w) => athleteIds.has(w.user_id));
 
-      // Build 30-day chart
+      // 2. Extract ALL-TIME total revenue from RPC (sums payments + orders + assigned_payments)
+      const metrics = (metricsRes.data as { total_revenue?: number } | null) ?? null;
+      const absoluteTotalRevenue = Number(metrics?.total_revenue ?? 0);
+
+      // 3. Build 30-day chart for athletes/workouts. Revenue is reported as all-time via the KPI card,
+      // so the daily series stays flat at 0 to keep the query light.
       const chartData: BusinessDataPoint[] = [];
       for (let i = 29; i >= 0; i--) {
         const date = new Date(now);
@@ -85,11 +84,7 @@ export function useBusinessPulse(): BusinessPulseData {
           (w) => w.logged_at && w.logged_at.split("T")[0] === dayStr
         ).length;
 
-        const dayRevenue = payments
-          .filter((p) => p.payment_date && p.payment_date.split("T")[0] === dayStr)
-          .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-
-        chartData.push({ date: label, athletes: athleteCount, workouts: dayWorkouts, revenue: dayRevenue });
+        chartData.push({ date: label, athletes: athleteCount, workouts: dayWorkouts, revenue: 0 });
       }
 
       const current = chartData[chartData.length - 1];
@@ -105,22 +100,14 @@ export function useBusinessPulse(): BusinessPulseData {
         ? (((totalCurrentWeek - totalPrevWeek) / totalPrevWeek) * 100).toFixed(1)
         : totalCurrentWeek > 0 ? "100" : "0";
 
-      const revenueCurrentWeek = chartData.slice(-7).reduce((s, d) => s + d.revenue, 0);
-      const revenuePrevWeek = chartData.slice(-14, -7).reduce((s, d) => s + d.revenue, 0);
-      const revenueGrowth = revenuePrevWeek > 0
-        ? (((revenueCurrentWeek - revenuePrevWeek) / revenuePrevWeek) * 100).toFixed(1)
-        : revenueCurrentWeek > 0 ? "100" : "0";
-
-      const totalRevenue = chartData.reduce((s, d) => s + d.revenue, 0);
-
       setData({
         chartData,
         currentAthletes: current.athletes,
         currentWorkouts: totalCurrentWeek,
-        totalRevenue,
+        totalRevenue: absoluteTotalRevenue,
         athleteGrowth,
         workoutGrowth,
-        revenueGrowth,
+        revenueGrowth: "0",
         isLoading: false,
       });
     };
