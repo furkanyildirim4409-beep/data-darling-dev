@@ -1,124 +1,70 @@
-# Real Business Metrics & Assigned Payments (Part 1/6)
+# Hydrate Business Dashboard with Real Metrics (Part 2/6)
 
-## Schema reality check
+## Naming conflict — important
 
-Before writing the migration, I verified the live DB. Three deltas vs. your SQL:
+`useBusinessPulse.ts` already exists and powers the **30-day area chart** on the main dashboard (`BusinessPulse.tsx`, used in `CommandCenter`). It returns `{ chartData, currentAthletes, currentWorkouts, totalRevenue, athleteGrowth, workoutGrowth, revenueGrowth, isLoading }` — a different contract from the RPC.
 
-| Your SQL references | Reality in this project |
-|---|---|
-| `store_orders` table | Does not exist — e-commerce uses `public.orders` (no `coach_id` column; coach attribution lives inside `items` jsonb or via athlete's `profiles.coach_id`) |
-| `coaching_relationships` table | Does not exist — coach↔athlete link is `profiles.coach_id` where `role = 'athlete'` |
-| `payments.status = 'succeeded'` | Codebase + existing rows use `'paid'` (see `usePayments.ts`, `useBusinessPulse.ts`) |
+Repurposing it to return the RPC payload would **silently break the dashboard chart**. So:
 
-Executing the SQL as-pasted would create a function that always returns zeros for store revenue and athlete count, and miss every real package payment. So I'll adapt it.
+- I'll create a **new hook `useBusinessMetrics(coachId?)`** that wraps `supabase.rpc('get_coach_business_metrics', { coach_uuid })` via React Query, matching your spec exactly.
+- `useBusinessPulse.ts` stays untouched — it still feeds the 30-day chart on the main dashboard. No mock data is present there; it already reads live `payments`, `workout_logs`, and `profiles`.
 
-## Migration to run
+## Files to change
 
-### 1. `assigned_payments` table (kept as specified, with required GRANTs)
+### 1. `src/hooks/useBusinessMetrics.ts` (new)
 
-```sql
-CREATE TABLE public.assigned_payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  coach_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  athlete_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  amount NUMERIC(10,2) NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'TRY',
-  status TEXT NOT NULL DEFAULT 'pending',  -- pending | paid | cancelled
-  stripe_checkout_id TEXT,
-  paid_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+```ts
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.assigned_payments TO authenticated;
-GRANT ALL ON public.assigned_payments TO service_role;
+export interface BusinessMetrics {
+  total_package_revenue: number;
+  total_store_revenue: number;
+  pending_custom_revenue: number;
+  paid_custom_revenue: number;
+  total_revenue: number;
+  active_athletes: number;
+}
 
-ALTER TABLE public.assigned_payments ENABLE ROW LEVEL SECURITY;
-
--- Coach (or active sub-coach via is_active_team_member_of) manages
-CREATE POLICY "Coaches manage assigned payments" ON public.assigned_payments
-  FOR ALL TO authenticated
-  USING (coach_id = auth.uid() OR public.is_active_team_member_of(coach_id))
-  WITH CHECK (coach_id = auth.uid() OR public.is_active_team_member_of(coach_id));
-
--- Athletes read their own
-CREATE POLICY "Athletes view their own assigned payments" ON public.assigned_payments
-  FOR SELECT TO authenticated
-  USING (athlete_id = auth.uid());
-
-CREATE TRIGGER trg_assigned_payments_updated_at
-  BEFORE UPDATE ON public.assigned_payments
-  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
-
-CREATE INDEX idx_assigned_payments_coach ON public.assigned_payments(coach_id, status);
-CREATE INDEX idx_assigned_payments_athlete ON public.assigned_payments(athlete_id, status);
+export function useBusinessMetrics(coachId?: string) {
+  return useQuery<BusinessMetrics | null>({
+    queryKey: ["business_metrics", coachId],
+    queryFn: async () => {
+      if (!coachId) return null;
+      const { data, error } = await supabase.rpc("get_coach_business_metrics", {
+        coach_uuid: coachId,
+      });
+      if (error) throw error;
+      return data as unknown as BusinessMetrics;
+    },
+    enabled: !!coachId,
+    staleTime: 60_000,
+  });
+}
 ```
 
-### 2. `get_coach_business_metrics(coach_uuid uuid)` RPC — adapted
+### 2. `src/pages/Business.tsx`
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_coach_business_metrics(coach_uuid UUID)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  total_package_revenue   NUMERIC := 0;
-  total_store_revenue     NUMERIC := 0;
-  pending_custom_revenue  NUMERIC := 0;
-  paid_custom_revenue     NUMERIC := 0;
-  active_athletes_count   INT     := 0;
-BEGIN
-  -- Standard package payments (existing 'paid' status)
-  SELECT COALESCE(SUM(amount), 0) INTO total_package_revenue
-  FROM public.payments
-  WHERE coach_id = coach_uuid AND status = 'paid';
+- Pull `activeCoachId` from `useAuth()` and call `useBusinessMetrics(activeCoachId)`.
+- Replace the four `StatCard`s with the RPC-driven labels:
+  - **Toplam Gelir** → `data.total_revenue`
+  - **E-Ticaret Geliri** → `data.total_store_revenue`
+  - **Aktif Sporcular** → `data.active_athletes`
+  - **Bekleyen Ödemeler** → `data.pending_custom_revenue`
+- The existing `usePayments()` data continues to drive the Payment Records list + delete/status flows (out of scope to rewire here).
+- Add a new **Revenue Split donut** card directly under the StatCards using `recharts` (`PieChart`, `Pie`, `Cell`, `Tooltip`, `ResponsiveContainer`, `Legend`):
+  - Slice 1: "Koçluk Paketleri" → `total_package_revenue` — emerald `#10B981`
+  - Slice 2: "E-Ticaret" → `total_store_revenue` — blue `#3B82F6`
+  - Empty state when both are 0: show centered muted-foreground message "Henüz gelir kaydı yok" (no mock data per project core rule).
+  - Custom tooltip uses semantic tokens + the slice color for the value; center label shows `₺{total_revenue}`.
+- Keep skeleton loading state while `isLoading`.
 
-  -- Store revenue: orders placed by athletes belonging to this coach
-  SELECT COALESCE(SUM(o.total_price), 0) INTO total_store_revenue
-  FROM public.orders o
-  JOIN public.profiles p ON p.id = o.user_id
-  WHERE p.coach_id = coach_uuid AND o.status = 'paid';
+## Out of scope (per part splitting)
 
-  -- Custom assigned payments
-  SELECT COALESCE(SUM(amount), 0) INTO pending_custom_revenue
-  FROM public.assigned_payments
-  WHERE coach_id = coach_uuid AND status = 'pending';
+- Wiring an "Assign Custom Payment" dialog into `assigned_payments` — that's a later part.
+- Modifying `BusinessPulse.tsx` / `useBusinessPulse.ts`.
+- Touching `usePayments` or the existing payment records list.
 
-  SELECT COALESCE(SUM(amount), 0) INTO paid_custom_revenue
-  FROM public.assigned_payments
-  WHERE coach_id = coach_uuid AND status = 'paid';
+## Open question
 
-  -- Active athletes = profiles assigned to this coach
-  SELECT COUNT(*) INTO active_athletes_count
-  FROM public.profiles
-  WHERE coach_id = coach_uuid AND role = 'athlete';
-
-  RETURN json_build_object(
-    'total_package_revenue',  total_package_revenue,
-    'total_store_revenue',    total_store_revenue,
-    'pending_custom_revenue', pending_custom_revenue,
-    'paid_custom_revenue',    paid_custom_revenue,
-    'total_revenue',          total_package_revenue + total_store_revenue + paid_custom_revenue,
-    'active_athletes',        active_athletes_count
-  );
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.get_coach_business_metrics(uuid) FROM public;
-GRANT EXECUTE ON FUNCTION public.get_coach_business_metrics(uuid) TO authenticated;
-```
-
-## Out of scope for Part 1/6
-
-- No UI wiring (no edits to `Business.tsx`, `BusinessPulse`, etc.) — that's later parts.
-- No edits to `src/integrations/supabase/types.ts` — that file is auto-regenerated by Lovable after the migration runs.
-- No Stripe Checkout edge function yet (the `stripe_checkout_id` column is reserved for later parts).
-
-## Open questions before I run it
-
-1. **Store revenue attribution** — I assumed store orders count toward the coach of the buying athlete (via `profiles.coach_id`). Alternative: only count orders whose `items[].coach_id` matches. Which do you want?
-2. **Sub-coach access** — I included `is_active_team_member_of(coach_id)` in the manage policy so sub-coaches with team access can create/edit assigned payments under the head coach. OK, or restrict to head coach only?
+The four stat cards currently include "Toplam Ödeme" (count of payment rows). Your spec replaces it with "E-Ticaret Geliri". I'll go with your spec (drop the count card). Confirm if you'd rather keep 5 cards instead.
