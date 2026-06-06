@@ -603,18 +603,46 @@ export default function Settings() {
                       id="iban-input"
                       placeholder="TR00 0000 0000 0000 0000 0000 00"
                       value={iban}
-                      onChange={(e) => setIban(e.target.value.toUpperCase())}
-                      maxLength={34}
-                      className="font-mono tracking-widest bg-card border-border focus:border-primary"
+                      onChange={(e) => {
+                        const formatted = formatIbanInput(e.target.value);
+                        setIban(formatted);
+                        if (ibanError) {
+                          const stripped = formatted.replace(/\s/g, "");
+                          if (stripped.length === 0) {
+                            setIbanError("");
+                          } else if (stripped.length === 26) {
+                            setIbanError(validateTRIban(stripped) ? "" : "Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        const stripped = iban.replace(/\s/g, "");
+                        if (stripped.length > 0 && !validateTRIban(stripped)) {
+                          setIbanError("Lütfen geçerli bir Türkiye IBAN adresi giriniz.");
+                        } else {
+                          setIbanError("");
+                        }
+                      }}
+                      maxLength={31}
+                      className={cn(
+                        "font-mono tracking-widest bg-card focus:border-primary",
+                        ibanError
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : "border-border"
+                      )}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      IBAN bilgileriniz yalnızca hakediş transferleri için kullanılır.
-                    </p>
+                    {ibanError ? (
+                      <p className="text-xs text-destructive">{ibanError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        IBAN bilgileriniz yalnızca hakediş transferleri için kullanılır.
+                      </p>
+                    )}
                   </div>
 
                   <Button
                     onClick={handleSaveIban}
-                    disabled={isSavingIban}
+                    disabled={isSavingIban || iban.replace(/\s/g, "").length !== 26 || !!ibanError}
                     className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     {isSavingIban ? (
