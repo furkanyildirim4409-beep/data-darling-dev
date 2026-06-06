@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import CommandCenter from "./pages/CommandCenter";
@@ -34,6 +34,12 @@ const queryClient = new QueryClient();
 function PermissionRoute({ children, permissionKey }: { children: React.ReactNode; permissionKey: keyof Permissions }) {
   const permissions = usePermissions();
   if (!permissions[permissionKey]) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { role } = useAuth();
+  if (role !== 'super_admin') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -72,7 +78,7 @@ const App = () => (
                 <Route path="/settings" element={<PermissionRoute permissionKey="canViewTeam"><Settings /></PermissionRoute>} />
                 <Route path="/performance" element={<Performance />} />
                 <Route path="/messages" element={<Messages />} />
-                <Route path="/disputes" element={<Disputes />} />
+                <Route path="/disputes" element={<SuperAdminRoute><Disputes /></SuperAdminRoute>} />
                 <Route path="/akademi" element={<Akademi />} />
                 <Route path="/mailbox" element={<Mailbox />} />
                 <Route path="/mailbox/templates" element={<EmailTemplates />} />
