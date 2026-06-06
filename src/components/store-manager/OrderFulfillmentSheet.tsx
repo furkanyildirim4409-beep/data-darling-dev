@@ -531,6 +531,165 @@ export default function OrderFulfillmentSheet({
         {/* Hidden print-only view */}
         <PackingSlipPrintView order={order} coachName={coachName} />
       </SheetContent>
+
+      <ProductDetailNestedDialog
+        item={productDetailItem}
+        onClose={() => setProductDetailItem(null)}
+      />
     </Sheet>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nested luxury dialog for product preview inside the order sheet
+// ─────────────────────────────────────────────────────────────────────────────
+function ProductDetailNestedDialog({
+  item,
+  onClose,
+}: {
+  item: any | null;
+  onClose: () => void;
+}) {
+  const lookupId: string | null =
+    item?.product_id ?? item?.coach_product_id ?? item?.id ?? null;
+  const shopifyId: string | null =
+    item?.shopify_product_id ?? item?.shopifyProductId ?? null;
+
+  const { data: product, isLoading } = useQuery({
+    enabled: !!item && (!!lookupId || !!shopifyId),
+    queryKey: ["coach-product-detail", lookupId, shopifyId],
+    queryFn: async () => {
+      let query = supabase
+        .from("coach_products")
+        .select(
+          "id, title, description, image_url, category, product_type, price, stock_quantity, product_kind, digital_file_url"
+        )
+        .limit(1);
+
+      if (lookupId) query = query.eq("id", lookupId);
+      else if (shopifyId) query = query.eq("shopify_product_id", shopifyId);
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const title = product?.title ?? item?.title ?? "Ürün";
+  const image = product?.image_url ?? item?.image ?? null;
+  const description = product?.description ?? item?.description ?? null;
+  const category = product?.category ?? item?.category ?? null;
+  const productType = product?.product_type ?? item?.product_type ?? null;
+  const productKind = product?.product_kind ?? "physical";
+  const price = Number(product?.price ?? item?.price ?? 0);
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg bg-background/95 backdrop-blur-xl border border-white/10 p-0 overflow-hidden">
+        <div className="relative">
+          {image ? (
+            <div className="w-full aspect-[16/10] bg-muted overflow-hidden">
+              <img
+                src={image}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-full aspect-[16/10] bg-gradient-to-br from-primary/10 via-background to-background flex items-center justify-center">
+              <Package className="w-14 h-14 text-muted-foreground/50" />
+            </div>
+          )}
+          <div className="absolute top-3 right-3 flex flex-wrap gap-1.5 justify-end">
+            {productKind === "digital" && (
+              <Badge className="bg-violet-500/90 text-white border-0 uppercase tracking-wider text-[10px]">
+                Dijital
+              </Badge>
+            )}
+            {category && (
+              <Badge
+                variant="outline"
+                className="bg-background/70 backdrop-blur-md border-white/20 text-foreground text-[10px] uppercase tracking-wider"
+              >
+                {category}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+              {title}
+            </DialogTitle>
+            {price > 0 && (
+              <DialogDescription className="text-lg font-semibold text-primary">
+                ₺{price.toLocaleString("tr-TR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Yükleniyor…</p>
+          ) : (
+            <>
+              {description ? (
+                <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                  {description}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  Bu ürün için kayıtlı açıklama bulunmuyor.
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                {productType && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Kategori
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {productType}
+                    </p>
+                  </div>
+                )}
+                {category && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Alt Kategori
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {category}
+                    </p>
+                  </div>
+                )}
+                <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    Tür
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {productKind === "digital" ? "Dijital" : "Fiziksel"}
+                  </p>
+                </div>
+                {product?.stock_quantity != null && productKind !== "digital" && (
+                  <div className="rounded-lg bg-background/50 border border-white/5 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      Stok
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {product.stock_quantity}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
