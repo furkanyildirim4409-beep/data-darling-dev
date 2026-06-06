@@ -15,6 +15,10 @@ interface CreateProductPayload {
   stockQuantity: number | null;
   /** Shopify Taxonomy GID, e.g. gid://shopify/TaxonomyCategory/sg-4-17-2-17 */
   shopifyCategoryId?: string | null;
+  /** When true, Shopify gets a DRAFT product and DB row is `pending_admin_approval`. */
+  publishAsDraft?: boolean;
+  /** Storage path inside `digital-products` bucket (for digital product downloads). */
+  digitalFileUrl?: string | null;
 }
 
 interface UpdateProductStatusPayload {
