@@ -195,10 +195,12 @@ export default function Business() {
       {/* Revenue Split Donut */}
       <RevenueSplitCard
         loading={metricsLoading}
-        packages={metrics?.total_package_revenue ?? 0}
-        store={metrics?.total_store_revenue ?? 0}
+        coaching={metrics?.coaching_revenue ?? metrics?.total_package_revenue ?? 0}
+        shopify={metrics?.shopify_revenue ?? 0}
+        digital={metrics?.digital_revenue ?? 0}
         total={metrics?.total_revenue ?? 0}
       />
+
 
 
 
