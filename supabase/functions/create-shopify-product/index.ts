@@ -31,6 +31,8 @@ const BodySchema = z
       .regex(/^gid:\/\/shopify\/TaxonomyCategory\/[A-Za-z0-9-]+$/)
       .nullable()
       .optional(),
+    /** When true, create the product as a Shopify DRAFT (hidden from sales channels) — admin approval workflow. */
+    publishAsDraft: z.boolean().optional().default(false),
   })
   .superRefine((val, ctx) => {
     if (val.productType === "physical") {
