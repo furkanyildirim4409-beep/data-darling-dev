@@ -189,6 +189,7 @@ export function usePayments() {
     athletes,
     isLoading,
     addPayment,
+    addAssignedPayment,
     updatePaymentStatus,
     deletePayment,
     totalPaid,
@@ -196,3 +197,4 @@ export function usePayments() {
     refetch: fetchPayments,
   };
 }
+
