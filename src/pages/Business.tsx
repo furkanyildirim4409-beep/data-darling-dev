@@ -442,6 +442,7 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
                   innerRadius={60}
                   outerRadius={90}
                   paddingAngle={2}
+                  minAngle={6}
                   dataKey="value"
                   stroke="hsl(var(--background))"
                   strokeWidth={2}
