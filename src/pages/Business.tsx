@@ -446,6 +446,7 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
                   dataKey="value"
                   stroke="hsl(var(--background))"
                   strokeWidth={2}
+                  activeShape={false}
                 >
                   {data.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
