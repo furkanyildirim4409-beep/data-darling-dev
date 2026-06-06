@@ -100,6 +100,7 @@ export default function Settings() {
   const [iban, setIban] = useState<string>("");
   const [ibanError, setIbanError] = useState<string>("");
   const [isSavingIban, setIsSavingIban] = useState(false);
+  const [ibanShake, setIbanShake] = useState(false);
 
   // Username states
   const [username, setUsername] = useState(profile?.username || "");
