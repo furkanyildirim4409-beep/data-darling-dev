@@ -18,7 +18,7 @@ import { CoachingPackagesManager } from "@/components/business/CoachingPackagesM
 const REVENUE_COLORS = {
   coaching: "hsl(var(--success))",
   shopify: "hsl(var(--warning))",
-  other: "hsl(210 100% 60%)",
+  other: "hsl(var(--info))",
 };
 
 const fmtTRY = (n: number) => `₺${Number(n || 0).toLocaleString("tr-TR")}`;
@@ -432,12 +432,9 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-          <div
-            className="relative h-64 focus:outline-none [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none"
-            onMouseDown={(event) => event.preventDefault()}
-          >
+          <div className="recharts-no-focus relative h-64" onMouseDown={(event) => event.preventDefault()}>
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart className="focus:outline-none">
+              <PieChart accessibilityLayer={false} className="focus:outline-none">
                 <Pie
                   data={data}
                   cx="50%"
@@ -450,9 +447,10 @@ function RevenueSplitCard({ loading, coaching, shopify, other, total }: RevenueS
                   stroke="hsl(var(--background))"
                   strokeWidth={2}
                   activeShape={false}
+                  rootTabIndex={-1}
                 >
                   {data.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
+                    <Cell key={entry.name} fill={entry.color} tabIndex={-1} focusable="false" />
                   ))}
                 </Pie>
                 <RTooltip
