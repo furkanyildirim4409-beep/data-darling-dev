@@ -498,6 +498,16 @@ export default function Akademi() {
                         {item.modules.length} Bölüm
                       </Badge>
                     )}
+                    <Badge variant="outline" className={`gap-1 ${item.visibility === "students_only" ? "text-amber-400 border-amber-500/30 bg-amber-500/10" : "text-muted-foreground border-border"}`}>
+                      {item.visibility === "students_only" ? <Lock className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                      {item.visibility === "students_only" ? "Öğrencilere Özel" : "Herkese Açık"}
+                    </Badge>
+                    {item.status === "draft" && (
+                      <Badge variant="outline" className="gap-1 text-blue-400 border-blue-500/30 bg-blue-500/10">Taslak</Badge>
+                    )}
+                    {item.status === "archived" && (
+                      <Badge variant="outline" className="gap-1 text-muted-foreground border-border bg-muted/40">Arşivli</Badge>
+                    )}
                     {item.tags.length > 0 && (
                       <span className="text-xs text-muted-foreground/70 truncate">
                         {item.tags.map((t) => `#${t}`).join(" ")}
