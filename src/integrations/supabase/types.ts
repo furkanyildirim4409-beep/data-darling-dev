@@ -2188,6 +2188,7 @@ export type Database = {
           iban: string | null
           id: string
           instagram_sync_active: boolean
+          is_active: boolean
           last_activity_date: string | null
           level: number | null
           longest_streak: number | null
@@ -2234,6 +2235,7 @@ export type Database = {
           iban?: string | null
           id: string
           instagram_sync_active?: boolean
+          is_active?: boolean
           last_activity_date?: string | null
           level?: number | null
           longest_streak?: number | null
@@ -2280,6 +2282,7 @@ export type Database = {
           iban?: string | null
           id?: string
           instagram_sync_active?: boolean
+          is_active?: boolean
           last_activity_date?: string | null
           level?: number | null
           longest_streak?: number | null
