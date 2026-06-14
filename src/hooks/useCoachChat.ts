@@ -70,6 +70,11 @@ function useCoachChatStateInternal(): CoachChatValue {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selectedAthleteIdRef = useRef<string | null>(null);
   const athletesRef = useRef<ChatAthlete[]>([]);
+  // Tracks message ids whose unread badge was already decremented locally,
+  // so a follow-up realtime UPDATE for the same id can't double-decrement.
+  const readProcessedIdsRef = useRef<Set<string>>(new Set());
+  // Tracks ids that already incremented the badge (from INSERT) so we don't double-count.
+  const insertProcessedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     selectedAthleteIdRef.current = selectedAthleteId;
