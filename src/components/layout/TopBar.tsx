@@ -30,9 +30,13 @@ export function TopBar() {
 
         {isMobile && !mobileSearchOpen && (
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">D</span>
-            </div>
+            <img
+              src="/brand-logo.png"
+              alt="Dynabolic"
+              width={28}
+              height={28}
+              className="w-7 h-7 object-contain drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+            />
             <span className="font-semibold text-foreground text-sm tracking-tight">DYNABOLIC</span>
           </div>
         )}

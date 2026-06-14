@@ -77,13 +77,24 @@ export function MobileNav({ className }: MobileNavProps) {
       </SheetTrigger>
       <SheetContent side="left" className="w-72 bg-sidebar border-sidebar-border p-0">
         <SheetHeader className="h-16 flex flex-row items-center justify-between px-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">D</span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <img
+                src="/brand-logo.png"
+                alt="Dynabolic"
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+              />
+              <SheetTitle className="font-bold text-lg text-foreground tracking-tight">
+                DYNABOLIC
+              </SheetTitle>
             </div>
-            <SheetTitle className="font-semibold text-foreground tracking-tight">
-              DYNABOLIC
-            </SheetTitle>
+            {businessName && (
+              <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-[0.2em] ml-10 truncate">
+                {businessName}
+              </span>
+            )}
           </div>
         </SheetHeader>
 

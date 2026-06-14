@@ -5,6 +5,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useUnreadEmails } from "@/hooks/useUnreadEmails";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBrandIdentity } from "@/hooks/useBrandIdentity";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +61,8 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { role } = useAuth();
   const { criticalCount, warningCount } = useAlerts();
   const { unreadCount: unreadEmails } = useUnreadEmails();
+  const { businessName } = useBrandIdentity();
+
 
   const filteredNavItems = useMemo(
     () => navItems.filter(item => {
@@ -85,18 +88,32 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
     >
       {/* Logo Area */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">D</span>
+        {!collapsed ? (
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <img
+                src="/brand-logo.png"
+                alt="Dynabolic"
+                width={28}
+                height={28}
+                className="w-7 h-7 object-contain drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+              />
+              <span className="font-bold text-lg tracking-tight text-foreground">DYNABOLIC</span>
             </div>
-            <span className="font-semibold text-foreground tracking-tight">DYNABOLIC</span>
+            {businessName && (
+              <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-[0.2em] ml-9 truncate">
+                {businessName}
+              </span>
+            )}
           </div>
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-            <span className="text-primary-foreground font-bold text-sm">D</span>
-          </div>
+        ) : (
+          <img
+            src="/brand-logo.png"
+            alt="Dynabolic"
+            width={32}
+            height={32}
+            className="w-8 h-8 object-contain mx-auto drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+          />
         )}
       </div>
 
