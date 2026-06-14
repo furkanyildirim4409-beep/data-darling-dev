@@ -155,7 +155,7 @@ export default function Akademi() {
   }, [fetchContent]);
 
   const tabCounts = useMemo(() => ({
-    active: items.filter((i) => i.status !== "archived").length,
+    active: items.filter((i) => i.status === "published").length,
     archived: items.filter((i) => i.status === "archived").length,
   }), [items]);
 
