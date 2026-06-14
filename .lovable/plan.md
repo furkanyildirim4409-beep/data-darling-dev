@@ -1,68 +1,44 @@
-# Master Notification Aggregator & Header Cleanup (Part 3/4)
+# Email Template Studio Overhaul (Part 4/4)
 
-## 1. Header Cleanup — Remove Duplicate Bell
+Most of the studio infrastructure is already in place — `RichTextEditor` is wired into the create/edit dialog, `openEdit()` prefills the form, and `handleSave()` already branches between `UPDATE` (when `form.id` exists) and `INSERT`. The remaining gaps are: (1) the category list is the old 5-key set instead of the 8 professional coaching categories, (2) generated HTML is not wrapped in a branded Dynabolic shell, and (3) the rich text editor needs to remain the single source of truth on both create and edit paths.
 
-In `src/components/layout/TopBar.tsx` there are currently **two** bells:
-- `<CoachNotificationBell />` (line 119) — the real persisted inbox.
-- A second `<Popover>` (lines 122–213) using `useAlerts()` + a `<Bell>` icon — duplicate/derived feed.
+## Changes — `src/pages/EmailTemplates.tsx`
 
-Action: **delete** the entire derived alerts `<Popover>` block plus its now-unused imports (`Bell`, `Popover/Trigger/Content`, `useAlerts`, `useState`/`useMemo`, `getAlertTypeStyle`, `cn`, related state). Keep only the master `<CoachNotificationBell />`. `GlobalSearch.tsx` has no bell — no changes there.
+### 1. Category expansion
 
-## 2. Master Aggregator Hook
+Replace the current `categoryColors` / `categoryLabels` maps and the `<Select>` options with the exact 8 categories:
 
-Refactor `src/hooks/useCoachNotifications.ts` to fan-out queries against four Supabase sources in parallel (`Promise.all`) and merge them into one unified feed. Public API of the hook stays the same (`notifications`, `unreadCount`, `markAsRead`, `markAllAsRead`) so `CoachNotificationBell.tsx` keeps working with minor type tweaks.
-
-### Unified shape
-
-```ts
-type NotificationType = 'message' | 'system' | 'payment' | 'ticket' | 'compliance_alert' | 'order';
-
-interface NotificationItem {
-  id: string;             // namespaced: `msg:<uuid>`, `ledger:<uuid>`, `pay:<uuid>`, `ticket:<uuid>`, `notif:<uuid>`
-  title: string;
-  description: string;
-  created_at: string;
-  type: NotificationType;
-  read_status: boolean;
-  redirect_url: string | null;
-}
+```
+['Hoşgeldin & Onboarding', 'Ödeme & Fatura Hatırlatması',
+ 'Antrenman/Program Güncellemesi', 'Motivasyon & Uyarı',
+ 'Haftalık Check-in', 'Kutlama & Başarı',
+ 'Genel Duyuru', 'Beslenme Revizyonu']
 ```
 
-### Sources
+Each gets a stable slug key (e.g. `welcome_onboarding`, `payment_invoice`, `program_update`, `motivation_alert`, `weekly_checkin`, `celebration`, `general_announcement`, `nutrition_revision`) used in DB, with `categoryLabels` mapping back to the Turkish display string and `categoryColors` assigning distinct semantic-token chip colors (emerald, amber, blue, rose, violet, fuchsia, slate, lime). Legacy keys (`general`, `onboarding`, `transactional`, `retention`, `marketing`) fall through to a default chip so older rows still render. Default `empty.category` becomes `general_announcement`.
 
-1. **Direct Messages** — `messages` where `receiver_id = coach.id` and `read = false` (or `read_at is null`, whichever column exists; verify at implementation time). Title: sender name (joined via `profiles`). Description: `body` truncated. `redirect_url = /messages?athlete=<sender_id>`.
-2. **System Alerts / Athlete Warnings** — `coach_action_ledger` where `coach_id = coach.id` and `status = 'pending'`. Maps to `compliance_alert`. `redirect_url = /athletes/<athlete_id>`.
-3. **New Purchases / Invoices** — `assigned_payments` where `coach_id = coach.id`, ordered by `updated_at` desc, last 30. Treat `status = 'paid'` rows newer than `last_seen` as unread. Type `payment`. `redirect_url = /payments`.
-4. **Ticket / Dispute updates** — `tickets` where `coach_id = coach.id` and `status in ('open','awaiting_coach')` (verify columns). Type `ticket`. `redirect_url = /support/<id>`.
-5. **Existing `coach_notifications`** — keep, mapped through the same shape (preserves `order`/`compliance_alert`/`message` rows already inserted by triggers).
+### 2. Dynabolic HTML wrapper
 
-All five arrays are concatenated, sorted by `created_at` desc, capped at 50.
+Add a helper `wrapWithDynabolicShell(innerHtml: string): string` that returns:
 
-### Read state
+```
+<div style="font-family: -apple-system, 'SF Pro Display', Inter, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; line-height: 1.6; color: #1a1a1a;">
+  {innerHtml}
+</div>
+```
 
-- For rows backed by `coach_notifications`, continue using `is_read` and the existing mutation.
-- For aggregated rows (messages/ledger/payments/tickets) read state is derived. `markAsRead(id)` for these dispatches the appropriate update:
-  - `msg:*` → `messages.update({ read: true }).eq('id', ...)`
-  - `ledger:*` → no-op locally (status changes via existing action flows); we just optimistically hide.
-  - `pay:*`, `ticket:*` → tracked client-side in a `localStorage` set `coach-notif-seen:<coachId>` so badge clears after the user opens the popover.
-- `markAllAsRead()` runs the existing bulk update on `coach_notifications` AND writes all current aggregated ids into the local seen-set.
+Apply only when the body does not already start with a wrapper marker comment (`<!--dyn-shell-->`). Prepend the marker so re-saving an existing template doesn't double-wrap. Used inside `handleSave()` before both `insert` and `update`.
 
-### Realtime
+### 3. Edit button gating
 
-Attach one channel per source (postgres_changes filtered by `coach_id` / `receiver_id`) inside the existing `useEffect`, all listeners added before `.subscribe()`, all cleaned up via `supabase.removeChannel`.
-
-### Badge
-
-`unreadCount = notifications.filter(n => !n.read_status).length` — naturally turns red for any source.
-
-## 3. Files Touched
-
-- `src/components/layout/TopBar.tsx` — delete duplicate bell + dead imports.
-- `src/hooks/useCoachNotifications.ts` — rewrite as aggregator (keep export name and surface).
-- `src/components/layout/CoachNotificationBell.tsx` — small adjustments: rename `is_read` → `read_status`, `message` → `description`, `action_url` → `redirect_url`, extend `TYPE_META` with `payment` and `ticket` icons.
+Keep the existing `openEdit()` flow, but ensure the "Düzenle" button is rendered for all user-owned templates (it already is — `!t.is_system`). No behavioral change here beyond verifying the click path still routes through the dialog.
 
 ## Out of Scope
 
-- New DB tables/migrations (all four sources already exist).
-- Athlete-side notifications.
-- Parts 1, 2, and 4 of launch prep.
+- `RichTextEditor` component itself (already production-grade).
+- `useEmailTemplates` hook / schema.
+- Parts 1–3 of launch prep.
+
+## Files Touched
+
+- `src/pages/EmailTemplates.tsx` (single file)

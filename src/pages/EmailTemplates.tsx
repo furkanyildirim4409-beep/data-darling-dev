@@ -31,9 +31,23 @@ interface TemplateForm {
   required_variables?: string[];
 }
 
-const empty: TemplateForm = { name: "", subject: "", body_html: "", category: "general", required_variables: [] };
+const empty: TemplateForm = { name: "", subject: "", body_html: "", category: "general_announcement", required_variables: [] };
+
+// 8 professional coaching categories (slug → Turkish label + chip color)
+const CATEGORY_OPTIONS: { value: string; label: string; color: string }[] = [
+  { value: "welcome_onboarding",     label: "Hoşgeldin & Onboarding",         color: "bg-emerald-600/20 text-emerald-400 border-emerald-600/30" },
+  { value: "payment_invoice",        label: "Ödeme & Fatura Hatırlatması",    color: "bg-amber-600/20 text-amber-400 border-amber-600/30" },
+  { value: "program_update",         label: "Antrenman/Program Güncellemesi", color: "bg-blue-600/20 text-blue-400 border-blue-600/30" },
+  { value: "motivation_alert",       label: "Motivasyon & Uyarı",             color: "bg-rose-600/20 text-rose-400 border-rose-600/30" },
+  { value: "weekly_checkin",         label: "Haftalık Check-in",              color: "bg-violet-600/20 text-violet-400 border-violet-600/30" },
+  { value: "celebration",            label: "Kutlama & Başarı",               color: "bg-fuchsia-600/20 text-fuchsia-400 border-fuchsia-600/30" },
+  { value: "general_announcement",   label: "Genel Duyuru",                   color: "bg-slate-600/20 text-slate-300 border-slate-600/30" },
+  { value: "nutrition_revision",     label: "Beslenme Revizyonu",             color: "bg-lime-600/20 text-lime-400 border-lime-600/30" },
+];
 
 const categoryColors: Record<string, string> = {
+  ...Object.fromEntries(CATEGORY_OPTIONS.map((c) => [c.value, c.color])),
+  // legacy fallbacks
   onboarding: "bg-emerald-600/20 text-emerald-400 border-emerald-600/30",
   transactional: "bg-blue-600/20 text-blue-400 border-blue-600/30",
   retention: "bg-amber-600/20 text-amber-400 border-amber-600/30",
@@ -42,12 +56,20 @@ const categoryColors: Record<string, string> = {
 };
 
 const categoryLabels: Record<string, string> = {
+  ...Object.fromEntries(CATEGORY_OPTIONS.map((c) => [c.value, c.label])),
   onboarding: "Onboarding",
   transactional: "İşlemsel",
   retention: "Retention",
   general: "Genel",
   marketing: "Pazarlama",
 };
+
+const DYN_SHELL_MARKER = "<!--dyn-shell-->";
+function wrapWithDynabolicShell(innerHtml: string): string {
+  if (!innerHtml) return innerHtml;
+  if (innerHtml.includes(DYN_SHELL_MARKER)) return innerHtml;
+  return `${DYN_SHELL_MARKER}<div style="font-family: -apple-system, 'SF Pro Display', Inter, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; line-height: 1.6; color: #1a1a1a; background: #ffffff;">${innerHtml}</div>`;
+}
 
 export default function EmailTemplates() {
   const { templates, isLoading } = useEmailTemplates();
