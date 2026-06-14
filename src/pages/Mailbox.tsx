@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import DOMPurify from "dompurify";
-import { Inbox, Send, PenSquare, ArrowLeft } from "lucide-react";
+import { Inbox, Send, PenSquare, ArrowLeft, Reply, Forward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useUnreadEmails } from "@/hooks/useUnreadEmails";
 import { useEmails, type Email } from "@/hooks/useEmails";
 import { useIsMobile } from "@/hooks/use-mobile";
-import ComposeMailDialog from "@/components/mailbox/ComposeMailDialog";
+import ComposeMailDialog, { type ComposePrefill } from "@/components/mailbox/ComposeMailDialog";
 
 type Folder = "inbound" | "outbound";
 
@@ -24,10 +24,38 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function withPrefix(prefix: "Re" | "Fwd", subject: string | null) {
+  const s = subject || "";
+  const re = new RegExp(`^\\s*${prefix}:`, "i");
+  return re.test(s) ? s : `${prefix}: ${s || "(Konu yok)"}`;
+}
+
+function quoteOriginal(email: Email): string {
+  const when = new Date(email.created_at).toLocaleString("tr-TR");
+  const meta = `<p>${when} tarihinde <strong>${escapeHtml(email.from_email)}</strong> şunu yazdı:</p>`;
+  const body = email.body_html && email.body_html.trim().length > 0
+    ? email.body_html
+    : `<pre style="white-space:pre-wrap;font-family:inherit;margin:0">${escapeHtml(email.body_text || "")}</pre>`;
+  return (
+    `<p><br></p><hr/>` +
+    `<p><strong>--- Orijinal Mesaj ---</strong></p>` +
+    meta +
+    `<blockquote style="border-left:3px solid #ccc;margin:0;padding-left:12px;color:#555">${body}</blockquote>`
+  );
+}
+
 export default function Mailbox() {
   const [activeTab, setActiveTab] = useState<Folder>("inbound");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [composePrefill, setComposePrefill] = useState<ComposePrefill | undefined>(undefined);
   const { unreadCount } = useUnreadEmails();
   const { emails, isLoading, markAsRead } = useEmails(activeTab);
   const isMobile = useIsMobile();
@@ -45,15 +73,44 @@ export default function Mailbox() {
     }
   };
 
+  const openCompose = (prefill?: ComposePrefill) => {
+    setComposePrefill(prefill);
+    setComposeOpen(true);
+  };
+
+  const handleComposeOpenChange = (next: boolean) => {
+    setComposeOpen(next);
+    if (!next) setComposePrefill(undefined);
+  };
+
+  const handleReply = () => {
+    if (!selectedEmail) return;
+    const replyTarget = activeTab === "inbound" ? selectedEmail.from_email : selectedEmail.to_email;
+    openCompose({
+      toEmail: replyTarget,
+      subject: withPrefix("Re", selectedEmail.subject),
+      bodyHtml: `<p></p>${quoteOriginal(selectedEmail)}`,
+    });
+  };
+
+  const handleForward = () => {
+    if (!selectedEmail) return;
+    openCompose({
+      toEmail: "",
+      subject: withPrefix("Fwd", selectedEmail.subject),
+      bodyHtml: `<p></p>${quoteOriginal(selectedEmail)}`,
+    });
+  };
+
   const showList = !isMobile || !selectedEmail;
   const showDetail = !isMobile || !!selectedEmail;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] w-full max-w-[1600px] mx-auto overflow-hidden bg-background">
       {/* Folder sidebar */}
       <div className="w-60 border-r border-border bg-card flex flex-col shrink-0 max-md:hidden">
         <div className="p-3">
-          <Button className="w-full gap-2" size="sm" onClick={() => setComposeOpen(true)}>
+          <Button className="w-full gap-2" size="sm" onClick={() => openCompose(undefined)}>
             <PenSquare className="w-4 h-4" />
             Yeni Mail
           </Button>
@@ -88,7 +145,7 @@ export default function Mailbox() {
 
       {/* Email list */}
       {showList && (
-        <div className="w-full md:w-[350px] border-r border-border flex flex-col shrink-0">
+        <div className="w-full md:min-w-[300px] md:w-1/3 md:max-w-[400px] border-r border-border flex flex-col shrink-0">
           {/* Mobile folder tabs */}
           <div className="md:hidden flex border-b border-border">
             {folders.map((f) => (
@@ -153,36 +210,52 @@ export default function Mailbox() {
         <div className="flex-1 flex flex-col bg-background min-w-0">
           {selectedEmail ? (
             <>
-              <div className="p-4 border-b border-border space-y-1">
+              <div className="p-6 lg:p-8 border-b border-border space-y-3">
                 {isMobile && (
-                  <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => setSelectedEmailId(null)}>
+                  <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setSelectedEmailId(null)}>
                     <ArrowLeft className="w-4 h-4 mr-1" /> Geri
                   </Button>
                 )}
-                <h2 className="text-lg font-semibold">{selectedEmail.subject || "(Konu yok)"}</h2>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <h2 className="text-xl lg:text-2xl font-semibold leading-tight min-w-0 flex-1">
+                    {selectedEmail.subject || "(Konu yok)"}
+                  </h2>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="outline" size="sm" className="gap-2" onClick={handleReply}>
+                      <Reply className="w-4 h-4" />
+                      Yanıtla
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-2" onClick={handleForward}>
+                      <Forward className="w-4 h-4" />
+                      İlet
+                    </Button>
+                  </div>
+                </div>
                 <div className="text-sm text-muted-foreground space-y-0.5">
-                  <p>Kimden: {selectedEmail.from_email}</p>
-                  <p>Kime: {selectedEmail.to_email}</p>
+                  <p><span className="font-medium text-foreground">Kimden:</span> {selectedEmail.from_email}</p>
+                  <p><span className="font-medium text-foreground">Kime:</span> {selectedEmail.to_email}</p>
                   <p>{new Date(selectedEmail.created_at).toLocaleString("tr-TR")}</p>
                 </div>
               </div>
-              <ScrollArea className="flex-1 p-4">
-                {selectedEmail.body_html ? (
-                  <div
-                    className="max-w-none text-sm leading-relaxed [&_a]:text-primary [&_a]:underline [&_img]:max-w-full"
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(selectedEmail.body_html, {
-                        USE_PROFILES: { html: true },
-                        FORBID_TAGS: ['style', 'form'],
-                        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-                      })
-                    }}
-                  />
-                ) : (
-                  <pre className="whitespace-pre-wrap text-sm font-sans text-foreground">
-                    {selectedEmail.body_text || ""}
-                  </pre>
-                )}
+              <ScrollArea className="flex-1">
+                <div className="p-6 lg:p-8 max-w-3xl">
+                  {selectedEmail.body_html ? (
+                    <div
+                      className="max-w-none text-sm leading-relaxed [&_a]:text-primary [&_a]:underline [&_img]:max-w-full"
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(selectedEmail.body_html, {
+                          USE_PROFILES: { html: true },
+                          FORBID_TAGS: ['style', 'form'],
+                          FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+                        })
+                      }}
+                    />
+                  ) : (
+                    <pre className="whitespace-pre-wrap text-sm font-sans text-foreground">
+                      {selectedEmail.body_text || ""}
+                    </pre>
+                  )}
+                </div>
               </ScrollArea>
             </>
           ) : (
@@ -194,7 +267,7 @@ export default function Mailbox() {
           )}
         </div>
       )}
-      <ComposeMailDialog open={composeOpen} onOpenChange={setComposeOpen} />
+      <ComposeMailDialog open={composeOpen} onOpenChange={handleComposeOpenChange} prefill={composePrefill} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,21 @@ import RichTextEditor from "./RichTextEditor";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 
+export interface ComposePrefill {
+  toEmail?: string;
+  subject?: string;
+  bodyHtml?: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  prefill?: ComposePrefill;
 }
 
 const MANUAL_RECIPIENT = "__manual__";
 
-export default function ComposeMailDialog({ open, onOpenChange }: Props) {
+export default function ComposeMailDialog({ open, onOpenChange, prefill }: Props) {
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>(MANUAL_RECIPIENT);
   const [toEmail, setToEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -38,6 +45,18 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
   );
   const selectedAthleteName = selectedAthlete?.name ?? "";
 
+  // Seed from prefill when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    if (prefill) {
+      setSelectedAthleteId(MANUAL_RECIPIENT);
+      setToEmail(prefill.toEmail ?? "");
+      setSubject(prefill.subject ?? "");
+      setBodyHtml(prefill.bodyHtml ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefill]);
+
   const handleAthleteChange = (val: string) => {
     setSelectedAthleteId(val);
     if (val === MANUAL_RECIPIENT) {
@@ -52,7 +71,7 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
     const tpl = templates.find((t) => t.id === templateId);
     if (tpl) {
       setSubject(tpl.subject);
-      setBodyHtml(tpl.body_html); // keep rich HTML — no stripping
+      setBodyHtml(tpl.body_html);
     }
   };
 
@@ -61,6 +80,11 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
     setToEmail("");
     setSubject("");
     setBodyHtml("");
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) reset();
+    onOpenChange(next);
   };
 
   const handleSend = () => {
@@ -86,7 +110,7 @@ export default function ComposeMailDialog({ open, onOpenChange }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Yeni Mail</DialogTitle>
