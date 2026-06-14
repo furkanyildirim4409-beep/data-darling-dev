@@ -327,6 +327,31 @@ export function useCoachChat() {
     }
   }, [coachId, selectedAthleteId]);
 
+  // Unsend (soft-delete) a message — only the original sender may flip the flag
+  const unsendMessage = useCallback(async (messageId: string) => {
+    if (!coachId) return;
+    const deletedContent = '🚫 Bu mesaj silindi.';
+    setMessages(prev => prev.map(m =>
+      m.id === messageId
+        ? { ...m, is_deleted: true, content: deletedContent, media_url: null, media_type: null, metadata: null }
+        : m
+    ));
+    setAthletes(prev => prev.map(a =>
+      a.latestMessage && a.latestMessage.sender_id === coachId && a.id === selectedAthleteId
+        ? { ...a, latestMessage: { ...a.latestMessage, content: deletedContent, media_type: null } }
+        : a
+    ));
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_deleted: true, content: deletedContent })
+      .eq('id', messageId)
+      .eq('sender_id', coachId);
+    if (error && selectedAthleteId) {
+      fetchMessages(selectedAthleteId);
+    }
+  }, [coachId, selectedAthleteId, fetchMessages]);
+
+
   // Approve / decline a pending message request
   const respondToRequest = useCallback(async (athleteId: string, action: 'approve' | 'decline') => {
     const target = athletes.find(a => a.id === athleteId);
