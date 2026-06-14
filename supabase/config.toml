@@ -60,3 +60,7 @@ verify_jwt = false
 [functions.timeline-forecast]
 verify_jwt = false
 
+[functions.stripe-subscription-webhook]
+verify_jwt = false
+
+
