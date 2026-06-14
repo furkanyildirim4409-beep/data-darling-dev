@@ -5,6 +5,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -21,7 +37,6 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendKey = Deno.env.get("RESEND_DIRECT_API_KEY")!;
 
-    // Verify user
     const anonClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -32,16 +47,19 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
-    const { toEmail, subject, bodyText } = await req.json();
-    if (!toEmail || !subject || !bodyText) {
-      return new Response(JSON.stringify({ error: "Missing required fields: toEmail, subject, bodyText" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const body = await req.json();
+    const { toEmail, subject } = body;
+    const bodyHtml: string | undefined = body.bodyHtml;
+    const bodyText: string | undefined = body.bodyText;
+
+    if (!toEmail || !subject || (!bodyHtml && !bodyText)) {
+      return new Response(JSON.stringify({ error: "Missing required fields: toEmail, subject, and bodyHtml or bodyText" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // ── Delegation check: is user a sub-coach with mail.manage? ──
+    // Delegation check (sub-coach with mail.manage sends as head coach)
     let sendAsUserId = userId;
-
     const { data: teamRow } = await adminClient
       .from("team_members")
       .select("head_coach_id, custom_permissions")
@@ -52,12 +70,10 @@ Deno.serve(async (req) => {
     if (teamRow) {
       const mailManage = (teamRow.custom_permissions as any)?.mail?.manage === true;
       if (mailManage && teamRow.head_coach_id) {
-        // Delegated: send on behalf of the head coach
         sendAsUserId = teamRow.head_coach_id;
       }
     }
 
-    // Fetch sender profile (could be head coach or self)
     const { data: profile, error: profileErr } = await adminClient
       .from("profiles")
       .select("full_name, username")
@@ -71,9 +87,16 @@ Deno.serve(async (req) => {
     const coachName = profile.full_name || "Coach";
     const coachUsername = profile.username || "coach";
     const fromEmail = `${coachUsername}@dynabolic.co`;
-    const htmlBody = bodyText.replace(/\n/g, "<br>");
 
-    // Send via Resend
+    // Prefer real HTML from rich text editor / template.
+    // Only fall back to converting plain text when no HTML was provided.
+    const finalHtml: string = bodyHtml && bodyHtml.trim().length > 0
+      ? bodyHtml
+      : `<p>${escapeHtml(bodyText || "").replace(/\n/g, "<br>")}</p>`;
+    const finalText: string = bodyHtml && bodyHtml.trim().length > 0
+      ? stripHtml(bodyHtml)
+      : (bodyText || "");
+
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
@@ -81,7 +104,7 @@ Deno.serve(async (req) => {
         from: `${coachName} <${fromEmail}>`,
         to: [toEmail],
         subject,
-        html: htmlBody,
+        html: finalHtml,
       }),
     });
 
@@ -91,15 +114,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to send email" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Log outbound email — owner is the identity we sent as
     await adminClient.from("emails").insert({
       owner_id: sendAsUserId,
       direction: "outbound",
       from_email: fromEmail,
       to_email: toEmail,
       subject,
-      body_text: bodyText,
-      body_html: htmlBody,
+      body_text: finalText,
+      body_html: finalHtml,
       is_read: true,
     });
 

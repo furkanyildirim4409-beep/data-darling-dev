@@ -1570,6 +1570,7 @@ export type Database = {
           id: string
           is_read: boolean | null
           owner_id: string
+          provider_message_id: string | null
           subject: string | null
           to_email: string
         }
@@ -1582,6 +1583,7 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           owner_id: string
+          provider_message_id?: string | null
           subject?: string | null
           to_email: string
         }
@@ -1594,6 +1596,7 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           owner_id?: string
+          provider_message_id?: string | null
           subject?: string | null
           to_email?: string
         }

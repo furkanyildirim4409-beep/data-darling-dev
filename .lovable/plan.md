@@ -1,108 +1,62 @@
-# Unsend Message ("Mesajı Geri Al") — Part 5/5
+# Mailbox Engine Bug Fixes (Part 1/4)
 
-## Schema
+## Problem Analysis
 
-Add a soft-delete flag to `public.messages` via migration:
+**Triple-insert bug (confirmed in DB):** every inbound email creates 3 rows — 2 with `html_len=0, text_len=0` and 1 with the real body, all within ~500ms with identical subject/sender. Resend's webhook fires for multiple event types (`email.delivered`, `email.bounced`, `email.received`, etc.) at the same endpoint. The current `inbound-email/index.ts` does not filter `payload.type`, so every event is inserted. The empty rows are non-`received` events that carry no body; only `email.received` (or `inbound.created`) carries `email_id` and content.
+
+**Template HTML bug (confirmed in `ComposeMailDialog.tsx`):** the dialog strips template HTML to plain text (`tpl.body_html.replace(/<[^>]*>/g, "\n")`) into a `<Textarea>`, then `send-custom-email` does `bodyText.replace(/\n/g, "<br>")` and ships that as `html`. So formatting/images are lost and `{{isim}}` is never substituted.
+
+## Fix 1 — `supabase/functions/inbound-email/index.ts`
+
+1. Parse `payload.type`. **Only proceed when `type === 'email.received'`** (Resend inbound). For any other event type (`email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.opened`, `email.clicked`, etc.) immediately return `200 { skipped: 'event_type' }` **before** any DB insert. This single guard kills the 2 empty rows per email.
+2. Additionally require a non-empty `email_id` and at least one of `html`/`text` (post-SDK fetch). If both bodies are still empty after the Resend SDK fetch, log and skip (defensive — should never happen for `email.received`).
+3. Make the insert idempotent on `email_id` (provider message id): add a UNIQUE index on a new nullable `provider_message_id` column on `public.emails`, store `email_id` there, and use `.upsert(..., { onConflict: 'provider_message_id', ignoreDuplicates: true })`. Protects against Resend webhook retries causing future duplicates.
+4. Keep the existing Svix verification, `from`/`to` parsing, and profile lookup as-is.
+
+## Fix 2 — `src/components/mailbox/ComposeMailDialog.tsx`
+
+1. Replace the plain `<Textarea>` with the existing `RichTextEditor` (already used elsewhere). Hold body as **HTML** in a new `bodyHtml` state.
+2. On template select: set `subject` and `bodyHtml = tpl.body_html` directly — no HTML stripping.
+3. Add an **Athlete selector** (`<Select>`) populated from `useAthletes()` so the coach can pick the recipient. Selecting an athlete auto-fills `toEmail` and stores `selectedAthleteName` (full_name). Free-text `toEmail` input remains as a fallback for arbitrary addresses.
+4. Before invoking the function, run:
+   ```ts
+   const finalHtml = bodyHtml.replace(/\{\{isim\}\}/g, selectedAthleteName || 'Sporcu');
+   const finalSubject = subject.replace(/\{\{isim\}\}/g, selectedAthleteName || 'Sporcu');
+   ```
+5. Pass `{ toEmail, subject: finalSubject, bodyHtml: finalHtml }` to `useSendEmail`.
+
+## Fix 3 — `src/hooks/useEmails.ts` (`useSendEmail`)
+
+Change payload type to `{ toEmail; subject; bodyHtml }` and forward as-is to the edge function.
+
+## Fix 4 — `supabase/functions/send-custom-email/index.ts`
+
+1. Accept `bodyHtml` (preferred) with backward-compat fallback to `bodyText`.
+2. When `bodyHtml` is provided, send it **verbatim as `html`** to Resend — do NOT wrap, do NOT `\n→<br>`, do NOT escape.
+3. Derive `body_text` for the log as a stripped version of `bodyHtml` (`html.replace(/<[^>]+>/g,'').trim()`) so the `emails` table still has a searchable text fallback.
+4. Insert into `emails` with both `body_html` (the real HTML) and `body_text` (the stripped version).
+
+## Migration
 
 ```sql
-ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS is_deleted boolean NOT NULL DEFAULT false;
+ALTER TABLE public.emails
+  ADD COLUMN IF NOT EXISTS provider_message_id text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS emails_provider_message_id_key
+  ON public.emails(provider_message_id)
+  WHERE provider_message_id IS NOT NULL;
 ```
 
-No new RLS policy needed: the existing UPDATE policy already restricts edits to participants (used today for `is_read`). The mutation will additionally `.eq('sender_id', user.id)` defensively so only the original sender can flip the flag.
+No new GRANTs / RLS — column is additive on an existing table.
 
-## Types
+## Out of Scope
+- Parts 2–4 of the launch prep.
+- Backfilling the 2 empty historical rows per email (can be cleaned manually after deploy if desired — happy to add a one-shot cleanup query on request).
+- Resend domain/DNS changes.
 
-Extend `ChatMessage` in `src/hooks/useCoachChat.ts`:
-
-```ts
-export interface ChatMessage {
-  // ...existing fields
-  is_deleted?: boolean;
-}
-```
-
-Add `is_deleted` to every `messages` `select(...)` in the hook (initial load, older-page loader, and the realtime INSERT echo path uses `payload.new` directly so it auto-includes the column).
-
-## Mutation
-
-New method on `useCoachChat`:
-
-```ts
-const unsendMessage = useCallback(async (messageId: string) => {
-  if (!coachId) return;
-  // optimistic
-  setMessages(prev => prev.map(m =>
-    m.id === messageId ? { ...m, is_deleted: true, content: '🚫 Bu mesaj silindi.', media_url: null, media_type: null, metadata: null } : m
-  ));
-  const { error } = await supabase
-    .from('messages')
-    .update({ is_deleted: true, content: '🚫 Bu mesaj silindi.' })
-    .eq('id', messageId)
-    .eq('sender_id', coachId);
-  if (error) {
-    // rollback by refetching
-    // (cheap: just reload the open thread)
-  }
-}, [coachId]);
-```
-
-Also patch the inbox preview: after a successful unsend, update the matching `athletes[i].latestMessage.content` to `'🚫 Bu mesaj silindi.'` so the sidebar reflects it instantly.
-
-Return `unsendMessage` from the hook and pass it through `Messages.tsx` → `ActiveChat`.
-
-## Realtime
-
-In the existing `coach-inbox-realtime` channel:
-
-1. Extend the current sender-side UPDATE listener (`filter: sender_id=eq.${coachId}`) to also merge `is_deleted`/`content` changes — today it short-circuits when `!is_read`. Replace with a merge that updates whatever fields changed:
-   ```ts
-   setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
-   ```
-2. Add a new UPDATE listener with `filter: receiver_id=eq.${coachId}` so when an athlete unsends a message addressed to the coach, the coach's open thread updates live. Same merge logic. Also rewrite the matching `athletes[i].latestMessage.content` if the deleted message is the latest preview.
-
-Both listeners stay attached before `.subscribe()` per project realtime rules; cleanup via the existing `removeChannel`.
-
-## UI — chat bubble (`src/components/chat/ActiveChat.tsx`)
-
-Add `onUnsend?: (messageId: string) => void` to `ActiveChatProps`. Wire it from `Messages.tsx`.
-
-Wrap each message bubble (`isCoach` branch) in a shadcn `<ContextMenu>` plus a small hover-only "Trash" button for non-touch users:
-
-- Right-click anywhere on a coach-authored bubble → `<ContextMenuItem>` "Mesajı Geri Al" → `AlertDialog` confirm → `onUnsend(msg.id)`.
-- On hover, render a `<Button variant="ghost" size="icon">` with `Trash2` icon positioned inline next to the bubble (flex sibling, not absolute) — visible only when `isCoach && !msg.is_deleted` and on `group-hover`.
-- Trigger only renders when `msg.sender_id === coachId && !msg.is_deleted`. Athlete-authored bubbles never get the menu.
-
-Deleted-bubble rendering (for both directions):
-
-```tsx
-if (msg.is_deleted) {
-  return (
-    <div className={cn("flex", isCoach ? "justify-end" : "justify-start")}>
-      <div className={cn(
-        "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm italic flex items-center gap-1.5",
-        "bg-muted/40 text-muted-foreground border border-dashed border-border"
-      )}>
-        <Ban className="w-3.5 h-3.5" />
-        <span>🚫 Bu mesaj silindi</span>
-      </div>
-    </div>
-  );
-}
-```
-
-Place this branch before the existing story-reply preview / media / text rendering so attachments, story-reply cards, read receipts, and timestamps are all suppressed for deleted messages.
-
-## QuickChatPopover
-
-Out of scope for this part — it's a lightweight athlete-card popover. Mention to user that the same pattern can be applied later if they want unsend in popover too.
-
-## Athlete app
-
-This repo is the coach platform; the athlete app is a separate codebase. The DB column + the realtime merge for `receiver_id=eq.coachId` already give the coach the live "athlete unsent" state. Parity work on the athlete app is owned by that repo's own PR.
-
-## Files touched
-
-- New migration: add `is_deleted` to `public.messages`.
-- `src/hooks/useCoachChat.ts` — type, selects, mutation, realtime merge, latestMessage rewrite.
-- `src/pages/Messages.tsx` — thread `onUnsend` prop through.
-- `src/components/chat/ActiveChat.tsx` — context menu + hover trash, deleted-bubble rendering, AlertDialog confirm.
+## Files Touched
+- `supabase/migrations/<new>.sql` (new)
+- `supabase/functions/inbound-email/index.ts`
+- `supabase/functions/send-custom-email/index.ts`
+- `src/components/mailbox/ComposeMailDialog.tsx`
+- `src/hooks/useEmails.ts`
