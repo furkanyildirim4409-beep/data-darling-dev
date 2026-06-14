@@ -596,14 +596,15 @@ export default function Settings() {
                         <Button
                           className={cn(
                             "w-full font-semibold",
-                            isCurrent
+                            isCurrent || isLowerTier
                               ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
                               : tier.highlight
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                 : "bg-foreground text-background hover:bg-foreground/90"
                           )}
-                          disabled={isCurrent || isBusy}
+                          disabled={isCurrent || isBusy || isLowerTier}
                           onClick={() => handlePurchaseTier(tier.id)}
+                          title={isLowerTier ? "Mevcut paketinden daha düşük bir plana geçilemez" : undefined}
                         >
                           {isBusy ? (
                             <>
@@ -612,6 +613,8 @@ export default function Settings() {
                             </>
                           ) : isCurrent ? (
                             "Aktif Plan"
+                          ) : isLowerTier ? (
+                            "Daha Düşük Plan"
                           ) : (
                             tier.cta
                           )}
