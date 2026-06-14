@@ -98,16 +98,17 @@ export default function EmailTemplates() {
     }
     setSaving(true);
     try {
+      const wrappedHtml = wrapWithDynabolicShell(form.body_html);
       if (form.id) {
         const { error } = await supabase.from("email_templates").update({
-          name: form.name, subject: form.subject, body_html: form.body_html,
+          name: form.name, subject: form.subject, body_html: wrappedHtml,
           category: form.category, required_variables: form.required_variables as any,
         }).eq("id", form.id);
         if (error) throw error;
         toast.success("Şablon güncellendi.");
       } else {
         const { error } = await supabase.from("email_templates").insert({
-          name: form.name, subject: form.subject, body_html: form.body_html,
+          name: form.name, subject: form.subject, body_html: wrappedHtml,
           owner_id: user!.id, is_system: false,
           category: form.category, required_variables: form.required_variables as any,
         });
