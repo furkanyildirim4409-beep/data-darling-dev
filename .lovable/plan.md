@@ -1,97 +1,101 @@
-# Team UI Overhaul, Permission Expansion & Inactive Blocker (Part 1/4)
+# Settings Cleanup, WhatsApp Toggle & Dynamic Brand Identity (Part 2/4)
 
-## 1. Database Prep — Add `is_active` to `profiles`
+## 1. Database Prep
 
-Migration: add `profiles.is_active boolean not null default true`. Backfill existing rows to `true`. No RLS changes (existing self-update RPC already whitelists allowed fields; this column is set only by the head coach via the toggle handler below).
+Migration adds one nullable boolean and extends the self-update RPC.
 
-For sub-coach team rows, we continue to use the existing `team_members.status` field (`'active' | 'inactive'`) which already gates RLS via `is_active_team_member_of`. The toggle writes to **both** sources when a `member.userId` exists:
-- `team_members.status` → `'inactive'` / `'active'`
-- `profiles.is_active` → `false` / `true` (drives the blocker)
-
-## 2. Permission Schema Expansion — `src/types/permissions.ts`
-
-Add three high-level UX flags to `GranularPermissions` covering the requested varieties (the rest map to existing groups):
-
-| Requested UI label | Backing flag(s) |
-|---|---|
-| Finansal Verileri Görme | `finances.view` ✅ already exists |
-| Program Yazma | `workouts.create` ✅ already exists |
-| E-Ticaret Yönetimi | `store.manage` ✅ already exists |
-| Şablon Düzenleme | **NEW** `templates.edit` |
-| Sadece Kendi Sporcularını Görme | **NEW** `athletes.scopeOwnOnly` |
-
-Updates:
-- Extend `GranularPermissions.athletes` with `scopeOwnOnly: boolean`.
-- Add `templates: { view: boolean; edit: boolean }` group.
-- Extend `FlatPermissions` with `canEditTemplates`, `canViewTemplates`, `canViewOnlyAssignedAthletes`.
-- Update `ALL_TRUE`, `ALL_FALSE`, `LIMITED`, `flattenPermissions` accordingly. `LIMITED` defaults: `templates.view=true, edit=false`, `athletes.scopeOwnOnly=true`.
-- `PermissionMatrix` gets two new rows: a "Şablon" group (View/Edit) and a single switch under Athletes for "Sadece kendi sporcularını görsün".
-
-## 3. Drawer Layout Reconstruction — `MemberProfileDrawer.tsx`
-
-### Assignments tab
-Replace the inner Radix `<ScrollArea>` with a native `div` so the list visually fills to the bottom of the drawer:
-
-```
-<TabsContent value="assignments" className="flex-1 flex flex-col mt-4 overflow-hidden">
-  {/* search + counter */}
-  <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide space-y-2"> … </div>
-  <div className="pt-3 border-t border-border"> Save button </div>
-</TabsContent>
+```sql
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS whatsapp_notifications_enabled boolean NOT NULL DEFAULT false;
 ```
 
-### Permissions tab
-Reflow to `flex flex-col items-start justify-start space-y-6`. Move the **Yetki Şablonu** selector to the very top (above the edit-toggle row). Edit button moves to a right-aligned strip below the template selector. Replace inner Radix `<ScrollArea>` with native scroll for the matrix.
+Extend `public.update_own_profile(...)` with a new `_whatsapp_notifications_enabled boolean DEFAULT NULL` parameter and a `COALESCE` write, keeping the whitelist contract from `mem://security/profile-updates` intact. No RLS changes.
 
-### History tab
-Same treatment: `flex flex-col items-start justify-start space-y-6` outer, native scroll inner. Each log row gets `w-full`.
+## 2. `src/pages/Settings.tsx` — Pruning + WhatsApp toggle
 
-### General tab — Status kill switch
-Add a new bordered card at the bottom of the General tab:
+### Remove Biography
+Delete the entire "Biyografi" textarea block (lines ~491-499) inside the Profile tab. Remove `bio` from `formData` state, the `useEffect` sync, and from the `update_own_profile` payload. The Content Studio remains the sole owner of bios.
 
-```
-<div className="rounded-xl border border-border bg-background/50 p-4 flex items-center justify-between">
-  <div>
-    <p className="text-sm font-medium">Kullanıcı Durumu (Aktif/İnaktif)</p>
-    <p className="text-xs text-muted-foreground">Devre dışı bırakıldığında kullanıcı uygulamaya giremez.</p>
-  </div>
-  <Switch checked={isActive} onCheckedChange={handleToggleActive} />
-</div>
-```
+### Vaporize Export Data
+- Remove `{ id: "data", label: "Veri & Dışa Aktar", icon: Database }` from `settingsSections`.
+- Delete the entire `activeSection === "data"` block (lines ~874-904).
+- Delete the now-unused `handleExportData`, `isExporting` state, and the `Download` / `Database` icon imports.
 
-**Visibility gate:** rendered only when the logged-in user is the head coach owner of this member. Concretely: `profile?.role === 'coach' && !isSubCoach` (sub-coaches identified by their own `team_members` row). Use the existing `useAuth().profile` plus a small `useIsHeadCoach()` derivation (already implicit via `role === 'coach'` and absence of `team_members.user_id = auth.uid()`). Toggle dispatches a mutation that writes `team_members.status` and `profiles.is_active` (when `userId` present), then invalidates `["team-members"]`.
+### WhatsApp Notification Toggle (Notifications tab)
+Add a fourth row inside the `[...].map(...)` notifications list with a Beta chip:
 
-## 4. Inactive Blocker — `MainLayout.tsx`
-
-Inside `MainLayout`, read `profile` from `useAuth()`. If `profile?.is_active === false`, **return the blocker only** — no sidebar, no topbar, no `<Outlet />`:
-
-```
-<div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0f] text-foreground">
-  <div className="relative flex flex-col items-center gap-6 max-w-md px-8 text-center">
-    <div className="absolute inset-0 -z-10 bg-destructive/20 blur-3xl rounded-full" />
-    <div className="w-20 h-20 rounded-full border-2 border-destructive/60 bg-destructive/10 flex items-center justify-center shadow-[0_0_60px_hsl(var(--destructive)/0.6)]">
-      <Lock className="w-10 h-10 text-destructive animate-pulse" />
+```tsx
+<div className="flex items-center justify-between py-2 border-t border-border/40 pt-4">
+  <div className="flex items-start gap-3">
+    <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center">
+      <MessageCircle className="w-5 h-5 text-success" />
     </div>
-    <h1 className="text-2xl font-semibold">Hesap Devre Dışı</h1>
-    <p className="text-muted-foreground">Kullanıcınız aktif değil. Lütfen ana koçunuz ile görüşün.</p>
-    <Button variant="destructive" onClick={signOut}>Çıkış Yap</Button>
+    <div>
+      <div className="flex items-center gap-2">
+        <p className="font-medium text-foreground">WhatsApp Anlık Bildirimleri</p>
+        <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30">
+          Beta · Yakında
+        </span>
+      </div>
+      <p className="text-sm text-muted-foreground">Sporcu olaylarını WhatsApp üzerinden anında alın.</p>
+    </div>
   </div>
+  <Switch
+    checked={whatsappEnabled}
+    onCheckedChange={setWhatsappEnabled}
+  />
 </div>
 ```
 
-Since this short-circuits before `<Outlet />`, it is route-proof: any URL the user navigates to still mounts `MainLayout` first and is intercepted. `ProtectedRoute` continues handling the unauthenticated case earlier in the tree.
+Wire `whatsappEnabled` state (default from `profile.whatsapp_notifications_enabled`) and include `_whatsapp_notifications_enabled: whatsappEnabled` in the `update_own_profile` RPC call. No third-party integration — the toggle just persists the preference.
+
+## 3. Dynamic Brand Identity
+
+### Save Business Name (already half-wired)
+The "İşletme/Salon Adı" input already binds to `formData.gymName` and writes via `_gym_name`. No change needed beyond confirming `refreshProfile()` propagates to the sidebar consumer.
+
+### `useBrandIdentity()` hook (new, `src/hooks/useBrandIdentity.ts`)
+Returns the **main coach's** business name regardless of who is logged in:
+- If `profile.role === 'coach' && !isSubCoach` → return `profile.gym_name`.
+- If `isSubCoach` and `activeCoachId` is set → fetch `profiles.gym_name` where `id = activeCoachId` via a small React Query keyed on `["brand-identity", activeCoachId]` (5min stale). The existing `get_coach_info` SECURITY DEFINER function already exposes `full_name + avatar_url` for any coach id, so we extend its return JSON to also include `gym_name` (single migration), keeping sub-coach visibility safe under RLS.
+
+### `AppSidebar.tsx` — Logo + business subtitle
+Replace the current "D" placeholder block (lines 88-100) with:
+
+```tsx
+{!collapsed ? (
+  <div className="flex flex-col gap-0.5">
+    <div className="flex items-center gap-2">
+      <img src="/brand-logo.svg" alt="Dynabolic" className="w-7 h-7" />
+      <span className="font-bold text-lg tracking-tight text-foreground">DYNABOLIC</span>
+    </div>
+    {businessName && (
+      <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-[0.2em] ml-9">
+        {businessName}
+      </span>
+    )}
+  </div>
+) : (
+  <img src="/brand-logo.svg" alt="Dynabolic" className="w-8 h-8 mx-auto" />
+)}
+```
+
+### Logo asset
+The project currently only ships `favicon.ico`, `pwa-192x192.png`, `pwa-512x512.png`. I will **generate a real Dynabolic mark** as `public/brand-logo.svg` (compact, on-brand neon-lime D-glyph with subtle glow) using `imagegen` (premium tier, transparent background, then copy to `public/`). If the user prefers, they can drop their own PNG/SVG into `public/brand-logo.svg` and the components will pick it up automatically.
+
+### Where else "DYNABOLIC" appears
+`TopBar.tsx` and `MobileNav.tsx` also render the wordmark. Same swap (logo + optional subtitle) applied to both for global consistency.
 
 ## Files Touched
 
-- **Migration:** `profiles.is_active boolean default true`.
-- `src/types/permissions.ts` — extend granular + flat schemas.
-- `src/components/team/PermissionMatrix.tsx` — add Templates group and "Sadece kendi sporcularını görsün" row.
-- `src/components/team/MemberProfileDrawer.tsx` — layout reflow, kill-switch card, mutation.
-- `src/hooks/useTeam.ts` — extend `useUpdateTeamMember` (or add `useSetMemberActive`) to write `team_members.status` + `profiles.is_active`.
-- `src/components/layout/MainLayout.tsx` — full-screen blocker.
+- **Migration:** add `profiles.whatsapp_notifications_enabled`, extend `update_own_profile` RPC, extend `get_coach_info` RPC to include `gym_name`.
+- `src/pages/Settings.tsx` — prune Bio + Export, add WhatsApp Beta toggle, persist new flag.
+- `src/hooks/useBrandIdentity.ts` — new hook resolving the head-coach business name.
+- `src/components/layout/AppSidebar.tsx` — real logo + business subtitle.
+- `src/components/layout/TopBar.tsx` — same logo swap, optional inline subtitle.
+- `src/components/layout/MobileNav.tsx` — same logo swap.
+- `public/brand-logo.svg` — generated brand mark.
 
-## Out of Scope
+## Open Question
 
-- Owner role above head coach (none exists in this app — head coach is the owner).
-- Reactivation invites/emails.
-- Parts 2–4 of launch prep.
+The spec says `/favicon.svg` "or the equivalent real asset path". I plan to generate a fresh `public/brand-logo.svg` Dynabolic mark. If you'd rather upload your own (or have me reuse the existing `/pwa-192x192.png`), say so before I run image generation.
