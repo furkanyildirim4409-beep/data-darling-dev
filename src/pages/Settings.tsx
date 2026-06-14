@@ -816,6 +816,7 @@ export default function Settings() {
             <div className="space-y-6">
               <TwoFactorSetup />
               <PhoneVerification />
+              <TwilioSmsTest />
               <div className="glass rounded-xl border border-border p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-6">Şifre</h2>
 
