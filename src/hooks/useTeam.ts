@@ -36,6 +36,7 @@ function mapRowToTeamMember(row: TeamMemberRow): TeamMember {
     permissions: row.permissions as "full" | "limited" | "read-only",
     custom_permissions: row.custom_permissions as unknown as GranularPermissions | null,
     athletes: row.athletes_count,
+    status: row.status,
     startDate: row.start_date
       ? format(new Date(row.start_date), "dd.MM.yyyy")
       : undefined,
@@ -156,6 +157,23 @@ export function useDeleteTeamMember() {
         .delete()
         .eq("id", id);
 
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+    },
+  });
+}
+
+export function useSetMemberActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ teamMemberId, isActive }: { teamMemberId: string; isActive: boolean }) => {
+      const { error } = await (supabase as any).rpc("set_team_member_active", {
+        _team_member_id: teamMemberId,
+        _is_active: isActive,
+      });
       if (error) throw error;
     },
     onSuccess: () => {

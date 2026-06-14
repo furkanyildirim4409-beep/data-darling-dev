@@ -2188,6 +2188,7 @@ export type Database = {
           iban: string | null
           id: string
           instagram_sync_active: boolean
+          is_active: boolean
           last_activity_date: string | null
           level: number | null
           longest_streak: number | null
@@ -2234,6 +2235,7 @@ export type Database = {
           iban?: string | null
           id: string
           instagram_sync_active?: boolean
+          is_active?: boolean
           last_activity_date?: string | null
           level?: number | null
           longest_streak?: number | null
@@ -2280,6 +2282,7 @@ export type Database = {
           iban?: string | null
           id?: string
           instagram_sync_active?: boolean
+          is_active?: boolean
           last_activity_date?: string | null
           level?: number | null
           longest_streak?: number | null
@@ -3510,6 +3513,10 @@ export type Database = {
           p_winner_id?: string
         }
         Returns: boolean
+      }
+      set_team_member_active: {
+        Args: { _is_active: boolean; _team_member_id: string }
+        Returns: undefined
       }
       update_own_profile:
         | {

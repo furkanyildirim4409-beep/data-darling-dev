@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,10 +36,11 @@ import {
   Settings,
   UserPlus,
   Search,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useUpdateTeamMember } from "@/hooks/useTeam";
+import { useUpdateTeamMember, useSetMemberActive } from "@/hooks/useTeam";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
 import {
@@ -65,6 +66,7 @@ export interface TeamMember {
   custom_permissions?: GranularPermissions | null;
   athletes: number;
   startDate?: string;
+  status?: string;
 }
 
 interface MemberProfileDrawerProps {
@@ -113,10 +115,15 @@ export function MemberProfileDrawer({
   member,
 }: MemberProfileDrawerProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile, isSubCoach } = useAuth();
   const updateMember = useUpdateTeamMember();
+  const setMemberActive = useSetMemberActive();
   const [editMode, setEditMode] = useState(false);
   const [editedMember, setEditedMember] = useState<TeamMember | null>(null);
+  const [isActive, setIsActive] = useState(true);
+
+  // Only the head coach owner can flip the active/inactive switch.
+  const canToggleActive = profile?.role === "coach" && !isSubCoach;
 
   // Permission state
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -142,12 +149,11 @@ export function MemberProfileDrawer({
   useEffect(() => {
     if (member && open) {
       setEditedMember({ ...member });
-      // Initialize granular permissions from custom_permissions or legacy tier
+      setIsActive((member.status ?? "active") === "active");
       const initial = member.custom_permissions
         ? member.custom_permissions
         : getDefaultPermissions(member.permissions);
       setGranularPermissions(initial);
-      // Try to match a template
       const matchedTpl = templates?.find(
         (t) => JSON.stringify(t.permissions) === JSON.stringify(initial)
       );
@@ -371,6 +377,60 @@ export function MemberProfileDrawer({
                 </div>
               </div>
             </div>
+
+            {/* Active / Inactive kill switch — head coach only */}
+            {canToggleActive && (
+              <div className="pt-4 border-t border-border">
+                <div className={cn(
+                  "rounded-xl border p-4 flex items-center justify-between gap-4 transition-colors",
+                  isActive
+                    ? "border-border bg-background/50"
+                    : "border-destructive/40 bg-destructive/5"
+                )}>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                      isActive ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                    )}>
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">Kullanıcı Durumu (Aktif/İnaktif)</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Devre dışı bırakıldığında kullanıcı uygulamaya giriş yapamaz.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isActive}
+                    disabled={setMemberActive.isPending}
+                    onCheckedChange={async (checked) => {
+                      const previous = isActive;
+                      setIsActive(checked);
+                      try {
+                        await setMemberActive.mutateAsync({
+                          teamMemberId: member.id,
+                          isActive: checked,
+                        });
+                        toast({
+                          title: checked ? "Kullanıcı Aktif" : "Kullanıcı Devre Dışı",
+                          description: checked
+                            ? `${member.name} artık uygulamayı kullanabilir. ✅`
+                            : `${member.name} uygulamaya giriş yapamayacak. 🔒`,
+                        });
+                      } catch {
+                        setIsActive(previous);
+                        toast({
+                          title: "Hata",
+                          description: "Kullanıcı durumu güncellenemedi.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Assignments Tab */}
@@ -391,7 +451,7 @@ export function MemberProfileDrawer({
               </p>
             </div>
 
-            <ScrollArea className="flex-1 pr-4">
+            <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
               <div className="space-y-2">
                 {filteredAthletes.map((athlete) => {
                   const isSelected = selectedAthleteIds.includes(athlete.id);
@@ -432,7 +492,7 @@ export function MemberProfileDrawer({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="pt-3 border-t border-border mt-3">
               <Button
@@ -447,26 +507,12 @@ export function MemberProfileDrawer({
           </TabsContent>
 
           {/* Permissions Tab */}
-          <TabsContent value="permissions" className="flex-1 overflow-hidden mt-4 flex flex-col">
-            <div className="flex justify-end mb-4">
-              {editMode ? (
-                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
-                  <Save className="w-4 h-4 mr-1.5" />
-                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => {
-                  setEditedMember({ ...member });
-                  setEditMode(true);
-                }}>
-                  <Edit2 className="w-4 h-4 mr-1.5" />
-                  Düzenle
-                </Button>
-              )}
-            </div>
-
-            {/* Template Selector */}
-            <div className="grid gap-2 mb-4">
+          <TabsContent
+            value="permissions"
+            className="flex-1 overflow-hidden mt-4 flex flex-col items-start justify-start space-y-6"
+          >
+            {/* Template Selector — pinned to top */}
+            <div className="grid gap-2 w-full">
               <Label>
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-primary" />
@@ -492,23 +538,43 @@ export function MemberProfileDrawer({
               </Select>
             </div>
 
-            <ScrollArea className="flex-1 pr-4">
+            <div className="flex justify-end w-full">
+              {editMode ? (
+                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
+                  <Save className="w-4 h-4 mr-1.5" />
+                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => {
+                  setEditedMember({ ...member });
+                  setEditMode(true);
+                }}>
+                  <Edit2 className="w-4 h-4 mr-1.5" />
+                  Düzenle
+                </Button>
+              )}
+            </div>
+
+            <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide">
               <PermissionMatrix
                 value={granularPermissions}
                 onChange={setGranularPermissions}
                 disabled={!editMode || selectedTemplateId !== CUSTOM_KEY}
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           {/* Audit Log Tab */}
-          <TabsContent value="audit" className="flex-1 overflow-hidden mt-4">
-            <ScrollArea className="h-full pr-4">
+          <TabsContent
+            value="audit"
+            className="flex-1 overflow-hidden mt-4 flex flex-col items-start justify-start space-y-6"
+          >
+            <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide">
               <div className="space-y-2">
                 {auditLogs.map((log) => (
-                  <div 
+                  <div
                     key={log.id}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border hover:border-primary/30 transition-colors"
+                    className="w-full flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border hover:border-primary/30 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                       {getActionIcon(log.type)}
@@ -520,7 +586,7 @@ export function MemberProfileDrawer({
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
       </SheetContent>

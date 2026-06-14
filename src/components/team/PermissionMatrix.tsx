@@ -1,4 +1,4 @@
-import { Users, Dumbbell, Apple, DollarSign, Shield, ShoppingBag, Palette, Mail } from 'lucide-react';
+import { Users, Dumbbell, Apple, DollarSign, Shield, ShoppingBag, Palette, Mail, FileCode2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,16 @@ const MODULES: ModuleConfig[] = [
       { key: 'view', label: 'Görüntüleme' },
       { key: 'edit', label: 'Düzenleme' },
       { key: 'delete', label: 'Silme' },
+      { key: 'scopeOwnOnly', label: 'Sadece kendi sporcularını görsün' },
+    ],
+  },
+  {
+    key: 'templates',
+    label: 'Şablonlar',
+    icon: FileCode2,
+    fields: [
+      { key: 'view', label: 'Görüntüleme' },
+      { key: 'edit', label: 'Düzenleme' },
     ],
   },
   {
