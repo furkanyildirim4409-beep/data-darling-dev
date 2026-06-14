@@ -25,6 +25,7 @@ interface ActiveChatProps {
   isLoadingOlder?: boolean;
   hasMoreMessages?: boolean;
   onSendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => void;
+  onUnsendMessage?: (messageId: string) => void | Promise<void>;
   onLoadOlder?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
@@ -32,8 +33,10 @@ interface ActiveChatProps {
 }
 
 
-export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
+export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onUnsendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
   const [input, setInput] = useState("");
+  const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
+
   const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
   const [previewMediaError, setPreviewMediaError] = useState(false);
