@@ -624,6 +624,10 @@ function useCoachChatStateInternal(): CoachChatValue {
     isLoadingOlder,
     hasMoreMessages,
     selectAthlete,
+    clearSelection: () => {
+      setSelectedAthleteId(null);
+      setMessages([]);
+    },
     sendMessage,
     unsendMessage,
     loadOlderMessages,
