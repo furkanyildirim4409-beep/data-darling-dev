@@ -325,6 +325,8 @@ export default function Akademi() {
           thumbnail: thumbnailUrl,
           tags: tagsArray,
           modules: uploadedModules,
+          visibility: form.visibility,
+          status: form.status,
         } as any);
 
       if (error) {
