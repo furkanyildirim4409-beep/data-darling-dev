@@ -302,7 +302,7 @@ export function TeamChatInterface() {
 
   // Desktop: two pane
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       <div className="w-80 flex-shrink-0">{sidebar}</div>
       {chatPane}
     </div>
