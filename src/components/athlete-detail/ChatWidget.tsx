@@ -84,6 +84,20 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
           ) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === msg.id)) return prev;
+              // Replace optimistic echo from this coach with same content
+              const optimisticIdx = prev.findIndex(
+                (m) =>
+                  m.sender_id === msg.sender_id &&
+                  m.receiver_id === msg.receiver_id &&
+                  m.content === msg.content &&
+                  !m.media_url &&
+                  Math.abs(new Date(m.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000
+              );
+              if (optimisticIdx !== -1) {
+                const next = [...prev];
+                next[optimisticIdx] = msg;
+                return next;
+              }
               return [...prev, msg];
             });
 
