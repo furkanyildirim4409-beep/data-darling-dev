@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, Trash2, UploadCloud, PlayCircle, X, Film } from "lucide-react";
+import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, Trash2, UploadCloud, PlayCircle, X, Film, Globe, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,21 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import RichTextEditor from "@/components/mailbox/RichTextEditor";
 
 type Category = "Antrenman" | "Beslenme" | "Mental";
 type ContentType = "Video" | "Makale";
 type SortOption = "newest" | "oldest" | "az";
+type Visibility = "public" | "students_only";
+type Status = "published" | "draft" | "archived";
+type ModuleContentType = "video" | "article";
 
 interface CourseModule {
   id: string;
@@ -29,6 +32,8 @@ interface CourseModule {
   videoUrl: string;
   fileName: string;
   order: number;
+  contentType: ModuleContentType;
+  articleContent: string;
 }
 
 interface CourseModuleLocal extends CourseModule {
@@ -45,6 +50,8 @@ interface AcademyItem {
   thumbnail: string;
   tags: string[];
   modules: CourseModule[];
+  visibility: Visibility;
+  status: Status;
   createdAt: number;
 }
 
