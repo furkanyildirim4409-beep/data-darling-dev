@@ -3,7 +3,7 @@ import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, Cr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -87,7 +87,7 @@ const validateTRIban = (rawIban: string): boolean => {
 };
 
 export default function Settings() {
-  const { profile, user, activeCoachId, refreshProfile, isSubCoach } = useAuth();
+  const { profile, user, refreshProfile, isSubCoach } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
