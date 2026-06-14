@@ -476,12 +476,37 @@ export function useCoachChat() {
         },
         (payload) => {
           const updated = payload.new as ChatMessage;
-          if (!updated?.is_read) return;
+          if (!updated?.id) return;
           setMessages(prev =>
-            prev.map(m => (m.id === updated.id ? { ...m, is_read: true } : m))
+            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
           );
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${coachId}`,
+        },
+        (payload) => {
+          const updated = payload.new as ChatMessage;
+          if (!updated?.id) return;
+          setMessages(prev =>
+            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
+          );
+          if (updated.is_deleted) {
+            const senderId = updated.sender_id;
+            setAthletes(prev => prev.map(a =>
+              a.id === senderId && a.latestMessage && a.latestMessage.sender_id === senderId
+                ? { ...a, latestMessage: { ...a.latestMessage, content: '🚫 Bu mesaj silindi.', media_type: null } }
+                : a
+            ));
+          }
+        }
+      )
+
       .on(
         'postgres_changes',
         {
