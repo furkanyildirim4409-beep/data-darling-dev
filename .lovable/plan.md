@@ -1,48 +1,49 @@
-# Twilio SMS + Telefon Numarası Akışı
+## Analiz
 
-Mevcut durumda Login ekranında SMS sekmesi ve Ayarlar > Güvenlik altında `PhoneVerification` paneli zaten var. Eksik olan üç parçayı tamamlayacağız.
+Uygulama ve Supabase Auth loglarına göre SMS doğrulama yapılmamasının ana nedeni kod değil, Twilio/Supabase Phone Provider yapılandırması:
 
-## 1) Ayarlar > Güvenlik: "Twilio SMS Test" paneli (yeni)
+- `/user` `phone_change` isteği `422 sms_send_failed` dönüyor.
+- Hata: `Twilio Authenticate ... error 20003`.
+- Twilio 20003, Twilio tarafında kimlik doğrulama hatasıdır: Account SID/Auth Token yanlış, API key yetkisiz, yanlış subaccount, eski/rotate edilmiş token veya Supabase Phone Provider'a hatalı credential girilmiş olabilir.
+- `/otp` için ayrıca `otp_disabled / Signups not allowed for otp` görülüyor. Bu, test panelinin kayıtlı olmayan numaraya OTP göndermeye çalışmasından ve Phone OTP/signup ayarlarından kaynaklanıyor; test UI bunu yanlışlıkla “SMS gönderildi” gibi gösterebiliyor.
 
-Amaç: Twilio kimlik bilgileri Supabase Auth Provider'a girildikten sonra, koçun hesabını değiştirmeden uçtan uca SMS gönderim/doğrulama testi yapması.
+## Çözüm Planı
 
-- Yeni dosya: `src/components/settings/TwilioSmsTest.tsx`
-  - Bir telefon input'u (E.164, +90 önekli) + "Test Kodu Gönder" butonu.
-  - `supabase.auth.signInWithOtp({ phone, options: { shouldCreateUser: false, channel: 'sms' } })` çağrısı.
-    - `shouldCreateUser:false` sayesinde mevcut hesabı etkilemez; provider hatasıysa Twilio konfigürasyon hatası net görünür.
-  - 6 haneli `InputOTP` ile kodu doğrulamak için `verifyOtp({ phone, token, type: 'sms' })` (sandbox modu, sadece akışı test eder; başarılıysa "Twilio entegrasyonu çalışıyor" toast'u, oturum açmadan hemen `supabase.auth.signOut()` ile temizlik yapar).
-  - Hata durumlarını Türkçe açık mesajlarla gösterir: "Provider yapılandırılmamış", "Hatalı kod", "Rate limit", vb.
-- `src/pages/Settings.tsx` Güvenlik bölümüne `<TwilioSmsTest />` ekle (mevcut `<PhoneVerification />`'ın hemen altına).
+1. **Hata mesajlarını düzelt**
+   - `TwilioSmsTest`, `PhoneVerification` ve SMS login akışında Twilio 20003, `sms_send_failed`, `otp_disabled`, `signups not allowed` hataları için Türkçe ve doğru yönlendiren mesajlar gösterilecek.
+   - `signups not allowed` artık başarı gibi gösterilmeyecek; kullanıcıya “Bu numara sistemde kayıtlı değil / OTP signup kapalı” denecek.
 
-## 2) Kayıt ekranı: opsiyonel telefon numarası (email zorunlu kalır)
+2. **Test akışını güvenilir hale getir**
+   - Test paneli “numara hesapta yoksa bile gönderildi” varsayımını kaldıracak.
+   - Test için iki net mod olacak:
+     - **Kayıtlı telefonla giriş testi:** daha önce doğrulanmış telefonla `signInWithOtp`.
+     - **Mevcut oturumda telefon doğrulama testi:** ayarlar ekranındaki `updateUser({ phone })` + `verifyOtp({ type: 'phone_change' })`.
+   - Böylece gerçek SMS gitmeden UI başarı göstermeyecek.
 
-- `src/pages/Register.tsx`:
-  - Email + şifre **zorunlu** (mevcut davranış korunur).
-  - Yeni opsiyonel alan: "Telefon Numarası (opsiyonel)" — E.164 formatı, kullanıcıya "Daha sonra Ayarlar'dan doğrulayabilirsiniz" notu.
-  - `signUp(...)` çağrısına metadata olarak telefon geçilir. `AuthContext.signUp` imzasına opsiyonel `phone` parametresi eklenir; `supabase.auth.signUp` çağrısına `options.data.pending_phone = phone` olarak konur (auth.users.phone'a yazılmaz, çünkü o doğrulama gerektirir).
-  - Kayıt sonrası kullanıcıya: "Telefonunu doğrulamak için Ayarlar > Güvenlik bölümünden devam et."
+3. **Telefon formatını tutarlı yap**
+   - Supabase çağrılarına telefon numarası E.164 formatında ve `+` işaretiyle gönderilecek (`+905...`).
+   - Mevcut kod bazı yerlerde `+` işaretini siliyor; bu belirsizliği kaldıracağım.
 
-## 3) Giriş ekranı: telefon seçeneği
+4. **Ayarlar > Profil/Güvenlik doğrulamasını iyileştir**
+   - `PhoneVerification` içinde Twilio yapılandırma hataları daha anlaşılır gösterilecek.
+   - Başarısız SMS gönderiminde kullanıcıya Supabase Dashboard → Authentication → Providers → Phone → Twilio ayarlarını kontrol etmesi söylenecek.
 
-- Login'de SMS sekmesi zaten var; sadece üst notu netleştir: "Daha önce telefonunu doğrulamış koçlar SMS ile giriş yapabilir; ilk kez kayıt olacaksanız E-posta sekmesini kullanın."
+5. **Gerekli Twilio bilgileri**
+   - Kod değişikliği sonrasında hâlâ 20003 gelirse sorun Twilio credentials tarafındadır.
+   - Bu durumda Supabase Auth Phone Provider’a şu bilgiler doğru girilmeli:
+     - Twilio Account SID
+     - Twilio Auth Token
+     - Twilio Messaging Service SID veya Twilio From Number
+   - Güvenlik nedeniyle bunlar frontend koduna yazılmayacak; Supabase Auth Dashboard’da yapılandırılacak. İstersen ayrıca Lovable Secrets üzerinden edge-function tabanlı ayrı bir Twilio test endpoint’i kurabiliriz, ama Supabase Auth SMS için asıl credential Supabase Auth Provider ayarında olmalı.
 
-## 4) Akış kuralları
+## Uygulanacak Dosyalar
 
-- Email **her zaman** zorunlu (kayıt, şifre sıfırlama, doğrulama maili için).
-- Telefon **opsiyonel** ve sadece Settings'te `supabase.auth.updateUser({ phone })` + `verifyOtp({ type: 'phone_change' })` ile doğrulanır (mevcut `PhoneVerification` aynen kullanılır).
-- Doğrulanmış telefon → SMS ile giriş otomatik olarak çalışır (Supabase Auth tarafından).
+- `src/components/settings/TwilioSmsTest.tsx`
+- `src/components/settings/PhoneVerification.tsx`
+- `src/pages/Login.tsx`
 
-## Teknik notlar
+## Beklenen Sonuç
 
-- Tüm SMS işlemleri `supabase.auth.*` üzerinden gider; Twilio'ya doğrudan istek atan edge function yazılmaz (Supabase zaten Twilio'yu Auth Provider olarak kullanır).
-- DB değişikliği yok.
-- `pending_phone` metadata değeri, ileride otomatik bir akış için `auth-email-hook`/trigger ile kullanılabilir — bu plan kapsamında sadece bilgi olarak saklanır.
-
-## Manuel ön koşul (kullanıcı tarafı)
-
-Supabase Dashboard → Authentication → Providers → Phone:
-- Provider: Twilio
-- Account SID, Auth Token, Messaging Service SID (veya From Number) gir
-- Enable Phone Provider
-
-Bu yapılmadan SMS gönderimi 422/500 hatası verir; Test panelinde mesaj net görünecek.
+- Twilio credential yanlışsa kullanıcı net şekilde “Twilio kimlik doğrulama hatası / 20003” görür.
+- SMS gerçekten gönderilmeden test paneli başarılı göstermez.
+- Doğru Supabase Phone + Twilio ayarı yapıldığında kullanıcı Ayarlar ekranında telefonunu SMS koduyla doğrular, sonrasında login ekranında SMS ile giriş yapabilir.

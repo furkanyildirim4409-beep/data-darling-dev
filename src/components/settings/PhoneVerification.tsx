@@ -39,6 +39,21 @@ export function PhoneVerification() {
     return cleaned;
   };
 
+  const translateError = (msg: string): string => {
+    const m = (msg || "").toLowerCase();
+    if (m.includes("20003") || (m.includes("authenticate") && m.includes("twilio")))
+      return "Twilio kimlik doğrulama hatası (20003). Supabase Dashboard → Authentication → Providers → Phone bölümündeki Twilio Account SID, Auth Token ve Messaging Service SID / From Number bilgilerini kontrol edin.";
+    if (m.includes("sms_send_failed") || m.includes("error sending"))
+      return "SMS gönderilemedi. Supabase Phone Provider ayarlarındaki Twilio bilgilerinin doğruluğunu ve Twilio bakiyenizi kontrol edin.";
+    if (m.includes("unsupported phone provider") || m.includes("sms provider"))
+      return "Supabase Auth'ta SMS Provider aktif değil. Dashboard → Authentication → Providers → Phone'dan Twilio'yu etkinleştirin.";
+    if (m.includes("rate") || m.includes("limit"))
+      return "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin.";
+    if (m.includes("token") || m.includes("otp") || m.includes("expired"))
+      return "Kod hatalı veya süresi dolmuş.";
+    return msg;
+  };
+
   const sendCode = async () => {
     const e164 = normalize(phone);
     if (e164.length < 10) {
@@ -47,14 +62,14 @@ export function PhoneVerification() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ phone: e164.replace(/^\+/, "") });
+      const { error } = await supabase.auth.updateUser({ phone: e164 });
       if (error) throw error;
       setCurrentPhone(e164);
       setCode("");
       setPhase("sent");
       toast.success("Doğrulama kodu telefonunuza gönderildi.");
     } catch (e: any) {
-      toast.error(e?.message || "SMS gönderilemedi. Provider yapılandırmasını kontrol edin.");
+      toast.error(translateError(e?.message || "SMS gönderilemedi."));
     } finally {
       setBusy(false);
     }
@@ -65,7 +80,7 @@ export function PhoneVerification() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
-        phone: currentPhone.replace(/^\+/, ""),
+        phone: currentPhone,
         token: code,
         type: "phone_change",
       });
@@ -74,7 +89,7 @@ export function PhoneVerification() {
       setCode("");
       await refresh();
     } catch (e: any) {
-      toast.error(e?.message || "Kod hatalı veya süresi dolmuş.");
+      toast.error(translateError(e?.message || "Kod hatalı veya süresi dolmuş."));
       setCode("");
     } finally {
       setBusy(false);
