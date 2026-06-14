@@ -1,7 +1,7 @@
 // Granular ACL Permission Schema — stored as JSONB in team_members.custom_permissions
 
 export interface GranularPermissions {
-  athletes: { view: boolean; edit: boolean; delete: boolean };
+  athletes: { view: boolean; edit: boolean; delete: boolean; scopeOwnOnly: boolean };
   workouts: { view: boolean; create: boolean; edit: boolean; delete: boolean; assign: boolean };
   diets: { view: boolean; create: boolean; edit: boolean; delete: boolean; assign: boolean };
   finances: { view: boolean; manage: boolean };
@@ -9,6 +9,7 @@ export interface GranularPermissions {
   store: { view: boolean; manage: boolean };
   content: { view: boolean; manage: boolean };
   mail: { view: boolean; manage: boolean };
+  templates: { view: boolean; edit: boolean };
 }
 
 /** Flat boolean flags consumed by UI components */
@@ -17,12 +18,13 @@ export interface FlatPermissions {
   canViewAthletes: boolean;
   canEditAthletes: boolean;
   canDeleteAthletes: boolean;
+  canViewOnlyAssignedAthletes: boolean;
   // Workouts (legacy "programs")
   canViewWorkouts: boolean;
-  canCreatePrograms: boolean;   // backward-compat alias
+  canCreatePrograms: boolean;
   canEditWorkouts: boolean;
   canDeleteWorkouts: boolean;
-  canAssignPrograms: boolean;   // backward-compat alias
+  canAssignPrograms: boolean;
   // Diets
   canViewDiets: boolean;
   canCreateDiets: boolean;
@@ -45,6 +47,9 @@ export interface FlatPermissions {
   // Mail
   canViewMail: boolean;
   canManageMail: boolean;
+  // Templates
+  canViewTemplates: boolean;
+  canEditTemplates: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +57,7 @@ export interface FlatPermissions {
 // ---------------------------------------------------------------------------
 
 const ALL_TRUE: GranularPermissions = {
-  athletes: { view: true, edit: true, delete: true },
+  athletes: { view: true, edit: true, delete: true, scopeOwnOnly: false },
   workouts: { view: true, create: true, edit: true, delete: true, assign: true },
   diets: { view: true, create: true, edit: true, delete: true, assign: true },
   finances: { view: true, manage: true },
@@ -60,10 +65,11 @@ const ALL_TRUE: GranularPermissions = {
   store: { view: true, manage: true },
   content: { view: true, manage: true },
   mail: { view: true, manage: true },
+  templates: { view: true, edit: true },
 };
 
 const ALL_FALSE: GranularPermissions = {
-  athletes: { view: true, edit: false, delete: false },
+  athletes: { view: true, edit: false, delete: false, scopeOwnOnly: true },
   workouts: { view: true, create: false, edit: false, delete: false, assign: false },
   diets: { view: true, create: false, edit: false, delete: false, assign: false },
   finances: { view: false, manage: false },
@@ -71,10 +77,11 @@ const ALL_FALSE: GranularPermissions = {
   store: { view: false, manage: false },
   content: { view: false, manage: false },
   mail: { view: false, manage: false },
+  templates: { view: true, edit: false },
 };
 
 const LIMITED: GranularPermissions = {
-  athletes: { view: true, edit: true, delete: false },
+  athletes: { view: true, edit: true, delete: false, scopeOwnOnly: true },
   workouts: { view: true, create: true, edit: true, delete: false, assign: true },
   diets: { view: true, create: true, edit: true, delete: false, assign: true },
   finances: { view: false, manage: false },
@@ -82,12 +89,9 @@ const LIMITED: GranularPermissions = {
   store: { view: true, manage: false },
   content: { view: true, manage: false },
   mail: { view: false, manage: false },
+  templates: { view: true, edit: false },
 };
 
-/**
- * Maps a legacy 3-tier permission string to the new GranularPermissions object.
- * Used as a fallback when `custom_permissions` JSONB is null.
- */
 export function getDefaultPermissions(tier: 'full' | 'limited' | 'read-only'): GranularPermissions {
   switch (tier) {
     case 'full':
@@ -100,15 +104,12 @@ export function getDefaultPermissions(tier: 'full' | 'limited' | 'read-only'): G
   }
 }
 
-/**
- * Converts a GranularPermissions JSONB object to the flat boolean map consumed by UI.
- * Defensively reads each key so partial JSONB values don't crash.
- */
 export function flattenPermissions(g: GranularPermissions): FlatPermissions {
   return {
     canViewAthletes: g.athletes?.view ?? true,
     canEditAthletes: g.athletes?.edit ?? false,
     canDeleteAthletes: g.athletes?.delete ?? false,
+    canViewOnlyAssignedAthletes: g.athletes?.scopeOwnOnly ?? false,
 
     canViewWorkouts: g.workouts?.view ?? true,
     canCreatePrograms: g.workouts?.create ?? false,
@@ -137,10 +138,12 @@ export function flattenPermissions(g: GranularPermissions): FlatPermissions {
 
     canViewMail: g.mail?.view ?? false,
     canManageMail: g.mail?.manage ?? false,
+
+    canViewTemplates: g.templates?.view ?? true,
+    canEditTemplates: g.templates?.edit ?? false,
   };
 }
 
-/** Returns a FlatPermissions object with every flag set to true (head coach / full access). */
 export function fullAccessPermissions(): FlatPermissions {
   return flattenPermissions(ALL_TRUE);
 }

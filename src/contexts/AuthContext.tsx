@@ -18,6 +18,7 @@ export interface Profile {
   instagram_sync_active: boolean | null;
   subscription_tier: string | null;
   iban: string | null;
+  is_active: boolean;
   notification_preferences: {
     email: boolean;
     push: boolean;
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: p.username ?? null,
         instagram_sync_active: p.instagram_sync_active ?? true,
         iban: p.iban ?? null,
+        is_active: p.is_active ?? true,
         notification_preferences: p.notification_preferences ?? null,
         notification_settings: p.notification_settings ?? null,
       };

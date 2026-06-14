@@ -163,3 +163,20 @@ export function useDeleteTeamMember() {
     },
   });
 }
+
+export function useSetMemberActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ teamMemberId, isActive }: { teamMemberId: string; isActive: boolean }) => {
+      const { error } = await (supabase as any).rpc("set_team_member_active", {
+        _team_member_id: teamMemberId,
+        _is_active: isActive,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+    },
+  });
+}
