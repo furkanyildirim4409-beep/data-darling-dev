@@ -75,6 +75,33 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  const logEvent = async (params: {
+    coachId: string | null;
+    subId: string | null;
+    customerId: string | null;
+    previousStatus: string | null;
+    newStatus: string | null;
+    previousTier: string | null;
+    newTier: string | null;
+  }) => {
+    const { error } = await supabase.from("subscription_events").upsert(
+      {
+        id: event.id,
+        coach_id: params.coachId,
+        stripe_subscription_id: params.subId,
+        stripe_customer_id: params.customerId,
+        event_type: event.type,
+        previous_status: params.previousStatus,
+        new_status: params.newStatus,
+        previous_tier: params.previousTier,
+        new_tier: params.newTier,
+        raw_payload: event as unknown as Record<string, unknown>,
+      },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
+    if (error) console.warn("Failed to log subscription_event", event.id, error);
+  };
+
   const upsertFromSubscription = async (
     sub: Stripe.Subscription,
     fallbackCoachId?: string | null,
@@ -83,33 +110,85 @@ Deno.serve(async (req) => {
       (sub.metadata?.coach_id as string | undefined) ?? fallbackCoachId ?? null;
     if (!coachId) {
       console.warn("Subscription has no coach_id metadata", sub.id);
+      await logEvent({
+        coachId: null,
+        subId: sub.id,
+        customerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+        previousStatus: null,
+        newStatus: sub.status,
+        previousTier: null,
+        newTier: tierFromSubscription(sub),
+      });
       return;
     }
 
-    const tier = tierFromSubscription(sub);
-    const status = sub.status;
+    // Snapshot current DB values to record drift / transition
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("subscription_status, subscription_tier")
+      .eq("id", coachId)
+      .maybeSingle();
+
+    const previousStatus = existing?.subscription_status ?? null;
+    const previousTier = existing?.subscription_tier ?? null;
+
+    // Normalize: on deletion, force canceled + null tier
+    const isDeleted = event.type === "customer.subscription.deleted";
+    const tier = isDeleted ? null : tierFromSubscription(sub);
+    const status = isDeleted ? "canceled" : sub.status;
     const periodEnd = sub.current_period_end
       ? new Date(sub.current_period_end * 1000).toISOString()
       : null;
+    const customerId =
+      (typeof sub.customer === "string" ? sub.customer : sub.customer?.id) ?? null;
+
+    const updatePayload: Record<string, unknown> = {
+      subscription_status: status,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: sub.id,
+      subscription_current_period_end: periodEnd,
+      subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+      updated_at: new Date().toISOString(),
+    };
+    // Only overwrite tier when we have a confident value (or explicit cancel)
+    if (tier !== null || isDeleted) updatePayload.subscription_tier = tier;
 
     const { error } = await supabase
       .from("profiles")
-      .update({
-        subscription_tier: tier ?? undefined,
-        subscription_status: status,
-        stripe_customer_id:
-          (typeof sub.customer === "string" ? sub.customer : sub.customer?.id) ?? null,
-        stripe_subscription_id: sub.id,
-        subscription_current_period_end: periodEnd,
-        subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", coachId);
 
     if (error) {
       console.error("Failed to update profile from subscription", coachId, error);
       throw error;
     }
+
+    // Drift verification: re-read and reconcile if status mismatch
+    const { data: verify } = await supabase
+      .from("profiles")
+      .select("subscription_status, subscription_tier")
+      .eq("id", coachId)
+      .maybeSingle();
+
+    if (verify && verify.subscription_status !== status) {
+      console.warn(
+        `Status drift detected for ${coachId}: DB=${verify.subscription_status} Stripe=${status}. Reconciling.`,
+      );
+      await supabase
+        .from("profiles")
+        .update({ subscription_status: status, updated_at: new Date().toISOString() })
+        .eq("id", coachId);
+    }
+
+    await logEvent({
+      coachId,
+      subId: sub.id,
+      customerId,
+      previousStatus,
+      newStatus: status,
+      previousTier,
+      newTier: tier,
+    });
   };
 
   try {
@@ -128,6 +207,17 @@ Deno.serve(async (req) => {
               : session.subscription.id;
           const sub = await stripe.subscriptions.retrieve(subId);
           await upsertFromSubscription(sub, coachId);
+        } else {
+          await logEvent({
+            coachId,
+            subId: null,
+            customerId:
+              typeof session.customer === "string" ? session.customer : session.customer?.id ?? null,
+            previousStatus: null,
+            newStatus: null,
+            previousTier: null,
+            newTier: null,
+          });
         }
         break;
       }
