@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { CoachInbox } from "@/components/chat/CoachInbox";
@@ -13,6 +13,7 @@ import { MessageCircle, Users } from "lucide-react";
 export default function Messages() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const {
     athletes,
@@ -32,9 +33,11 @@ export default function Messages() {
 
   useEffect(() => {
     return () => {
-      clearSelection();
+      if (!window.location.pathname.startsWith('/messages')) {
+        clearSelection();
+      }
     };
-  }, [clearSelection]);
+  }, [clearSelection, location.pathname]);
 
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
