@@ -597,7 +597,7 @@ export default function Settings() {
                           className={cn(
                             "w-full font-semibold",
                             isCurrent || isLowerTier
-                              ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
+                              ? "bg-muted text-muted-foreground/60 cursor-not-allowed hover:bg-muted opacity-60"
                               : tier.highlight
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                 : "bg-foreground text-background hover:bg-foreground/90"
@@ -615,6 +615,8 @@ export default function Settings() {
                             "Aktif Plan"
                           ) : isLowerTier ? (
                             "Daha Düşük Plan"
+                          ) : hasActiveSub ? (
+                            "Planı Yükselt"
                           ) : (
                             tier.cta
                           )}
