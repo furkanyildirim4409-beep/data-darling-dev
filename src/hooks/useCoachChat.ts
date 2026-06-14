@@ -421,13 +421,25 @@ function useCoachChatStateInternal(): CoachChatValue {
           const senderId = newMsg.sender_id;
           const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
+          // Hard guard: same INSERT can fire twice (multiple tabs/channels). Process each id once.
+          if (insertProcessedIdsRef.current.has(newMsg.id)) return;
+          insertProcessedIdsRef.current.add(newMsg.id);
+          // Cap the set to avoid unbounded growth
+          if (insertProcessedIdsRef.current.size > 500) {
+            const first = insertProcessedIdsRef.current.values().next().value;
+            if (first) insertProcessedIdsRef.current.delete(first);
+          }
+
           const knownSender = athletesRef.current.some(a => a.id === senderId);
           if (!knownSender) {
             setTimeout(() => fetchAthletes(), 0);
           }
 
           if (senderId === selectedAthleteIdRef.current) {
-            setMessages(prev => [...prev, newMsg]);
+            // Dedupe by id when appending to active thread
+            setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            // We're auto-marking read locally; pre-record id so our own UPDATE event can't double-decrement
+            readProcessedIdsRef.current.add(newMsg.id);
             supabase
               .from('messages')
               .update({ is_read: true })
