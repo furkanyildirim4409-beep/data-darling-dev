@@ -92,7 +92,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           <div className="flex flex-col gap-0.5 min-w-0">
             <div className="flex items-center gap-2">
               <img
-                src="/brand-logo.png"
+                src="/brand-logo.svg"
                 alt="Dynabolic"
                 width={28}
                 height={28}
@@ -108,7 +108,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           </div>
         ) : (
           <img
-            src="/brand-logo.png"
+            src="/brand-logo.svg"
             alt="Dynabolic"
             width={32}
             height={32}

@@ -31,7 +31,7 @@ export function TopBar() {
         {isMobile && !mobileSearchOpen && (
           <div className="flex items-center gap-2">
             <img
-              src="/brand-logo.png"
+              src="/brand-logo.svg"
               alt="Dynabolic"
               width={28}
               height={28}
