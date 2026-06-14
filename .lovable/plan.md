@@ -1,57 +1,82 @@
-## MFA (2FA) Login Interceptor Hotfix
+# Supabase Auth: E-posta & SMS Doğrulama Aktivasyonu
 
-### Goal
-Intercept the login flow in `src/pages/Login.tsx` so users enrolled in TOTP must enter their 6-digit code before reaching the dashboard. Users without 2FA continue to log in normally.
+## Durum
+Şu an projede:
+- ✅ TOTP (Authenticator) 2FA aktif — `TwoFactorSetup.tsx` + Login MFA interceptor mevcut
+- ❌ E-posta doğrulama (signup confirmation) durumu Supabase tarafında kontrol edilmedi
+- ❌ SMS / Phone OTP doğrulama hiç entegre değil
+- Custom auth email template'leri scaffold edilmemiş (varsayılan Lovable email'leri kullanılıyor)
 
-### Scope
-Single file: `src/pages/Login.tsx`. No DB, no edge functions, no other components touched.
+## Önemli Kısıtlamalar
 
-### Implementation Steps
+**1. SMS Doğrulama → Supabase Dashboard'dan provider gerekli**
+Supabase SMS OTP, kod tarafından açılamaz. Üçüncü taraf SMS provider (Twilio, MessageBird, Vonage, Textlocal) gerekir:
+- Provider hesabı + API key/secret
+- Supabase Dashboard → Authentication → Providers → Phone → enable + credentials
+- Maliyet: SMS başına ücret (Twilio ~$0.04/SMS TR)
 
-1. **Imports**
-   - Add `InputOTP`, `InputOTPGroup`, `InputOTPSlot` from `@/components/ui/input-otp`.
-   - Add `supabase` from `@/integrations/supabase/client` (needed for `auth.mfa.*` calls — `AuthContext.signIn` doesn't expose them).
-   - Add `ShieldCheck` icon from `lucide-react` for the MFA panel header.
+Bunu Lovable agent **kullanıcı yerine yapamaz** — credential'ları sen gireceksin.
 
-2. **New state**
-   - `showMfa: boolean`
-   - `factorId: string`
-   - `mfaCode: string`
-   - `isVerifying: boolean`
+**2. E-posta doğrulama → İki seviye**
+- **a) Signup email confirmation aç/kapa:** Supabase Dashboard → Authentication → Sign In / Providers → Email → "Confirm email" toggle (kod tarafından değiştirilemez)
+- **b) Custom branded email template'leri:** `email_domain--scaffold_auth_email_templates` ile yapılabilir (Dynabolic markalı confirmation/recovery/magic-link mailleri)
 
-3. **Refactor `handleSubmit`**
-   - Keep using `signIn(email, password)` from `useAuth` for password verification (preserves existing toast + session wiring).
-   - After success, call `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`.
-   - If `currentLevel === 'aal1' && nextLevel === 'aal2'`:
-     - `listFactors()` → pick first verified TOTP factor.
-     - If found: `setFactorId`, `setShowMfa(true)`, clear `pendingLogin`, stop. Do NOT navigate.
-   - Otherwise: fall through to the existing `pendingLogin` → role check → navigate path.
+---
 
-4. **New `handleVerifyMfa`**
-   - `supabase.auth.mfa.challenge({ factorId })` → `verify({ factorId, challengeId, code: mfaCode })`.
-   - On success: toast + let the existing `pendingLogin`/profile effect route to `/` (set `pendingLogin = true` so the coach-only role guard still applies).
-   - On error: toast Turkish error, clear `mfaCode`, keep MFA panel open.
-   - Guard: only enable submit when `mfaCode.length === 6`.
+## Plan
 
-5. **Failure / cancel handling**
-   - "İptal" button: `await supabase.auth.signOut()` then reset MFA state and clear inputs — prevents leaving a half-authenticated AAL1 session behind.
-   - If `getAuthenticatorAssuranceLevel` or `listFactors` throws: sign out, toast error, reset to login form.
+### Aşama 1 — E-posta Doğrulama (kod + UI)
 
-6. **JSX**
-   - Conditional render inside the existing glass card:
-     - `showMfa === false` → current email/password form unchanged.
-     - `showMfa === true` → MFA panel: `ShieldCheck` header, Turkish copy ("Güvenlik Kodu" / "Authenticator uygulamanızdaki 6 haneli kodu girin"), centered `InputOTP` with 6 `InputOTPSlot`s, "Doğrula ve Giriş Yap" primary button, "İptal" ghost button.
-   - Reuse existing dark/glass styling (`bg-black/40 backdrop-blur-xl border-white/10`) — no new design tokens.
+**1.1 Signup akışını "email confirm" için hazırla**
+`src/contexts/AuthContext.tsx` içindeki `signUp`:
+- `emailRedirectTo: ${window.location.origin}/auth/callback` olarak güncelle
+- Başarılı signup sonrası kullanıcıya "E-postanı kontrol et" ekranı göster
 
-7. **Role gate preservation**
-   - The existing `useEffect` that checks `profile.role === 'coach'` and signs out non-coaches must still run after MFA verification. Achieved by setting `pendingLogin = true` once MFA verify succeeds, so profile-load triggers the same gate.
+**1.2 Yeni sayfa: `src/pages/AuthCallback.tsx`**
+- URL hash'inden `access_token` / `type=signup` / `type=recovery` parse et
+- `signup` → "E-posta doğrulandı" toast + `/` yönlendirme
+- `recovery` → `/reset-password` yönlendirme
 
-### Technical Notes
-- Supabase persists the AAL1 session immediately after `signInWithPassword`. We must NOT navigate until either (a) no TOTP factor exists, or (b) `mfa.verify` resolves successfully — otherwise `ProtectedRoute` lets the user in at AAL1.
-- `listFactors()` returns both verified and unverified TOTP entries; filter to `status === 'verified'` to avoid challenging against a pending enrollment.
-- Cancel must `signOut()` to invalidate the AAL1 session; otherwise a refresh would bypass MFA.
+**1.3 Yeni sayfa: `src/pages/VerifyEmailPending.tsx`**
+- Signup sonrası gösterilir
+- "Doğrulama linki gönderildi" mesajı + "Tekrar gönder" butonu (`supabase.auth.resend({ type: 'signup', email })`)
 
-### Verification
-- Coach without 2FA → unchanged behavior, lands on `/`.
-- Coach with verified TOTP → password submit reveals OTP panel; correct code → `/`; wrong code → toast, stays on panel; cancel → returns to login, session cleared.
-- Non-coach with correct password (and MFA if any) → still hits the role guard and is signed out with the existing toast.
+**1.4 Custom email template'leri (markalı)**
+`email_domain--scaffold_auth_email_templates` çağrısı:
+- Dynabolic marka renkleri (lime primer, dark bg) ile 6 template (signup, magiclink, recovery, invite, email-change, reauthentication)
+- `auth-email-hook` edge function deploy
+- DNS zaten doğrulanmışsa email'ler aktif olur
+
+### Aşama 2 — SMS / Telefon Doğrulama
+
+**2.1 Yeni Settings bölümü: `src/components/settings/PhoneVerification.tsx`**
+TOTP setup ile aynı stilde:
+- "Telefon Numarası Ekle" → input (+90...) → `supabase.auth.updateUser({ phone })` → OTP gönderilir
+- 6 haneli SMS kodu input (InputOTP) → `supabase.auth.verifyOtp({ phone, token, type: 'phone_change' })`
+- Doğrulanmış telefon → "Aktif" badge + "Kaldır" butonu
+
+**2.2 Login'de SMS OTP opsiyonu (opsiyonel — sormak istiyorum)**
+İki seçenek:
+- **A) Sadece TOTP korunsun, SMS opsiyonel ikinci faktör** — TOTP'si olmayan kullanıcılar için fallback
+- **B) "Telefonla giriş yap" sekmesi** — şifresiz, sadece SMS OTP ile login
+
+**2.3 Settings sayfasına entegre**
+`src/pages/Settings.tsx` → `TwoFactorSetup`'ın altına `PhoneVerification` ekle.
+
+### Aşama 3 — Kullanıcının manuel adımları
+
+Şunları sen Supabase Dashboard'da yapacaksın (linkleri vereceğim):
+1. **Auth → Providers → Email** → "Confirm email" toggle ON
+2. **Auth → Providers → Phone** → Provider seç (Twilio öneririm) + Account SID / Auth Token / Message Service SID gir
+3. **Auth → URL Configuration** → Site URL: `https://app.dynabolic.co`, Redirect URLs'e `/auth/callback` ekle
+
+---
+
+## Kullanıcıya Sorular (devam etmeden önce)
+
+1. **SMS provider:** Twilio mu, başka bir şey mi? Hesabın var mı yoksa kuruluma yardım edeyim mi?
+2. **SMS kullanım amacı:** Sadece koçlar Settings'ten telefon ekleyip ikinci faktör olarak mı kullansın, yoksa Login ekranında "SMS ile giriş" sekmesi de olsun mu?
+3. **Markalı e-posta template'leri:** Şimdi scaffold edelim mi (Dynabolic teması + lime renk)?
+4. **Signup email confirmation:** Şu an muhtemelen kapalı — açtığımızda mevcut doğrulanmamış kullanıcılar bir sonraki login'de doğrulama isteyecek. Açalım mı?
+
+Cevap geldikten sonra ilgili kod adımlarını uygulayacağım.
