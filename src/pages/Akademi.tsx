@@ -81,6 +81,8 @@ export default function Akademi() {
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [form, setForm] = useState({
     title: "", description: "", category: "" as Category | "", type: "" as ContentType | "", thumbnail: "", tags: "",
+    visibility: "public" as Visibility,
+    status: "published" as Status,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -97,7 +99,7 @@ export default function Akademi() {
     setThumbnailFile(null);
     if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
     setThumbnailPreview("");
-    setForm({ title: "", description: "", category: "", type: "", thumbnail: "", tags: "" });
+    setForm({ title: "", description: "", category: "", type: "", thumbnail: "", tags: "", visibility: "public", status: "published" });
     setModules([]);
   }, [thumbnailPreview]);
 
