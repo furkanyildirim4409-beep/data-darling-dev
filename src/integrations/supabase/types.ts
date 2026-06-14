@@ -22,11 +22,13 @@ export type Database = {
           description: string | null
           id: string
           modules: Json
+          status: string
           tags: string[] | null
           thumbnail: string | null
           title: string
           type: string
           url: string | null
+          visibility: string
         }
         Insert: {
           category?: string
@@ -35,11 +37,13 @@ export type Database = {
           description?: string | null
           id?: string
           modules?: Json
+          status?: string
           tags?: string[] | null
           thumbnail?: string | null
           title: string
           type?: string
           url?: string | null
+          visibility?: string
         }
         Update: {
           category?: string
@@ -48,11 +52,13 @@ export type Database = {
           description?: string | null
           id?: string
           modules?: Json
+          status?: string
           tags?: string[] | null
           thumbnail?: string | null
           title?: string
           type?: string
           url?: string | null
+          visibility?: string
         }
         Relationships: []
       }

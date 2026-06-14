@@ -1,0 +1,2 @@
+ALTER TABLE public.academy_content ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'public';
+ALTER TABLE public.academy_content ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'published';
