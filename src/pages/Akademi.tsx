@@ -80,6 +80,8 @@ export default function Akademi() {
   const [filterCategory, setFilterCategory] = useState("Tümü");
   const [filterType, setFilterType] = useState("Tümü");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "", description: "", category: "" as Category | "", type: "" as ContentType | "", thumbnail: "", tags: "",
     visibility: "public" as Visibility,
