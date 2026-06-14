@@ -106,13 +106,20 @@ export default function Messages() {
     </div>
   );
 
+  const directUnread = athletes.reduce((s, a) => s + (a.unreadCount || 0), 0);
+
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-[calc(100vh-4rem)] flex flex-col">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col overflow-hidden">
       <div className="px-4 pt-2 border-b border-border bg-card flex-shrink-0">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="athletes" className="gap-1.5 data-[state=active]:bg-background">
             <MessageCircle className="w-4 h-4" />
             Sporcular
+            {directUnread > 0 && (
+              <Badge className="ml-2 bg-red-500 hover:bg-red-500 text-white rounded-full h-5 min-w-5 flex items-center justify-center p-0 text-[10px] font-bold border-0">
+                {directUnread > 9 ? "9+" : directUnread}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="team" className="gap-1.5 data-[state=active]:bg-background">
             <Users className="w-4 h-4" />
@@ -120,6 +127,7 @@ export default function Messages() {
           </TabsTrigger>
         </TabsList>
       </div>
+
 
       <TabsContent value="athletes" className="flex-1 overflow-hidden m-0 p-0">
         {isMobile ? athleteChatMobileView() : athleteChatDesktopView}
