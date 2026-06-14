@@ -5,8 +5,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const TIERS = [
   { id: "starter", name: "Dynabolic Başlangıç", amount: 100000 },
-  { id: "pro",     name: "Dynabolic İleri Seviye", amount: 300000 },
-  { id: "elite",   name: "Dynabolic Profesyonel", amount: 500000 },
+  { id: "elite",   name: "Dynabolic Elit",      amount: 300000 },
+  { id: "pro",     name: "Dynabolic Pro",       amount: 500000 },
 ];
 
 Deno.serve(async (req) => {
