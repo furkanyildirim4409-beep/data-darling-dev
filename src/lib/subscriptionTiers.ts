@@ -21,7 +21,7 @@ export const TIERS: Tier[] = [
     id: "starter",
     name: "Başlangıç",
     tagline: "Tek başına çalışan koçlar için temel altyapı.",
-    priceMonthly: 499,
+    priceMonthly: 1000,
     cta: "Planı Satın Al",
     features: [
       { label: "50 sporcu limiti", included: true },
@@ -36,9 +36,9 @@ export const TIERS: Tier[] = [
   },
   {
     id: "pro",
-    name: "Profesyonel",
+    name: "İleri Seviye",
     tagline: "Tek başına ölçekleyen koçlar için tam içerik motoru.",
-    priceMonthly: 1499,
+    priceMonthly: 3000,
     highlight: true,
     badge: "En Popüler",
     cta: "Planı Yükselt",
@@ -55,13 +55,13 @@ export const TIERS: Tier[] = [
   },
   {
     id: "elite",
-    name: "Kurumsal",
+    name: "Profesyonel",
     tagline: "Ajanslar ve ekipler için tam yönetim katmanı.",
-    priceMonthly: 3499,
+    priceMonthly: 5000,
     badge: "Kurumsal",
     cta: "Planı Satın Al",
     features: [
-      { label: "Profesyonel paketteki her şey", included: true },
+      { label: "İleri Seviye paketteki her şey", included: true },
       { label: "Alt koç (Takım) yönetimi + granüler ACL", included: true },
       { label: "Beyaz etiket (marka adı & logo)", included: true },
       { label: "Gelişmiş finansal analitik & raporlar", included: true },
@@ -81,8 +81,8 @@ export const TIER_BY_ID: Record<TierId, Tier> = Object.fromEntries(
 export function normalizeTier(raw?: string | null): TierId | null {
   if (!raw) return null;
   const s = raw.toLowerCase();
-  if (s.includes("elite") || s.includes("kurum")) return "elite";
-  if (s.includes("pro") || s.includes("profes")) return "pro";
+  if (s.includes("elite") || s.includes("kurum") || s.includes("profes")) return "elite";
+  if (s.includes("pro") || s.includes("ileri")) return "pro";
   if (s.includes("start") || s.includes("başl") || s.includes("basl")) return "starter";
   return null;
 }
