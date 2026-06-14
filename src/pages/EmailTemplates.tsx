@@ -210,14 +210,12 @@ export default function EmailTemplates() {
               </div>
               <div>
                 <Label>Kategori</Label>
-                <Select value={form.category || "general"} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <Select value={form.category || "general_announcement"} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">Genel</SelectItem>
-                    <SelectItem value="onboarding">Onboarding</SelectItem>
-                    <SelectItem value="transactional">İşlemsel</SelectItem>
-                    <SelectItem value="retention">Retention</SelectItem>
-                    <SelectItem value="marketing">Pazarlama</SelectItem>
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
