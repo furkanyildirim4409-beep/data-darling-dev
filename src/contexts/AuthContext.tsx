@@ -46,7 +46,7 @@ interface AuthContextType {
   activeCoachId: string | null;
   teamMemberPermissions: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string, phone?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -145,10 +145,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string) => {
+  const signUp = async (email: string, password: string, selectedRole: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string, phone?: string) => {
     const metadata: Record<string, string> = { full_name: fullName, role: selectedRole };
     if (inviteToken) metadata.invite_token = inviteToken;
     if (username) metadata.username = username;
+    if (phone) metadata.pending_phone = phone;
 
     const { error } = await supabase.auth.signUp({
       email,
