@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, Trash2, UploadCloud, PlayCircle, X, Film, Globe, Lock } from "lucide-react";
+import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, ArchiveRestore, Trash2, UploadCloud, PlayCircle, X, Film, Globe, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,6 +80,8 @@ export default function Akademi() {
   const [filterCategory, setFilterCategory] = useState("Tümü");
   const [filterType, setFilterType] = useState("Tümü");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "", description: "", category: "" as Category | "", type: "" as ContentType | "", thumbnail: "", tags: "",
     visibility: "public" as Visibility,
@@ -101,6 +104,7 @@ export default function Akademi() {
     setThumbnailPreview("");
     setForm({ title: "", description: "", category: "", type: "", thumbnail: "", tags: "", visibility: "public", status: "published" });
     setModules([]);
+    setEditingId(null);
   }, [thumbnailPreview]);
 
   const fetchContent = useCallback(async () => {
@@ -150,9 +154,18 @@ export default function Akademi() {
     fetchContent();
   }, [fetchContent]);
 
+  const tabCounts = useMemo(() => ({
+    active: items.filter((i) => i.status === "published").length,
+    archived: items.filter((i) => i.status === "archived").length,
+  }), [items]);
+
   const filteredItems = useMemo(() => {
     return items
       .filter((item) => {
+        const matchesTab = activeTab === "archived"
+          ? item.status === "archived"
+          : item.status === "published";
+        if (!matchesTab) return false;
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = filterCategory === "Tümü" || item.category === filterCategory;
         const matchesType = filterType === "Tümü" || item.type === filterType;
@@ -163,7 +176,7 @@ export default function Akademi() {
         if (sortBy === "oldest") return a.createdAt - b.createdAt;
         return a.title.localeCompare(b.title, "tr");
       });
-  }, [items, searchQuery, filterCategory, filterType, sortBy]);
+  }, [items, searchQuery, filterCategory, filterType, sortBy, activeTab]);
 
   // Thumbnail handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -313,34 +326,90 @@ export default function Akademi() {
       const uploadedModules = await uploadModuleVideos();
       const tagsArray = form.tags.split(",").map((t) => t.trim()).filter(Boolean);
 
-      const { error } = await supabase
-        .from("academy_content" as any)
-        .insert({
-          coach_id: activeCoachId,
-          title: form.title,
-          description: form.description,
-          category: form.category,
-          type: form.type,
-          url: "",
-          thumbnail: thumbnailUrl,
-          tags: tagsArray,
-          modules: uploadedModules,
-          visibility: form.visibility,
-          status: form.status,
-        } as any);
+      const payload: any = {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        type: form.type,
+        url: "",
+        thumbnail: thumbnailUrl,
+        tags: tagsArray,
+        modules: uploadedModules,
+        visibility: form.visibility,
+        status: form.status,
+      };
+
+      let error: any = null;
+      if (editingId) {
+        ({ error } = await supabase
+          .from("academy_content" as any)
+          .update(payload)
+          .eq("id", editingId));
+      } else {
+        ({ error } = await supabase
+          .from("academy_content" as any)
+          .insert({ ...payload, coach_id: activeCoachId } as any));
+      }
 
       if (error) {
-        toast.error("İçerik eklenirken hata oluştu");
+        toast.error(editingId ? "İçerik güncellenirken hata oluştu" : "İçerik eklenirken hata oluştu");
         console.error(error);
         return;
       }
+      const wasEditing = !!editingId;
       resetFormState();
       setOpen(false);
-      toast.success("İçerik eklendi");
+      toast.success(wasEditing ? "İçerik güncellendi" : "İçerik eklendi");
       fetchContent();
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (item: AcademyItem) => {
+    setEditingId(item.id);
+    setForm({
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      type: item.type,
+      thumbnail: item.thumbnail,
+      tags: item.tags.join(", "),
+      visibility: item.visibility,
+      status: item.status,
+    });
+    setThumbnailFile(null);
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+    setThumbnailPreview("");
+    setModules(
+      item.modules.map((m) => ({
+        id: m.id || generateId(),
+        title: m.title,
+        videoUrl: m.videoUrl,
+        fileName: m.fileName,
+        order: m.order,
+        contentType: m.contentType,
+        articleContent: m.articleContent,
+        videoFile: null,
+      }))
+    );
+    setOpen(true);
+  };
+
+  const handleArchive = async (id: string, nextStatus: "archived" | "published") => {
+    const prev = items;
+    setItems((curr) => curr.map((it) => (it.id === id ? { ...it, status: nextStatus } : it)));
+    const { error } = await supabase
+      .from("academy_content" as any)
+      .update({ status: nextStatus } as any)
+      .eq("id", id);
+    if (error) {
+      setItems(prev);
+      toast.error("İşlem başarısız oldu");
+      console.error(error);
+      return;
+    }
+    toast.success(nextStatus === "archived" ? "İçerik arşivlendi" : "İçerik arşivden çıkarıldı");
   };
 
   const handleDelete = async (id: string) => {
@@ -422,6 +491,24 @@ export default function Akademi() {
         </Select>
       </div>
 
+      {/* Tabs: Active vs Archived */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")}>
+        <TabsList>
+          <TabsTrigger value="active" className="gap-2">
+            Aktif Eğitimler
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+              {tabCounts.active}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-2">
+            Arşivlenenler
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+              {tabCounts.archived}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Results count */}
       {!isLoading && <p className="text-sm text-muted-foreground">{filteredItems.length} içerik bulundu</p>}
 
@@ -471,12 +558,18 @@ export default function Akademi() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toast.info("Düzenleme yakında aktif olacak")}>
+                          <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Pencil className="w-4 h-4 mr-2" /> Düzenle
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toast.info("Arşivleme yakında aktif olacak")}>
-                            <Archive className="w-4 h-4 mr-2" /> Arşivle
-                          </DropdownMenuItem>
+                          {item.status === "archived" ? (
+                            <DropdownMenuItem onClick={() => handleArchive(item.id, "published")}>
+                              <ArchiveRestore className="w-4 h-4 mr-2" /> Arşivden Çıkar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleArchive(item.id, "archived")}>
+                              <Archive className="w-4 h-4 mr-2" /> Arşivle
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(item.id)}>
                             <Trash2 className="w-4 h-4 mr-2" /> Sil
@@ -525,7 +618,12 @@ export default function Akademi() {
       {!isLoading && filteredItems.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <GraduationCap className="w-16 h-16 mx-auto mb-4 opacity-20" />
-          {hasAnyItems ? (
+          {activeTab === "archived" ? (
+            <>
+              <p className="text-lg font-medium">Arşivde içerik yok</p>
+              <p className="text-sm mt-1">Arşivlediğiniz eğitimler burada görünecek</p>
+            </>
+          ) : hasAnyItems ? (
             <>
               <p className="text-lg font-medium">Sonuç bulunamadı</p>
               <p className="text-sm mt-1">Filtreleri değiştirmeyi veya yeni içerik eklemeyi deneyin</p>
@@ -556,8 +654,8 @@ export default function Akademi() {
       <Dialog open={open} onOpenChange={handleSheetChange}>
         <DialogContent className="max-w-[1200px] w-[95vw] h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
           <DialogHeader className="p-6 pb-4 border-b border-border/50 shrink-0">
-            <DialogTitle className="text-2xl">Yeni Eğitim İçeriği</DialogTitle>
-            <DialogDescription>Akademi için yeni bir kurs veya eğitim içeriği oluşturun.</DialogDescription>
+            <DialogTitle className="text-2xl">{editingId ? "Eğitimi Düzenle" : "Yeni Eğitim İçeriği"}</DialogTitle>
+            <DialogDescription>{editingId ? "Eğitim içeriğinizdeki değişiklikleri kaydedin." : "Akademi için yeni bir kurs veya eğitim içeriği oluşturun."}</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
@@ -820,7 +918,7 @@ export default function Akademi() {
           <DialogFooter className="p-6 pt-4 border-t border-border/50 shrink-0 flex gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => handleSheetChange(false)}>İptal</Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Yükleniyor..." : "Ekle"}
+              {isSubmitting ? (editingId ? "Güncelleniyor..." : "Yükleniyor...") : (editingId ? "Güncelle" : "Ekle")}
             </Button>
           </DialogFooter>
         </DialogContent>
