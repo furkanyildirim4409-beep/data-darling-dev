@@ -70,6 +70,11 @@ function useCoachChatStateInternal(): CoachChatValue {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selectedAthleteIdRef = useRef<string | null>(null);
   const athletesRef = useRef<ChatAthlete[]>([]);
+  // Tracks message ids whose unread badge was already decremented locally,
+  // so a follow-up realtime UPDATE for the same id can't double-decrement.
+  const readProcessedIdsRef = useRef<Set<string>>(new Set());
+  // Tracks ids that already incremented the badge (from INSERT) so we don't double-count.
+  const insertProcessedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     selectedAthleteIdRef.current = selectedAthleteId;
@@ -246,6 +251,13 @@ function useCoachChatStateInternal(): CoachChatValue {
     setHasMoreMessages(fetched.length >= MSG_PAGE_SIZE);
     setIsLoadingMessages(false);
 
+    // Capture unread inbound ids BEFORE we mark them read so the realtime UPDATE
+    // that follows doesn't decrement the badge a second time.
+    const unreadInboundIds = fetched
+      .filter(m => m.sender_id === athleteId && m.receiver_id === coachId && !m.is_read)
+      .map(m => m.id);
+    for (const id of unreadInboundIds) readProcessedIdsRef.current.add(id);
+
     await supabase
       .from('messages')
       .update({ is_read: true })
@@ -253,7 +265,6 @@ function useCoachChatStateInternal(): CoachChatValue {
       .eq('receiver_id', coachId)
       .eq('is_read', false);
 
-    // Use functional updaters to avoid stale closure on athletes
     setAthletes(prev => {
       const target = prev.find(a => a.id === athleteId);
       const wasUnread = target?.unreadCount || 0;
@@ -410,13 +421,25 @@ function useCoachChatStateInternal(): CoachChatValue {
           const senderId = newMsg.sender_id;
           const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
+          // Hard guard: same INSERT can fire twice (multiple tabs/channels). Process each id once.
+          if (insertProcessedIdsRef.current.has(newMsg.id)) return;
+          insertProcessedIdsRef.current.add(newMsg.id);
+          // Cap the set to avoid unbounded growth
+          if (insertProcessedIdsRef.current.size > 500) {
+            const first = insertProcessedIdsRef.current.values().next().value;
+            if (first) insertProcessedIdsRef.current.delete(first);
+          }
+
           const knownSender = athletesRef.current.some(a => a.id === senderId);
           if (!knownSender) {
             setTimeout(() => fetchAthletes(), 0);
           }
 
           if (senderId === selectedAthleteIdRef.current) {
-            setMessages(prev => [...prev, newMsg]);
+            // Dedupe by id when appending to active thread
+            setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            // We're auto-marking read locally; pre-record id so our own UPDATE event can't double-decrement
+            readProcessedIdsRef.current.add(newMsg.id);
             supabase
               .from('messages')
               .update({ is_read: true })
@@ -515,6 +538,15 @@ function useCoachChatStateInternal(): CoachChatValue {
             updated.is_read === true &&
             (previous ? previous.is_read === false : true);
           if (becameRead) {
+            // If we already decremented locally for this id (fetchMessages or auto-read), ignore.
+            if (readProcessedIdsRef.current.has(updated.id)) {
+              return;
+            }
+            readProcessedIdsRef.current.add(updated.id);
+            if (readProcessedIdsRef.current.size > 500) {
+              const first = readProcessedIdsRef.current.values().next().value;
+              if (first) readProcessedIdsRef.current.delete(first);
+            }
             const senderId = updated.sender_id;
             let decremented = false;
             setAthletes(prev =>
