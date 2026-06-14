@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup";
 import { PhoneVerification } from "@/components/settings/PhoneVerification";
+import { TwilioSmsTest } from "@/components/settings/TwilioSmsTest";
 import { THEME_PALETTES, applyThemeColor, loadStoredTheme, type ThemeKey } from "@/lib/theme";
 
 const settingsSections = [
