@@ -772,6 +772,7 @@ export default function Settings() {
                   Şifreyi Güncelle
                 </Button>
               </div>
+              </div>
             </div>
           )}
 
