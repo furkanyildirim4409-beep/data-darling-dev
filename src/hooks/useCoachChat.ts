@@ -569,8 +569,10 @@ export function useCoachChat() {
     hasMoreMessages,
     selectAthlete,
     sendMessage,
+    unsendMessage,
     loadOlderMessages,
     respondToRequest,
+
     refetch: fetchAthletes,
   };
 }
