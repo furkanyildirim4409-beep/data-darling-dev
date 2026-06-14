@@ -397,7 +397,7 @@ export function MemberProfileDrawer({
               </p>
             </div>
 
-            <ScrollArea className="flex-1 pr-4">
+            <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
               <div className="space-y-2">
                 {filteredAthletes.map((athlete) => {
                   const isSelected = selectedAthleteIds.includes(athlete.id);
@@ -438,7 +438,7 @@ export function MemberProfileDrawer({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="pt-3 border-t border-border mt-3">
               <Button
@@ -453,26 +453,12 @@ export function MemberProfileDrawer({
           </TabsContent>
 
           {/* Permissions Tab */}
-          <TabsContent value="permissions" className="flex-1 overflow-hidden mt-4 flex flex-col">
-            <div className="flex justify-end mb-4">
-              {editMode ? (
-                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
-                  <Save className="w-4 h-4 mr-1.5" />
-                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => {
-                  setEditedMember({ ...member });
-                  setEditMode(true);
-                }}>
-                  <Edit2 className="w-4 h-4 mr-1.5" />
-                  Düzenle
-                </Button>
-              )}
-            </div>
-
-            {/* Template Selector */}
-            <div className="grid gap-2 mb-4">
+          <TabsContent
+            value="permissions"
+            className="flex-1 overflow-hidden mt-4 flex flex-col items-start justify-start space-y-6"
+          >
+            {/* Template Selector — pinned to top */}
+            <div className="grid gap-2 w-full">
               <Label>
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-primary" />
@@ -498,23 +484,43 @@ export function MemberProfileDrawer({
               </Select>
             </div>
 
-            <ScrollArea className="flex-1 pr-4">
+            <div className="flex justify-end w-full">
+              {editMode ? (
+                <Button size="sm" onClick={handleSave} disabled={updateMember.isPending}>
+                  <Save className="w-4 h-4 mr-1.5" />
+                  {updateMember.isPending ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => {
+                  setEditedMember({ ...member });
+                  setEditMode(true);
+                }}>
+                  <Edit2 className="w-4 h-4 mr-1.5" />
+                  Düzenle
+                </Button>
+              )}
+            </div>
+
+            <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide">
               <PermissionMatrix
                 value={granularPermissions}
                 onChange={setGranularPermissions}
                 disabled={!editMode || selectedTemplateId !== CUSTOM_KEY}
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           {/* Audit Log Tab */}
-          <TabsContent value="audit" className="flex-1 overflow-hidden mt-4">
-            <ScrollArea className="h-full pr-4">
+          <TabsContent
+            value="audit"
+            className="flex-1 overflow-hidden mt-4 flex flex-col items-start justify-start space-y-6"
+          >
+            <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide">
               <div className="space-y-2">
                 {auditLogs.map((log) => (
-                  <div 
+                  <div
                     key={log.id}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border hover:border-primary/30 transition-colors"
+                    className="w-full flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border hover:border-primary/30 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                       {getActionIcon(log.type)}
@@ -526,7 +532,7 @@ export function MemberProfileDrawer({
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
       </SheetContent>
