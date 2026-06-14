@@ -552,30 +552,40 @@ export default function Akademi() {
         onChange={handleFileSelect}
       />
 
-      {/* Course Builder Sheet */}
-      <Sheet open={open} onOpenChange={handleSheetChange}>
-        <SheetContent side="right" className="sm:max-w-2xl w-full p-0 flex flex-col">
-          <SheetHeader className="p-6 pb-4 border-b border-border/50 shrink-0">
-            <SheetTitle>Yeni Eğitim İçeriği</SheetTitle>
-            <SheetDescription>Akademi için yeni bir kurs veya eğitim içeriği oluşturun.</SheetDescription>
-          </SheetHeader>
+      {/* Course Builder Dialog — full-screen workspace */}
+      <Dialog open={open} onOpenChange={handleSheetChange}>
+        <DialogContent className="max-w-[1200px] w-[95vw] h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-border/50 shrink-0">
+            <DialogTitle className="text-2xl">Yeni Eğitim İçeriği</DialogTitle>
+            <DialogDescription>Akademi için yeni bir kurs veya eğitim içeriği oluşturun.</DialogDescription>
+          </DialogHeader>
 
-          <ScrollArea className="flex-1">
-            <div className="p-6 space-y-5">
-              {/* Title */}
-              <div className="space-y-2">
-                <Label>Başlık *</Label>
-                <Input placeholder="İçerik başlığı" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
+              {/* Hero — Main Title & Description */}
+              <div className="rounded-2xl border border-border/60 bg-card/40 p-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Ana Başlık *</Label>
+                  <Input
+                    placeholder="Örn. Squat Tekniğinin Temelleri"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    className="h-12 text-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Detaylı Açıklama</Label>
+                  <Textarea
+                    placeholder="Eğitiminizin konusunu, hedef kitlesini ve kapsamını detaylıca açıklayın."
+                    className="min-h-[140px] text-base"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  />
+                </div>
               </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <Label>Açıklama</Label>
-                <Textarea placeholder="Makale içeriği veya video açıklaması." className="min-h-[120px]" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-              </div>
-
-              {/* Category & Type */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Category, Type, Visibility, Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>Kategori *</Label>
                   <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as Category }))}>
@@ -597,6 +607,31 @@ export default function Akademi() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Görünürlük</Label>
+                  <Select value={form.visibility} onValueChange={(v) => setForm((f) => ({ ...f, visibility: v as Visibility }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">
+                        <span className="inline-flex items-center gap-2"><Globe className="w-3.5 h-3.5" /> Herkese Açık</span>
+                      </SelectItem>
+                      <SelectItem value="students_only">
+                        <span className="inline-flex items-center gap-2"><Lock className="w-3.5 h-3.5" /> Yalnızca Öğrencilerime</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Durum</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as Status }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="published">Yayında</SelectItem>
+                      <SelectItem value="draft">Taslak</SelectItem>
+                      <SelectItem value="archived">Arşivli</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Thumbnail Upload */}
@@ -604,10 +639,10 @@ export default function Akademi() {
                 <Label>Kapak Görseli</Label>
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-dashed border-2 border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors min-h-[120px] relative"
+                  className="border-dashed border-2 border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors min-h-[140px] relative"
                 >
                   {thumbnailPreview || form.thumbnail ? (
-                    <div className="relative w-full h-[120px]">
+                    <div className="relative w-full h-[140px]">
                       <img
                         src={thumbnailPreview || form.thumbnail}
                         alt="Önizleme"
@@ -640,7 +675,10 @@ export default function Akademi() {
               {/* Modules / Course Chapters */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Eğitim Bölümleri</Label>
+                  <div>
+                    <Label className="text-base font-semibold">Bölümler</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Her bölüm bir video ya da rich-text makale olabilir.</p>
+                  </div>
                   <Button type="button" variant="outline" size="sm" onClick={addModule} className="gap-1.5">
                     <Plus className="w-3.5 h-3.5" />
                     Yeni Bölüm Ekle
@@ -648,14 +686,14 @@ export default function Akademi() {
                 </div>
 
                 {modules.length === 0 && (
-                  <div className="border border-dashed border-border rounded-xl p-8 text-center">
+                  <div className="border border-dashed border-border rounded-xl p-10 text-center">
                     <Film className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">Henüz bölüm eklenmedi</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Eğitim videolarınızı bölümler halinde organize edin</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Video veya makale olarak bölümler ekleyin</p>
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4">
                   {modules.map((mod) => (
                     <div
                       key={mod.id}
@@ -682,60 +720,90 @@ export default function Akademi() {
                         </Button>
                       </div>
 
-                      {/* Video upload zone per module */}
-                      <input
-                        type="file"
-                        accept="video/mp4,video/quicktime"
-                        className="hidden"
-                        ref={(el) => { videoInputRefs.current[mod.id] = el; }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleModuleVideoSelect(mod.id, file);
-                          e.target.value = "";
-                        }}
-                      />
-                      <div
-                        onClick={() => videoInputRefs.current[mod.id]?.click()}
-                        className="border-dashed border-2 border-border rounded-lg p-4 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                      >
-                        {mod.videoFile || mod.videoUrl ? (
-                          <>
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <Video className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{mod.fileName || "Video"}</p>
-                              {mod.videoFile && (
-                                <p className="text-xs text-muted-foreground">{formatFileSize(mod.videoFile.size)}</p>
-                              )}
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 shrink-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setModules((prev) =>
-                                  prev.map((m) =>
-                                    m.id === mod.id ? { ...m, videoFile: null, videoUrl: "", fileName: "" } : m
-                                  )
-                                );
-                              }}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <UploadCloud className="w-6 h-6 text-muted-foreground/40 shrink-0" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Video yükleyin</p>
-                              <p className="text-xs text-muted-foreground/60">MP4, MOV — maks. 500MB</p>
-                            </div>
-                          </>
-                        )}
+                      {/* Content type toggle */}
+                      <div className="inline-flex rounded-lg border border-border/60 bg-background/60 p-1">
+                        <button
+                          type="button"
+                          onClick={() => updateModuleContentType(mod.id, "video")}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${mod.contentType === "video" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          <Video className="w-3.5 h-3.5" /> Video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateModuleContentType(mod.id, "article")}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${mod.contentType === "article" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          <FileText className="w-3.5 h-3.5" /> Makale
+                        </button>
                       </div>
+
+                      {mod.contentType === "video" ? (
+                        <>
+                          {/* Video upload zone per module */}
+                          <input
+                            type="file"
+                            accept="video/mp4,video/quicktime"
+                            className="hidden"
+                            ref={(el) => { videoInputRefs.current[mod.id] = el; }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleModuleVideoSelect(mod.id, file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <div
+                            onClick={() => videoInputRefs.current[mod.id]?.click()}
+                            className="border-dashed border-2 border-border rounded-lg p-4 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                          >
+                            {mod.videoFile || mod.videoUrl ? (
+                              <>
+                                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Video className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">{mod.fileName || "Video"}</p>
+                                  {mod.videoFile && (
+                                    <p className="text-xs text-muted-foreground">{formatFileSize(mod.videoFile.size)}</p>
+                                  )}
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModules((prev) =>
+                                      prev.map((m) =>
+                                        m.id === mod.id ? { ...m, videoFile: null, videoUrl: "", fileName: "" } : m
+                                      )
+                                    );
+                                  }}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="w-6 h-6 text-muted-foreground/40 shrink-0" />
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Video yükleyin</p>
+                                  <p className="text-xs text-muted-foreground/60">MP4, MOV — maks. 500MB</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Makale İçeriği</Label>
+                          <RichTextEditor
+                            value={mod.articleContent}
+                            onChange={(html) => updateModuleArticle(mod.id, html)}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -747,16 +815,16 @@ export default function Akademi() {
                 <Input placeholder="squat, teknik, bacak (virgülle ayırın)" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
-          <SheetFooter className="p-6 pt-4 border-t border-border/50 shrink-0 flex gap-2 sm:justify-end">
+          <DialogFooter className="p-6 pt-4 border-t border-border/50 shrink-0 flex gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => handleSheetChange(false)}>İptal</Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? "Yükleniyor..." : "Ekle"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
