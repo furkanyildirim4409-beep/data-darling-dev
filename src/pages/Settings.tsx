@@ -479,12 +479,47 @@ export default function Settings() {
             <div className="space-y-6">
               <div className="glass rounded-xl border border-border p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-2">Abonelik & Planlar</h2>
-                <p className="text-muted-foreground mb-8">
-                  Mevcut plan:{" "}
-                  <span className="font-semibold text-primary">
-                    {profile.subscription_tier || "Belirlenmedi"}
-                  </span>
-                </p>
+                {(() => {
+                  const status = (profile as any).subscription_status as string | null | undefined;
+                  const periodEnd = (profile as any).subscription_current_period_end as string | null | undefined;
+                  const cancelAtEnd = (profile as any).subscription_cancel_at_period_end as boolean | null | undefined;
+                  const tierLabel =
+                    TIERS.find((t) => t.id === normalizeTier(profile.subscription_tier))?.name ??
+                    (profile.subscription_tier ? profile.subscription_tier : "Belirlenmedi");
+
+                  const statusMap: Record<string, { label: string; cls: string }> = {
+                    active:               { label: "Aktif",            cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+                    trialing:             { label: "Deneme",           cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+                    past_due:             { label: "Ödeme Bekliyor",   cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+                    unpaid:               { label: "Ödenmemiş",        cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+                    incomplete:           { label: "Tamamlanmadı",     cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+                    canceled:             { label: "İptal Edildi",     cls: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
+                    incomplete_expired:   { label: "Süresi Doldu",     cls: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
+                  };
+                  const s = status ? statusMap[status] ?? { label: status, cls: "bg-muted text-foreground border-border" } : null;
+
+                  return (
+                    <div className="mb-8 flex flex-wrap items-center gap-3">
+                      <span className="text-muted-foreground">Mevcut plan:</span>
+                      <span className="font-semibold text-primary">{tierLabel}</span>
+                      {s && (
+                        <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full border", s.cls)}>
+                          {s.label}
+                        </span>
+                      )}
+                      {periodEnd && (
+                        <span className="text-xs text-muted-foreground">
+                          Bitiş: {new Date(periodEnd).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                      {cancelAtEnd && (
+                        <span className="text-xs font-medium text-amber-400">
+                          Dönem sonunda iptal olacak
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {TIERS.map((tier) => {
