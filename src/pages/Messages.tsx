@@ -83,7 +83,7 @@ export default function Messages() {
   };
 
   const athleteChatDesktopView = (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       <div className="w-80 flex-shrink-0">
         <CoachInbox
           athletes={athletes}
