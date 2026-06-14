@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Zap, AtSign, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { User, Mail, Lock, Zap, AtSign, CheckCircle2, XCircle, Loader2, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Register() {
@@ -11,6 +11,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [role, setRole] = useState<'coach' | 'athlete'>('coach');
   const [loading, setLoading] = useState(false);
@@ -69,9 +70,24 @@ export default function Register() {
 
     const finalRole = inviteToken ? 'athlete' : role;
 
-    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined, isCoachSignup ? username : undefined);
+    let normalizedPhone: string | undefined = undefined;
+    if (phone.trim()) {
+      const cleaned = phone.replace(/[^\d+]/g, '');
+      normalizedPhone = cleaned.startsWith('+') ? cleaned : `+${cleaned.replace(/^0+/, '')}`;
+      if (normalizedPhone.length < 10) {
+        toast.error('Telefon numarası geçersiz. Boş bırakabilir veya +905551234567 formatında girebilirsiniz.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined, isCoachSignup ? username : undefined, normalizedPhone);
     if (!error) {
-      toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.');
+      toast.success(
+        normalizedPhone
+          ? 'Kayıt başarılı! E-postanızı doğrulayın. Telefonunuzu Ayarlar > Güvenlik bölümünden doğrulayabilirsiniz.'
+          : 'Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.'
+      );
       navigate('/login');
     }
     setLoading(false);
