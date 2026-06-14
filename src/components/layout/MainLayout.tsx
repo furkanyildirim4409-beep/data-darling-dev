@@ -7,6 +7,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useForegroundPush } from "@/hooks/useForegroundPush";
 import { useAuth } from "@/contexts/AuthContext";
+import { CoachChatProvider } from "@/hooks/useCoachChat";
+import { TeamChatProvider } from "@/hooks/useTeamChat";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,20 +46,24 @@ export function MainLayout() {
   }
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-background">
-      {!isMobile && (
-        <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      )}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <TopBar />
-        <PushPermissionBanner />
-        <main className={cn(
-          "flex-1 grid-pattern scrollbar-thin mobile-scroll min-h-0",
-          isFullBleed ? "overflow-hidden" : "overflow-auto"
-        )}>
-          {isFullBleed ? <Outlet /> : <div className="p-4 md:p-6"><Outlet /></div>}
-        </main>
-      </div>
-    </div>
+    <CoachChatProvider>
+      <TeamChatProvider>
+        <div className="flex w-full h-screen overflow-hidden bg-background">
+          {!isMobile && (
+            <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+          )}
+          <div className="flex-1 flex flex-col h-screen overflow-hidden">
+            <TopBar />
+            <PushPermissionBanner />
+            <main className={cn(
+              "flex-1 grid-pattern scrollbar-thin mobile-scroll min-h-0",
+              isFullBleed ? "overflow-hidden" : "overflow-auto"
+            )}>
+              {isFullBleed ? <Outlet /> : <div className="p-4 md:p-6"><Outlet /></div>}
+            </main>
+          </div>
+        </div>
+      </TeamChatProvider>
+    </CoachChatProvider>
   );
 }

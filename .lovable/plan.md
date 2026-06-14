@@ -1,36 +1,34 @@
-# Mesaj Badge'i Anlık Güncelleme
+## Sorun analizi
 
-## Sorun
+- `Messages`, `AppSidebar` ve `MobileNav` ayrı ayrı `useCoachChat()` çağırıyor; bu yüzden her biri kendi bağımsız unread state’ini tutuyor.
+- Mesaj sayfasında mesaj okundu yapıldığında sadece o hook instance’ı güncelleniyor; menüdeki hook instance’ı aynı state’i paylaşmadığı için sayı düşmeyebiliyor.
+- Yeni mesaj gelince de menü instance’ı sadece kendi realtime event’ini yakalarsa artıyor; instance ayrılığı yüzünden durum tutarsız kalıyor.
+- `messages` tablosu realtime yayında, ancak `REPLICA IDENTITY FULL` değil. Bu yüzden UPDATE event’lerinde eski satır verisi güvenilir gelmiyor; `is_read: false -> true` geçişini kesin yakalamak zorlaşıyor.
+- `team_messages` tarafında da sadece INSERT dinleniyor; UPDATE/read event’i dinlenmediği için ekip içi mesaj badge’i de sayfa yenilemeden düşmeyebilir.
 
-`useCoachChat` hook'u iki ayrı yerde tüketiliyor:
-- `AppSidebar` / `MobileNav` → menüdeki "Mesajlar" badge sayısı
-- `Messages` sayfası → sohbet listesi ve aktif sohbet
+## Uygulama planı
 
-Her tüketici hook'un kendi **bağımsız state instance**'ına sahip. Messages sayfasında bir sporcuya girildiğinde `fetchMessages` çalışıp DB'de `is_read = true` yapıyor ve **kendi** state'ini sıfırlıyor; ancak Sidebar instance'ı bu değişimi farketmediği için badge sayfa yenilenene kadar duruyor.
+1. `messages` ve `team_messages` tabloları için realtime UPDATE eski satır bilgisini güvenilir almak üzere migration ekleyeceğim:
+   - `ALTER TABLE public.messages REPLICA IDENTITY FULL`
+   - `ALTER TABLE public.team_messages REPLICA IDENTITY FULL`
 
-Realtime kanalında `UPDATE … receiver_id=eq.<coachId>` aboneliği var ama callback yalnızca `messages` dizisini ve `is_deleted` durumunu işliyor — `is_read` geçişlerini görmezden geliyor, bu yüzden Sidebar instance tetiklenmiyor.
+2. `useCoachChat` içinde unread state güncellemesini sağlamlaştıracağım:
+   - Yeni mesaj geldiğinde, eğer mesaj aktif konuşmadaysa otomatik okundu yapılacak ve badge artırılmayacak.
+   - Aktif konuşma dışında geldiyse ilgili sporcu unread sayısı ve toplam badge atomik artacak.
+   - Mesaj `is_read=true` olduğunda, önceki değer `false` ise ilgili sporcu unread sayısı ve toplam badge atomik düşecek.
+   - `fetchMessages` içindeki stale `athletes` closure kullanımını kaldırıp fonksiyonel state updater ile doğru toplamdan düşeceğim.
 
-## Çözüm
+3. `useTeamChat` için aynı realtime read mantığını ekleyeceğim:
+   - `team_messages` UPDATE event’i dinlenecek.
+   - Başka instance/tab/sayfa mesajı okundu yaptığında ekip içi unread count ve toplam badge anlık düşecek.
+   - Realtime cleanup `removeChannel` ile mevcut proje kuralına uygun hale getirilecek.
 
-`src/hooks/useCoachChat.ts` içindeki receiver UPDATE handler'ını genişlet:
+4. Menü badge state’ini daha tutarlı yapmak için shared-hook yaklaşımı kuracağım:
+   - `useCoachChat` ve `useTeamChat` state’leri tek provider/context üzerinden paylaşılacak.
+   - `Messages`, `AppSidebar`, `MobileNav` aynı unread kaynağını okuyacak.
+   - Böylece mesaj sayfasında okuma veya realtime yeni mesaj olayı menü badge’ine aynı render döngüsünde yansıyacak.
 
-- Payload'da `is_read` `false → true` geçişi (önceki kayıt biliniyorsa `payload.old.is_read === false && payload.new.is_read === true`, bilinmiyorsa `new.is_read === true` ve ilgili sporcunun `unreadCount > 0`) tespit edildiğinde:
-  - İlgili sporcunun `athletes[].unreadCount`'unu uygun miktarda azalt (tek mesaj için −1; toplu okuma durumunda mevcut sayıyı 0'a indir — aşağıya bak).
-  - `totalUnread`'ı aynı miktarda düşür, 0'ın altına inmesin.
-- Toplu okuma (bir sporcu açıldığında tüm okunmamışların aynı anda update edilmesi) Postgres realtime'da satır satır geldiği için her satır −1 düşürmek doğru sonucu verir; ekstra koruma olarak `unreadCount` 0'dan küçük olamaz.
-
-Bu değişiklik yalnızca dinleyici eklemesidir; mevcut INSERT, gönderim ve `fetchMessages` davranışı dokunulmaz kalır. Diğer instance (Messages sayfası) zaten kendi state'ini güncellediği için tekrar tetiklenmesi sorun çıkarmaz (clamp sayesinde).
-
-## Teknik Detay
-
-Dosya: `src/hooks/useCoachChat.ts`
-- Mevcut `event: 'UPDATE', filter: receiver_id=eq.${coachId}` handler'ında (≈ satır 485–508):
-  - `payload.old` mevcut ve `old.is_read === false && new.is_read === true` ise: `senderId = new.sender_id` için athlete state'ini ve `totalUnread`'ı `-1` clamp(0) ile güncelle.
-  - `payload.old` yoksa fallback: `new.is_read === true` iken athlete `unreadCount > 0` ise yine `-1` uygula (idempotent clamp güvenli).
-- Sidebar/MobileNav/Messages tarafında kod değişikliği yok.
-
-## Doğrulama
-
-- Bir sporcudan okunmamış mesaj geldikten sonra menüdeki rozet artıyor.
-- Mesajlar sekmesinden o sporcuya girilince badge **sayfa yenilemeden** anında düşüyor.
-- Birden fazla okunmamış mesaj varsa hepsinin okunmasıyla birlikte rozet sıfırlanıyor.
+5. Doğrulama:
+   - Realtime publication ve replica identity ayarlarını DB’den kontrol edeceğim.
+   - İlgili kodda duplicate subscription/cleanup sızıntısı olmadığını kontrol edeceğim.
+   - Mesaj geldiğinde artma, konuşmaya girince düşme, aktif konuşmadayken badge artmama senaryolarını hedefli doğrulayacağım.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode, createElement } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -22,7 +22,20 @@ export interface TeamMessage {
   created_at: string;
 }
 
-export function useTeamChat() {
+interface TeamChatValue {
+  contacts: TeamContact[];
+  selectedContactId: string | null;
+  messages: TeamMessage[];
+  totalUnread: number;
+  isLoadingContacts: boolean;
+  isLoadingMessages: boolean;
+  selectContact: (contactId: string) => void;
+  sendMessage: (content: string) => Promise<void>;
+}
+
+const TeamChatContext = createContext<TeamChatValue | null>(null);
+
+function useTeamChatStateInternal(): TeamChatValue {
   const { user, activeCoachId, isSubCoach } = useAuth();
   const userId = user?.id;
 
@@ -40,7 +53,6 @@ export function useTeamChat() {
     selectedContactIdRef.current = selectedContactId;
   }, [selectedContactId]);
 
-  // Fetch contacts
   const fetchContacts = useCallback(async () => {
     if (!userId || !activeCoachId) return;
     setIsLoadingContacts(true);
@@ -62,7 +74,6 @@ export function useTeamChat() {
         role: m.role,
       }));
     } else {
-      // Use security definer RPC to bypass profiles RLS
       const { data: headCoachInfo } = await supabase
         .rpc('get_coach_info', { _coach_id: activeCoachId });
 
@@ -95,11 +106,11 @@ export function useTeamChat() {
       }
     }
 
-    // Hardening: strip any null/undefined IDs
     contactProfiles = contactProfiles.filter(c => !!c.id);
 
     if (contactProfiles.length === 0) {
       setContacts([]);
+      setTotalUnread(0);
       setIsLoadingContacts(false);
       return;
     }
@@ -149,7 +160,6 @@ export function useTeamChat() {
     setIsLoadingContacts(false);
   }, [userId, activeCoachId, isSubCoach]);
 
-  // Fetch messages for a contact — no `contacts` in deps to avoid stale closures
   const fetchMessages = useCallback(async (contactId: string) => {
     if (!userId) return;
     setIsLoadingMessages(true);
@@ -166,7 +176,6 @@ export function useTeamChat() {
     setMessages(((data as TeamMessage[]) || []).reverse());
     setIsLoadingMessages(false);
 
-    // Mark as read
     await supabase
       .from('team_messages')
       .update({ is_read: true })
@@ -174,7 +183,6 @@ export function useTeamChat() {
       .eq('receiver_id', userId)
       .eq('is_read', false);
 
-    // Use functional updaters to avoid stale closure
     setContacts(prev => {
       const target = prev.find(c => c.id === contactId);
       const wasUnread = target?.unreadCount || 0;
@@ -190,7 +198,6 @@ export function useTeamChat() {
     fetchMessages(contactId);
   }, [fetchMessages]);
 
-  // Send message with optimistic UI + error surfacing + reversion
   const sendMessage = useCallback(async (content: string) => {
     if (!userId || !selectedContactId || !content.trim()) return;
 
@@ -207,10 +214,8 @@ export function useTeamChat() {
       created_at: now,
     };
 
-    // Optimistic: append message
     setMessages(prev => [...prev, optimistic]);
 
-    // Optimistic: update contact lastMessage
     const contactId = selectedContactId;
     setContacts(prev =>
       prev.map(c =>
@@ -228,41 +233,35 @@ export function useTeamChat() {
 
     if (error) {
       toast.error('Mesaj gönderilemedi: ' + error.message);
-      // Revert optimistic message
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      // Revert contact lastMessage by re-fetching contacts
       fetchContacts();
     }
   }, [userId, selectedContactId, fetchContacts]);
 
-  // Realtime subscription — listen to ALL inserts, filter manually
+  // Realtime
   useEffect(() => {
     if (!userId) return;
 
-    channelRef.current = supabase
-      .channel(`team-chat-realtime-${crypto.randomUUID()}`)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channel = supabase
+      .channel(`team-chat-realtime-${userId}-${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'team_messages',
-        },
+        { event: 'INSERT', schema: 'public', table: 'team_messages' },
         (payload) => {
           const newMsg = payload.new as TeamMessage;
-
-          // Ignore messages not involving this user
           if (newMsg.sender_id !== userId && newMsg.receiver_id !== userId) return;
 
-          // Deduplicate: if sent by current user, the optimistic update already added it
           if (newMsg.sender_id === userId) {
-            // Replace optimistic message with the real one (matching by content+receiver+timestamp proximity)
             setMessages(prev => {
               const hasOptimistic = prev.some(
                 m => m.sender_id === userId && m.receiver_id === newMsg.receiver_id && m.content === newMsg.content && m.id !== newMsg.id
               );
               if (hasOptimistic) {
-                // Replace the first optimistic match with the real message
                 let replaced = false;
                 return prev.map(m => {
                   if (!replaced && m.sender_id === userId && m.receiver_id === newMsg.receiver_id && m.content === newMsg.content && m.id !== newMsg.id) {
@@ -272,7 +271,6 @@ export function useTeamChat() {
                   return m;
                 });
               }
-              // No optimistic match (e.g. sent from another tab) — append if active chat
               if (newMsg.receiver_id === selectedContactIdRef.current) {
                 return [...prev, newMsg];
               }
@@ -281,25 +279,29 @@ export function useTeamChat() {
             return;
           }
 
-          // Incoming message from someone else
           const senderId = newMsg.sender_id;
 
           if (senderId === selectedContactIdRef.current) {
             setMessages(prev => [...prev, newMsg]);
-            // Auto mark as read
             supabase.from('team_messages').update({ is_read: true }).eq('id', newMsg.id);
           } else {
-            setContacts(prev =>
-              prev.map(c =>
-                c.id === senderId
-                  ? { ...c, unreadCount: c.unreadCount + 1 }
-                  : c
-              )
-            );
-            setTotalUnread(prev => prev + 1);
+            let incremented = false;
+            setContacts(prev => {
+              const exists = prev.some(c => c.id === senderId);
+              if (!exists) return prev;
+              incremented = true;
+              return prev.map(c =>
+                c.id === senderId ? { ...c, unreadCount: c.unreadCount + 1 } : c
+              );
+            });
+            if (incremented) {
+              setTotalUnread(prev => prev + 1);
+            } else {
+              // Unknown sender — refresh contacts so they appear
+              setTimeout(() => fetchContacts(), 0);
+            }
           }
 
-          // Update lastMessage for sender contact & re-sort
           setContacts(prev => {
             const updated = prev.map(c =>
               c.id === senderId
@@ -316,12 +318,49 @@ export function useTeamChat() {
           });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'team_messages' },
+        (payload) => {
+          const updated = payload.new as TeamMessage;
+          const previous = payload.old as Partial<TeamMessage> | undefined;
+          if (!updated?.id) return;
+          if (updated.sender_id !== userId && updated.receiver_id !== userId) return;
+
+          setMessages(prev => prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m)));
+
+          // Live-decrement when an inbound message is marked read elsewhere
+          if (updated.receiver_id === userId) {
+            const becameRead =
+              updated.is_read === true &&
+              (previous ? previous.is_read === false : true);
+            if (becameRead) {
+              const senderId = updated.sender_id;
+              let decremented = false;
+              setContacts(prev =>
+                prev.map(c => {
+                  if (c.id !== senderId) return c;
+                  if (c.unreadCount <= 0) return c;
+                  decremented = true;
+                  return { ...c, unreadCount: Math.max(0, c.unreadCount - 1) };
+                })
+              );
+              if (decremented) {
+                setTotalUnread(prev => Math.max(0, prev - 1));
+              }
+            }
+          }
+        }
+      )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      channelRef.current?.unsubscribe();
+      channelRef.current = null;
+      supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchContacts]);
 
   useEffect(() => {
     fetchContacts();
@@ -337,4 +376,17 @@ export function useTeamChat() {
     selectContact,
     sendMessage,
   };
+}
+
+export function TeamChatProvider({ children }: { children: ReactNode }) {
+  const value = useTeamChatStateInternal();
+  return createElement(TeamChatContext.Provider, { value }, children);
+}
+
+export function useTeamChat(): TeamChatValue {
+  const ctx = useContext(TeamChatContext);
+  if (!ctx) {
+    throw new Error('useTeamChat must be used within TeamChatProvider');
+  }
+  return ctx;
 }
