@@ -3,30 +3,45 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, Lock, Zap, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Zap, ShieldCheck, Phone, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
+type Mode = 'password' | 'sms';
+
 export default function Login() {
+  const [mode, setMode] = useState<Mode>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingLogin, setPendingLogin] = useState(false);
+
+  // TOTP MFA challenge
   const [showMfa, setShowMfa] = useState(false);
   const [factorId, setFactorId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // SMS login
+  const [phone, setPhone] = useState('+90');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsBusy, setSmsBusy] = useState(false);
+
   const { signIn, signOut, profile } = useAuth();
   const navigate = useNavigate();
+
+  const normalizePhone = (raw: string) => {
+    const cleaned = raw.replace(/[^\d+]/g, '');
+    return cleaned.startsWith('+') ? cleaned : `+${cleaned.replace(/^0+/, '')}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await signIn(email, password);
-    if (error) {
-      setLoading(false);
-      return;
-    }
+    if (error) { setLoading(false); return; }
 
     try {
       const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -35,7 +50,6 @@ export default function Login() {
       if (aalData?.currentLevel === 'aal1' && aalData?.nextLevel === 'aal2') {
         const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
         if (factorsError) throw factorsError;
-
         const totpFactor = factorsData?.totp?.find((f: any) => f.status === 'verified');
         if (totpFactor) {
           setFactorId(totpFactor.id);
@@ -62,11 +76,7 @@ export default function Login() {
     try {
       const ch = await supabase.auth.mfa.challenge({ factorId });
       if (ch.error) throw ch.error;
-      const v = await supabase.auth.mfa.verify({
-        factorId,
-        challengeId: ch.data.id,
-        code: mfaCode,
-      });
+      const v = await supabase.auth.mfa.verify({ factorId, challengeId: ch.data.id, code: mfaCode });
       if (v.error) throw v.error;
       toast.success('2 Adımlı Doğrulama başarılı!');
       setShowMfa(false);
@@ -89,9 +99,48 @@ export default function Login() {
     setPendingLogin(false);
   };
 
+  const sendSmsCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const e164 = normalizePhone(phone);
+    if (e164.length < 10) { toast.error('Geçerli bir telefon numarası girin.'); return; }
+    setSmsBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: e164.replace(/^\+/, '') });
+      if (error) throw error;
+      setSmsSent(true);
+      setSmsCode('');
+      toast.success('Doğrulama kodu telefonunuza gönderildi.');
+    } catch (err: any) {
+      toast.error(err?.message || 'SMS gönderilemedi. Provider yapılandırmasını kontrol edin.');
+    } finally {
+      setSmsBusy(false);
+    }
+  };
+
+  const verifySmsCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (smsCode.length !== 6) return;
+    setSmsBusy(true);
+    try {
+      const e164 = normalizePhone(phone);
+      const { error } = await supabase.auth.verifyOtp({
+        phone: e164.replace(/^\+/, ''),
+        token: smsCode,
+        type: 'sms',
+      });
+      if (error) throw error;
+      toast.success('Telefon doğrulandı!');
+      setPendingLogin(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Kod hatalı veya süresi dolmuş.');
+      setSmsCode('');
+    } finally {
+      setSmsBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!pendingLogin || !profile) return;
-
     if (profile.role === 'coach') {
       navigate('/');
     } else {
@@ -120,66 +169,97 @@ export default function Login() {
                 <ShieldCheck className="w-6 h-6 text-primary" />
               </div>
               <h2 className="text-lg font-semibold text-foreground">Güvenlik Kodu</h2>
-              <p className="text-sm text-muted-foreground">
-                Authenticator uygulamanızdaki 6 haneli kodu girin.
-              </p>
+              <p className="text-sm text-muted-foreground">Authenticator uygulamanızdaki 6 haneli kodu girin.</p>
             </div>
-
             <div className="flex justify-center">
-              <InputOTP
-                maxLength={6}
-                value={mfaCode}
-                onChange={(val) => setMfaCode(val.replace(/\D/g, ''))}
-                autoFocus
-              >
+              <InputOTP maxLength={6} value={mfaCode} onChange={(val) => setMfaCode(val.replace(/\D/g, ''))} autoFocus>
                 <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
+                  <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} /><InputOTPSlot index={4} /><InputOTPSlot index={5} />
                 </InputOTPGroup>
               </InputOTP>
             </div>
-
-            <Button
-              type="submit"
-              disabled={isVerifying || mfaCode.length !== 6}
-              className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow"
-            >
+            <Button type="submit" disabled={isVerifying || mfaCode.length !== 6} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
               {isVerifying ? 'Doğrulanıyor...' : 'Doğrula ve Giriş Yap'}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleCancelMfa}
-              disabled={isVerifying}
-              className="w-full"
-            >
-              İptal
-            </Button>
+            <Button type="button" variant="ghost" onClick={handleCancelMfa} disabled={isVerifying} className="w-full">İptal</Button>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-2xl">
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-posta</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input id="email" type="email" placeholder="coach@dynabolic.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Şifre</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
-              </div>
-            </div>
-            <Button type="submit" disabled={loading} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
-              {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-            </Button>
-          </form>
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-2xl">
+            <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+              <TabsList className="grid grid-cols-2 w-full mb-5 bg-black/60 border border-white/10">
+                <TabsTrigger value="password" className="data-[state=active]:bg-primary data-[state=active]:text-black">
+                  <Mail className="w-4 h-4 mr-2" /> E-posta
+                </TabsTrigger>
+                <TabsTrigger value="sms" className="data-[state=active]:bg-primary data-[state=active]:text-black">
+                  <Phone className="w-4 h-4 mr-2" /> SMS
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="password" className="mt-0">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-posta</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input id="email" type="email" placeholder="coach@dynabolic.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Şifre</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+                    </div>
+                  </div>
+                  <Button type="submit" disabled={loading} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
+                    {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="sms" className="mt-0">
+                {!smsSent ? (
+                  <form onSubmit={sendSmsCode} className="space-y-5">
+                    <div className="space-y-1.5">
+                      <label htmlFor="phone" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Telefon Numarası</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input id="phone" inputMode="tel" placeholder="+905551234567" value={phone} onChange={(e) => setPhone(e.target.value)} required className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={smsBusy} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
+                      <Send className="w-4 h-4 mr-2" />
+                      {smsBusy ? 'Gönderiliyor…' : 'SMS Kodu Gönder'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Yalnızca daha önce telefonunu doğrulamış koçlar SMS ile giriş yapabilir.
+                    </p>
+                  </form>
+                ) : (
+                  <form onSubmit={verifySmsCode} className="space-y-5">
+                    <p className="text-sm text-foreground text-center">
+                      <span className="font-mono">{normalizePhone(phone)}</span> numarasına gönderilen 6 haneli kodu girin.
+                    </p>
+                    <div className="flex justify-center">
+                      <InputOTP maxLength={6} value={smsCode} onChange={(v) => setSmsCode(v.replace(/\D/g, ''))} autoFocus>
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} />
+                          <InputOTPSlot index={3} /><InputOTPSlot index={4} /><InputOTPSlot index={5} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    <Button type="submit" disabled={smsBusy || smsCode.length !== 6} className="w-full h-11 bg-primary text-black font-bold text-sm tracking-wide hover:shadow-glow-lime transition-shadow">
+                      {smsBusy ? 'Doğrulanıyor…' : 'Doğrula ve Giriş Yap'}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => { setSmsSent(false); setSmsCode(''); }} className="w-full">
+                      Numarayı Değiştir
+                    </Button>
+                  </form>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
 
         {!showMfa && (

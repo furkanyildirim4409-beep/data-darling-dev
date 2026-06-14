@@ -27,6 +27,7 @@ import EmailTemplates from "./pages/EmailTemplates";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForcePasswordReset from "./pages/ForcePasswordReset";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/force-password-reset" element={
                 <ProtectedRoute>
                   <ForcePasswordReset />
