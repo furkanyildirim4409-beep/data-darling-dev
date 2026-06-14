@@ -1,82 +1,58 @@
-# SaaS Pricing UI + Coach Subscription Checkout (Part 4/4)
+## Amaç
 
-## 1. Subscription Tier Catalog — `src/lib/subscriptionTiers.ts` (new)
+1. Stripe webhook'tan gelen tüm event'leri kalıcı bir geçmiş tablosunda tut.
+2. `profiles.subscription_status` her event sonrası Stripe'taki gerçek durumla uyumlu kalsın (drift olursa otomatik düzelt).
+3. Settings sayfasında kullanıcı kendi paketi ve durumunu okunabilir rozetlerle görsün.
 
-Single source of truth for the 3 tiers. Used by the UI now and by the webhook later.
+---
 
-```ts
-export type TierId = "starter" | "pro" | "elite";
+## 1. Yeni tablo: `subscription_events`
 
-export interface Tier {
-  id: TierId;
-  name: string;           // Başlangıç | Profesyonel | Kurumsal
-  tagline: string;
-  priceMonthly: number;   // TRY
-  highlight?: boolean;    // Pro
-  badge?: string;         // "En Popüler" / "Kurumsal"
-  features: { label: string; included: boolean }[];
-  cta: string;            // "Planı Yükselt / Satın Al"
-}
-```
+Migration ile oluşturulacak. Her webhook çağrısında bir satır eklenir; idempotent (Stripe `event.id` PK olarak).
 
-Tiers grounded in actual app modules:
-- **Starter** — Sporcu yönetimi (50 limit), Program & diyet atama, Temel raporlar, Mesajlaşma. *Kapalı:* AI Asistanı, Mağaza, Akademi, İçerik Stüdyosu, Takım, Beyaz etiket.
-- **Pro** — Sınırsız sporcu, AI Program Architect, Global Mağaza, Akademi Stüdyosu, İçerik Stüdyosu, Sosyal & Hikayeler, Otomasyonlar.
-- **Elite** — Pro'daki her şey + Alt koç (Takım) yönetimi & granular ACL, Beyaz etiket (gym_name & marka), Gelişmiş finansal analitik, Mailbox & domain, Öncelikli destek.
+Kolonlar:
+- `id` (text, PK) — Stripe event id (`evt_...`)
+- `coach_id` (uuid, nullable) — profiles.id referansı
+- `stripe_subscription_id` (text, nullable)
+- `stripe_customer_id` (text, nullable)
+- `event_type` (text) — örn. `customer.subscription.updated`
+- `previous_status` / `new_status` (text, nullable)
+- `previous_tier` / `new_tier` (text, nullable)
+- `raw_payload` (jsonb) — debug için event objesi
+- `created_at` (timestamptz)
 
-## 2. Pricing UI — `src/pages/Settings.tsx` (Abonelik tab)
+Erişim:
+- Sadece kullanıcının kendi `coach_id`'sine ait satırları okuyabilmesi
+- INSERT yalnızca service_role (webhook) tarafından
+- GRANT: `SELECT` authenticated, `ALL` service_role
 
-Replace the existing `subscriptionPlans` array + grid (lines ~28-47 and ~490-542) with a polished Stripe-style 3-column card grid:
+## 2. Webhook senkronizasyon iyileştirmesi
 
-- Mid card (Pro) elevated with `border-primary`, glow shadow, "En Popüler" ribbon
-- Each card: tier name, tagline, big `₺X /ay` price, full feature list with green check icons for included and muted strike-through `XCircle` for excluded
-- Primary CTA: **"Planı Yükselt / Satın Al"** → calls `handlePurchaseTier(tier.id)`
-- If `profile.subscription_tier` matches current tier → button becomes disabled "Aktif Plan" with success badge
-- New handler `handlePurchaseTier(tierId)` invokes the edge function below, redirects to `data.url`, with `Loader2` spinner state per-card and sonner error toast on failure
+`supabase/functions/stripe-subscription-webhook/index.ts` içinde:
+- Her event başında `subscription_events`'e `INSERT ... ON CONFLICT (id) DO NOTHING` — aynı event iki kez gelirse no-op (Stripe retry koruması).
+- `upsertFromSubscription` çağrısından önce profilin mevcut `subscription_status`/`subscription_tier` değerlerini çek, event satırına `previous_*` ve `new_*` alanlarını yaz.
+- **Drift kontrolü**: Update sonrası Stripe'tan dönen `sub.status` ile DB'deki yeni değer karşılaştırılır; eşleşmiyorsa tekrar update + warning log. Bu, paralel webhook'larda son gelen Stripe state'i kazanır.
+- `customer.subscription.deleted` event'inde `subscription_status = 'canceled'`, `subscription_tier = null` olarak normalize.
 
-Keep the existing IBAN/banka block below — it's unrelated.
+## 3. Settings sayfasında görünür rozetler
 
-## 3. Edge Function — `supabase/functions/create-coach-subscription/index.ts` (new)
+`src/pages/Settings.tsx` (mevcut satır 485 civarı, "Mevcut Paket" kısmı):
+- Tier'i `subscriptionTiers.ts`'ten alınan label ile göster (örn. `pro` → "Pro").
+- Status için renkli `Badge`: 
+  - `active` / `trialing` → yeşil "Aktif"
+  - `past_due` / `unpaid` → amber "Ödeme Bekliyor"
+  - `canceled` / `incomplete_expired` → kırmızı "İptal"
+  - diğerleri → nötr
+- `subscription_current_period_end` doluysa "Bitiş: dd MMM yyyy" alt satırı.
+- `subscription_cancel_at_period_end === true` ise "Dönem sonunda iptal olacak" notu.
 
-Mirrors the structure of `create-custom-checkout` (Zod, getClaims auth, BYOK `STRIPE_SECRET_KEY`).
+Sadece görsel — yeni state veya iş mantığı eklenmez. Mevcut `profile` AuthContext'ten zaten geliyor.
 
-```text
-POST { tierId: "starter" | "pro" | "elite" }
-  → auth via getClaims (Bearer JWT)
-  → map tierId → Stripe Price ID from env:
-        STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_ELITE
-  → stripe.checkout.sessions.create({
-        mode: "subscription",
-        line_items: [{ price, quantity: 1 }],
-        customer_email: userEmail,
-        client_reference_id: userId,
-        success_url: `${origin}/settings?subscription=success&tier=${tierId}`,
-        cancel_url:  `${origin}/settings?subscription=cancelled`,
-        metadata: { coach_id: userId, requested_tier: tierId },
-        subscription_data: { metadata: { coach_id: userId, requested_tier: tierId } },
-      })
-  → return { url }
-```
+---
 
-CORS, OPTIONS handler, structured errors (400 invalid tier, 401 unauthorized, 500 if any price ID missing). Reads `origin` from `req.headers.get("origin")` with fallback.
+## Teknik notlar
 
-Function is deployed automatically. Default `verify_jwt = false`; auth enforced in code via `getClaims`.
-
-## 4. Secrets needed
-
-`STRIPE_SECRET_KEY` already set. Three new runtime secrets required before going live:
-- `STRIPE_PRICE_STARTER`
-- `STRIPE_PRICE_PRO`
-- `STRIPE_PRICE_ELITE`
-
-I'll request them via `add_secret` right after enabling, so the function returns a clean "tier not configured" 500 until they're filled in. The user creates 3 recurring Prices in their Stripe dashboard (TRY, monthly) and pastes the `price_…` IDs.
-
-## 5. Out of scope (for a later part)
-
-- Webhook (`stripe-webhook`) that listens to `checkout.session.completed` / `customer.subscription.updated` and flips `profiles.subscription_tier` based on `metadata.requested_tier`.
-- DB-side limit enforcement (50-athlete cap, module gating). UI today reads `profile.subscription_tier` only to highlight the current card.
-
-## Files
-
-- **New:** `src/lib/subscriptionTiers.ts`, `supabase/functions/create-coach-subscription/index.ts`
-- **Edited:** `src/pages/Settings.tsx` (tier array removed, pricing grid + `handlePurchaseTier` rewritten)
+- Migration sırası: CREATE TABLE → GRANT → ENABLE RLS → POLICY.
+- Webhook idempotency artık DB seviyesinde garantili (event.id unique).
+- Frontend `types.ts` migration sonrası otomatik regenere olacak, ek tip değişikliği gerekmiyor.
+- Mevcut `stripe_transactions` tablosu ödeme işlemleri için; `subscription_events` sadece abonelik yaşam döngüsü içindir — karıştırılmıyor.
