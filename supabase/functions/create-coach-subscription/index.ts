@@ -26,6 +26,27 @@ const PRICE_ENV_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   elite: "STRIPE_PRICE_ELITE",
 };
 
+const FALLBACK_PRICE_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
+  starter: "price_1TiFCwRsNTZwyhMjLpzmuXlt",
+  pro: "price_1TiFCwRsNTZwyhMjEo4egJ89",
+  elite: "price_1TiFCxRsNTZwyhMjFYeJdUlx",
+};
+
+const resolvePriceId = (tierId: "starter" | "pro" | "elite") => {
+  const envName = PRICE_ENV_BY_TIER[tierId];
+  const configuredValue = Deno.env.get(envName)?.trim();
+
+  if (configuredValue?.startsWith("price_")) return configuredValue;
+
+  if (configuredValue?.startsWith("prod_")) {
+    console.warn(
+      `${envName} contains a Stripe Product ID (${configuredValue}); using the known Stripe Price ID instead.`,
+    );
+  }
+
+  return FALLBACK_PRICE_BY_TIER[tierId];
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -76,7 +97,7 @@ Deno.serve(async (req) => {
     }
     const { tierId } = parsed.data;
 
-    const priceId = Deno.env.get(PRICE_ENV_BY_TIER[tierId]);
+    const priceId = resolvePriceId(tierId);
     if (!priceId) {
       return json(
         {
