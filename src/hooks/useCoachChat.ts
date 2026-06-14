@@ -251,6 +251,13 @@ function useCoachChatStateInternal(): CoachChatValue {
     setHasMoreMessages(fetched.length >= MSG_PAGE_SIZE);
     setIsLoadingMessages(false);
 
+    // Capture unread inbound ids BEFORE we mark them read so the realtime UPDATE
+    // that follows doesn't decrement the badge a second time.
+    const unreadInboundIds = fetched
+      .filter(m => m.sender_id === athleteId && m.receiver_id === coachId && !m.is_read)
+      .map(m => m.id);
+    for (const id of unreadInboundIds) readProcessedIdsRef.current.add(id);
+
     await supabase
       .from('messages')
       .update({ is_read: true })
@@ -258,7 +265,6 @@ function useCoachChatStateInternal(): CoachChatValue {
       .eq('receiver_id', coachId)
       .eq('is_read', false);
 
-    // Use functional updaters to avoid stale closure on athletes
     setAthletes(prev => {
       const target = prev.find(a => a.id === athleteId);
       const wasUnread = target?.unreadCount || 0;
