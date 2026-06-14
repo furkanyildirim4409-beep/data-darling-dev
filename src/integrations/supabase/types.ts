@@ -2207,6 +2207,7 @@ export type Database = {
           total_volume_kg: number | null
           updated_at: string | null
           username: string | null
+          whatsapp_notifications_enabled: boolean
           xp: number | null
         }
         Insert: {
@@ -2254,6 +2255,7 @@ export type Database = {
           total_volume_kg?: number | null
           updated_at?: string | null
           username?: string | null
+          whatsapp_notifications_enabled?: boolean
           xp?: number | null
         }
         Update: {
@@ -2301,6 +2303,7 @@ export type Database = {
           total_volume_kg?: number | null
           updated_at?: string | null
           username?: string | null
+          whatsapp_notifications_enabled?: boolean
           xp?: number | null
         }
         Relationships: [
@@ -3518,57 +3521,33 @@ export type Database = {
         Args: { _is_active: boolean; _team_member_id: string }
         Returns: undefined
       }
-      update_own_profile:
-        | {
-            Args: {
-              _activity_level?: string
-              _avatar_url?: string
-              _bio?: string
-              _birth_date?: string
-              _current_weight?: number
-              _daily_calorie_target?: number
-              _daily_carb_target?: number
-              _daily_fat_target?: number
-              _daily_protein_target?: number
-              _fitness_goal?: string
-              _full_name?: string
-              _gender?: string
-              _gym_name?: string
-              _height_cm?: number
-              _notification_preferences?: Json
-              _notification_settings?: Json
-              _onboarding_completed?: boolean
-              _specialty?: string
-              _target_weight?: number
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _activity_level?: string
-              _avatar_url?: string
-              _bio?: string
-              _birth_date?: string
-              _current_weight?: number
-              _daily_calorie_target?: number
-              _daily_carb_target?: number
-              _daily_fat_target?: number
-              _daily_protein_target?: number
-              _fitness_goal?: string
-              _full_name?: string
-              _gender?: string
-              _gym_name?: string
-              _height_cm?: number
-              _instagram_sync_active?: boolean
-              _notification_preferences?: Json
-              _notification_settings?: Json
-              _onboarding_completed?: boolean
-              _specialty?: string
-              _target_weight?: number
-              _username?: string
-            }
-            Returns: undefined
-          }
+      update_own_profile: {
+        Args: {
+          _activity_level?: string
+          _avatar_url?: string
+          _bio?: string
+          _birth_date?: string
+          _current_weight?: number
+          _daily_calorie_target?: number
+          _daily_carb_target?: number
+          _daily_fat_target?: number
+          _daily_protein_target?: number
+          _fitness_goal?: string
+          _full_name?: string
+          _gender?: string
+          _gym_name?: string
+          _height_cm?: number
+          _instagram_sync_active?: boolean
+          _notification_preferences?: Json
+          _notification_settings?: Json
+          _onboarding_completed?: boolean
+          _specialty?: string
+          _target_weight?: number
+          _username?: string
+          _whatsapp_notifications_enabled?: boolean
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "coach" | "athlete"
