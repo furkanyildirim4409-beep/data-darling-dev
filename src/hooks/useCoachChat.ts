@@ -45,6 +45,7 @@ interface CoachChatValue {
   isLoadingOlder: boolean;
   hasMoreMessages: boolean;
   selectAthlete: (athleteId: string) => void;
+  clearSelection: () => void;
   sendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => Promise<void>;
   unsendMessage: (messageId: string) => Promise<void>;
   loadOlderMessages: () => Promise<void>;
