@@ -467,7 +467,7 @@ function useCoachChatStateInternal(): CoachChatValue {
                   const senderName = athletesRef.current.find(a => a.id === senderId)?.full_name || 'Sporcu';
                   new Notification(`💬 ${senderName} sana yeni bir mesaj gönderdi`, {
                     body: previewText.substring(0, 100),
-                    icon: '/pwa-192x192.png',
+                    icon: '/pwa-icon-192.png',
                   });
                 }
               } catch {}

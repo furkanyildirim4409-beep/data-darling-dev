@@ -82,7 +82,7 @@ export function MobileNav({ className }: MobileNavProps) {
           <div className="flex flex-col gap-0.5 min-w-0">
             <div className="flex items-center gap-2">
               <img
-                src="/brand-logo.png"
+                src="/brand-logo.svg"
                 alt="Dynabolic"
                 width={32}
                 height={32}
