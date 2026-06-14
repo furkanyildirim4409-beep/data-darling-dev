@@ -445,7 +445,11 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+              </div>
+            </div>
+          )}
+
+
 
 
           {/* Branding Section */}
