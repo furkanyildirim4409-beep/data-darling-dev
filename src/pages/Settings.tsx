@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark } from "lucide-react";
+import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,6 @@ const settingsSections = [
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "security", label: "Güvenlik", icon: Lock },
   { id: "appearance", label: "Görünüm", icon: Palette },
-  { id: "data", label: "Veri & Dışa Aktar", icon: Database },
 ];
 
 const accentColors = [
@@ -94,7 +93,7 @@ export default function Settings() {
   const [activeSection, setActiveSection] = useState("profile");
   const [selectedColor, setSelectedColor] = useState("lime");
   const [darkMode, setDarkMode] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [iban, setIban] = useState<string>("");
@@ -136,7 +135,6 @@ export default function Settings() {
   // Form states
   const [formData, setFormData] = useState({
     fullName: profile?.full_name || "",
-    bio: profile?.bio || "",
     gymName: profile?.gym_name || "",
     specialty: profile?.specialty || "",
     email: profile?.email || "",
@@ -157,13 +155,13 @@ export default function Settings() {
       setFormData(prev => ({
         ...prev,
         fullName: profile.full_name || "",
-        bio: profile.bio || "",
         gymName: profile.gym_name || "",
         specialty: profile.specialty || "",
         email: profile.email || "",
       }));
       setUsername(profile.username || "");
       setIban(formatIbanInput(((profile as any).iban as string) || ""));
+      setWhatsappEnabled(Boolean((profile as any).whatsapp_notifications_enabled));
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
@@ -186,12 +184,12 @@ export default function Settings() {
     try {
       const { error } = await supabase.rpc('update_own_profile', {
         _full_name: formData.fullName,
-        _bio: formData.bio,
         _gym_name: formData.gymName,
         _specialty: formData.specialty,
         _notification_preferences: notificationPrefs,
-        _notification_settings: notificationPrefs
-      });
+        _notification_settings: notificationPrefs,
+        _whatsapp_notifications_enabled: whatsappEnabled,
+      } as any);
 
       if (error) throw error;
 
@@ -313,49 +311,8 @@ export default function Settings() {
     }
   };
 
-  const handleExportData = async () => {
-    if (!user) return;
 
-    setIsExporting(true);
-    
-    try {
-      // Fetch data from various tables
-      const coachId = activeCoachId || user.id;
-      const [athletesResult, programsResult, paymentsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('coach_id', coachId),
-        supabase.from('programs').select('*').eq('coach_id', coachId),
-        supabase.from('payments').select('*').eq('coach_id', coachId)
-      ]);
 
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        version: "1.0.0",
-        coach: profile,
-        athletes: athletesResult.data || [],
-        programs: programsResult.data || [],
-        payments: paymentsResult.data || []
-      };
-
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dynabolic_data_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast.success("Veriler başarıyla dışa aktarıldı! 📦");
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error("Veri dışa aktarılırken bir hata oluştu.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleUpgradeSubscription = (planName: string) => {
     toast.info(`${planName} planına yükseltme özelliği yakında aktif olacak.`);
@@ -489,17 +446,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Biyografi</label>
-                  <Textarea
-                    value={formData.bio}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
-                    placeholder="Kendiniz hakkında kısa bir açıklama..."
-                    className="bg-card border-border focus:border-primary min-h-[100px]"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Branding Section */}
           {activeSection === "branding" && (
