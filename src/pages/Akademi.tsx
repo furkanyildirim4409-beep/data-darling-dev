@@ -164,7 +164,7 @@ export default function Akademi() {
       .filter((item) => {
         const matchesTab = activeTab === "archived"
           ? item.status === "archived"
-          : item.status !== "archived";
+          : item.status === "published";
         if (!matchesTab) return false;
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = filterCategory === "Tümü" || item.category === filterCategory;
