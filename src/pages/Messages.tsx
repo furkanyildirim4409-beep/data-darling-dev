@@ -27,7 +27,14 @@ export default function Messages() {
     unsendMessage,
     loadOlderMessages,
     respondToRequest,
+    clearSelection,
   } = useCoachChat();
+
+  useEffect(() => {
+    return () => {
+      clearSelection();
+    };
+  }, [clearSelection]);
 
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
