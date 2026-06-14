@@ -7,6 +7,7 @@ import { ActiveChat } from "@/components/chat/ActiveChat";
 import { TeamChatInterface } from "@/components/messages/TeamChatInterface";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Users } from "lucide-react";
 
 export default function Messages() {
