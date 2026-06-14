@@ -563,6 +563,30 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!unsendTargetId} onOpenChange={(open) => !open && setUnsendTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mesajı geri al</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu mesaj her iki taraf için de silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (unsendTargetId && onUnsendMessage) onUnsendMessage(unsendTargetId);
+                setUnsendTargetId(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Geri Al
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
