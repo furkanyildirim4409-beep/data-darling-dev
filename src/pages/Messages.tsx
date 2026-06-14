@@ -104,7 +104,9 @@ export default function Messages() {
         isLoadingOlder={isLoadingOlder}
         hasMoreMessages={hasMoreMessages}
         onSendMessage={sendMessage}
+        onUnsendMessage={unsendMessage}
         onLoadOlder={loadOlderMessages}
+
         onRespondToRequest={respondToRequest}
       />
     </div>
