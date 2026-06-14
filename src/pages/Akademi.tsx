@@ -918,7 +918,7 @@ export default function Akademi() {
           <DialogFooter className="p-6 pt-4 border-t border-border/50 shrink-0 flex gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => handleSheetChange(false)}>İptal</Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Yükleniyor..." : "Ekle"}
+              {isSubmitting ? (editingId ? "Güncelleniyor..." : "Yükleniyor...") : (editingId ? "Güncelle" : "Ekle")}
             </Button>
           </DialogFooter>
         </DialogContent>
