@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup";
+import { THEME_PALETTES, applyThemeColor, loadStoredTheme, type ThemeKey } from "@/lib/theme";
 
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
@@ -19,14 +21,9 @@ const settingsSections = [
   { id: "appearance", label: "Görünüm", icon: Palette },
 ];
 
-const accentColors = [
-  { name: "Neon Yeşil", value: "lime", hsl: "82 85% 55%", preview: "bg-[hsl(82,85%,55%)]" },
-  { name: "Elektrik Mavi", value: "blue", hsl: "217 91% 60%", preview: "bg-[hsl(217,91%,60%)]" },
-  { name: "Siber Mor", value: "purple", hsl: "263 70% 58%", preview: "bg-[hsl(263,70%,58%)]" },
-  { name: "Neon Turuncu", value: "orange", hsl: "25 95% 53%", preview: "bg-[hsl(25,95%,53%)]" },
-  { name: "Plazma Pembe", value: "pink", hsl: "330 81% 60%", preview: "bg-[hsl(330,81%,60%)]" },
-  { name: "Matrix Yeşil", value: "green", hsl: "142 76% 36%", preview: "bg-[hsl(142,76%,36%)]" },
-];
+const accentColors = (Object.entries(THEME_PALETTES) as [ThemeKey, typeof THEME_PALETTES[ThemeKey]][]).map(
+  ([value, p]) => ({ value, name: p.name, hsl: p.hsl })
+);
 
 const subscriptionPlans = [
   {
