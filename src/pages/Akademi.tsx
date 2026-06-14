@@ -205,12 +205,29 @@ export default function Akademi() {
   const addModule = () => {
     setModules((prev) => [
       ...prev,
-      { id: generateId(), title: "", videoFile: null, videoUrl: "", fileName: "", order: prev.length + 1 },
+      {
+        id: generateId(),
+        title: "",
+        videoFile: null,
+        videoUrl: "",
+        fileName: "",
+        order: prev.length + 1,
+        contentType: "video",
+        articleContent: "",
+      },
     ]);
   };
 
   const updateModuleTitle = (id: string, title: string) => {
     setModules((prev) => prev.map((m) => (m.id === id ? { ...m, title } : m)));
+  };
+
+  const updateModuleContentType = (id: string, contentType: ModuleContentType) => {
+    setModules((prev) => prev.map((m) => (m.id === id ? { ...m, contentType } : m)));
+  };
+
+  const updateModuleArticle = (id: string, html: string) => {
+    setModules((prev) => prev.map((m) => (m.id === id ? { ...m, articleContent: html } : m)));
   };
 
   const handleModuleVideoSelect = (moduleId: string, file: File) => {
@@ -239,6 +256,20 @@ export default function Akademi() {
     if (!activeCoachId) return [];
     const results: CourseModule[] = [];
     for (const mod of modules) {
+      // Article modules: no video upload, persist article HTML only
+      if (mod.contentType === "article") {
+        results.push({
+          id: mod.id,
+          title: mod.title,
+          videoUrl: "",
+          fileName: "",
+          order: mod.order,
+          contentType: "article",
+          articleContent: mod.articleContent ?? "",
+        });
+        continue;
+      }
+
       let videoUrl = mod.videoUrl;
       let fileName = mod.fileName;
       if (mod.videoFile) {
@@ -264,6 +295,8 @@ export default function Akademi() {
         videoUrl,
         fileName,
         order: mod.order,
+        contentType: "video",
+        articleContent: "",
       });
     }
     return results;
