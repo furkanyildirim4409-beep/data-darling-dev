@@ -3514,6 +3514,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_team_member_active: {
+        Args: { _is_active: boolean; _team_member_id: string }
+        Returns: undefined
+      }
       update_own_profile:
         | {
             Args: {
