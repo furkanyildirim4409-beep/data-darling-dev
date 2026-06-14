@@ -20,16 +20,18 @@ const BodySchema = z.object({
   tierId: z.enum(["starter", "pro", "elite"]),
 });
 
+// NOTE: 'pro' (5000 TL) and 'elite' (3000 TL) swapped — internal id 'pro' now
+// resolves to the formerly-elite Stripe price, and vice versa.
 const PRICE_ENV_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   starter: "STRIPE_PRICE_STARTER",
-  pro: "STRIPE_PRICE_PRO",
-  elite: "STRIPE_PRICE_ELITE",
+  pro: "STRIPE_PRICE_ELITE",
+  elite: "STRIPE_PRICE_PRO",
 };
 
 const FALLBACK_PRICE_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   starter: "price_1TiFCwRsNTZwyhMjLpzmuXlt",
-  pro: "price_1TiFCwRsNTZwyhMjEo4egJ89",
-  elite: "price_1TiFCxRsNTZwyhMjFYeJdUlx",
+  pro: "price_1TiFCxRsNTZwyhMjFYeJdUlx",
+  elite: "price_1TiFCwRsNTZwyhMjEo4egJ89",
 };
 
 const resolvePriceId = (tierId: "starter" | "pro" | "elite") => {
