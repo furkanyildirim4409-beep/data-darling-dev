@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, Trash2, UploadCloud, PlayCircle, X, Film, Globe, Lock } from "lucide-react";
+import { GraduationCap, Plus, Video, FileText, Search, MoreVertical, Pencil, Archive, ArchiveRestore, Trash2, UploadCloud, PlayCircle, X, Film, Globe, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
