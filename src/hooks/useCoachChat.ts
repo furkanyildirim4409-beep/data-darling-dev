@@ -436,7 +436,8 @@ function useCoachChatStateInternal(): CoachChatValue {
             setTimeout(() => fetchAthletes(), 0);
           }
 
-          if (senderId === selectedAthleteIdRef.current) {
+          const onMessagesRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/messages');
+          if (senderId === selectedAthleteIdRef.current && onMessagesRoute) {
             // Dedupe by id when appending to active thread
             setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
             // We're auto-marking read locally; pre-record id so our own UPDATE event can't double-decrement
