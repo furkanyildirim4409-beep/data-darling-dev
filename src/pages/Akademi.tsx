@@ -491,6 +491,24 @@ export default function Akademi() {
         </Select>
       </div>
 
+      {/* Tabs: Active vs Archived */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")}>
+        <TabsList>
+          <TabsTrigger value="active" className="gap-2">
+            Aktif Eğitimler
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+              {tabCounts.active}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-2">
+            Arşivlenenler
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+              {tabCounts.archived}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Results count */}
       {!isLoading && <p className="text-sm text-muted-foreground">{filteredItems.length} içerik bulundu</p>}
 
@@ -540,12 +558,18 @@ export default function Akademi() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toast.info("Düzenleme yakında aktif olacak")}>
+                          <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Pencil className="w-4 h-4 mr-2" /> Düzenle
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toast.info("Arşivleme yakında aktif olacak")}>
-                            <Archive className="w-4 h-4 mr-2" /> Arşivle
-                          </DropdownMenuItem>
+                          {item.status === "archived" ? (
+                            <DropdownMenuItem onClick={() => handleArchive(item.id, "published")}>
+                              <ArchiveRestore className="w-4 h-4 mr-2" /> Arşivden Çıkar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleArchive(item.id, "archived")}>
+                              <Archive className="w-4 h-4 mr-2" /> Arşivle
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(item.id)}>
                             <Trash2 className="w-4 h-4 mr-2" /> Sil
@@ -594,7 +618,12 @@ export default function Akademi() {
       {!isLoading && filteredItems.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <GraduationCap className="w-16 h-16 mx-auto mb-4 opacity-20" />
-          {hasAnyItems ? (
+          {activeTab === "archived" ? (
+            <>
+              <p className="text-lg font-medium">Arşivde içerik yok</p>
+              <p className="text-sm mt-1">Arşivlediğiniz eğitimler burada görünecek</p>
+            </>
+          ) : hasAnyItems ? (
             <>
               <p className="text-lg font-medium">Sonuç bulunamadı</p>
               <p className="text-sm mt-1">Filtreleri değiştirmeyi veya yeni içerik eklemeyi deneyin</p>
