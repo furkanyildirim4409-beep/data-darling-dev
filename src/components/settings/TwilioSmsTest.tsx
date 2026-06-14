@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Phone, FlaskConical, Send, Loader2, CheckCircle2 } from "lucide-react";
+import { Phone, FlaskConical, Send, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Twilio entegrasyonu için sandbox test paneli.
- * Mevcut oturumu bozmadan SMS gönderim/doğrulama akışını test eder.
+ * Twilio + Supabase Auth Phone Provider sandbox test paneli.
+ * Gerçekten SMS gönderilmeden başarı göstermez.
  */
 export function TwilioSmsTest() {
   const [phone, setPhone] = useState("+90");
@@ -17,6 +17,7 @@ export function TwilioSmsTest() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const normalize = (raw: string) => {
     const cleaned = raw.replace(/[^\d+]/g, "");
@@ -25,12 +26,20 @@ export function TwilioSmsTest() {
 
   const translateError = (msg: string): string => {
     const m = (msg || "").toLowerCase();
+    if (m.includes("20003") || (m.includes("authenticate") && m.includes("twilio")))
+      return "Twilio kimlik doğrulama hatası (20003). Supabase Dashboard → Authentication → Providers → Phone → Twilio bölümündeki Account SID, Auth Token ve Messaging Service SID / From Number bilgilerini kontrol edin.";
+    if (m.includes("sms_send_failed") || m.includes("error sending"))
+      return "Twilio SMS gönderilemedi. Supabase Phone Provider ayarlarındaki Twilio bilgilerinin doğruluğunu ve Twilio bakiyenizi kontrol edin.";
     if (m.includes("unsupported phone provider") || m.includes("sms provider"))
       return "Supabase Auth'ta SMS Provider (Twilio) aktif değil. Dashboard → Authentication → Providers → Phone bölümünden Twilio'yu etkinleştirin.";
-    if (m.includes("invalid") && m.includes("phone")) return "Geçersiz telefon numarası formatı (E.164 bekleniyor, örn: +905551234567).";
-    if (m.includes("rate") || m.includes("limit")) return "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin.";
-    if (m.includes("token") || m.includes("otp") || m.includes("expired")) return "Kod hatalı veya süresi dolmuş.";
-    if (m.includes("signups not allowed")) return "Numaraya kayıtlı kullanıcı bulunamadı (test modunda beklenen davranış). Twilio'dan SMS geldiyse entegrasyon çalışıyor demektir.";
+    if (m.includes("signups not allowed") || m.includes("otp_disabled"))
+      return "Bu numara sisteme kayıtlı değil veya Phone OTP signup kapalı. Test için önce Ayarlar → SMS Doğrulama (Telefon) bölümünden bir numara doğrulayın, sonra burada test edin.";
+    if (m.includes("invalid") && m.includes("phone"))
+      return "Geçersiz telefon numarası formatı (E.164 bekleniyor, örn: +905551234567).";
+    if (m.includes("rate") || m.includes("limit"))
+      return "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin.";
+    if (m.includes("token") || m.includes("otp") || m.includes("expired"))
+      return "Kod hatalı veya süresi dolmuş.";
     return msg;
   };
 
@@ -42,27 +51,25 @@ export function TwilioSmsTest() {
     }
     setBusy(true);
     setVerified(false);
+    setLastError(null);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone: e164.replace(/^\+/, ""),
+        phone: e164,
         options: { shouldCreateUser: false, channel: "sms" },
       });
       if (error) {
         const friendly = translateError(error.message);
-        // "signups not allowed" → Twilio aslında SMS göndermiş olur; bunu başarı say
-        if (error.message?.toLowerCase().includes("signups not allowed")) {
-          setSent(true);
-          toast.success("Twilio SMS gönderildi (numara hesapta yok, sadece akış testi).");
-        } else {
-          toast.error(friendly);
-        }
+        setLastError(friendly);
+        toast.error(friendly);
       } else {
         setSent(true);
         setCode("");
-        toast.success("Test SMS kodu Twilio üzerinden gönderildi.");
+        toast.success("Twilio üzerinden test SMS kodu gönderildi.");
       }
     } catch (e: any) {
-      toast.error(translateError(e?.message || "Beklenmeyen hata."));
+      const friendly = translateError(e?.message || "Beklenmeyen hata.");
+      setLastError(friendly);
+      toast.error(friendly);
     } finally {
       setBusy(false);
     }
@@ -71,29 +78,28 @@ export function TwilioSmsTest() {
   const verifyTest = async () => {
     if (code.length !== 6) return;
     setBusy(true);
+    setLastError(null);
     try {
       const e164 = normalize(phone);
       const { error } = await supabase.auth.verifyOtp({
-        phone: e164.replace(/^\+/, ""),
+        phone: e164,
         token: code,
         type: "sms",
       });
       if (error) {
-        // Eğer numara hesapta kayıtlı değilse "user not found" döner ama Twilio kodu doğruysa bu da entegrasyonun çalıştığını gösterir
-        if (error.message?.toLowerCase().includes("user")) {
-          setVerified(true);
-          toast.success("Kod doğru çözüldü. Twilio + Supabase entegrasyonu uçtan uca çalışıyor.");
-        } else {
-          toast.error(translateError(error.message));
-        }
+        const friendly = translateError(error.message);
+        setLastError(friendly);
+        toast.error(friendly);
       } else {
         setVerified(true);
-        toast.success("Test başarılı: Twilio entegrasyonu çalışıyor.");
+        toast.success("Test başarılı: Twilio + Supabase entegrasyonu çalışıyor.");
         // Sandbox oturumunu hemen kapat — test paneli oturum açmamalı
         await supabase.auth.signOut();
       }
     } catch (e: any) {
-      toast.error(translateError(e?.message || "Doğrulama başarısız."));
+      const friendly = translateError(e?.message || "Doğrulama başarısız.");
+      setLastError(friendly);
+      toast.error(friendly);
     } finally {
       setBusy(false);
     }
@@ -103,6 +109,7 @@ export function TwilioSmsTest() {
     setSent(false);
     setCode("");
     setVerified(false);
+    setLastError(null);
   };
 
   return (
@@ -116,11 +123,17 @@ export function TwilioSmsTest() {
             {verified && <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30"><CheckCircle2 className="w-3 h-3 mr-1" />Çalışıyor</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
-            Twilio'yu Supabase Auth'a bağladıktan sonra burada uçtan uca SMS gönderim/doğrulama testi yapın.
-            Bu panel oturumunuzu değiştirmez.
+            Bu panel sadece daha önce doğrulanmış bir numaraya gerçek SMS gönderir. Numara sistemde kayıtlı değilse Supabase güvenlik nedeniyle SMS göndermez.
           </p>
         </div>
       </div>
+
+      {lastError && (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{lastError}</span>
+        </div>
+      )}
 
       {!sent ? (
         <div className="space-y-3">
