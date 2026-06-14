@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode, createElement } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -35,10 +35,28 @@ export interface ChatMessage {
   metadata?: { story_id?: string; media_url?: string; category?: string } | null;
 }
 
+interface CoachChatValue {
+  athletes: ChatAthlete[];
+  selectedAthleteId: string | null;
+  messages: ChatMessage[];
+  totalUnread: number;
+  isLoadingAthletes: boolean;
+  isLoadingMessages: boolean;
+  isLoadingOlder: boolean;
+  hasMoreMessages: boolean;
+  selectAthlete: (athleteId: string) => void;
+  sendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => Promise<void>;
+  unsendMessage: (messageId: string) => Promise<void>;
+  loadOlderMessages: () => Promise<void>;
+  respondToRequest: (athleteId: string, action: 'approve' | 'decline') => Promise<void>;
+  refetch: () => Promise<void>;
+}
 
-export function useCoachChat() {
+const CoachChatContext = createContext<CoachChatValue | null>(null);
+
+function useCoachChatStateInternal(): CoachChatValue {
   const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
-  const coachId = user?.id; // message identity = real user
+  const coachId = user?.id;
 
   const [athletes, setAthletes] = useState<ChatAthlete[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
@@ -51,24 +69,26 @@ export function useCoachChat() {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selectedAthleteIdRef = useRef<string | null>(null);
+  const athletesRef = useRef<ChatAthlete[]>([]);
 
   useEffect(() => {
     selectedAthleteIdRef.current = selectedAthleteId;
   }, [selectedAthleteId]);
 
-  // Helper: get preview text for a message
+  useEffect(() => {
+    athletesRef.current = athletes;
+  }, [athletes]);
+
   const getPreviewText = (content: string, mediaType?: string | null) => {
     if (mediaType === 'image') return '📷 Fotoğraf';
     if (mediaType === 'audio') return '🎤 Ses kaydı';
     return content;
   };
 
-  // Fetch athletes + latest messages + unread counts in bulk
   const fetchAthletes = useCallback(async () => {
     if (!coachId || !activeCoachId) return;
     setIsLoadingAthletes(true);
 
-    // Assignment scoping for restricted sub-coaches
     let assignedIds: string[] | null = null;
     if (isSubCoach && teamMemberPermissions !== 'full' && teamMember?.id) {
       const { data: assignmentData } = await supabase
@@ -78,13 +98,13 @@ export function useCoachChat() {
 
       if (!assignmentData || assignmentData.length === 0) {
         setAthletes([]);
+        setTotalUnread(0);
         setIsLoadingAthletes(false);
         return;
       }
       assignedIds = assignmentData.map(a => a.athlete_id);
     }
 
-    // Use activeCoachId to fetch the agency's athletes
     let profilesQuery = supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
@@ -99,8 +119,6 @@ export function useCoachChat() {
     const profileMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }>();
     for (const p of profiles || []) profileMap.set(p.id, p);
 
-    // Find any senders messaging the coach who are NOT in the scoped roster
-    // (e.g. story-reply senders). Look back 90 days.
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data: extraSenders } = await supabase
       .from('messages')
@@ -112,7 +130,6 @@ export function useCoachChat() {
     const extraIds = new Set<string>();
     for (const row of (extraSenders || []) as { sender_id: string }[]) {
       if (row.sender_id !== coachId && !profileMap.has(row.sender_id)) {
-        // Honor sub-coach scoping: skip if assignedIds restricts and sender isn't assigned
         if (assignedIds && !assignedIds.includes(row.sender_id)) continue;
         extraIds.add(row.sender_id);
       }
@@ -129,13 +146,13 @@ export function useCoachChat() {
     const allProfiles = Array.from(profileMap.values());
     if (allProfiles.length === 0) {
       setAthletes([]);
+      setTotalUnread(0);
       setIsLoadingAthletes(false);
       return;
     }
 
     const athleteIds = allProfiles.map(p => p.id);
 
-    // Fetch chat_rooms metadata for these participants (coach side)
     const { data: roomsData } = await supabase
       .from('chat_rooms')
       .select('id, athlete_id, room_type, status')
@@ -147,9 +164,7 @@ export function useCoachChat() {
       roomMap.set(r.athlete_id, { id: r.id, room_type: r.room_type, status: r.status });
     }
 
-    const rosterIds = new Set<string>(
-      (profiles || []).map(p => p.id) // these came from coach_id=activeCoachId, i.e. paying clients
-    );
+    const rosterIds = new Set<string>((profiles || []).map(p => p.id));
 
     const { data: allMessages } = await supabase
       .from('messages')
@@ -165,11 +180,7 @@ export function useCoachChat() {
 
     for (const msg of (allMessages || []) as ChatMessage[]) {
       const athleteId = msg.sender_id === coachId ? msg.receiver_id : msg.sender_id;
-
-      if (!latestMap.has(athleteId)) {
-        latestMap.set(athleteId, msg);
-      }
-
+      if (!latestMap.has(athleteId)) latestMap.set(athleteId, msg);
       if (msg.receiver_id === coachId && !msg.is_read) {
         unreadMap.set(athleteId, (unreadMap.get(athleteId) || 0) + 1);
       }
@@ -200,7 +211,6 @@ export function useCoachChat() {
           room_id: room?.id ?? null,
         };
       })
-      // Hide declined rooms from the inbox entirely
       .filter(a => a.room_status !== 'declined');
 
     mapped.sort((a, b) => {
@@ -217,7 +227,6 @@ export function useCoachChat() {
 
   const MSG_PAGE_SIZE = 50;
 
-  // Fetch messages for selected athlete
   const fetchMessages = useCallback(async (athleteId: string) => {
     if (!coachId) return;
     setIsLoadingMessages(true);
@@ -244,18 +253,17 @@ export function useCoachChat() {
       .eq('receiver_id', coachId)
       .eq('is_read', false);
 
-    setAthletes(prev =>
-      prev.map(a =>
-        a.id === athleteId ? { ...a, unreadCount: 0 } : a
-      )
-    );
-    setTotalUnread(prev => {
-      const athleteUnread = athletes.find(a => a.id === athleteId)?.unreadCount || 0;
-      return Math.max(0, prev - athleteUnread);
+    // Use functional updaters to avoid stale closure on athletes
+    setAthletes(prev => {
+      const target = prev.find(a => a.id === athleteId);
+      const wasUnread = target?.unreadCount || 0;
+      if (wasUnread > 0) {
+        setTotalUnread(prevTotal => Math.max(0, prevTotal - wasUnread));
+      }
+      return prev.map(a => (a.id === athleteId ? { ...a, unreadCount: 0 } : a));
     });
-  }, [coachId, athletes]);
+  }, [coachId]);
 
-  // Load older messages
   const loadOlderMessages = useCallback(async () => {
     if (!coachId || !selectedAthleteId || isLoadingOlder || !hasMoreMessages) return;
     const oldestMsg = messages[0];
@@ -285,7 +293,6 @@ export function useCoachChat() {
     fetchMessages(athleteId);
   }, [fetchMessages]);
 
-  // Send message with optimistic UI — supports media
   const sendMessage = useCallback(async (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => {
     if (!coachId || !selectedAthleteId) return;
     if (!content.trim() && !mediaUrl) return;
@@ -327,7 +334,6 @@ export function useCoachChat() {
     }
   }, [coachId, selectedAthleteId]);
 
-  // Unsend (soft-delete) a message — only the original sender may flip the flag
   const unsendMessage = useCallback(async (messageId: string) => {
     if (!coachId) return;
     const deletedContent = '🚫 Bu mesaj silindi.';
@@ -351,18 +357,14 @@ export function useCoachChat() {
     }
   }, [coachId, selectedAthleteId, fetchMessages]);
 
-
-  // Approve / decline a pending message request
   const respondToRequest = useCallback(async (athleteId: string, action: 'approve' | 'decline') => {
-    const target = athletes.find(a => a.id === athleteId);
+    const target = athletesRef.current.find(a => a.id === athleteId);
     if (!target?.room_id) return;
 
     const newStatus: ChatRoomStatus = action === 'approve' ? 'accepted' : 'declined';
 
     if (action === 'approve') {
-      setAthletes(prev =>
-        prev.map(a => (a.id === athleteId ? { ...a, room_status: 'accepted' } : a))
-      );
+      setAthletes(prev => prev.map(a => (a.id === athleteId ? { ...a, room_status: 'accepted' } : a)));
     } else {
       setAthletes(prev => prev.filter(a => a.id !== athleteId));
       if (selectedAthleteId === athleteId) {
@@ -379,7 +381,7 @@ export function useCoachChat() {
     if (error) {
       fetchAthletes();
     }
-  }, [athletes, selectedAthleteId, fetchAthletes]);
+  }, [selectedAthleteId, fetchAthletes]);
 
   // Realtime subscription
   useEffect(() => {
@@ -408,14 +410,8 @@ export function useCoachChat() {
           const senderId = newMsg.sender_id;
           const previewText = getPreviewText(newMsg.content, newMsg.media_type);
 
-          // If sender is unknown to current inbox, refresh roster to surface them
-          let knownSender = false;
-          setAthletes(prev => {
-            knownSender = prev.some(a => a.id === senderId);
-            return prev;
-          });
+          const knownSender = athletesRef.current.some(a => a.id === senderId);
           if (!knownSender) {
-            // Defer to avoid setState-in-setState; refresh full inbox
             setTimeout(() => fetchAthletes(), 0);
           }
 
@@ -425,22 +421,50 @@ export function useCoachChat() {
               .from('messages')
               .update({ is_read: true })
               .eq('id', newMsg.id);
+
+            setAthletes(prev => {
+              const updated = prev.map(a =>
+                a.id === senderId
+                  ? { ...a, latestMessage: { content: previewText, created_at: newMsg.created_at, sender_id: senderId, media_type: newMsg.media_type } }
+                  : a
+              );
+              updated.sort((a, b) => {
+                if (!a.latestMessage && !b.latestMessage) return 0;
+                if (!a.latestMessage) return 1;
+                if (!b.latestMessage) return -1;
+                return new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime();
+              });
+              return updated;
+            });
           } else {
-            setAthletes(prev =>
-              prev.map(a =>
+            let actuallyIncremented = false;
+            setAthletes(prev => {
+              const exists = prev.some(a => a.id === senderId);
+              if (!exists) return prev;
+              actuallyIncremented = true;
+              const updated = prev.map(a =>
                 a.id === senderId
                   ? { ...a, unreadCount: a.unreadCount + 1, latestMessage: { content: previewText, created_at: newMsg.created_at, sender_id: senderId, media_type: newMsg.media_type } }
                   : a
-              )
-            );
-            setTotalUnread(prev => prev + 1);
+              );
+              updated.sort((a, b) => {
+                if (!a.latestMessage && !b.latestMessage) return 0;
+                if (!a.latestMessage) return 1;
+                if (!b.latestMessage) return -1;
+                return new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime();
+              });
+              return updated;
+            });
+            if (actuallyIncremented) {
+              setTotalUnread(prev => prev + 1);
+            }
 
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 const mutedRaw = localStorage.getItem('coach_muted_chats');
                 const muted: string[] = mutedRaw ? JSON.parse(mutedRaw) : [];
                 if (!muted.includes(senderId)) {
-                  const senderName = athletes.find(a => a.id === senderId)?.full_name || 'Sporcu';
+                  const senderName = athletesRef.current.find(a => a.id === senderId)?.full_name || 'Sporcu';
                   new Notification(`💬 ${senderName} sana yeni bir mesaj gönderdi`, {
                     body: previewText.substring(0, 100),
                     icon: '/pwa-192x192.png',
@@ -449,21 +473,6 @@ export function useCoachChat() {
               } catch {}
             }
           }
-
-          setAthletes(prev => {
-            const updated = prev.map(a =>
-              a.id === senderId
-                ? { ...a, latestMessage: { content: previewText, created_at: newMsg.created_at, sender_id: senderId, media_type: newMsg.media_type } }
-                : a
-            );
-            updated.sort((a, b) => {
-              if (!a.latestMessage && !b.latestMessage) return 0;
-              if (!a.latestMessage) return 1;
-              if (!b.latestMessage) return -1;
-              return new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime();
-            });
-            return updated;
-          });
         }
       )
       .on(
@@ -477,9 +486,7 @@ export function useCoachChat() {
         (payload) => {
           const updated = payload.new as ChatMessage;
           if (!updated?.id) return;
-          setMessages(prev =>
-            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
-          );
+          setMessages(prev => prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m)));
         }
       )
       .on(
@@ -494,9 +501,7 @@ export function useCoachChat() {
           const updated = payload.new as ChatMessage;
           const previous = payload.old as Partial<ChatMessage> | undefined;
           if (!updated?.id) return;
-          setMessages(prev =>
-            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
-          );
+          setMessages(prev => prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m)));
           if (updated.is_deleted) {
             const senderId = updated.sender_id;
             setAthletes(prev => prev.map(a =>
@@ -505,28 +510,27 @@ export function useCoachChat() {
                 : a
             ));
           }
-          // Live decrement when a message transitions to read (other tab/page marked it)
+          // Live-decrement when a message is marked read elsewhere (other tab/page/realtime)
           const becameRead =
             updated.is_read === true &&
             (previous ? previous.is_read === false : true);
           if (becameRead) {
             const senderId = updated.sender_id;
-            let decremented = 0;
+            let decremented = false;
             setAthletes(prev =>
               prev.map(a => {
                 if (a.id !== senderId) return a;
                 if (a.unreadCount <= 0) return a;
-                decremented = 1;
+                decremented = true;
                 return { ...a, unreadCount: Math.max(0, a.unreadCount - 1) };
               })
             );
-            if (decremented > 0) {
+            if (decremented) {
               setTotalUnread(prev => Math.max(0, prev - 1));
             }
           }
         }
       )
-
       .on(
         'postgres_changes',
         {
@@ -536,7 +540,6 @@ export function useCoachChat() {
           filter: `coach_id=eq.${activeCoachId ?? coachId}`,
         },
         () => {
-          // Only new incoming requests warrant a refetch; status updates are merged inline below
           setTimeout(() => fetchAthletes(), 0);
         }
       )
@@ -558,7 +561,7 @@ export function useCoachChat() {
           setAthletes(prev =>
             prev.map(a =>
               a.id === row.athlete_id
-              ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
+                ? { ...a, room_status: row.status as ChatRoomStatus, room_type: row.room_type as ChatRoomType, room_id: row.id }
                 : a
             )
           );
@@ -592,7 +595,19 @@ export function useCoachChat() {
     unsendMessage,
     loadOlderMessages,
     respondToRequest,
-
     refetch: fetchAthletes,
   };
+}
+
+export function CoachChatProvider({ children }: { children: ReactNode }) {
+  const value = useCoachChatStateInternal();
+  return createElement(CoachChatContext.Provider, { value }, children);
+}
+
+export function useCoachChat(): CoachChatValue {
+  const ctx = useContext(CoachChatContext);
+  if (!ctx) {
+    throw new Error('useCoachChat must be used within CoachChatProvider');
+  }
+  return ctx;
 }
