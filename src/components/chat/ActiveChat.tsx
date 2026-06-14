@@ -167,8 +167,16 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
     );
   }
 
+  // Dedupe by id defensively — optimistic + realtime echo can briefly produce duplicates
+  const seenIds = new Set<string>();
+  const uniqueMessages = messages.filter(m => {
+    if (seenIds.has(m.id)) return false;
+    seenIds.add(m.id);
+    return true;
+  });
+
   const grouped: { date: string; msgs: ChatMessage[] }[] = [];
-  for (const msg of messages) {
+  for (const msg of uniqueMessages) {
     const dateStr = format(new Date(msg.created_at), "d MMMM yyyy", { locale: tr });
     const last = grouped[grouped.length - 1];
     if (last && last.date === dateStr) {
