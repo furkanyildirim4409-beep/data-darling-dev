@@ -16,6 +16,8 @@ export interface Tier {
   cta: string;
 }
 
+// NOTE: 'pro' (5000 TL) and 'elite' (3000 TL) IDs were swapped project-wide.
+// Internal id 'elite' is now the mid-tier "Elit" (3000 TL); 'pro' is the top tier "Pro" (5000 TL).
 export const TIERS: Tier[] = [
   {
     id: "starter",
@@ -35,8 +37,8 @@ export const TIERS: Tier[] = [
     ],
   },
   {
-    id: "pro",
-    name: "İleri Seviye",
+    id: "elite",
+    name: "Elit",
     tagline: "Tek başına ölçekleyen koçlar için tam içerik motoru.",
     priceMonthly: 3000,
     highlight: true,
@@ -54,14 +56,14 @@ export const TIERS: Tier[] = [
     ],
   },
   {
-    id: "elite",
-    name: "Profesyonel",
+    id: "pro",
+    name: "Pro",
     tagline: "Ajanslar ve ekipler için tam yönetim katmanı.",
     priceMonthly: 5000,
     badge: "Kurumsal",
     cta: "Planı Satın Al",
     features: [
-      { label: "İleri Seviye paketteki her şey", included: true },
+      { label: "Elit paketteki her şey", included: true },
       { label: "Alt koç (Takım) yönetimi + granüler ACL", included: true },
       { label: "Beyaz etiket (marka adı & logo)", included: true },
       { label: "Gelişmiş finansal analitik & raporlar", included: true },
@@ -81,8 +83,10 @@ export const TIER_BY_ID: Record<TierId, Tier> = Object.fromEntries(
 export function normalizeTier(raw?: string | null): TierId | null {
   if (!raw) return null;
   const s = raw.toLowerCase();
-  if (s.includes("elite") || s.includes("kurum") || s.includes("profes")) return "elite";
-  if (s.includes("pro") || s.includes("ileri")) return "pro";
+  // Pro (top tier, 5000 TL) — formerly named Profesyonel/Kurumsal
+  if (s === "pro" || s.includes("profes") || s.includes("kurum")) return "pro";
+  // Elit (mid tier, 3000 TL) — formerly named İleri Seviye/Popüler
+  if (s.includes("elit") || s.includes("elite") || s.includes("ileri") || s.includes("popüler") || s.includes("populer")) return "elite";
   if (s.includes("start") || s.includes("başl") || s.includes("basl")) return "starter";
   return null;
 }

@@ -9,20 +9,22 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Map Stripe Price IDs -> internal tier
+// Map Stripe Price IDs -> internal tier (NOTE: 'pro' and 'elite' swapped — 'pro' is now the 5000 TL plan)
 const PRICE_TO_TIER: Record<string, "starter" | "pro" | "elite"> = {
   price_1TiFCwRsNTZwyhMjLpzmuXlt: "starter",
-  price_1TiFCwRsNTZwyhMjEo4egJ89: "pro",
-  price_1TiFCxRsNTZwyhMjFYeJdUlx: "elite",
+  price_1TiFCwRsNTZwyhMjEo4egJ89: "elite", // formerly pro
+  price_1TiFCxRsNTZwyhMjFYeJdUlx: "pro",   // formerly elite
 };
 
 const tierFromSubscription = (sub: Stripe.Subscription) => {
   const priceId = sub.items.data[0]?.price?.id;
   if (priceId && PRICE_TO_TIER[priceId]) return PRICE_TO_TIER[priceId];
+  // Env overrides: STRIPE_PRICE_PRO env still points to the 3000 TL price object,
+  // but that price is now internally labelled 'elite'. Same for STRIPE_PRICE_ELITE.
   const envOverrides: Record<string, "starter" | "pro" | "elite"> = {
     [Deno.env.get("STRIPE_PRICE_STARTER") ?? ""]: "starter",
-    [Deno.env.get("STRIPE_PRICE_PRO") ?? ""]: "pro",
-    [Deno.env.get("STRIPE_PRICE_ELITE") ?? ""]: "elite",
+    [Deno.env.get("STRIPE_PRICE_PRO") ?? ""]: "elite",
+    [Deno.env.get("STRIPE_PRICE_ELITE") ?? ""]: "pro",
   };
   if (priceId && envOverrides[priceId]) return envOverrides[priceId];
   return (sub.metadata?.requested_tier as "starter" | "pro" | "elite" | undefined) ?? null;
