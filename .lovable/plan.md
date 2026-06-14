@@ -1,58 +1,67 @@
-## Amaç
+## 1. Stripe Drift Reconciliation Cron
 
-1. Stripe webhook'tan gelen tüm event'leri kalıcı bir geçmiş tablosunda tut.
-2. `profiles.subscription_status` her event sonrası Stripe'taki gerçek durumla uyumlu kalsın (drift olursa otomatik düzelt).
-3. Settings sayfasında kullanıcı kendi paketi ve durumunu okunabilir rozetlerle görsün.
+### Yeni edge function: `reconcile-stripe-subscriptions`
+- `verify_jwt = false`, sadece cron tetikler.
+- Akış:
+  1. `profiles` tablosundan `stripe_subscription_id IS NOT NULL` olan tüm satırları çek.
+  2. Her biri için `stripe.subscriptions.retrieve(id)` çağır.
+  3. Stripe'tan dönen `status`, `current_period_end`, `cancel_at_period_end` ile DB'deki değerleri karşılaştır.
+  4. Fark varsa `profiles` güncellenir + `subscription_events`'e `event_type = 'cron.drift_correction'` kaydı düşülür (`previous_*` / `new_*` doldurulur).
+  5. Stripe'ta artık bulunmayan abonelikler için status `canceled`, tier `null` set edilir.
+  6. Toplam taranan / düzeltilen sayısı response'da döner.
+- Gece çalışacağı için tek seferde 200 satırlık batch + 200ms bekleme ile rate-limit dostu.
 
----
-
-## 1. Yeni tablo: `subscription_events`
-
-Migration ile oluşturulacak. Her webhook çağrısında bir satır eklenir; idempotent (Stripe `event.id` PK olarak).
-
-Kolonlar:
-- `id` (text, PK) — Stripe event id (`evt_...`)
-- `coach_id` (uuid, nullable) — profiles.id referansı
-- `stripe_subscription_id` (text, nullable)
-- `stripe_customer_id` (text, nullable)
-- `event_type` (text) — örn. `customer.subscription.updated`
-- `previous_status` / `new_status` (text, nullable)
-- `previous_tier` / `new_tier` (text, nullable)
-- `raw_payload` (jsonb) — debug için event objesi
-- `created_at` (timestamptz)
-
-Erişim:
-- Sadece kullanıcının kendi `coach_id`'sine ait satırları okuyabilmesi
-- INSERT yalnızca service_role (webhook) tarafından
-- GRANT: `SELECT` authenticated, `ALL` service_role
-
-## 2. Webhook senkronizasyon iyileştirmesi
-
-`supabase/functions/stripe-subscription-webhook/index.ts` içinde:
-- Her event başında `subscription_events`'e `INSERT ... ON CONFLICT (id) DO NOTHING` — aynı event iki kez gelirse no-op (Stripe retry koruması).
-- `upsertFromSubscription` çağrısından önce profilin mevcut `subscription_status`/`subscription_tier` değerlerini çek, event satırına `previous_*` ve `new_*` alanlarını yaz.
-- **Drift kontrolü**: Update sonrası Stripe'tan dönen `sub.status` ile DB'deki yeni değer karşılaştırılır; eşleşmiyorsa tekrar update + warning log. Bu, paralel webhook'larda son gelen Stripe state'i kazanır.
-- `customer.subscription.deleted` event'inde `subscription_status = 'canceled'`, `subscription_tier = null` olarak normalize.
-
-## 3. Settings sayfasında görünür rozetler
-
-`src/pages/Settings.tsx` (mevcut satır 485 civarı, "Mevcut Paket" kısmı):
-- Tier'i `subscriptionTiers.ts`'ten alınan label ile göster (örn. `pro` → "Pro").
-- Status için renkli `Badge`: 
-  - `active` / `trialing` → yeşil "Aktif"
-  - `past_due` / `unpaid` → amber "Ödeme Bekliyor"
-  - `canceled` / `incomplete_expired` → kırmızı "İptal"
-  - diğerleri → nötr
-- `subscription_current_period_end` doluysa "Bitiş: dd MMM yyyy" alt satırı.
-- `subscription_cancel_at_period_end === true` ise "Dönem sonunda iptal olacak" notu.
-
-Sadece görsel — yeni state veya iş mantığı eklenmez. Mevcut `profile` AuthContext'ten zaten geliyor.
+### Cron job (`supabase--insert` ile, migration değil — kullanıcıya özgü URL/anon key içeriyor)
+- `pg_cron` ve `pg_net` extension'ları (yoksa enable).
+- Schedule: `0 3 * * *` (her gün UTC 03:00). Job adı: `reconcile-stripe-subscriptions-daily`.
+- Body: `{ "source": "cron" }`.
 
 ---
 
-## Teknik notlar
+## 2. Tier DB Swap: `pro` ↔ `elite`
 
-- Migration sırası: CREATE TABLE → GRANT → ENABLE RLS → POLICY.
-- Webhook idempotency artık DB seviyesinde garantili (event.id unique).
-- Frontend `types.ts` migration sonrası otomatik regenere olacak, ek tip değişikliği gerekmiyor.
-- Mevcut `stripe_transactions` tablosu ödeme işlemleri için; `subscription_events` sadece abonelik yaşam döngüsü içindir — karıştırılmıyor.
+### DB migration
+- `UPDATE profiles SET subscription_tier = CASE subscription_tier WHEN 'pro' THEN 'elite' WHEN 'elite' THEN 'pro' END WHERE subscription_tier IN ('pro','elite');`
+- `stripe_transactions` ve `subscription_events` içinde tier alanları varsa aynı CASE swap.
+- `coaching_packages`, `payments`, `assigned_payments` gibi tier referansı tutan tabloları taradım — `subscription_tier` sadece `profiles`'te. Diğer tablolar etkilenmez.
+
+### Stripe price → internal tier mapping swap
+İki edge function dosyasında:
+
+**`supabase/functions/stripe-subscription-webhook/index.ts`**
+- Sabit `PRICE_TO_TIER`: `price_1TiFCwRsNTZwyhMjEo4egJ89` artık `"elite"` (önce pro), `price_1TiFCxRsNTZwyhMjFYeJdUlx` artık `"pro"` (önce elite).
+- Env override: `STRIPE_PRICE_PRO` → `"elite"`, `STRIPE_PRICE_ELITE` → `"pro"`.
+
+**`supabase/functions/create-coach-subscription/index.ts`**
+- `PRICE_ENV_BY_TIER`: `pro: "STRIPE_PRICE_ELITE"`, `elite: "STRIPE_PRICE_PRO"` (isimler kod sabit kalıyor ama Stripe price ID'leri swap edilir — yeni semantikte "pro" = pahalı/5000 TL plan).
+- `FALLBACK_PRICE_BY_TIER` aynı şekilde swap.
+
+### Display & feature içerikleri (`src/lib/subscriptionTiers.ts`)
+- `id: "pro"` objesi → name `"Pro"`, priceMonthly `5000`, badge `"Kurumsal"`, ileri seviye (eski elite) feature list'i.
+- `id: "elite"` objesi → name `"Elit"`, priceMonthly `3000`, badge `"En Popüler"`, highlight `true`, eski pro feature list'i.
+- `starter` aynı kalır (`"Başlangıç"`).
+- `normalizeTier`: `elit/ileri/popüler` → `"elite"`, `pro/profes/kurum` → `"pro"` (anahtar kelimeler swap edildi).
+- `TIERS` array sırası: starter, elite (3000), pro (5000) — UI'da soldan sağa fiyat artar.
+
+### Bootstrap script (`supabase/functions/bootstrap-subscription-prices/index.ts`)
+- Tier listesi:
+  - `starter` → "Dynabolic Başlangıç", 100000 kuruş
+  - `elite` → "Dynabolic Elit", 300000 kuruş (eski pro fiyat/içerik)
+  - `pro` → "Dynabolic Pro", 500000 kuruş (eski elite)
+- Not: Bu script tekrar çalıştırılırsa Stripe'ta yeni product/price oluşturur; mevcut Stripe price ID'lerinin manuel olarak güncellenmesi gerekmez çünkü mapping kod tarafında swap edildi.
+
+### Settings UI
+- `Settings.tsx`'teki tier badge mapping `normalizeTier` üzerinden çalıştığı için ek değişiklik gerekmez; yeni isimler otomatik gelir.
+
+---
+
+## Sıra
+1. DB migration (tier swap).
+2. Drift cron için edge function dosyaları + migration (extensions).
+3. Frontend & edge function kod swap'i.
+4. `supabase--insert` ile cron schedule.
+5. Webhook ve reconcile fonksiyonlarının deploy edildiğini test et.
+
+## Not
+- Stripe Dashboard'daki product **isimleri** ("Dynabolic İleri Seviye" / "Profesyonel") manuel olarak değiştirilmeli — checkout sayfasında müşteri eski adı görmesin diye. Bunu yapmamı istiyor musunuz? Şu an plana dahil etmedim çünkü API key kapsamı belli değil; webhook & subscription kodu zaten yeni adlandırmaya göre eşler.
+- Mevcut aktif Stripe abonelikleri **fiyat değiştirmez** — sadece DB'deki etiket ismi swap olur. Yeni satın almalar yeni adlarla görünür.
