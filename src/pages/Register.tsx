@@ -136,6 +136,16 @@ export default function Register() {
               <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
             </div>
           </div>
+          <div className="space-y-1.5">
+            <label htmlFor="phone" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Telefon Numarası <span className="text-muted-foreground/60 normal-case tracking-normal">(opsiyonel)</span>
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input id="phone" type="tel" inputMode="tel" placeholder="+905551234567" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+            </div>
+            <p className="text-xs text-muted-foreground">Boş bırakabilirsiniz. Daha sonra Ayarlar → Güvenlik bölümünden ekleyip SMS ile doğrulayabilirsiniz.</p>
+          </div>
           {!inviteToken && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Hesap Türü</label>
