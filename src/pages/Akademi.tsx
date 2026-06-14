@@ -654,8 +654,8 @@ export default function Akademi() {
       <Dialog open={open} onOpenChange={handleSheetChange}>
         <DialogContent className="max-w-[1200px] w-[95vw] h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
           <DialogHeader className="p-6 pb-4 border-b border-border/50 shrink-0">
-            <DialogTitle className="text-2xl">Yeni Eğitim İçeriği</DialogTitle>
-            <DialogDescription>Akademi için yeni bir kurs veya eğitim içeriği oluşturun.</DialogDescription>
+            <DialogTitle className="text-2xl">{editingId ? "Eğitimi Düzenle" : "Yeni Eğitim İçeriği"}</DialogTitle>
+            <DialogDescription>{editingId ? "Eğitim içeriğinizdeki değişiklikleri kaydedin." : "Akademi için yeni bir kurs veya eğitim içeriği oluşturun."}</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
