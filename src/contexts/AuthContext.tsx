@@ -19,6 +19,7 @@ export interface Profile {
   subscription_tier: string | null;
   iban: string | null;
   is_active: boolean;
+  whatsapp_notifications_enabled: boolean;
   notification_preferences: {
     email: boolean;
     push: boolean;
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         instagram_sync_active: p.instagram_sync_active ?? true,
         iban: p.iban ?? null,
         is_active: p.is_active ?? true,
+        whatsapp_notifications_enabled: p.whatsapp_notifications_enabled ?? false,
         notification_preferences: p.notification_preferences ?? null,
         notification_settings: p.notification_settings ?? null,
       };

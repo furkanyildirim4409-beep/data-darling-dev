@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, Bell, Lock, Palette, Database, Zap, Check, Moon, Sun, Download, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark } from "lucide-react";
+import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,7 +17,6 @@ const settingsSections = [
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "security", label: "Güvenlik", icon: Lock },
   { id: "appearance", label: "Görünüm", icon: Palette },
-  { id: "data", label: "Veri & Dışa Aktar", icon: Database },
 ];
 
 const accentColors = [
@@ -88,13 +87,13 @@ const validateTRIban = (rawIban: string): boolean => {
 };
 
 export default function Settings() {
-  const { profile, user, activeCoachId, refreshProfile, isSubCoach } = useAuth();
+  const { profile, user, refreshProfile, isSubCoach } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
   const [selectedColor, setSelectedColor] = useState("lime");
   const [darkMode, setDarkMode] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [iban, setIban] = useState<string>("");
@@ -136,7 +135,6 @@ export default function Settings() {
   // Form states
   const [formData, setFormData] = useState({
     fullName: profile?.full_name || "",
-    bio: profile?.bio || "",
     gymName: profile?.gym_name || "",
     specialty: profile?.specialty || "",
     email: profile?.email || "",
@@ -157,13 +155,13 @@ export default function Settings() {
       setFormData(prev => ({
         ...prev,
         fullName: profile.full_name || "",
-        bio: profile.bio || "",
         gymName: profile.gym_name || "",
         specialty: profile.specialty || "",
         email: profile.email || "",
       }));
       setUsername(profile.username || "");
       setIban(formatIbanInput(((profile as any).iban as string) || ""));
+      setWhatsappEnabled(Boolean((profile as any).whatsapp_notifications_enabled));
       const ns = (profile as any).notification_settings ?? profile.notification_preferences;
       if (ns && typeof ns === 'object') {
         setNotificationPrefs({
@@ -186,12 +184,12 @@ export default function Settings() {
     try {
       const { error } = await supabase.rpc('update_own_profile', {
         _full_name: formData.fullName,
-        _bio: formData.bio,
         _gym_name: formData.gymName,
         _specialty: formData.specialty,
         _notification_preferences: notificationPrefs,
-        _notification_settings: notificationPrefs
-      });
+        _notification_settings: notificationPrefs,
+        _whatsapp_notifications_enabled: whatsappEnabled,
+      } as any);
 
       if (error) throw error;
 
@@ -313,49 +311,8 @@ export default function Settings() {
     }
   };
 
-  const handleExportData = async () => {
-    if (!user) return;
 
-    setIsExporting(true);
-    
-    try {
-      // Fetch data from various tables
-      const coachId = activeCoachId || user.id;
-      const [athletesResult, programsResult, paymentsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('coach_id', coachId),
-        supabase.from('programs').select('*').eq('coach_id', coachId),
-        supabase.from('payments').select('*').eq('coach_id', coachId)
-      ]);
 
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        version: "1.0.0",
-        coach: profile,
-        athletes: athletesResult.data || [],
-        programs: programsResult.data || [],
-        payments: paymentsResult.data || []
-      };
-
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dynabolic_data_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast.success("Veriler başarıyla dışa aktarıldı! 📦");
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error("Veri dışa aktarılırken bir hata oluştu.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleUpgradeSubscription = (planName: string) => {
     toast.info(`${planName} planına yükseltme özelliği yakında aktif olacak.`);
@@ -488,18 +445,12 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Biyografi</label>
-                  <Textarea
-                    value={formData.bio}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
-                    placeholder="Kendiniz hakkında kısa bir açıklama..."
-                    className="bg-card border-border focus:border-primary min-h-[100px]"
-                  />
-                </div>
               </div>
             </div>
           )}
+
+
+
 
           {/* Branding Section */}
           {activeSection === "branding" && (
@@ -745,12 +696,33 @@ export default function Settings() {
                     </div>
                     <Switch
                       checked={notificationPrefs[item.key as keyof typeof notificationPrefs]}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         setNotificationPrefs(prev => ({ ...prev, [item.key]: checked }))
                       }
                     />
                   </div>
                 ))}
+
+                {/* WhatsApp Notifications — Beta */}
+                <div className="flex items-center justify-between py-3 mt-2 border-t border-border/40 pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center shrink-0">
+                      <MessageCircle className="w-5 h-5 text-success" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-foreground">WhatsApp Anlık Bildirimleri</p>
+                        <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30">
+                          Beta · Yakında
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Sporcu olaylarını WhatsApp üzerinden anında alın. Altyapı hazırlanıyor.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch checked={whatsappEnabled} onCheckedChange={setWhatsappEnabled} />
+                </div>
               </div>
             </div>
           )}
@@ -870,38 +842,8 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Data Section */}
-          {activeSection === "data" && (
-            <div className="glass rounded-xl border border-border p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-6">Veri & Dışa Aktar</h2>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-4 border-b border-border">
-                  <div>
-                    <p className="font-medium text-foreground">Tüm Verileri Dışa Aktar</p>
-                    <p className="text-sm text-muted-foreground">Sporcu ve program verilerini indir</p>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleExportData}
-                    disabled={isExporting}
-                  >
-                    {isExporting ? (
-                      <>
-                        <Download className="w-4 h-4 mr-2 animate-bounce" />
-                        İndiriliyor...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Dışa Aktar
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Save Button */}
           {(activeSection === "profile" || activeSection === "branding" || activeSection === "notifications") && (
