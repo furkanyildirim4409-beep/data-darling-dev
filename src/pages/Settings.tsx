@@ -726,8 +726,10 @@ export default function Settings() {
 
           {/* Security Section */}
           {activeSection === "security" && (
-            <div className="glass rounded-xl border border-border p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-6">Güvenlik</h2>
+            <div className="space-y-6">
+              <TwoFactorSetup />
+              <div className="glass rounded-xl border border-border p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-6">Şifre</h2>
 
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -804,7 +806,7 @@ export default function Settings() {
                   {accentColors.map((color) => (
                     <button
                       key={color.value}
-                      onClick={() => setSelectedColor(color.value)}
+                      onClick={() => { setSelectedColor(color.value); applyThemeColor(color.value); }}
                       className={cn(
                         "relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
                         selectedColor === color.value
@@ -815,12 +817,12 @@ export default function Settings() {
                       <div
                         className={cn(
                           "w-10 h-10 rounded-full shadow-lg transition-transform",
-                          color.preview,
                           selectedColor === color.value && "scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground"
                         )}
                         style={{
-                          boxShadow: selectedColor === color.value 
-                            ? `0 0 20px hsl(${color.hsl} / 0.5)` 
+                          backgroundColor: `hsl(${color.hsl})`,
+                          boxShadow: selectedColor === color.value
+                            ? `0 0 20px hsl(${color.hsl} / 0.5)`
                             : "none"
                         }}
                       />
