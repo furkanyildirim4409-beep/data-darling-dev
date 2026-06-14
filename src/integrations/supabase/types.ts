@@ -2770,6 +2770,63 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_events: {
+        Row: {
+          coach_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          new_status: string | null
+          new_tier: string | null
+          previous_status: string | null
+          previous_tier: string | null
+          raw_payload: Json | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string
+          event_type: string
+          id: string
+          new_status?: string | null
+          new_tier?: string | null
+          previous_status?: string | null
+          previous_tier?: string | null
+          raw_payload?: Json | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          new_status?: string | null
+          new_tier?: string | null
+          previous_status?: string | null
+          previous_tier?: string | null
+          raw_payload?: Json | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplement_template_items: {
         Row: {
           dosage: string | null
