@@ -479,61 +479,106 @@ export default function Settings() {
             <div className="space-y-6">
               <div className="glass rounded-xl border border-border p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-2">Abonelik & Planlar</h2>
-                <p className="text-muted-foreground mb-6">
-                  Mevcut plan: <span className="font-semibold text-primary">{profile.subscription_tier}</span>
+                <p className="text-muted-foreground mb-8">
+                  Mevcut plan:{" "}
+                  <span className="font-semibold text-primary">
+                    {profile.subscription_tier || "Belirlenmedi"}
+                  </span>
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {subscriptionPlans.map((plan) => {
-                    const isCurrent = plan.name === currentTier;
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {TIERS.map((tier) => {
+                    const isCurrent = currentTierId === tier.id;
+                    const isBusy = purchasingTier === tier.id;
                     return (
-                    <div
-                      key={plan.name}
-                      className={cn(
-                        "relative p-6 rounded-xl border transition-all",
-                        isCurrent
-                          ? "border-primary bg-primary/5 glow-lime"
-                          : "border-border bg-card hover:bg-muted/30"
-                      )}
-                    >
-                      {isCurrent && (
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                          <span className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
-                            Mevcut Plan
-                          </span>
-                        </div>
-                      )}
-                      
-                      <div className="text-center mb-4">
-                        <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
-                        <div className="text-2xl font-bold text-foreground mt-2">
-                          {plan.price}<span className="text-sm text-muted-foreground">/{plan.period}</span>
-                        </div>
-                      </div>
-
-                      <ul className="space-y-2 mb-6">
-                        {plan.features.map((feature, idx) => (
-                          <li key={idx} className="flex items-center gap-2 text-sm">
-                            <Check className="w-4 h-4 text-success" />
-                            <span className="text-muted-foreground">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <Button
+                      <div
+                        key={tier.id}
                         className={cn(
-                          "w-full",
-                          isCurrent
-                            ? "bg-muted text-muted-foreground cursor-not-allowed"
-                            : "bg-primary text-primary-foreground hover:bg-primary/90"
+                          "relative flex flex-col p-6 rounded-2xl border transition-all",
+                          tier.highlight
+                            ? "border-primary bg-gradient-to-b from-primary/10 to-card shadow-[0_0_40px_-10px_hsl(var(--primary)/0.55)] md:-translate-y-2"
+                            : "border-border bg-card hover:border-muted-foreground/60"
                         )}
-                        disabled={isCurrent}
-                        onClick={() => handleUpgradeSubscription(plan.name)}
                       >
-                        {isCurrent ? "Aktif Plan" : "Yükselt"}
-                      </Button>
-                    </div>
-                  );
+                        {tier.badge && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                            <span
+                              className={cn(
+                                "text-[10px] font-semibold tracking-[0.2em] uppercase px-3 py-1 rounded-full inline-flex items-center gap-1",
+                                tier.highlight
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-foreground border border-border"
+                              )}
+                            >
+                              {tier.highlight && <Sparkles className="w-3 h-3" />}
+                              {tier.badge}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="mb-5">
+                          <h3 className="text-lg font-semibold text-foreground">{tier.name}</h3>
+                          <p className="text-xs text-muted-foreground mt-1 min-h-[32px]">
+                            {tier.tagline}
+                          </p>
+                        </div>
+
+                        <div className="mb-6">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-bold text-foreground">
+                              ₺{tier.priceMonthly.toLocaleString("tr-TR")}
+                            </span>
+                            <span className="text-sm text-muted-foreground">/ay</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            KDV hariç · İstediğin zaman iptal
+                          </p>
+                        </div>
+
+                        <ul className="space-y-2.5 mb-6 flex-1">
+                          {tier.features.map((f, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm">
+                              {f.included ? (
+                                <CheckIcon className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                              ) : (
+                                <XIcon className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
+                              )}
+                              <span
+                                className={cn(
+                                  f.included ? "text-foreground" : "text-muted-foreground/60 line-through"
+                                )}
+                              >
+                                {f.label}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <Button
+                          className={cn(
+                            "w-full font-semibold",
+                            isCurrent
+                              ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
+                              : tier.highlight
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-foreground text-background hover:bg-foreground/90"
+                          )}
+                          disabled={isCurrent || isBusy}
+                          onClick={() => handlePurchaseTier(tier.id)}
+                        >
+                          {isBusy ? (
+                            <>
+                              <Spinner className="w-4 h-4 mr-2 animate-spin" />
+                              Yönlendiriliyor…
+                            </>
+                          ) : isCurrent ? (
+                            "Aktif Plan"
+                          ) : (
+                            tier.cta
+                          )}
+                        </Button>
+                      </div>
+                    );
                   })}
                 </div>
               </div>
