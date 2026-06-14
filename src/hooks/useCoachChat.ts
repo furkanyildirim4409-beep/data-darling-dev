@@ -29,10 +29,12 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   is_read: boolean;
+  is_deleted?: boolean;
   media_url?: string | null;
   media_type?: string | null;
   metadata?: { story_id?: string; media_url?: string; category?: string } | null;
 }
+
 
 export function useCoachChat() {
   const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
@@ -325,6 +327,31 @@ export function useCoachChat() {
     }
   }, [coachId, selectedAthleteId]);
 
+  // Unsend (soft-delete) a message — only the original sender may flip the flag
+  const unsendMessage = useCallback(async (messageId: string) => {
+    if (!coachId) return;
+    const deletedContent = '🚫 Bu mesaj silindi.';
+    setMessages(prev => prev.map(m =>
+      m.id === messageId
+        ? { ...m, is_deleted: true, content: deletedContent, media_url: null, media_type: null, metadata: null }
+        : m
+    ));
+    setAthletes(prev => prev.map(a =>
+      a.latestMessage && a.latestMessage.sender_id === coachId && a.id === selectedAthleteId
+        ? { ...a, latestMessage: { ...a.latestMessage, content: deletedContent, media_type: null } }
+        : a
+    ));
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_deleted: true, content: deletedContent })
+      .eq('id', messageId)
+      .eq('sender_id', coachId);
+    if (error && selectedAthleteId) {
+      fetchMessages(selectedAthleteId);
+    }
+  }, [coachId, selectedAthleteId, fetchMessages]);
+
+
   // Approve / decline a pending message request
   const respondToRequest = useCallback(async (athleteId: string, action: 'approve' | 'decline') => {
     const target = athletes.find(a => a.id === athleteId);
@@ -449,12 +476,37 @@ export function useCoachChat() {
         },
         (payload) => {
           const updated = payload.new as ChatMessage;
-          if (!updated?.is_read) return;
+          if (!updated?.id) return;
           setMessages(prev =>
-            prev.map(m => (m.id === updated.id ? { ...m, is_read: true } : m))
+            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
           );
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${coachId}`,
+        },
+        (payload) => {
+          const updated = payload.new as ChatMessage;
+          if (!updated?.id) return;
+          setMessages(prev =>
+            prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
+          );
+          if (updated.is_deleted) {
+            const senderId = updated.sender_id;
+            setAthletes(prev => prev.map(a =>
+              a.id === senderId && a.latestMessage && a.latestMessage.sender_id === senderId
+                ? { ...a, latestMessage: { ...a.latestMessage, content: '🚫 Bu mesaj silindi.', media_type: null } }
+                : a
+            ));
+          }
+        }
+      )
+
       .on(
         'postgres_changes',
         {
@@ -517,8 +569,10 @@ export function useCoachChat() {
     hasMoreMessages,
     selectAthlete,
     sendMessage,
+    unsendMessage,
     loadOlderMessages,
     respondToRequest,
+
     refetch: fetchAthletes,
   };
 }

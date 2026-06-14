@@ -24,9 +24,11 @@ export default function Messages() {
     hasMoreMessages,
     selectAthlete,
     sendMessage,
+    unsendMessage,
     loadOlderMessages,
     respondToRequest,
   } = useCoachChat();
+
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const [activeTab, setActiveTab] = useState("athletes");
@@ -62,7 +64,9 @@ export default function Messages() {
             isLoadingOlder={isLoadingOlder}
             hasMoreMessages={hasMoreMessages}
             onSendMessage={sendMessage}
+            onUnsendMessage={unsendMessage}
             onLoadOlder={loadOlderMessages}
+
             onBack={handleBack}
             showBackButton
             onRespondToRequest={respondToRequest}
@@ -100,7 +104,9 @@ export default function Messages() {
         isLoadingOlder={isLoadingOlder}
         hasMoreMessages={hasMoreMessages}
         onSendMessage={sendMessage}
+        onUnsendMessage={unsendMessage}
         onLoadOlder={loadOlderMessages}
+
         onRespondToRequest={respondToRequest}
       />
     </div>

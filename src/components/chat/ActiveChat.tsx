@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink, ImageOff, Reply, Check, CheckCheck, Inbox } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Bell, BellOff, ImagePlus, Mic, Square, X, Loader2, ExternalLink, ImageOff, Reply, Check, CheckCheck, Inbox, Trash2, Ban } from "lucide-react";
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 import { storyCategories } from "@/data/storyCategories";
 import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { format } from "date-fns";
@@ -22,6 +25,7 @@ interface ActiveChatProps {
   isLoadingOlder?: boolean;
   hasMoreMessages?: boolean;
   onSendMessage: (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => void;
+  onUnsendMessage?: (messageId: string) => void | Promise<void>;
   onLoadOlder?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
@@ -29,8 +33,10 @@ interface ActiveChatProps {
 }
 
 
-export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
+export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOlder, hasMoreMessages, onSendMessage, onUnsendMessage, onLoadOlder, onBack, showBackButton, onRespondToRequest }: ActiveChatProps) {
   const [input, setInput] = useState("");
+  const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
+
   const [storyPreview, setStoryPreview] = useState<{ media_url?: string | null; category?: string | null } | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set());
   const [previewMediaError, setPreviewMediaError] = useState(false);
@@ -228,125 +234,171 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
               <div className="space-y-2">
                 {group.msgs.map(msg => {
                   const isCoach = msg.sender_id === coachId;
-                  return (
-                    <div key={msg.id} className={cn("flex", isCoach ? "justify-end" : "justify-start")}>
-                      <div
-                        className={cn(
-                          "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm",
-                          isCoach
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-muted text-foreground rounded-bl-md"
-                        )}
-                      >
-                        {/* Story-reply preview — tolerant of missing/invalid metadata */}
-                        {(() => {
-                          const meta = msg.metadata;
-                          if (!meta || typeof meta !== "object") return null;
-                          const hasStoryRef =
-                            !!meta.story_id || !!meta.media_url || !!meta.category;
-                          if (!hasStoryRef) return null;
+                  const canUnsend = isCoach && !msg.is_deleted && !!onUnsendMessage;
 
-                          const rawUrl = meta.media_url;
-                          const validUrl = isValidHttpUrl(rawUrl) ? rawUrl : null;
-                          const thumbBroken = validUrl ? brokenThumbs.has(msg.id) : true;
-                          const showPlaceholder = !validUrl || thumbBroken;
-                          const isVideo = validUrl ? isVideoUrl(validUrl) : false;
-                          const subtitle = showPlaceholder
-                            ? (validUrl ? "Hikaye yüklenemedi" : "Hikaye artık mevcut değil")
-                            : "Hikayeyi görüntüle";
-
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => setStoryPreview({
-                                media_url: validUrl,
-                                category: meta.category ?? null,
-                              })}
-                              className={cn(
-                                "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
-                                isCoach
-                                  ? "border-primary-foreground/20 bg-primary-foreground/10"
-                                  : "border-border/60 bg-background/40"
-                              )}
-                            >
-                              {showPlaceholder ? (
-                                <div className={cn(
-                                  "w-10 h-14 rounded flex items-center justify-center flex-shrink-0",
-                                  isCoach ? "bg-primary-foreground/15" : "bg-muted-foreground/15"
-                                )}>
-                                  <ImageOff className={cn(
-                                    "w-4 h-4",
-                                    isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                                  )} />
-                                </div>
-                              ) : isVideo ? (
-                                <video
-                                  src={validUrl!}
-                                  className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
-                                  muted
-                                  playsInline
-                                  preload="metadata"
-                                  onError={() => markThumbBroken(msg.id)}
-                                />
-                              ) : (
-                                <img
-                                  src={validUrl!}
-                                  alt="Hikaye"
-                                  className="w-10 h-14 rounded object-cover flex-shrink-0"
-                                  loading="lazy"
-                                  onError={() => markThumbBroken(msg.id)}
-                                />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className={cn(
-                                  "text-[10px] font-medium uppercase tracking-wide flex items-center gap-1",
-                                  isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
-                                )}>
-                                  <Reply className="w-3 h-3" />
-                                  {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
-                                </p>
-                                <p className={cn(
-                                  "text-[11px] truncate",
-                                  isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                                )}>
-                                  {subtitle}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })()}
-                        {/* Media rendering */}
-                        {msg.media_type === 'image' && msg.media_url && (
-                          <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
-                            <img
-                              src={msg.media_url}
-                              alt="Paylaşılan fotoğraf"
-                              className="rounded-lg max-w-full max-h-60 object-cover mb-1"
-                              loading="lazy"
-                            />
-                          </a>
-                        )}
-                        {msg.media_type === 'audio' && msg.media_url && (
-                          <CustomAudioPlayer src={msg.media_url} />
-                        )}
-                        {/* Text content (skip placeholder text for media-only messages) */}
-                        {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (
-                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                        )}
-                        <p className={cn(
-                          "text-[10px] mt-1 flex items-center gap-1 justify-end",
-                          isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                        )}>
-                          <span>{format(new Date(msg.created_at), "HH:mm")}</span>
-                          {isCoach && (
-                            msg.is_read
-                              ? <CheckCheck className="w-3.5 h-3.5 text-sky-400 drop-shadow-[0_0_4px_rgba(56,189,248,0.7)]" strokeWidth={3} aria-label="Görüldü" />
-                              : <Check className="w-3.5 h-3.5 opacity-80" strokeWidth={2.5} aria-label="Gönderildi" />
-                          )}
-                        </p>
+                  if (msg.is_deleted) {
+                    return (
+                      <div key={msg.id} className={cn("flex", isCoach ? "justify-end" : "justify-start")}>
+                        <div className="max-w-[75%] px-3.5 py-2 rounded-2xl text-sm italic flex items-center gap-1.5 bg-muted/40 text-muted-foreground border border-dashed border-border">
+                          <Ban className="w-3.5 h-3.5" />
+                          <span>🚫 Bu mesaj silindi</span>
+                        </div>
                       </div>
+                    );
+                  }
+
+                  const bubble = (
+                    <div
+                      className={cn(
+                        "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm",
+                        isCoach
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-muted text-foreground rounded-bl-md"
+                      )}
+                    >
+                      {/* Story-reply preview — tolerant of missing/invalid metadata */}
+                      {(() => {
+                        const meta = msg.metadata;
+                        if (!meta || typeof meta !== "object") return null;
+                        const hasStoryRef =
+                          !!meta.story_id || !!meta.media_url || !!meta.category;
+                        if (!hasStoryRef) return null;
+
+                        const rawUrl = meta.media_url;
+                        const validUrl = isValidHttpUrl(rawUrl) ? rawUrl : null;
+                        const thumbBroken = validUrl ? brokenThumbs.has(msg.id) : true;
+                        const showPlaceholder = !validUrl || thumbBroken;
+                        const isVideo = validUrl ? isVideoUrl(validUrl) : false;
+                        const subtitle = showPlaceholder
+                          ? (validUrl ? "Hikaye yüklenemedi" : "Hikaye artık mevcut değil")
+                          : "Hikayeyi görüntüle";
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setStoryPreview({
+                              media_url: validUrl,
+                              category: meta.category ?? null,
+                            })}
+                            className={cn(
+                              "w-full flex items-center gap-2 mb-2 p-1.5 rounded-lg border text-left transition-colors hover:opacity-90",
+                              isCoach
+                                ? "border-primary-foreground/20 bg-primary-foreground/10"
+                                : "border-border/60 bg-background/40"
+                            )}
+                          >
+                            {showPlaceholder ? (
+                              <div className={cn(
+                                "w-10 h-14 rounded flex items-center justify-center flex-shrink-0",
+                                isCoach ? "bg-primary-foreground/15" : "bg-muted-foreground/15"
+                              )}>
+                                <ImageOff className={cn(
+                                  "w-4 h-4",
+                                  isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                                )} />
+                              </div>
+                            ) : isVideo ? (
+                              <video
+                                src={validUrl!}
+                                className="w-10 h-14 rounded object-cover flex-shrink-0 bg-black"
+                                muted
+                                playsInline
+                                preload="metadata"
+                                onError={() => markThumbBroken(msg.id)}
+                              />
+                            ) : (
+                              <img
+                                src={validUrl!}
+                                alt="Hikaye"
+                                className="w-10 h-14 rounded object-cover flex-shrink-0"
+                                loading="lazy"
+                                onError={() => markThumbBroken(msg.id)}
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className={cn(
+                                "text-[10px] font-medium uppercase tracking-wide flex items-center gap-1",
+                                isCoach ? "text-primary-foreground/80" : "text-muted-foreground"
+                              )}>
+                                <Reply className="w-3 h-3" />
+                                {isCoach ? "Hikayeye yanıt" : "Hikayene yanıt verdi"}
+                              </p>
+                              <p className={cn(
+                                "text-[11px] truncate",
+                                isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}>
+                                {subtitle}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })()}
+                      {/* Media rendering */}
+                      {msg.media_type === 'image' && msg.media_url && (
+                        <a href={msg.media_url} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={msg.media_url}
+                            alt="Paylaşılan fotoğraf"
+                            className="rounded-lg max-w-full max-h-60 object-cover mb-1"
+                            loading="lazy"
+                          />
+                        </a>
+                      )}
+                      {msg.media_type === 'audio' && msg.media_url && (
+                        <CustomAudioPlayer src={msg.media_url} />
+                      )}
+                      {/* Text content (skip placeholder text for media-only messages) */}
+                      {msg.content && msg.content !== '📷 Fotoğraf' && msg.content !== '🎤 Ses kaydı' && (
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      )}
+                      <p className={cn(
+                        "text-[10px] mt-1 flex items-center gap-1 justify-end",
+                        isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
+                      )}>
+                        <span>{format(new Date(msg.created_at), "HH:mm")}</span>
+                        {isCoach && (
+                          msg.is_read
+                            ? <CheckCheck className="w-3.5 h-3.5 text-sky-400 drop-shadow-[0_0_4px_rgba(56,189,248,0.7)]" strokeWidth={3} aria-label="Görüldü" />
+                            : <Check className="w-3.5 h-3.5 opacity-80" strokeWidth={2.5} aria-label="Gönderildi" />
+                        )}
+                      </p>
                     </div>
                   );
+
+                  return (
+                    <div key={msg.id} className={cn("group flex items-center gap-1.5", isCoach ? "justify-end" : "justify-start")}>
+                      {canUnsend ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setUnsendTargetId(msg.id)}
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Mesajı Geri Al"
+                            aria-label="Mesajı Geri Al"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>{bubble}</ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem
+                                onSelect={() => setUnsendTargetId(msg.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Mesajı Geri Al
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        </>
+                      ) : (
+                        bubble
+                      )}
+                    </div>
+                  );
+
                 })}
               </div>
             </div>
@@ -511,6 +563,30 @@ export function ActiveChat({ athlete, messages, coachId, isLoading, isLoadingOld
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!unsendTargetId} onOpenChange={(open) => !open && setUnsendTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mesajı geri al</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu mesaj her iki taraf için de silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (unsendTargetId && onUnsendMessage) onUnsendMessage(unsendTargetId);
+                setUnsendTargetId(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Geri Al
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+

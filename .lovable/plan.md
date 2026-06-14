@@ -1,76 +1,108 @@
-# Messages Layout Fixes & Direct Tab Badge (Part 4/5)
+# Unsend Message ("Mesajı Geri Al") — Part 5/5
 
-## Problem
+## Schema
 
-1. `MainLayout` wraps every route's `<main>` in `p-4 md:p-6` + `overflow-auto`. On `/messages` this creates the unwanted "safe area" gap below the top bar and lets the whole page scroll, dragging the input box around.
-2. Inside Messages the `<Tabs>` root uses `h-[calc(100vh-4rem)]` which is wrong because the page is already inside a padded, scrollable `<main>` — the height calc fights the outer container.
-3. The "Sporcular" (Direct) tab trigger has no unread badge, even though `useCoachChat` already exposes per-athlete `unreadCount`.
+Add a soft-delete flag to `public.messages` via migration:
 
-## Fix
-
-### A. MainLayout — route-aware padding
-File: `src/components/layout/MainLayout.tsx`
-
-- Detect full-bleed routes with `useLocation()`.
-- For `/messages` (and any future chat-style routes) render the `<Outlet />` directly inside `<main>` with `overflow-hidden` and no padding. All other routes keep the existing `p-4 md:p-6` + `overflow-auto` behavior.
-
-```tsx
-const { pathname } = useLocation();
-const isFullBleed = pathname.startsWith("/messages");
-
-<main className={cn(
-  "flex-1 grid-pattern scrollbar-thin mobile-scroll min-h-0",
-  isFullBleed ? "overflow-hidden" : "overflow-auto"
-)}>
-  {isFullBleed
-    ? <Outlet />
-    : <div className="p-4 md:p-6"><Outlet /></div>}
-</main>
+```sql
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS is_deleted boolean NOT NULL DEFAULT false;
 ```
 
-This removes the gap and stops the outer scroll without absolute positioning.
+No new RLS policy needed: the existing UPDATE policy already restricts edits to participants (used today for `is_read`). The mutation will additionally `.eq('sender_id', user.id)` defensively so only the original sender can flip the flag.
 
-### B. Messages.tsx — strict flex column, no viewport math
-File: `src/pages/Messages.tsx`
+## Types
 
-- Replace `h-[calc(100vh-4rem)]` with `h-full` on the `<Tabs>` root (since `<main>` is now a sized flex child).
-- Keep `flex flex-col overflow-hidden`. Tab header stays `flex-shrink-0`. Each `<TabsContent>` keeps `flex-1 overflow-hidden m-0 p-0` so children can own their internal scroll.
-- Compute direct unread count from `athletes`:
-  ```ts
-  const directUnread = athletes.reduce((s, a) => s + (a.unreadCount || 0), 0);
-  ```
-- Render the badge inside the "Sporcular" trigger:
-  ```tsx
-  <TabsTrigger value="athletes" className="gap-1.5 ...">
-    <MessageCircle className="w-4 h-4" />
-    Sporcular
-    {directUnread > 0 && (
-      <Badge className="ml-2 bg-red-500 text-white rounded-full h-5 min-w-5 flex items-center justify-center p-0 text-[10px] font-bold border-0">
-        {directUnread > 9 ? "9+" : directUnread}
-      </Badge>
-    )}
-  </TabsTrigger>
-  ```
+Extend `ChatMessage` in `src/hooks/useCoachChat.ts`:
 
-### C. Chat panes — guarantee fixed input bar
-Files: `src/components/chat/ActiveChat.tsx`, `src/components/messages/TeamChatInterface.tsx`
+```ts
+export interface ChatMessage {
+  // ...existing fields
+  is_deleted?: boolean;
+}
+```
 
-These already use `flex flex-col h-full` with a `flex-1 overflow-y-auto` message list and a static input bar. Once MainLayout stops adding outer scroll, the input pins correctly. We add two small guards:
+Add `is_deleted` to every `messages` `select(...)` in the hook (initial load, older-page loader, and the realtime INSERT echo path uses `payload.new` directly so it auto-includes the column).
 
-- Add `min-h-0` to the messages scroll container (`<div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto …">`) in both files so flex correctly constrains the scroll region inside the column.
-- Ensure each pane's outer wrapper is `h-full overflow-hidden flex flex-col` (already true in `ActiveChat`; `TeamChatInterface`'s `chatPane` is fine, just add `overflow-hidden`).
+## Mutation
 
-### D. Desktop two-pane wrappers
-- In `Messages.tsx` `athleteChatDesktopView`, change `<div className="flex h-full">` to `<div className="flex h-full overflow-hidden">` so the inner sidebar/chat each scroll independently.
-- Same for `TeamChatInterface`'s desktop return.
+New method on `useCoachChat`:
 
-## Out of scope
-- No changes to `useCoachChat` / `useTeamChat` data layer.
-- No new realtime queries — we reuse the existing `unreadCount` already computed for Direct.
-- "Channels / Groups" tabs don't exist in this codebase; only the two existing tabs (Sporcular = Direct, Ekip İçi = Team) are present, so the badge goes on "Sporcular".
+```ts
+const unsendMessage = useCallback(async (messageId: string) => {
+  if (!coachId) return;
+  // optimistic
+  setMessages(prev => prev.map(m =>
+    m.id === messageId ? { ...m, is_deleted: true, content: '🚫 Bu mesaj silindi.', media_url: null, media_type: null, metadata: null } : m
+  ));
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_deleted: true, content: '🚫 Bu mesaj silindi.' })
+    .eq('id', messageId)
+    .eq('sender_id', coachId);
+  if (error) {
+    // rollback by refetching
+    // (cheap: just reload the open thread)
+  }
+}, [coachId]);
+```
+
+Also patch the inbox preview: after a successful unsend, update the matching `athletes[i].latestMessage.content` to `'🚫 Bu mesaj silindi.'` so the sidebar reflects it instantly.
+
+Return `unsendMessage` from the hook and pass it through `Messages.tsx` → `ActiveChat`.
+
+## Realtime
+
+In the existing `coach-inbox-realtime` channel:
+
+1. Extend the current sender-side UPDATE listener (`filter: sender_id=eq.${coachId}`) to also merge `is_deleted`/`content` changes — today it short-circuits when `!is_read`. Replace with a merge that updates whatever fields changed:
+   ```ts
+   setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+   ```
+2. Add a new UPDATE listener with `filter: receiver_id=eq.${coachId}` so when an athlete unsends a message addressed to the coach, the coach's open thread updates live. Same merge logic. Also rewrite the matching `athletes[i].latestMessage.content` if the deleted message is the latest preview.
+
+Both listeners stay attached before `.subscribe()` per project realtime rules; cleanup via the existing `removeChannel`.
+
+## UI — chat bubble (`src/components/chat/ActiveChat.tsx`)
+
+Add `onUnsend?: (messageId: string) => void` to `ActiveChatProps`. Wire it from `Messages.tsx`.
+
+Wrap each message bubble (`isCoach` branch) in a shadcn `<ContextMenu>` plus a small hover-only "Trash" button for non-touch users:
+
+- Right-click anywhere on a coach-authored bubble → `<ContextMenuItem>` "Mesajı Geri Al" → `AlertDialog` confirm → `onUnsend(msg.id)`.
+- On hover, render a `<Button variant="ghost" size="icon">` with `Trash2` icon positioned inline next to the bubble (flex sibling, not absolute) — visible only when `isCoach && !msg.is_deleted` and on `group-hover`.
+- Trigger only renders when `msg.sender_id === coachId && !msg.is_deleted`. Athlete-authored bubbles never get the menu.
+
+Deleted-bubble rendering (for both directions):
+
+```tsx
+if (msg.is_deleted) {
+  return (
+    <div className={cn("flex", isCoach ? "justify-end" : "justify-start")}>
+      <div className={cn(
+        "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm italic flex items-center gap-1.5",
+        "bg-muted/40 text-muted-foreground border border-dashed border-border"
+      )}>
+        <Ban className="w-3.5 h-3.5" />
+        <span>🚫 Bu mesaj silindi</span>
+      </div>
+    </div>
+  );
+}
+```
+
+Place this branch before the existing story-reply preview / media / text rendering so attachments, story-reply cards, read receipts, and timestamps are all suppressed for deleted messages.
+
+## QuickChatPopover
+
+Out of scope for this part — it's a lightweight athlete-card popover. Mention to user that the same pattern can be applied later if they want unsend in popover too.
+
+## Athlete app
+
+This repo is the coach platform; the athlete app is a separate codebase. The DB column + the realtime merge for `receiver_id=eq.coachId` already give the coach the live "athlete unsent" state. Parity work on the athlete app is owned by that repo's own PR.
 
 ## Files touched
-- `src/components/layout/MainLayout.tsx`
-- `src/pages/Messages.tsx`
-- `src/components/chat/ActiveChat.tsx`
-- `src/components/messages/TeamChatInterface.tsx`
+
+- New migration: add `is_deleted` to `public.messages`.
+- `src/hooks/useCoachChat.ts` — type, selects, mutation, realtime merge, latestMessage rewrite.
+- `src/pages/Messages.tsx` — thread `onUnsend` prop through.
+- `src/components/chat/ActiveChat.tsx` — context menu + hover trash, deleted-bubble rendering, AlertDialog confirm.
