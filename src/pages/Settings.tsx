@@ -618,7 +618,7 @@ export default function Settings() {
                           ) : hasActiveSub ? (
                             "Planı Yükselt"
                           ) : (
-                            tier.cta
+                            "Planı Satın Al"
                           )}
                         </Button>
                       </div>
