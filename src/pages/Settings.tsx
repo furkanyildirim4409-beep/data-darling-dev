@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup";
 import { PhoneVerification } from "@/components/settings/PhoneVerification";
+import { TwilioSmsTest } from "@/components/settings/TwilioSmsTest";
 import { THEME_PALETTES, applyThemeColor, loadStoredTheme, type ThemeKey } from "@/lib/theme";
 
 const settingsSections = [
@@ -815,6 +816,7 @@ export default function Settings() {
             <div className="space-y-6">
               <TwoFactorSetup />
               <PhoneVerification />
+              <TwilioSmsTest />
               <div className="glass rounded-xl border border-border p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-6">Şifre</h2>
 

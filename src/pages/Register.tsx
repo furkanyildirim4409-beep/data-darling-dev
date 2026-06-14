@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Zap, AtSign, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { User, Mail, Lock, Zap, AtSign, CheckCircle2, XCircle, Loader2, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Register() {
@@ -11,6 +11,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [role, setRole] = useState<'coach' | 'athlete'>('coach');
   const [loading, setLoading] = useState(false);
@@ -69,9 +70,24 @@ export default function Register() {
 
     const finalRole = inviteToken ? 'athlete' : role;
 
-    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined, isCoachSignup ? username : undefined);
+    let normalizedPhone: string | undefined = undefined;
+    if (phone.trim()) {
+      const cleaned = phone.replace(/[^\d+]/g, '');
+      normalizedPhone = cleaned.startsWith('+') ? cleaned : `+${cleaned.replace(/^0+/, '')}`;
+      if (normalizedPhone.length < 10) {
+        toast.error('Telefon numarası geçersiz. Boş bırakabilir veya +905551234567 formatında girebilirsiniz.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { error } = await signUp(email, password, finalRole, fullName, inviteToken || undefined, isCoachSignup ? username : undefined, normalizedPhone);
     if (!error) {
-      toast.success('Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.');
+      toast.success(
+        normalizedPhone
+          ? 'Kayıt başarılı! E-postanızı doğrulayın. Telefonunuzu Ayarlar > Güvenlik bölümünden doğrulayabilirsiniz.'
+          : 'Kayıt başarılı! E-postanızı kontrol edin veya giriş yapın.'
+      );
       navigate('/login');
     }
     setLoading(false);
@@ -119,6 +135,16 @@ export default function Register() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="phone" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Telefon Numarası <span className="text-muted-foreground/60 normal-case tracking-normal">(opsiyonel)</span>
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input id="phone" type="tel" inputMode="tel" placeholder="+905551234567" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} className="flex h-11 w-full rounded-lg border border-white/10 bg-black/50 pl-10 pr-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors" />
+            </div>
+            <p className="text-xs text-muted-foreground">Boş bırakabilirsiniz. Daha sonra Ayarlar → Güvenlik bölümünden ekleyip SMS ile doğrulayabilirsiniz.</p>
           </div>
           {!inviteToken && (
             <div className="space-y-1.5">

@@ -1,82 +1,48 @@
-# Supabase Auth: E-posta & SMS Doğrulama Aktivasyonu
+# Twilio SMS + Telefon Numarası Akışı
 
-## Durum
-Şu an projede:
-- ✅ TOTP (Authenticator) 2FA aktif — `TwoFactorSetup.tsx` + Login MFA interceptor mevcut
-- ❌ E-posta doğrulama (signup confirmation) durumu Supabase tarafında kontrol edilmedi
-- ❌ SMS / Phone OTP doğrulama hiç entegre değil
-- Custom auth email template'leri scaffold edilmemiş (varsayılan Lovable email'leri kullanılıyor)
+Mevcut durumda Login ekranında SMS sekmesi ve Ayarlar > Güvenlik altında `PhoneVerification` paneli zaten var. Eksik olan üç parçayı tamamlayacağız.
 
-## Önemli Kısıtlamalar
+## 1) Ayarlar > Güvenlik: "Twilio SMS Test" paneli (yeni)
 
-**1. SMS Doğrulama → Supabase Dashboard'dan provider gerekli**
-Supabase SMS OTP, kod tarafından açılamaz. Üçüncü taraf SMS provider (Twilio, MessageBird, Vonage, Textlocal) gerekir:
-- Provider hesabı + API key/secret
-- Supabase Dashboard → Authentication → Providers → Phone → enable + credentials
-- Maliyet: SMS başına ücret (Twilio ~$0.04/SMS TR)
+Amaç: Twilio kimlik bilgileri Supabase Auth Provider'a girildikten sonra, koçun hesabını değiştirmeden uçtan uca SMS gönderim/doğrulama testi yapması.
 
-Bunu Lovable agent **kullanıcı yerine yapamaz** — credential'ları sen gireceksin.
+- Yeni dosya: `src/components/settings/TwilioSmsTest.tsx`
+  - Bir telefon input'u (E.164, +90 önekli) + "Test Kodu Gönder" butonu.
+  - `supabase.auth.signInWithOtp({ phone, options: { shouldCreateUser: false, channel: 'sms' } })` çağrısı.
+    - `shouldCreateUser:false` sayesinde mevcut hesabı etkilemez; provider hatasıysa Twilio konfigürasyon hatası net görünür.
+  - 6 haneli `InputOTP` ile kodu doğrulamak için `verifyOtp({ phone, token, type: 'sms' })` (sandbox modu, sadece akışı test eder; başarılıysa "Twilio entegrasyonu çalışıyor" toast'u, oturum açmadan hemen `supabase.auth.signOut()` ile temizlik yapar).
+  - Hata durumlarını Türkçe açık mesajlarla gösterir: "Provider yapılandırılmamış", "Hatalı kod", "Rate limit", vb.
+- `src/pages/Settings.tsx` Güvenlik bölümüne `<TwilioSmsTest />` ekle (mevcut `<PhoneVerification />`'ın hemen altına).
 
-**2. E-posta doğrulama → İki seviye**
-- **a) Signup email confirmation aç/kapa:** Supabase Dashboard → Authentication → Sign In / Providers → Email → "Confirm email" toggle (kod tarafından değiştirilemez)
-- **b) Custom branded email template'leri:** `email_domain--scaffold_auth_email_templates` ile yapılabilir (Dynabolic markalı confirmation/recovery/magic-link mailleri)
+## 2) Kayıt ekranı: opsiyonel telefon numarası (email zorunlu kalır)
 
----
+- `src/pages/Register.tsx`:
+  - Email + şifre **zorunlu** (mevcut davranış korunur).
+  - Yeni opsiyonel alan: "Telefon Numarası (opsiyonel)" — E.164 formatı, kullanıcıya "Daha sonra Ayarlar'dan doğrulayabilirsiniz" notu.
+  - `signUp(...)` çağrısına metadata olarak telefon geçilir. `AuthContext.signUp` imzasına opsiyonel `phone` parametresi eklenir; `supabase.auth.signUp` çağrısına `options.data.pending_phone = phone` olarak konur (auth.users.phone'a yazılmaz, çünkü o doğrulama gerektirir).
+  - Kayıt sonrası kullanıcıya: "Telefonunu doğrulamak için Ayarlar > Güvenlik bölümünden devam et."
 
-## Plan
+## 3) Giriş ekranı: telefon seçeneği
 
-### Aşama 1 — E-posta Doğrulama (kod + UI)
+- Login'de SMS sekmesi zaten var; sadece üst notu netleştir: "Daha önce telefonunu doğrulamış koçlar SMS ile giriş yapabilir; ilk kez kayıt olacaksanız E-posta sekmesini kullanın."
 
-**1.1 Signup akışını "email confirm" için hazırla**
-`src/contexts/AuthContext.tsx` içindeki `signUp`:
-- `emailRedirectTo: ${window.location.origin}/auth/callback` olarak güncelle
-- Başarılı signup sonrası kullanıcıya "E-postanı kontrol et" ekranı göster
+## 4) Akış kuralları
 
-**1.2 Yeni sayfa: `src/pages/AuthCallback.tsx`**
-- URL hash'inden `access_token` / `type=signup` / `type=recovery` parse et
-- `signup` → "E-posta doğrulandı" toast + `/` yönlendirme
-- `recovery` → `/reset-password` yönlendirme
+- Email **her zaman** zorunlu (kayıt, şifre sıfırlama, doğrulama maili için).
+- Telefon **opsiyonel** ve sadece Settings'te `supabase.auth.updateUser({ phone })` + `verifyOtp({ type: 'phone_change' })` ile doğrulanır (mevcut `PhoneVerification` aynen kullanılır).
+- Doğrulanmış telefon → SMS ile giriş otomatik olarak çalışır (Supabase Auth tarafından).
 
-**1.3 Yeni sayfa: `src/pages/VerifyEmailPending.tsx`**
-- Signup sonrası gösterilir
-- "Doğrulama linki gönderildi" mesajı + "Tekrar gönder" butonu (`supabase.auth.resend({ type: 'signup', email })`)
+## Teknik notlar
 
-**1.4 Custom email template'leri (markalı)**
-`email_domain--scaffold_auth_email_templates` çağrısı:
-- Dynabolic marka renkleri (lime primer, dark bg) ile 6 template (signup, magiclink, recovery, invite, email-change, reauthentication)
-- `auth-email-hook` edge function deploy
-- DNS zaten doğrulanmışsa email'ler aktif olur
+- Tüm SMS işlemleri `supabase.auth.*` üzerinden gider; Twilio'ya doğrudan istek atan edge function yazılmaz (Supabase zaten Twilio'yu Auth Provider olarak kullanır).
+- DB değişikliği yok.
+- `pending_phone` metadata değeri, ileride otomatik bir akış için `auth-email-hook`/trigger ile kullanılabilir — bu plan kapsamında sadece bilgi olarak saklanır.
 
-### Aşama 2 — SMS / Telefon Doğrulama
+## Manuel ön koşul (kullanıcı tarafı)
 
-**2.1 Yeni Settings bölümü: `src/components/settings/PhoneVerification.tsx`**
-TOTP setup ile aynı stilde:
-- "Telefon Numarası Ekle" → input (+90...) → `supabase.auth.updateUser({ phone })` → OTP gönderilir
-- 6 haneli SMS kodu input (InputOTP) → `supabase.auth.verifyOtp({ phone, token, type: 'phone_change' })`
-- Doğrulanmış telefon → "Aktif" badge + "Kaldır" butonu
+Supabase Dashboard → Authentication → Providers → Phone:
+- Provider: Twilio
+- Account SID, Auth Token, Messaging Service SID (veya From Number) gir
+- Enable Phone Provider
 
-**2.2 Login'de SMS OTP opsiyonu (opsiyonel — sormak istiyorum)**
-İki seçenek:
-- **A) Sadece TOTP korunsun, SMS opsiyonel ikinci faktör** — TOTP'si olmayan kullanıcılar için fallback
-- **B) "Telefonla giriş yap" sekmesi** — şifresiz, sadece SMS OTP ile login
-
-**2.3 Settings sayfasına entegre**
-`src/pages/Settings.tsx` → `TwoFactorSetup`'ın altına `PhoneVerification` ekle.
-
-### Aşama 3 — Kullanıcının manuel adımları
-
-Şunları sen Supabase Dashboard'da yapacaksın (linkleri vereceğim):
-1. **Auth → Providers → Email** → "Confirm email" toggle ON
-2. **Auth → Providers → Phone** → Provider seç (Twilio öneririm) + Account SID / Auth Token / Message Service SID gir
-3. **Auth → URL Configuration** → Site URL: `https://app.dynabolic.co`, Redirect URLs'e `/auth/callback` ekle
-
----
-
-## Kullanıcıya Sorular (devam etmeden önce)
-
-1. **SMS provider:** Twilio mu, başka bir şey mi? Hesabın var mı yoksa kuruluma yardım edeyim mi?
-2. **SMS kullanım amacı:** Sadece koçlar Settings'ten telefon ekleyip ikinci faktör olarak mı kullansın, yoksa Login ekranında "SMS ile giriş" sekmesi de olsun mu?
-3. **Markalı e-posta template'leri:** Şimdi scaffold edelim mi (Dynabolic teması + lime renk)?
-4. **Signup email confirmation:** Şu an muhtemelen kapalı — açtığımızda mevcut doğrulanmamış kullanıcılar bir sonraki login'de doğrulama isteyecek. Açalım mı?
-
-Cevap geldikten sonra ilgili kod adımlarını uygulayacağım.
+Bu yapılmadan SMS gönderimi 422/500 hatası verir; Test panelinde mesaj net görünecek.
