@@ -17,6 +17,9 @@ export interface Profile {
   username: string | null;
   instagram_sync_active: boolean | null;
   subscription_tier: string | null;
+  subscription_status: string | null;
+  subscription_current_period_end: string | null;
+  subscription_cancel_at_period_end: boolean | null;
   iban: string | null;
   is_active: boolean;
   whatsapp_notifications_enabled: boolean;
@@ -78,6 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         gym_name: p.gym_name ?? null,
         specialty: p.specialty ?? null,
         subscription_tier: p.subscription_tier ?? null,
+        subscription_status: p.subscription_status ?? null,
+        subscription_current_period_end: p.subscription_current_period_end ?? null,
+        subscription_cancel_at_period_end: p.subscription_cancel_at_period_end ?? null,
         username: p.username ?? null,
         instagram_sync_active: p.instagram_sync_active ?? true,
         iban: p.iban ?? null,
