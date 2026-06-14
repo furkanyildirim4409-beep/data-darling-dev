@@ -492,6 +492,7 @@ export function useCoachChat() {
         },
         (payload) => {
           const updated = payload.new as ChatMessage;
+          const previous = payload.old as Partial<ChatMessage> | undefined;
           if (!updated?.id) return;
           setMessages(prev =>
             prev.map(m => (m.id === updated.id ? { ...m, ...updated } : m))
@@ -503,6 +504,25 @@ export function useCoachChat() {
                 ? { ...a, latestMessage: { ...a.latestMessage, content: '🚫 Bu mesaj silindi.', media_type: null } }
                 : a
             ));
+          }
+          // Live decrement when a message transitions to read (other tab/page marked it)
+          const becameRead =
+            updated.is_read === true &&
+            (previous ? previous.is_read === false : true);
+          if (becameRead) {
+            const senderId = updated.sender_id;
+            let decremented = 0;
+            setAthletes(prev =>
+              prev.map(a => {
+                if (a.id !== senderId) return a;
+                if (a.unreadCount <= 0) return a;
+                decremented = 1;
+                return { ...a, unreadCount: Math.max(0, a.unreadCount - 1) };
+              })
+            );
+            if (decremented > 0) {
+              setTotalUnread(prev => Math.max(0, prev - 1));
+            }
           }
         }
       )
