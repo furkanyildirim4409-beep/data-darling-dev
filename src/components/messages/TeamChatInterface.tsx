@@ -208,7 +208,7 @@ export function TeamChatInterface() {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 scrollbar-thin">
             {isLoadingMessages ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin w-6 h-6 border-2 border-info border-t-transparent rounded-full" />
