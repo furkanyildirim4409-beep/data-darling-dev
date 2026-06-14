@@ -525,6 +525,10 @@ export default function Settings() {
                   {TIERS.map((tier) => {
                     const isCurrent = currentTierId === tier.id;
                     const isBusy = purchasingTier === tier.id;
+                    const currentTierObj = currentTierId ? TIERS.find((t) => t.id === currentTierId) : null;
+                    const subStatus = (profile as any)?.subscription_status as string | null | undefined;
+                    const hasActiveSub = !!currentTierObj && (subStatus === "active" || subStatus === "trialing");
+                    const isLowerTier = hasActiveSub && tier.priceMonthly < (currentTierObj?.priceMonthly ?? 0);
                     return (
                       <div
                         key={tier.id}
