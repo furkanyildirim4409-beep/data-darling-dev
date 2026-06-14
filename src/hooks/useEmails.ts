@@ -56,7 +56,7 @@ export function useSendEmail() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { toEmail: string; subject: string; bodyText: string }) => {
+    mutationFn: async (payload: { toEmail: string; subject: string; bodyHtml: string }) => {
       const { data, error } = await supabase.functions.invoke("send-custom-email", {
         body: payload,
       });
@@ -68,3 +68,4 @@ export function useSendEmail() {
     },
   });
 }
+
