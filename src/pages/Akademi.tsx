@@ -104,6 +104,7 @@ export default function Akademi() {
     setThumbnailPreview("");
     setForm({ title: "", description: "", category: "", type: "", thumbnail: "", tags: "", visibility: "public", status: "published" });
     setModules([]);
+    setEditingId(null);
   }, [thumbnailPreview]);
 
   const fetchContent = useCallback(async () => {
