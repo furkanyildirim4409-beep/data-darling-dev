@@ -538,6 +538,15 @@ function useCoachChatStateInternal(): CoachChatValue {
             updated.is_read === true &&
             (previous ? previous.is_read === false : true);
           if (becameRead) {
+            // If we already decremented locally for this id (fetchMessages or auto-read), ignore.
+            if (readProcessedIdsRef.current.has(updated.id)) {
+              return;
+            }
+            readProcessedIdsRef.current.add(updated.id);
+            if (readProcessedIdsRef.current.size > 500) {
+              const first = readProcessedIdsRef.current.values().next().value;
+              if (first) readProcessedIdsRef.current.delete(first);
+            }
             const senderId = updated.sender_id;
             let decremented = false;
             setAthletes(prev =>
