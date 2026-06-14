@@ -126,7 +126,19 @@ export default function Akademi() {
           url: row.url ?? "",
           thumbnail: row.thumbnail ?? "",
           tags: row.tags ?? [],
-          modules: Array.isArray(row.modules) ? row.modules : [],
+          modules: Array.isArray(row.modules)
+            ? (row.modules as any[]).map((m) => ({
+                id: m.id,
+                title: m.title ?? "",
+                videoUrl: m.videoUrl ?? "",
+                fileName: m.fileName ?? "",
+                order: m.order ?? 0,
+                contentType: (m.contentType ?? "video") as ModuleContentType,
+                articleContent: m.articleContent ?? "",
+              }))
+            : [],
+          visibility: (row.visibility ?? "public") as Visibility,
+          status: (row.status ?? "published") as Status,
           createdAt: new Date(row.created_at).getTime(),
         }))
       );
