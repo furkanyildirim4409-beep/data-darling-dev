@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { useAlerts } from "@/hooks/useAlerts";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
+import { useBrandIdentity } from "@/hooks/useBrandIdentity";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -50,6 +51,7 @@ export function MobileNav({ className }: MobileNavProps) {
   const location = useLocation();
   const { totalUnread } = useCoachChat();
   const permissions = usePermissions();
+  const { businessName } = useBrandIdentity();
   const { criticalCount, warningCount } = useAlerts();
 
   const filteredNavItems = useMemo(
