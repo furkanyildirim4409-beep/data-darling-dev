@@ -377,6 +377,60 @@ export function MemberProfileDrawer({
                 </div>
               </div>
             </div>
+
+            {/* Active / Inactive kill switch — head coach only */}
+            {canToggleActive && (
+              <div className="pt-4 border-t border-border">
+                <div className={cn(
+                  "rounded-xl border p-4 flex items-center justify-between gap-4 transition-colors",
+                  isActive
+                    ? "border-border bg-background/50"
+                    : "border-destructive/40 bg-destructive/5"
+                )}>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                      isActive ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                    )}>
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">Kullanıcı Durumu (Aktif/İnaktif)</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Devre dışı bırakıldığında kullanıcı uygulamaya giriş yapamaz.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isActive}
+                    disabled={setMemberActive.isPending}
+                    onCheckedChange={async (checked) => {
+                      const previous = isActive;
+                      setIsActive(checked);
+                      try {
+                        await setMemberActive.mutateAsync({
+                          teamMemberId: member.id,
+                          isActive: checked,
+                        });
+                        toast({
+                          title: checked ? "Kullanıcı Aktif" : "Kullanıcı Devre Dışı",
+                          description: checked
+                            ? `${member.name} artık uygulamayı kullanabilir. ✅`
+                            : `${member.name} uygulamaya giriş yapamayacak. 🔒`,
+                        });
+                      } catch {
+                        setIsActive(previous);
+                        toast({
+                          title: "Hata",
+                          description: "Kullanıcı durumu güncellenemedi.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Assignments Tab */}
