@@ -696,12 +696,33 @@ export default function Settings() {
                     </div>
                     <Switch
                       checked={notificationPrefs[item.key as keyof typeof notificationPrefs]}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         setNotificationPrefs(prev => ({ ...prev, [item.key]: checked }))
                       }
                     />
                   </div>
                 ))}
+
+                {/* WhatsApp Notifications — Beta */}
+                <div className="flex items-center justify-between py-3 mt-2 border-t border-border/40 pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center shrink-0">
+                      <MessageCircle className="w-5 h-5 text-success" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-foreground">WhatsApp Anlık Bildirimleri</p>
+                        <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30">
+                          Beta · Yakında
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Sporcu olaylarını WhatsApp üzerinden anında alın. Altyapı hazırlanıyor.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch checked={whatsappEnabled} onCheckedChange={setWhatsappEnabled} />
+                </div>
               </div>
             </div>
           )}
@@ -821,38 +842,8 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Data Section */}
-          {activeSection === "data" && (
-            <div className="glass rounded-xl border border-border p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-6">Veri & Dışa Aktar</h2>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-4 border-b border-border">
-                  <div>
-                    <p className="font-medium text-foreground">Tüm Verileri Dışa Aktar</p>
-                    <p className="text-sm text-muted-foreground">Sporcu ve program verilerini indir</p>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleExportData}
-                    disabled={isExporting}
-                  >
-                    {isExporting ? (
-                      <>
-                        <Download className="w-4 h-4 mr-2 animate-bounce" />
-                        İndiriliyor...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Dışa Aktar
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Save Button */}
           {(activeSection === "profile" || activeSection === "branding" || activeSection === "notifications") && (
