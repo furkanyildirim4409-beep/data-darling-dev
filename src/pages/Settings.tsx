@@ -25,26 +25,8 @@ const accentColors = (Object.entries(THEME_PALETTES) as [ThemeKey, typeof THEME_
   ([value, p]) => ({ value, name: p.name, hsl: p.hsl })
 );
 
-const subscriptionPlans = [
-  {
-    name: "Free",
-    price: "₺0",
-    period: "aylık",
-    features: ["5 sporcu", "Temel raporlar", "E-posta desteği"],
-  },
-  {
-    name: "Pro",
-    price: "₺499",
-    period: "aylık",
-    features: ["25 sporcu", "Gelişmiş analitik", "WhatsApp entegrasyonu", "Özel raporlar"],
-  },
-  {
-    name: "Elite",
-    price: "₺999",
-    period: "aylık",
-    features: ["Sınırsız sporcu", "AI analiz", "API erişimi", "Öncelikli destek", "Beyaz etiket"],
-  }
-];
+import { TIERS, normalizeTier, type TierId } from "@/lib/subscriptionTiers";
+import { Check as CheckIcon, X as XIcon, Sparkles, Loader2 as Spinner } from "lucide-react";
 
 const formatIbanInput = (value: string): string => {
   // Strip everything non-alphanumeric, force uppercase, cap at 26
@@ -311,11 +293,25 @@ export default function Settings() {
 
 
 
-  const handleUpgradeSubscription = (planName: string) => {
-    toast.info(`${planName} planına yükseltme özelliği yakında aktif olacak.`);
+  const [purchasingTier, setPurchasingTier] = useState<TierId | null>(null);
+
+  const handlePurchaseTier = async (tierId: TierId) => {
+    setPurchasingTier(tierId);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-coach-subscription", {
+        body: { tierId },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error("Checkout URL alınamadı.");
+      window.location.href = data.url as string;
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Ödeme oturumu başlatılamadı.");
+      setPurchasingTier(null);
+    }
   };
 
-  const currentTier = profile?.subscription_tier || "Free";
+  const currentTierId = normalizeTier(profile?.subscription_tier);
 
   if (!profile) {
     return <div className="flex items-center justify-center h-96">Profil yükleniyor...</div>;
