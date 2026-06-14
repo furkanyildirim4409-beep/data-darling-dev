@@ -184,7 +184,8 @@ export function TeamChatInterface() {
 
   // --- Chat Pane ---
   const chatPane = (
-    <div className="flex-1 flex flex-col h-full bg-background">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+
       {selectedContact ? (
         <>
           {/* Header */}
