@@ -64,7 +64,9 @@ export default function Messages() {
             isLoadingOlder={isLoadingOlder}
             hasMoreMessages={hasMoreMessages}
             onSendMessage={sendMessage}
+            onUnsendMessage={unsendMessage}
             onLoadOlder={loadOlderMessages}
+
             onBack={handleBack}
             showBackButton
             onRespondToRequest={respondToRequest}
