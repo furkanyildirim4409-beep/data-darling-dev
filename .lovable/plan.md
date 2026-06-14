@@ -1,100 +1,82 @@
-# 2FA (TOTP) + Dynamic Theme Engine (Part 3/4)
+# SaaS Pricing UI + Coach Subscription Checkout (Part 4/4)
 
-## 1. Dependencies
+## 1. Subscription Tier Catalog — `src/lib/subscriptionTiers.ts` (new)
 
-Add `qrcode.react` (≈4KB, MIT) for rendering the TOTP QR code as an inline `<canvas>`. No backend dependency — Supabase Auth handles TOTP server-side.
-
-```bash
-bun add qrcode.react
-```
-
-## 2. Theme Engine
-
-### `src/lib/theme.ts` (new)
-
-Single source of truth for primary palettes:
+Single source of truth for the 3 tiers. Used by the UI now and by the webhook later.
 
 ```ts
-export const THEME_PALETTES = {
-  emerald: { name: "Zümrüt",   hsl: "160 84% 39%", glow: "160 84% 50%" },
-  rose:    { name: "Yakut",    hsl: "346 87% 60%", glow: "346 87% 68%" },
-  sapphire:{ name: "Safir",    hsl: "217 91% 60%", glow: "217 91% 68%" },
-  amber:   { name: "Kehribar", hsl: "38 92% 50%",  glow: "38 92% 60%"  },
-  violet:  { name: "Ametist",  hsl: "263 70% 58%", glow: "263 70% 66%" },
-  lime:    { name: "Neon Yeşil","hsl": "68 100% 50%", glow: "68 100% 60%" }, // default / legacy
-} as const;
+export type TierId = "starter" | "pro" | "elite";
 
-export type ThemeKey = keyof typeof THEME_PALETTES;
-
-export const DEFAULT_THEME: ThemeKey = "lime";
-const STORAGE_KEY = "dynabolic_theme";
-
-export function applyThemeColor(key: ThemeKey) {
-  const palette = THEME_PALETTES[key] ?? THEME_PALETTES[DEFAULT_THEME];
-  const root = document.documentElement;
-  // Forcefully override Tailwind/shadcn primary tokens
-  root.style.setProperty("--primary",         palette.hsl);
-  root.style.setProperty("--primary-glow",    palette.glow);
-  root.style.setProperty("--sidebar-primary", palette.hsl);
-  root.style.setProperty("--ring",            palette.hsl);
-  root.style.setProperty("--accent",          palette.hsl);
-  localStorage.setItem(STORAGE_KEY, key);
-}
-
-export function loadStoredTheme(): ThemeKey {
-  const stored = (localStorage.getItem(STORAGE_KEY) as ThemeKey | null) ?? DEFAULT_THEME;
-  return (stored in THEME_PALETTES ? stored : DEFAULT_THEME);
+export interface Tier {
+  id: TierId;
+  name: string;           // Başlangıç | Profesyonel | Kurumsal
+  tagline: string;
+  priceMonthly: number;   // TRY
+  highlight?: boolean;    // Pro
+  badge?: string;         // "En Popüler" / "Kurumsal"
+  features: { label: string; included: boolean }[];
+  cta: string;            // "Planı Yükselt / Satın Al"
 }
 ```
 
-### Apply on boot — `src/main.tsx`
+Tiers grounded in actual app modules:
+- **Starter** — Sporcu yönetimi (50 limit), Program & diyet atama, Temel raporlar, Mesajlaşma. *Kapalı:* AI Asistanı, Mağaza, Akademi, İçerik Stüdyosu, Takım, Beyaz etiket.
+- **Pro** — Sınırsız sporcu, AI Program Architect, Global Mağaza, Akademi Stüdyosu, İçerik Stüdyosu, Sosyal & Hikayeler, Otomasyonlar.
+- **Elite** — Pro'daki her şey + Alt koç (Takım) yönetimi & granular ACL, Beyaz etiket (gym_name & marka), Gelişmiş finansal analitik, Mailbox & domain, Öncelikli destek.
 
-Call `applyThemeColor(loadStoredTheme())` once before `createRoot`, so styles are correct on first paint with no FOUC. No new provider needed.
+## 2. Pricing UI — `src/pages/Settings.tsx` (Abonelik tab)
 
-### Settings → Appearance tab
+Replace the existing `subscriptionPlans` array + grid (lines ~28-47 and ~490-542) with a polished Stripe-style 3-column card grid:
 
-Replace the `accentColors` array and grid with the 5 premium palettes from `THEME_PALETTES`. The grid renders one swatch per palette; clicking a swatch calls `applyThemeColor(key)` and updates local `selectedColor` state. Initialize `selectedColor` from `loadStoredTheme()` so the active swatch reflects persisted choice. Keep the legacy "Neon Yeşil" so existing users aren't visually downgraded.
+- Mid card (Pro) elevated with `border-primary`, glow shadow, "En Popüler" ribbon
+- Each card: tier name, tagline, big `₺X /ay` price, full feature list with green check icons for included and muted strike-through `XCircle` for excluded
+- Primary CTA: **"Planı Yükselt / Satın Al"** → calls `handlePurchaseTier(tier.id)`
+- If `profile.subscription_tier` matches current tier → button becomes disabled "Aktif Plan" with success badge
+- New handler `handlePurchaseTier(tierId)` invokes the edge function below, redirects to `data.url`, with `Loader2` spinner state per-card and sonner error toast on failure
 
-## 3. Two-Factor Auth (TOTP) UI — Security tab
+Keep the existing IBAN/banka block below — it's unrelated.
 
-### New component `src/components/settings/TwoFactorSetup.tsx`
+## 3. Edge Function — `supabase/functions/create-coach-subscription/index.ts` (new)
 
-Self-contained card with three internal states driven by `phase: "idle" | "enrolling" | "verifying" | "active"`. Uses Supabase JS v2 MFA API as per docs.
+Mirrors the structure of `create-custom-checkout` (Zod, getClaims auth, BYOK `STRIPE_SECRET_KEY`).
 
 ```text
-[idle]      → button "2 Faktörlü Doğrulamayı Etkinleştir"
-                on click → supabase.auth.mfa.enroll({ factorType: "totp",
-                                                      friendlyName: "Dynabolic" })
-                store { factorId, totp.qr_code (SVG data URL),
-                        totp.secret, totp.uri } → phase = "enrolling"
-
-[enrolling] → show QR (qrcode.react <QRCodeSVG value={totp.uri} size={180} />),
-              fallback "Manuel Anahtar" text (totp.secret),
-              6-digit InputOTP, "Doğrula" button
-                on click → supabase.auth.mfa.challenge({ factorId })
-                           then  supabase.auth.mfa.verify({ factorId, challengeId, code })
-                success → toast.success + phase = "active" + refreshFactors()
-                error   → toast.error("Kod hatalı veya süresi dolmuş.") + clear input
-
-[active]    → green badge "Aktif", "Devre Dışı Bırak" destructive button
-                on click → supabase.auth.mfa.unenroll({ factorId })
-                           → phase = "idle"
+POST { tierId: "starter" | "pro" | "elite" }
+  → auth via getClaims (Bearer JWT)
+  → map tierId → Stripe Price ID from env:
+        STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_ELITE
+  → stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: [{ price, quantity: 1 }],
+        customer_email: userEmail,
+        client_reference_id: userId,
+        success_url: `${origin}/settings?subscription=success&tier=${tierId}`,
+        cancel_url:  `${origin}/settings?subscription=cancelled`,
+        metadata: { coach_id: userId, requested_tier: tierId },
+        subscription_data: { metadata: { coach_id: userId, requested_tier: tierId } },
+      })
+  → return { url }
 ```
 
-Initial mount calls `supabase.auth.mfa.listFactors()`; if any `totp.status === "verified"` exists, jump straight to `active` and remember its `factorId`. All Supabase calls wrapped in try/catch with sonner toasts (`toast.success` / `toast.error`).
+CORS, OPTIONS handler, structured errors (400 invalid tier, 401 unauthorized, 500 if any price ID missing). Reads `origin` from `req.headers.get("origin")` with fallback.
 
-### Wiring into Settings
+Function is deployed automatically. Default `verify_jwt = false`; auth enforced in code via `getClaims`.
 
-In the existing Security tab, render `<TwoFactorSetup />` above the password-change card under a section heading "İki Faktörlü Doğrulama (2FA)". No changes to password block.
+## 4. Secrets needed
 
-## 4. Files Touched
+`STRIPE_SECRET_KEY` already set. Three new runtime secrets required before going live:
+- `STRIPE_PRICE_STARTER`
+- `STRIPE_PRICE_PRO`
+- `STRIPE_PRICE_ELITE`
 
-- **New:** `src/lib/theme.ts`, `src/components/settings/TwoFactorSetup.tsx`
-- **Edited:** `src/main.tsx` (boot-time theme apply), `src/pages/Settings.tsx` (5-palette grid + `<TwoFactorSetup />` in Security tab)
-- **Package:** add `qrcode.react`
+I'll request them via `add_secret` right after enabling, so the function returns a clean "tier not configured" 500 until they're filled in. The user creates 3 recurring Prices in their Stripe dashboard (TRY, monthly) and pastes the `price_…` IDs.
 
-## Notes
+## 5. Out of scope (for a later part)
 
-- Supabase project already has Auth enabled; TOTP MFA is built-in and does not require any DB migration or edge function.
-- Theme variables `--primary-glow`, `--ring`, `--accent` are overridden in addition to `--primary` so derived shadcn variants (focus rings, accent badges, glow effects) shift consistently. Existing `index.css` keeps the lime defaults as fallback, so users who never picked a theme see the current look.
-- No security memory update needed — MFA hardens auth without changing what's public.
+- Webhook (`stripe-webhook`) that listens to `checkout.session.completed` / `customer.subscription.updated` and flips `profiles.subscription_tier` based on `metadata.requested_tier`.
+- DB-side limit enforcement (50-athlete cap, module gating). UI today reads `profile.subscription_tier` only to highlight the current card.
+
+## Files
+
+- **New:** `src/lib/subscriptionTiers.ts`, `supabase/functions/create-coach-subscription/index.ts`
+- **Edited:** `src/pages/Settings.tsx` (tier array removed, pricing grid + `handlePurchaseTier` rewritten)
