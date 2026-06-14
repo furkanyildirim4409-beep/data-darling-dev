@@ -1,0 +1,2 @@
+ALTER TABLE public.emails ADD COLUMN IF NOT EXISTS provider_message_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS emails_provider_message_id_key ON public.emails(provider_message_id) WHERE provider_message_id IS NOT NULL;
