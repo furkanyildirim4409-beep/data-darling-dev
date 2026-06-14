@@ -36,6 +36,7 @@ function mapRowToTeamMember(row: TeamMemberRow): TeamMember {
     permissions: row.permissions as "full" | "limited" | "read-only",
     custom_permissions: row.custom_permissions as unknown as GranularPermissions | null,
     athletes: row.athletes_count,
+    status: row.status,
     startDate: row.start_date
       ? format(new Date(row.start_date), "dd.MM.yyyy")
       : undefined,
