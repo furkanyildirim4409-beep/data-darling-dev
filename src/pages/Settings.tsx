@@ -88,7 +88,7 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState("profile");
-  const [selectedColor, setSelectedColor] = useState("lime");
+  const [selectedColor, setSelectedColor] = useState<ThemeKey>(() => loadStoredTheme());
   const [darkMode, setDarkMode] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
