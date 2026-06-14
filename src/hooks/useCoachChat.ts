@@ -29,10 +29,12 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   is_read: boolean;
+  is_deleted?: boolean;
   media_url?: string | null;
   media_type?: string | null;
   metadata?: { story_id?: string; media_url?: string; category?: string } | null;
 }
+
 
 export function useCoachChat() {
   const { user, activeCoachId, isSubCoach, teamMember, teamMemberPermissions } = useAuth();
