@@ -326,34 +326,90 @@ export default function Akademi() {
       const uploadedModules = await uploadModuleVideos();
       const tagsArray = form.tags.split(",").map((t) => t.trim()).filter(Boolean);
 
-      const { error } = await supabase
-        .from("academy_content" as any)
-        .insert({
-          coach_id: activeCoachId,
-          title: form.title,
-          description: form.description,
-          category: form.category,
-          type: form.type,
-          url: "",
-          thumbnail: thumbnailUrl,
-          tags: tagsArray,
-          modules: uploadedModules,
-          visibility: form.visibility,
-          status: form.status,
-        } as any);
+      const payload: any = {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        type: form.type,
+        url: "",
+        thumbnail: thumbnailUrl,
+        tags: tagsArray,
+        modules: uploadedModules,
+        visibility: form.visibility,
+        status: form.status,
+      };
+
+      let error: any = null;
+      if (editingId) {
+        ({ error } = await supabase
+          .from("academy_content" as any)
+          .update(payload)
+          .eq("id", editingId));
+      } else {
+        ({ error } = await supabase
+          .from("academy_content" as any)
+          .insert({ ...payload, coach_id: activeCoachId } as any));
+      }
 
       if (error) {
-        toast.error("İçerik eklenirken hata oluştu");
+        toast.error(editingId ? "İçerik güncellenirken hata oluştu" : "İçerik eklenirken hata oluştu");
         console.error(error);
         return;
       }
+      const wasEditing = !!editingId;
       resetFormState();
       setOpen(false);
-      toast.success("İçerik eklendi");
+      toast.success(wasEditing ? "İçerik güncellendi" : "İçerik eklendi");
       fetchContent();
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (item: AcademyItem) => {
+    setEditingId(item.id);
+    setForm({
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      type: item.type,
+      thumbnail: item.thumbnail,
+      tags: item.tags.join(", "),
+      visibility: item.visibility,
+      status: item.status,
+    });
+    setThumbnailFile(null);
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+    setThumbnailPreview("");
+    setModules(
+      item.modules.map((m) => ({
+        id: m.id || generateId(),
+        title: m.title,
+        videoUrl: m.videoUrl,
+        fileName: m.fileName,
+        order: m.order,
+        contentType: m.contentType,
+        articleContent: m.articleContent,
+        videoFile: null,
+      }))
+    );
+    setOpen(true);
+  };
+
+  const handleArchive = async (id: string, nextStatus: "archived" | "published") => {
+    const prev = items;
+    setItems((curr) => curr.map((it) => (it.id === id ? { ...it, status: nextStatus } : it)));
+    const { error } = await supabase
+      .from("academy_content" as any)
+      .update({ status: nextStatus } as any)
+      .eq("id", id);
+    if (error) {
+      setItems(prev);
+      toast.error("İşlem başarısız oldu");
+      console.error(error);
+      return;
+    }
+    toast.success(nextStatus === "archived" ? "İçerik arşivlendi" : "İçerik arşivden çıkarıldı");
   };
 
   const handleDelete = async (id: string) => {
