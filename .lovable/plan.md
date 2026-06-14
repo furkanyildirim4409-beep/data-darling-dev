@@ -1,101 +1,100 @@
-# Settings Cleanup, WhatsApp Toggle & Dynamic Brand Identity (Part 2/4)
+# 2FA (TOTP) + Dynamic Theme Engine (Part 3/4)
 
-## 1. Database Prep
+## 1. Dependencies
 
-Migration adds one nullable boolean and extends the self-update RPC.
+Add `qrcode.react` (≈4KB, MIT) for rendering the TOTP QR code as an inline `<canvas>`. No backend dependency — Supabase Auth handles TOTP server-side.
 
-```sql
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS whatsapp_notifications_enabled boolean NOT NULL DEFAULT false;
+```bash
+bun add qrcode.react
 ```
 
-Extend `public.update_own_profile(...)` with a new `_whatsapp_notifications_enabled boolean DEFAULT NULL` parameter and a `COALESCE` write, keeping the whitelist contract from `mem://security/profile-updates` intact. No RLS changes.
+## 2. Theme Engine
 
-## 2. `src/pages/Settings.tsx` — Pruning + WhatsApp toggle
+### `src/lib/theme.ts` (new)
 
-### Remove Biography
-Delete the entire "Biyografi" textarea block (lines ~491-499) inside the Profile tab. Remove `bio` from `formData` state, the `useEffect` sync, and from the `update_own_profile` payload. The Content Studio remains the sole owner of bios.
+Single source of truth for primary palettes:
 
-### Vaporize Export Data
-- Remove `{ id: "data", label: "Veri & Dışa Aktar", icon: Database }` from `settingsSections`.
-- Delete the entire `activeSection === "data"` block (lines ~874-904).
-- Delete the now-unused `handleExportData`, `isExporting` state, and the `Download` / `Database` icon imports.
+```ts
+export const THEME_PALETTES = {
+  emerald: { name: "Zümrüt",   hsl: "160 84% 39%", glow: "160 84% 50%" },
+  rose:    { name: "Yakut",    hsl: "346 87% 60%", glow: "346 87% 68%" },
+  sapphire:{ name: "Safir",    hsl: "217 91% 60%", glow: "217 91% 68%" },
+  amber:   { name: "Kehribar", hsl: "38 92% 50%",  glow: "38 92% 60%"  },
+  violet:  { name: "Ametist",  hsl: "263 70% 58%", glow: "263 70% 66%" },
+  lime:    { name: "Neon Yeşil","hsl": "68 100% 50%", glow: "68 100% 60%" }, // default / legacy
+} as const;
 
-### WhatsApp Notification Toggle (Notifications tab)
-Add a fourth row inside the `[...].map(...)` notifications list with a Beta chip:
+export type ThemeKey = keyof typeof THEME_PALETTES;
 
-```tsx
-<div className="flex items-center justify-between py-2 border-t border-border/40 pt-4">
-  <div className="flex items-start gap-3">
-    <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center">
-      <MessageCircle className="w-5 h-5 text-success" />
-    </div>
-    <div>
-      <div className="flex items-center gap-2">
-        <p className="font-medium text-foreground">WhatsApp Anlık Bildirimleri</p>
-        <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30">
-          Beta · Yakında
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground">Sporcu olaylarını WhatsApp üzerinden anında alın.</p>
-    </div>
-  </div>
-  <Switch
-    checked={whatsappEnabled}
-    onCheckedChange={setWhatsappEnabled}
-  />
-</div>
+export const DEFAULT_THEME: ThemeKey = "lime";
+const STORAGE_KEY = "dynabolic_theme";
+
+export function applyThemeColor(key: ThemeKey) {
+  const palette = THEME_PALETTES[key] ?? THEME_PALETTES[DEFAULT_THEME];
+  const root = document.documentElement;
+  // Forcefully override Tailwind/shadcn primary tokens
+  root.style.setProperty("--primary",         palette.hsl);
+  root.style.setProperty("--primary-glow",    palette.glow);
+  root.style.setProperty("--sidebar-primary", palette.hsl);
+  root.style.setProperty("--ring",            palette.hsl);
+  root.style.setProperty("--accent",          palette.hsl);
+  localStorage.setItem(STORAGE_KEY, key);
+}
+
+export function loadStoredTheme(): ThemeKey {
+  const stored = (localStorage.getItem(STORAGE_KEY) as ThemeKey | null) ?? DEFAULT_THEME;
+  return (stored in THEME_PALETTES ? stored : DEFAULT_THEME);
+}
 ```
 
-Wire `whatsappEnabled` state (default from `profile.whatsapp_notifications_enabled`) and include `_whatsapp_notifications_enabled: whatsappEnabled` in the `update_own_profile` RPC call. No third-party integration — the toggle just persists the preference.
+### Apply on boot — `src/main.tsx`
 
-## 3. Dynamic Brand Identity
+Call `applyThemeColor(loadStoredTheme())` once before `createRoot`, so styles are correct on first paint with no FOUC. No new provider needed.
 
-### Save Business Name (already half-wired)
-The "İşletme/Salon Adı" input already binds to `formData.gymName` and writes via `_gym_name`. No change needed beyond confirming `refreshProfile()` propagates to the sidebar consumer.
+### Settings → Appearance tab
 
-### `useBrandIdentity()` hook (new, `src/hooks/useBrandIdentity.ts`)
-Returns the **main coach's** business name regardless of who is logged in:
-- If `profile.role === 'coach' && !isSubCoach` → return `profile.gym_name`.
-- If `isSubCoach` and `activeCoachId` is set → fetch `profiles.gym_name` where `id = activeCoachId` via a small React Query keyed on `["brand-identity", activeCoachId]` (5min stale). The existing `get_coach_info` SECURITY DEFINER function already exposes `full_name + avatar_url` for any coach id, so we extend its return JSON to also include `gym_name` (single migration), keeping sub-coach visibility safe under RLS.
+Replace the `accentColors` array and grid with the 5 premium palettes from `THEME_PALETTES`. The grid renders one swatch per palette; clicking a swatch calls `applyThemeColor(key)` and updates local `selectedColor` state. Initialize `selectedColor` from `loadStoredTheme()` so the active swatch reflects persisted choice. Keep the legacy "Neon Yeşil" so existing users aren't visually downgraded.
 
-### `AppSidebar.tsx` — Logo + business subtitle
-Replace the current "D" placeholder block (lines 88-100) with:
+## 3. Two-Factor Auth (TOTP) UI — Security tab
 
-```tsx
-{!collapsed ? (
-  <div className="flex flex-col gap-0.5">
-    <div className="flex items-center gap-2">
-      <img src="/brand-logo.svg" alt="Dynabolic" className="w-7 h-7" />
-      <span className="font-bold text-lg tracking-tight text-foreground">DYNABOLIC</span>
-    </div>
-    {businessName && (
-      <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-[0.2em] ml-9">
-        {businessName}
-      </span>
-    )}
-  </div>
-) : (
-  <img src="/brand-logo.svg" alt="Dynabolic" className="w-8 h-8 mx-auto" />
-)}
+### New component `src/components/settings/TwoFactorSetup.tsx`
+
+Self-contained card with three internal states driven by `phase: "idle" | "enrolling" | "verifying" | "active"`. Uses Supabase JS v2 MFA API as per docs.
+
+```text
+[idle]      → button "2 Faktörlü Doğrulamayı Etkinleştir"
+                on click → supabase.auth.mfa.enroll({ factorType: "totp",
+                                                      friendlyName: "Dynabolic" })
+                store { factorId, totp.qr_code (SVG data URL),
+                        totp.secret, totp.uri } → phase = "enrolling"
+
+[enrolling] → show QR (qrcode.react <QRCodeSVG value={totp.uri} size={180} />),
+              fallback "Manuel Anahtar" text (totp.secret),
+              6-digit InputOTP, "Doğrula" button
+                on click → supabase.auth.mfa.challenge({ factorId })
+                           then  supabase.auth.mfa.verify({ factorId, challengeId, code })
+                success → toast.success + phase = "active" + refreshFactors()
+                error   → toast.error("Kod hatalı veya süresi dolmuş.") + clear input
+
+[active]    → green badge "Aktif", "Devre Dışı Bırak" destructive button
+                on click → supabase.auth.mfa.unenroll({ factorId })
+                           → phase = "idle"
 ```
 
-### Logo asset
-The project currently only ships `favicon.ico`, `pwa-192x192.png`, `pwa-512x512.png`. I will **generate a real Dynabolic mark** as `public/brand-logo.svg` (compact, on-brand neon-lime D-glyph with subtle glow) using `imagegen` (premium tier, transparent background, then copy to `public/`). If the user prefers, they can drop their own PNG/SVG into `public/brand-logo.svg` and the components will pick it up automatically.
+Initial mount calls `supabase.auth.mfa.listFactors()`; if any `totp.status === "verified"` exists, jump straight to `active` and remember its `factorId`. All Supabase calls wrapped in try/catch with sonner toasts (`toast.success` / `toast.error`).
 
-### Where else "DYNABOLIC" appears
-`TopBar.tsx` and `MobileNav.tsx` also render the wordmark. Same swap (logo + optional subtitle) applied to both for global consistency.
+### Wiring into Settings
 
-## Files Touched
+In the existing Security tab, render `<TwoFactorSetup />` above the password-change card under a section heading "İki Faktörlü Doğrulama (2FA)". No changes to password block.
 
-- **Migration:** add `profiles.whatsapp_notifications_enabled`, extend `update_own_profile` RPC, extend `get_coach_info` RPC to include `gym_name`.
-- `src/pages/Settings.tsx` — prune Bio + Export, add WhatsApp Beta toggle, persist new flag.
-- `src/hooks/useBrandIdentity.ts` — new hook resolving the head-coach business name.
-- `src/components/layout/AppSidebar.tsx` — real logo + business subtitle.
-- `src/components/layout/TopBar.tsx` — same logo swap, optional inline subtitle.
-- `src/components/layout/MobileNav.tsx` — same logo swap.
-- `public/brand-logo.svg` — generated brand mark.
+## 4. Files Touched
 
-## Open Question
+- **New:** `src/lib/theme.ts`, `src/components/settings/TwoFactorSetup.tsx`
+- **Edited:** `src/main.tsx` (boot-time theme apply), `src/pages/Settings.tsx` (5-palette grid + `<TwoFactorSetup />` in Security tab)
+- **Package:** add `qrcode.react`
 
-The spec says `/favicon.svg` "or the equivalent real asset path". I plan to generate a fresh `public/brand-logo.svg` Dynabolic mark. If you'd rather upload your own (or have me reuse the existing `/pwa-192x192.png`), say so before I run image generation.
+## Notes
+
+- Supabase project already has Auth enabled; TOTP MFA is built-in and does not require any DB migration or edge function.
+- Theme variables `--primary-glow`, `--ring`, `--accent` are overridden in addition to `--primary` so derived shadcn variants (focus rings, accent badges, glow effects) shift consistently. Existing `index.css` keeps the lime defaults as fallback, so users who never picked a theme see the current look.
+- No security memory update needed — MFA hardens auth without changing what's public.
