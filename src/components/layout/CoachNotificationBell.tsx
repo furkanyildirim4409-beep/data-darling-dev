@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ShoppingBag, AlertTriangle, MessageSquare, Info } from "lucide-react";
+import {
+  Bell,
+  ShoppingBag,
+  AlertTriangle,
+  MessageSquare,
+  Info,
+  CreditCard,
+  LifeBuoy,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useCoachNotifications, type CoachNotificationType } from "@/hooks/useCoachNotifications";
+import {
+  useCoachNotifications,
+  type CoachNotificationType,
+} from "@/hooks/useCoachNotifications";
 import { cn } from "@/lib/utils";
 
 function timeAgo(dateStr: string): string {
@@ -17,13 +28,12 @@ function timeAgo(dateStr: string): string {
   return `${days}g önce`;
 }
 
-const TYPE_META: Record<
-  CoachNotificationType,
-  { Icon: typeof Bell; cls: string }
-> = {
+const TYPE_META: Record<CoachNotificationType, { Icon: typeof Bell; cls: string }> = {
   order: { Icon: ShoppingBag, cls: "text-emerald-500 bg-emerald-500/10" },
+  payment: { Icon: CreditCard, cls: "text-emerald-500 bg-emerald-500/10" },
   compliance_alert: { Icon: AlertTriangle, cls: "text-destructive bg-destructive/10" },
   message: { Icon: MessageSquare, cls: "text-primary bg-primary/10" },
+  ticket: { Icon: LifeBuoy, cls: "text-warning bg-warning/10" },
   system: { Icon: Info, cls: "text-muted-foreground bg-muted" },
 };
 
@@ -32,18 +42,23 @@ export function CoachNotificationBell() {
   const [open, setOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useCoachNotifications();
 
-  const handleClick = (id: string, action_url: string | null, isRead: boolean) => {
+  const handleClick = (id: string, redirect_url: string | null, isRead: boolean) => {
     if (!isRead) markAsRead(id);
-    if (action_url) {
+    if (redirect_url) {
       setOpen(false);
-      navigate(action_url);
+      navigate(redirect_url);
     }
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative hover:bg-secondary" aria-label="Bildirimler">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative hover:bg-secondary"
+          aria-label="Bildirimler"
+        >
           <Bell className="w-5 h-5 text-muted-foreground" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 bg-destructive rounded-full flex items-center justify-center text-[10px] font-bold text-white pulse-red">
@@ -78,7 +93,7 @@ export function CoachNotificationBell() {
               <Bell className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">Henüz bildirim yok</p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Sipariş, mesaj ve uyumluluk uyarıları burada görünecek
+                Mesajlar, ödemeler, talepler ve uyarılar burada görünecek
               </p>
             </div>
           ) : (
@@ -89,23 +104,39 @@ export function CoachNotificationBell() {
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => handleClick(n.id, n.action_url, n.is_read)}
+                  onClick={() => handleClick(n.id, n.redirect_url, n.read_status)}
                   className={cn(
                     "w-full text-left flex items-start gap-3 p-4 border-b border-border/50 hover:bg-secondary/50 transition-colors",
-                    !n.is_read && "bg-primary/5",
+                    !n.read_status && "bg-primary/5",
                   )}
                 >
-                  <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", meta.cls)}>
+                  <div
+                    className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                      meta.cls,
+                    )}
+                  >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm text-foreground truncate", !n.is_read && "font-semibold")}>
+                    <p
+                      className={cn(
+                        "text-sm text-foreground truncate",
+                        !n.read_status && "font-semibold",
+                      )}
+                    >
                       {n.title}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1">{timeAgo(n.created_at)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {n.description}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                      {timeAgo(n.created_at)}
+                    </p>
                   </div>
-                  {!n.is_read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
+                  {!n.read_status && (
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                  )}
                 </button>
               );
             })
