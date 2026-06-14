@@ -305,6 +305,11 @@ function useCoachChatStateInternal(): CoachChatValue {
     fetchMessages(athleteId);
   }, [fetchMessages]);
 
+  const clearSelection = useCallback(() => {
+    setSelectedAthleteId(null);
+    setMessages([]);
+  }, []);
+
   const sendMessage = useCallback(async (content: string, mediaUrl?: string, mediaType?: 'image' | 'audio') => {
     if (!coachId || !selectedAthleteId) return;
     if (!content.trim() && !mediaUrl) return;
@@ -625,10 +630,7 @@ function useCoachChatStateInternal(): CoachChatValue {
     isLoadingOlder,
     hasMoreMessages,
     selectAthlete,
-    clearSelection: () => {
-      setSelectedAthleteId(null);
-      setMessages([]);
-    },
+    clearSelection,
     sendMessage,
     unsendMessage,
     loadOlderMessages,
