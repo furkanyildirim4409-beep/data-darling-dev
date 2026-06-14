@@ -154,9 +154,18 @@ export default function Akademi() {
     fetchContent();
   }, [fetchContent]);
 
+  const tabCounts = useMemo(() => ({
+    active: items.filter((i) => i.status !== "archived").length,
+    archived: items.filter((i) => i.status === "archived").length,
+  }), [items]);
+
   const filteredItems = useMemo(() => {
     return items
       .filter((item) => {
+        const matchesTab = activeTab === "archived"
+          ? item.status === "archived"
+          : item.status !== "archived";
+        if (!matchesTab) return false;
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = filterCategory === "Tümü" || item.category === filterCategory;
         const matchesType = filterType === "Tümü" || item.type === filterType;
@@ -167,7 +176,7 @@ export default function Akademi() {
         if (sortBy === "oldest") return a.createdAt - b.createdAt;
         return a.title.localeCompare(b.title, "tr");
       });
-  }, [items, searchQuery, filterCategory, filterType, sortBy]);
+  }, [items, searchQuery, filterCategory, filterType, sortBy, activeTab]);
 
   // Thumbnail handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
