@@ -63,4 +63,8 @@ verify_jwt = false
 [functions.stripe-subscription-webhook]
 verify_jwt = false
 
+[functions.reconcile-stripe-subscriptions]
+verify_jwt = false
+
+
 
