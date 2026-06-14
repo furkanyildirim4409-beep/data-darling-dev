@@ -614,7 +614,7 @@ export default function Settings() {
                           ) : isCurrent ? (
                             "Aktif Plan"
                           ) : isLowerTier ? (
-                            tier.cta
+                            "Planı Satın Al"
                           ) : hasActiveSub ? (
                             "Planı Yükselt"
                           ) : (
