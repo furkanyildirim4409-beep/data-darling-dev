@@ -1,95 +1,68 @@
-# Mailbox UI Overhaul + Reply/Forward Engine (Part 2/4)
+# Master Notification Aggregator & Header Cleanup (Part 3/4)
 
-## 1. Layout Overhaul — `src/pages/Mailbox.tsx`
+## 1. Header Cleanup — Remove Duplicate Bell
 
-Current shell is `flex h-[calc(100vh-4rem)] overflow-hidden` with rigid widths (`w-60` sidebar, `w-[350px]` list). On 1280–1440 MacBook resolutions this leaves the reading pane starved.
+In `src/components/layout/TopBar.tsx` there are currently **two** bells:
+- `<CoachNotificationBell />` (line 119) — the real persisted inbox.
+- A second `<Popover>` (lines 122–213) using `useAlerts()` + a `<Bell>` icon — duplicate/derived feed.
 
-Changes:
-- Outer wrapper: `flex h-[calc(100vh-theme(spacing.16))] w-full max-w-[1600px] mx-auto overflow-hidden bg-background`.
-- Folder sidebar: keep `w-60 shrink-0` but add `border-r` separation untouched (already fine).
-- Email list column: switch from fixed `md:w-[350px]` to fluid `min-w-[300px] w-1/3 max-w-[400px] shrink-0`.
-- Reading pane wrapper: `flex-1 flex flex-col bg-background min-w-0`.
-- Reading pane header: `p-6 lg:p-8 border-b` with subject as `text-xl lg:text-2xl font-semibold`.
-- Reading pane body ScrollArea: inner padding `p-6 lg:p-8`, content wrapped in `max-w-3xl` for readable measure.
-- Mobile (`!isMobile` branch unchanged) keeps full-width behavior.
+Action: **delete** the entire derived alerts `<Popover>` block plus its now-unused imports (`Bell`, `Popover/Trigger/Content`, `useAlerts`, `useState`/`useMemo`, `getAlertTypeStyle`, `cn`, related state). Keep only the master `<CoachNotificationBell />`. `GlobalSearch.tsx` has no bell — no changes there.
 
-## 2. Reply / Forward Engine
+## 2. Master Aggregator Hook
 
-### `src/components/mailbox/ComposeMailDialog.tsx`
+Refactor `src/hooks/useCoachNotifications.ts` to fan-out queries against four Supabase sources in parallel (`Promise.all`) and merge them into one unified feed. Public API of the hook stays the same (`notifications`, `unreadCount`, `markAsRead`, `markAllAsRead`) so `CoachNotificationBell.tsx` keeps working with minor type tweaks.
 
-Extend props with an optional `prefill`:
+### Unified shape
 
 ```ts
-export interface ComposePrefill {
-  toEmail?: string;
-  subject?: string;
-  bodyHtml?: string;  // pre-built HTML including quoted original
-}
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  prefill?: ComposePrefill;
+type NotificationType = 'message' | 'system' | 'payment' | 'ticket' | 'compliance_alert' | 'order';
+
+interface NotificationItem {
+  id: string;             // namespaced: `msg:<uuid>`, `ledger:<uuid>`, `pay:<uuid>`, `ticket:<uuid>`, `notif:<uuid>`
+  title: string;
+  description: string;
+  created_at: string;
+  type: NotificationType;
+  read_status: boolean;
+  redirect_url: string | null;
 }
 ```
 
-- On `open` transitioning to `true` AND `prefill` present, seed local state from `prefill` (use `useEffect([open, prefill])`). The athlete picker resets to "Manuel e-posta gir" when a prefill recipient is provided so the address field is editable.
-- On `open=false`, clear the prefill-applied flag so the next non-prefill open shows a fresh form.
-- Template selector remains available; selecting one overwrites the prefill body (acceptable — user-initiated).
+### Sources
 
-### `src/pages/Mailbox.tsx` — Reading-pane header buttons
+1. **Direct Messages** — `messages` where `receiver_id = coach.id` and `read = false` (or `read_at is null`, whichever column exists; verify at implementation time). Title: sender name (joined via `profiles`). Description: `body` truncated. `redirect_url = /messages?athlete=<sender_id>`.
+2. **System Alerts / Athlete Warnings** — `coach_action_ledger` where `coach_id = coach.id` and `status = 'pending'`. Maps to `compliance_alert`. `redirect_url = /athletes/<athlete_id>`.
+3. **New Purchases / Invoices** — `assigned_payments` where `coach_id = coach.id`, ordered by `updated_at` desc, last 30. Treat `status = 'paid'` rows newer than `last_seen` as unread. Type `payment`. `redirect_url = /payments`.
+4. **Ticket / Dispute updates** — `tickets` where `coach_id = coach.id` and `status in ('open','awaiting_coach')` (verify columns). Type `ticket`. `redirect_url = /support/<id>`.
+5. **Existing `coach_notifications`** — keep, mapped through the same shape (preserves `order`/`compliance_alert`/`message` rows already inserted by triggers).
 
-Add two buttons in the reading-pane header row (next to the subject, right-aligned on desktop):
-- **↩️ Yanıtla** → builds prefill from `selectedEmail.from_email`/`subject`/`body_html|body_text`.
-- **➡️ İlet** → builds prefill with blank recipient.
+All five arrays are concatenated, sorted by `created_at` desc, capped at 50.
 
-Helpers (inline in `Mailbox.tsx`):
+### Read state
 
-```ts
-function quoteOriginal(email: Email): string {
-  const meta = `<p>${new Date(email.created_at).toLocaleString('tr-TR')} tarihinde ` +
-               `${email.from_email} şunu yazdı:</p>`;
-  const body = email.body_html?.trim()
-    ? email.body_html
-    : `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(email.body_text || '')}</pre>`;
-  return `<p><br></p><hr/><p><strong>--- Orijinal Mesaj ---</strong></p>${meta}<blockquote style="border-left:3px solid #ccc;margin:0;padding-left:12px;color:#555">${body}</blockquote>`;
-}
-function withPrefix(prefix: 'Re' | 'Fwd', subject: string | null) {
-  const s = subject || '';
-  const re = new RegExp(`^\\s*${prefix}:`, 'i');
-  return re.test(s) ? s : `${prefix}: ${s || '(Konu yok)'}`;
-}
-```
+- For rows backed by `coach_notifications`, continue using `is_read` and the existing mutation.
+- For aggregated rows (messages/ledger/payments/tickets) read state is derived. `markAsRead(id)` for these dispatches the appropriate update:
+  - `msg:*` → `messages.update({ read: true }).eq('id', ...)`
+  - `ledger:*` → no-op locally (status changes via existing action flows); we just optimistically hide.
+  - `pay:*`, `ticket:*` → tracked client-side in a `localStorage` set `coach-notif-seen:<coachId>` so badge clears after the user opens the popover.
+- `markAllAsRead()` runs the existing bulk update on `coach_notifications` AND writes all current aggregated ids into the local seen-set.
 
-`handleReply`:
-```ts
-setComposePrefill({
-  toEmail: selectedEmail.from_email,
-  subject: withPrefix('Re', selectedEmail.subject),
-  bodyHtml: `<p></p>${quoteOriginal(selectedEmail)}`,
-});
-setComposeOpen(true);
-```
+### Realtime
 
-`handleForward`:
-```ts
-setComposePrefill({
-  toEmail: '',
-  subject: withPrefix('Fwd', selectedEmail.subject),
-  bodyHtml: `<p></p>${quoteOriginal(selectedEmail)}`,
-});
-setComposeOpen(true);
-```
+Attach one channel per source (postgres_changes filtered by `coach_id` / `receiver_id`) inside the existing `useEffect`, all listeners added before `.subscribe()`, all cleaned up via `supabase.removeChannel`.
 
-State additions: `const [composePrefill, setComposePrefill] = useState<ComposePrefill | undefined>();` cleared on dialog close via `onOpenChange`.
+### Badge
 
-The buttons appear in both inbound and outbound reading panes; for outbound the "Yanıtla" target becomes the original `to_email` instead of `from_email`. Logic: `replyTarget = activeTab === 'inbound' ? from_email : to_email`.
+`unreadCount = notifications.filter(n => !n.read_status).length` — naturally turns red for any source.
+
+## 3. Files Touched
+
+- `src/components/layout/TopBar.tsx` — delete duplicate bell + dead imports.
+- `src/hooks/useCoachNotifications.ts` — rewrite as aggregator (keep export name and surface).
+- `src/components/layout/CoachNotificationBell.tsx` — small adjustments: rename `is_read` → `read_status`, `message` → `description`, `action_url` → `redirect_url`, extend `TYPE_META` with `payment` and `ticket` icons.
 
 ## Out of Scope
-- Threading / conversation grouping.
-- CC / BCC fields.
-- Attachments (Resend inbound webhook does not surface them in the current pipeline).
-- Parts 3–4 of the launch prep.
 
-## Files Touched
-- `src/pages/Mailbox.tsx` — layout + Reply/Forward buttons + prefill state.
-- `src/components/mailbox/ComposeMailDialog.tsx` — `prefill` prop + seeding effect.
+- New DB tables/migrations (all four sources already exist).
+- Athlete-side notifications.
+- Parts 1, 2, and 4 of launch prep.
