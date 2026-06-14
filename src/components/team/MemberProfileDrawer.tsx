@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,10 +36,11 @@ import {
   Settings,
   UserPlus,
   Search,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useUpdateTeamMember } from "@/hooks/useTeam";
+import { useUpdateTeamMember, useSetMemberActive } from "@/hooks/useTeam";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAthletes } from "@/hooks/useAthletes";
 import {
@@ -65,6 +66,7 @@ export interface TeamMember {
   custom_permissions?: GranularPermissions | null;
   athletes: number;
   startDate?: string;
+  status?: string;
 }
 
 interface MemberProfileDrawerProps {
@@ -113,10 +115,15 @@ export function MemberProfileDrawer({
   member,
 }: MemberProfileDrawerProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile, isSubCoach } = useAuth();
   const updateMember = useUpdateTeamMember();
+  const setMemberActive = useSetMemberActive();
   const [editMode, setEditMode] = useState(false);
   const [editedMember, setEditedMember] = useState<TeamMember | null>(null);
+  const [isActive, setIsActive] = useState(true);
+
+  // Only the head coach owner can flip the active/inactive switch.
+  const canToggleActive = profile?.role === "coach" && !isSubCoach;
 
   // Permission state
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -142,12 +149,11 @@ export function MemberProfileDrawer({
   useEffect(() => {
     if (member && open) {
       setEditedMember({ ...member });
-      // Initialize granular permissions from custom_permissions or legacy tier
+      setIsActive((member.status ?? "active") === "active");
       const initial = member.custom_permissions
         ? member.custom_permissions
         : getDefaultPermissions(member.permissions);
       setGranularPermissions(initial);
-      // Try to match a template
       const matchedTpl = templates?.find(
         (t) => JSON.stringify(t.permissions) === JSON.stringify(initial)
       );
