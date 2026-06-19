@@ -21,6 +21,15 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import RichTextEditor from "@/components/mailbox/RichTextEditor";
+import DOMPurify from "dompurify";
+
+const SAFE_HTML_CONFIG = {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ["style", "script", "form", "iframe", "object", "embed"],
+  FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur"],
+};
+
+
 
 interface TemplateForm {
   id?: string;
@@ -178,7 +187,7 @@ export default function EmailTemplates() {
                     ))}
                   </div>
                 )}
-                <div className="max-h-24 overflow-hidden rounded border border-border bg-muted/30 p-2 text-xs" dangerouslySetInnerHTML={{ __html: t.body_html || "" }} />
+                <div className="max-h-24 overflow-hidden rounded border border-border bg-muted/30 p-2 text-xs" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t.body_html || "", SAFE_HTML_CONFIG) }} />
                 {!t.is_system && (
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => openEdit(t)}>

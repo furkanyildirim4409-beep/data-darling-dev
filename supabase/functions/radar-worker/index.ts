@@ -41,12 +41,26 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+    // SECURITY: Same gate as radar-dispatcher to prevent unauthenticated
+    // AI-credit drain.
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const authHeader = req.headers.get("authorization") || "";
+    const cronHeader = req.headers.get("x-cron-secret") || "";
+    if (authHeader !== `Bearer ${serviceRoleKey}` && !(cronSecret && cronHeader === cronSecret)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
 
     const { agent_assigned_id } = await req.json();
     if (!agent_assigned_id) {
