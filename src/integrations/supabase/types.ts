@@ -107,6 +107,13 @@ export type Database = {
             foreignKeyName: "ai_radar_agent_queue_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_radar_agent_queue_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -232,6 +239,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "assigned_payments_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assigned_payments_athlete_id_fkey"
             columns: ["athlete_id"]
@@ -373,6 +387,13 @@ export type Database = {
             foreignKeyName: "assigned_workouts_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_workouts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -381,6 +402,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_workouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -459,6 +487,13 @@ export type Database = {
           id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "athlete_badges_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "athlete_badges_athlete_id_fkey"
             columns: ["athlete_id"]
@@ -811,6 +846,13 @@ export type Database = {
             foreignKeyName: "challenge_messages_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -880,6 +922,13 @@ export type Database = {
             foreignKeyName: "challenges_challenger_id_fkey"
             columns: ["challenger_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_challenger_id_fkey"
+            columns: ["challenger_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -894,6 +943,13 @@ export type Database = {
             foreignKeyName: "challenges_opponent_id_fkey"
             columns: ["opponent_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_opponent_id_fkey"
+            columns: ["opponent_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -902,6 +958,13 @@ export type Database = {
             columns: ["opponent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1023,6 +1086,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "coach_action_ledger_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "coach_action_ledger_athlete_id_fkey"
             columns: ["athlete_id"]
@@ -1201,6 +1271,13 @@ export type Database = {
             foreignKeyName: "coach_products_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_products_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -1245,6 +1322,13 @@ export type Database = {
           media_url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "coach_stories_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "coach_stories_coach_id_fkey"
             columns: ["coach_id"]
@@ -1377,6 +1461,36 @@ export type Database = {
           },
         ]
       }
+      content_reports: {
+        Row: {
+          created_at: string
+          id: string
+          item_type: string
+          reason: string | null
+          reported_item_id: string
+          reporter_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_type: string
+          reason?: string | null
+          reported_item_id: string
+          reporter_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_type?: string
+          reason?: string | null
+          reported_item_id?: string
+          reporter_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           created_at: string | null
@@ -1502,6 +1616,13 @@ export type Database = {
             foreignKeyName: "diet_templates_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diet_templates_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -1601,6 +1722,13 @@ export type Database = {
           to_email?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "emails_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "emails_owner_id_fkey"
             columns: ["owner_id"]
@@ -1966,6 +2094,13 @@ export type Database = {
             foreignKeyName: "orders_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2041,6 +2176,13 @@ export type Database = {
             foreignKeyName: "permission_templates_head_coach_id_fkey"
             columns: ["head_coach_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_templates_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2110,6 +2252,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2412,6 +2561,13 @@ export type Database = {
             foreignKeyName: "programs_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2420,6 +2576,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2571,6 +2734,13 @@ export type Database = {
             foreignKeyName: "refund_requests_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_requests_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2579,6 +2749,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_requests_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2641,6 +2818,13 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "social_posts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "social_posts_coach_id_fkey"
             columns: ["coach_id"]
@@ -2815,6 +2999,13 @@ export type Database = {
             foreignKeyName: "subscription_events_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2949,6 +3140,13 @@ export type Database = {
             foreignKeyName: "team_member_athletes_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_member_athletes_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -2957,6 +3155,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_member_athletes_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3039,6 +3244,13 @@ export type Database = {
             foreignKeyName: "team_members_head_coach_id_fkey"
             columns: ["head_coach_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_head_coach_id_fkey"
+            columns: ["head_coach_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -3081,6 +3293,13 @@ export type Database = {
             foreignKeyName: "team_messages_receiver_id_fkey"
             columns: ["receiver_id"]
             isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_profiles"
             referencedColumns: ["id"]
           },
@@ -3089,6 +3308,13 @@ export type Database = {
             columns: ["receiver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3181,6 +3407,27 @@ export type Database = {
           status?: string
           subject?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
         }
         Relationships: []
       }
@@ -3443,6 +3690,42 @@ export type Database = {
       }
     }
     Views: {
+      coach_public_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          full_name: string | null
+          gym_name: string | null
+          id: string | null
+          level: number | null
+          role: string | null
+          specialty: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          full_name?: string | null
+          gym_name?: string | null
+          id?: string | null
+          level?: number | null
+          role?: string | null
+          specialty?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          full_name?: string | null
+          gym_name?: string | null
+          id?: string | null
+          level?: number | null
+          role?: string | null
+          specialty?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       leaderboard_profiles: {
         Row: {
           avatar_url: string | null
@@ -3549,6 +3832,15 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      handle_ugc_action: {
+        Args: {
+          _action: string
+          _item_type?: string
+          _reason?: string
+          _target_id: string
+        }
+        Returns: string
       }
       has_mail_delegation: { Args: { _owner_id: string }; Returns: boolean }
       has_role: {
