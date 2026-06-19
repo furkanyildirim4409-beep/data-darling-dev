@@ -22,10 +22,12 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const PUSH_WEBHOOK_SECRET = Deno.env.get("PUSH_WEBHOOK_SECRET");
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
@@ -39,6 +41,67 @@ Deno.serve(async (req) => {
       vapidPrivateKey,
     );
 
+    const isWebhook =
+      payload?.type === "INSERT" && payload?.table === "messages" && payload?.record;
+
+    // ---------- Authorization ----------
+    if (isWebhook) {
+      // Shape A: DB webhook — must present the shared webhook secret.
+      const sig = req.headers.get("x-webhook-secret") || "";
+      const authHeader = req.headers.get("authorization") || "";
+      const bearerOk = authHeader === `Bearer ${SERVICE_KEY}`;
+      const secretOk = !!PUSH_WEBHOOK_SECRET && sig === PUSH_WEBHOOK_SECRET;
+      if (!bearerOk && !secretOk) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+      }
+    } else {
+      // Shape B: Direct dispatch — require a valid caller JWT, and only
+      // allow notifying a target if the caller IS the target, the coach of
+      // the target, or an active team member of the target's coach.
+      const authHeader = req.headers.get("authorization") || "";
+      if (!authHeader.startsWith("Bearer ")) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+      }
+      const token = authHeader.slice(7);
+      const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
+      const callerId = claims?.claims?.sub as string | undefined;
+      if (claimsErr || !callerId) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+      }
+
+      const targetUserId = payload?.userId as string | undefined;
+      if (!targetUserId) {
+        return jsonResponse({ error: "missing userId" }, 400);
+      }
+
+      if (callerId !== targetUserId) {
+        // Allow if caller is the target's coach or an active team member.
+        const { data: tgt } = await supabaseAdmin
+          .from("profiles")
+          .select("coach_id")
+          .eq("id", targetUserId)
+          .maybeSingle();
+        const coachId = tgt?.coach_id as string | undefined;
+        let allowed = !!coachId && callerId === coachId;
+        if (!allowed && coachId) {
+          const { data: tm } = await supabaseAdmin
+            .from("team_members")
+            .select("id")
+            .eq("head_coach_id", coachId)
+            .eq("user_id", callerId)
+            .eq("status", "active")
+            .maybeSingle();
+          allowed = !!tm;
+        }
+        if (!allowed) {
+          return jsonResponse({ error: "Forbidden" }, 403);
+        }
+      }
+    }
+
     // ---------- Resolve target userId + notification payload ----------
     let targetUserId: string | null = null;
     let notifTitle = "Dynabolic";
@@ -46,7 +109,7 @@ Deno.serve(async (req) => {
     let notifData: Record<string, unknown> = { url: "/" };
 
     // Shape A: DB webhook for new chat message
-    if (payload?.type === "INSERT" && payload?.table === "messages" && payload?.record) {
+    if (isWebhook) {
       const { sender_id, receiver_id, content, media_type } = payload.record;
       if (!sender_id || !receiver_id || !content) {
         return jsonResponse({ error: "missing fields" }, 400);
@@ -87,6 +150,8 @@ Deno.serve(async (req) => {
     if (!targetUserId) {
       return jsonResponse({ error: "missing userId" }, 400);
     }
+
+
 
     // ---------- Fetch subscriptions ----------
     const { data: subs, error } = await supabaseAdmin
