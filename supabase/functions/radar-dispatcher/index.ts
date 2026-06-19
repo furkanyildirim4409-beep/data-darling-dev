@@ -17,7 +17,22 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // SECURITY: Prevent unauthenticated AI-credit / DB-load drain attacks.
+    // Allow only callers presenting CRON_SECRET (pg_cron) or the service-role
+    // bearer (internal/server invocations).
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const authHeader = req.headers.get("authorization") || "";
+    const cronHeader = req.headers.get("x-cron-secret") || "";
+    if (authHeader !== `Bearer ${serviceRoleKey}` && !(cronSecret && cronHeader === cronSecret)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
 
     let mode: "kickoff" | "resume" = "kickoff";
     try {
