@@ -186,7 +186,7 @@ export default function EmailTemplates() {
                     ))}
                   </div>
                 )}
-                <div className="max-h-24 overflow-hidden rounded border border-border bg-muted/30 p-2 text-xs" dangerouslySetInnerHTML={{ __html: t.body_html || "" }} />
+                <div className="max-h-24 overflow-hidden rounded border border-border bg-muted/30 p-2 text-xs" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t.body_html || "", SAFE_HTML_CONFIG) }} />
                 {!t.is_system && (
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => openEdit(t)}>
