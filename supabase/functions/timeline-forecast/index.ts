@@ -23,6 +23,19 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   try {
+    // SECURITY: Require an authenticated caller. Only the athlete themselves,
+    // their coach, or an active team member of that coach may pull this data.
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authHeader = req.headers.get("authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) return json(401, { error: "Unauthorized" });
+    const callerToken = authHeader.slice(7);
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(callerToken);
+    const callerId = claims?.claims?.sub as string | undefined;
+    if (claimsErr || !callerId) return json(401, { error: "Unauthorized" });
+
     const { athleteId } = await req.json();
     if (!athleteId || typeof athleteId !== "string") {
       return json(400, { error: "athleteId is required" });
@@ -30,6 +43,30 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) return json(500, { error: "LOVABLE_API_KEY not configured" });
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Authorize caller against target athlete.
+    if (callerId !== athleteId) {
+      const { data: tgt } = await supa
+        .from("profiles")
+        .select("coach_id")
+        .eq("id", athleteId)
+        .maybeSingle();
+      const coachId = tgt?.coach_id as string | undefined;
+      let allowed = !!coachId && callerId === coachId;
+      if (!allowed && coachId) {
+        const { data: tm } = await supa
+          .from("team_members")
+          .select("id")
+          .eq("head_coach_id", coachId)
+          .eq("user_id", callerId)
+          .eq("status", "active")
+          .maybeSingle();
+        allowed = !!tm;
+      }
+      if (!allowed) return json(403, { error: "Forbidden" });
+    }
+
+
     const since = new Date();
     since.setDate(since.getDate() - 28);
     const sinceIso = since.toISOString();
