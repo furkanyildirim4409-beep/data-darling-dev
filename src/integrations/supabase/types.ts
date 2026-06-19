@@ -3729,33 +3729,27 @@ export type Database = {
       leaderboard_profiles: {
         Row: {
           avatar_url: string | null
-          bio_coins: number | null
           full_name: string | null
           id: string | null
           level: number | null
-          role: string | null
           streak: number | null
           total_volume_kg: number | null
           xp: number | null
         }
         Insert: {
           avatar_url?: string | null
-          bio_coins?: number | null
           full_name?: string | null
           id?: string | null
           level?: number | null
-          role?: string | null
           streak?: number | null
           total_volume_kg?: number | null
           xp?: number | null
         }
         Update: {
           avatar_url?: string | null
-          bio_coins?: number | null
           full_name?: string | null
           id?: string | null
           level?: number | null
-          role?: string | null
           streak?: number | null
           total_volume_kg?: number | null
           xp?: number | null
