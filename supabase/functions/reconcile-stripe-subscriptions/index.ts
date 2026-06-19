@@ -37,11 +37,23 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // SECURITY: Only pg_cron or internal callers may trigger Stripe reconciliation
+  // (otherwise attackers can burn Stripe rate-limit / API quota).
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("authorization") || "";
+  const cronHeader = req.headers.get("x-cron-secret") || "";
+  if (authHeader !== `Bearer ${SERVICE_ROLE}` && !(cronSecret && cronHeader === cronSecret)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (!STRIPE_SECRET_KEY) {
     return new Response(JSON.stringify({ error: "Stripe is not configured" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
