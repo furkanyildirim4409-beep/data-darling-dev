@@ -312,11 +312,18 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
               <div
                 className="prose prose-invert prose-sm max-w-none min-h-[180px] rounded-lg border border-border bg-background/40 p-4 text-foreground"
                 dangerouslySetInnerHTML={{
-                  __html:
+                  __html: DOMPurify.sanitize(
                     richDescription.trim() ||
-                    '<p class="text-muted-foreground italic">Önizleme için zengin açıklama yaz...</p>',
+                      '<p class="text-muted-foreground italic">Önizleme için zengin açıklama yaz...</p>',
+                    {
+                      USE_PROFILES: { html: true },
+                      FORBID_TAGS: ["style", "script", "form", "iframe", "object", "embed"],
+                      FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur"],
+                    },
+                  ),
                 }}
               />
+
             ) : (
               <Textarea
                 ref={richRef}
