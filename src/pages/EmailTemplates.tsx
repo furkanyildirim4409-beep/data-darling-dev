@@ -21,6 +21,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import RichTextEditor from "@/components/mailbox/RichTextEditor";
+import DOMPurify from "dompurify";
+
+const SAFE_HTML_CONFIG = {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ["style", "script", "form", "iframe", "object", "embed"],
+  FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur"],
+} as const;
+
 
 interface TemplateForm {
   id?: string;
