@@ -3813,6 +3813,13 @@ export type Database = {
         }[]
       }
       get_my_head_coach_id: { Args: never; Returns: string }
+      get_own_contact_info: {
+        Args: never
+        Returns: {
+          iban: string
+          phone_number: string
+        }[]
+      }
       get_team_peers: {
         Args: { _head_coach_id: string }
         Returns: {
