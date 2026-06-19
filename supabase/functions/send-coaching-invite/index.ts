@@ -63,6 +63,12 @@ Deno.serve(async (req) => {
     const coachName = profile.full_name || 'Coach';
     const coachUsername = profile.username || 'coach';
 
+    const escapeHtml = (s: string): string =>
+      String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const safeLeadName = escapeHtml(leadName);
+    const safeCoachName = escapeHtml(coachName);
+
     const html = `
 <!DOCTYPE html>
 <html lang="tr">
@@ -78,9 +84,9 @@ Deno.serve(async (req) => {
         </tr>
         <tr>
           <td style="padding:40px;">
-            <p style="font-size:16px;color:#1a1a2e;margin:0 0 8px;">Merhaba <strong>${leadName}</strong>,</p>
+            <p style="font-size:16px;color:#1a1a2e;margin:0 0 8px;">Merhaba <strong>${safeLeadName}</strong>,</p>
             <p style="font-size:15px;color:#44475a;line-height:1.6;margin:0 0 24px;">
-              <strong>${coachName}</strong> seni elit koçluk kadrosuna davet ediyor! 🚀
+              <strong>${safeCoachName}</strong> seni elit koçluk kadrosuna davet ediyor! 🚀
             </p>
             <p style="font-size:14px;color:#6b7280;line-height:1.6;margin:0 0 32px;">
               Koçun, hikayelerimizi takip ettiğini fark etti ve seninle çalışmak istiyor. Kişiselleştirilmiş antrenman programları, beslenme planları ve birebir koçluk desteğiyle hedeflerine birlikte ulaşalım.

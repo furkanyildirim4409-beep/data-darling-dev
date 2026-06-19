@@ -43,6 +43,18 @@ Deno.serve(async (req) => {
 
     const headCoachId = claimsData.claims.sub as string;
 
+    // Only authenticated coaches/admins may provision sub-coach accounts.
+    const [{ data: isCoach }, { data: isAdmin }] = await Promise.all([
+      adminClient.rpc("has_role", { _user_id: headCoachId, _role: "coach" }),
+      adminClient.rpc("has_role", { _user_id: headCoachId, _role: "admin" }),
+    ]);
+    if (!isCoach && !isAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: coach role required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { email, password, fullName, role, permissions, custom_permissions, username } = await req.json();
 
     if (!email || !password || !fullName || !role) {

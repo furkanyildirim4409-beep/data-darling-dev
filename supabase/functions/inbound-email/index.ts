@@ -16,23 +16,29 @@ Deno.serve(async (req) => {
     const webhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET');
     const rawBody = await req.text();
 
-    // Verify Svix signature if secret is configured
-    if (webhookSecret) {
-      const svixHeaders = {
-        "svix-id": req.headers.get("svix-id") || "",
-        "svix-timestamp": req.headers.get("svix-timestamp") || "",
-        "svix-signature": req.headers.get("svix-signature") || "",
-      };
-      try {
-        const wh = new Webhook(webhookSecret);
-        wh.verify(rawBody, svixHeaders);
-      } catch (err) {
-        console.warn('inbound-email: Svix verification failed:', err);
-        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    // Fail-closed: refuse to ingest inbound mail without verification configured.
+    if (!webhookSecret) {
+      console.error('inbound-email: RESEND_WEBHOOK_SECRET not configured — rejecting request');
+      return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const svixHeaders = {
+      "svix-id": req.headers.get("svix-id") || "",
+      "svix-timestamp": req.headers.get("svix-timestamp") || "",
+      "svix-signature": req.headers.get("svix-signature") || "",
+    };
+    try {
+      const wh = new Webhook(webhookSecret);
+      wh.verify(rawBody, svixHeaders);
+    } catch (err) {
+      console.warn('inbound-email: Svix verification failed:', err);
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const payload = JSON.parse(rawBody);
