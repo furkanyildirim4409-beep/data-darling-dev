@@ -3790,6 +3790,10 @@ export type Database = {
         }
       }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
+      create_auto_login_token: {
+        Args: { _expires_in_days?: number; _user_id: string }
+        Returns: string
+      }
       get_coach_business_metrics: {
         Args: { coach_uuid: string }
         Returns: Json
