@@ -411,6 +411,18 @@ Deno.serve(async (req) => {
     if (payload?.action === "ship" || payload?.action === "deliver") {
       return await handleDirectFulfillment(req, payload);
     }
+
+    // Webhook path — require service-role bearer or shared secret to prevent forged tracking emails
+    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const auth = req.headers.get("authorization") || "";
+    const whs = req.headers.get("x-webhook-secret") || "";
+    const okAuth = svcKey && auth === `Bearer ${svcKey}`;
+    const okSecret = cronSecret && whs === cronSecret;
+    if (!okAuth && !okSecret) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
     return await handleEmailWebhook(payload);
   } catch (err) {
     console.error("handle-universal-orders error:", err);
