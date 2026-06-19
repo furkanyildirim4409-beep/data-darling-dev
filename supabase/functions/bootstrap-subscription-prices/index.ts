@@ -11,6 +11,19 @@ const TIERS = [
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Admin-only bootstrap utility. Require service-role bearer or CRON_SECRET.
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+  const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const ok = (svcKey && provided === svcKey) || (cronSecret && provided === cronSecret);
+  if (!ok) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const key = Deno.env.get("STRIPE_SECRET_KEY");
   if (!key) {
     return new Response(JSON.stringify({ error: "stripe_not_configured" }), {
