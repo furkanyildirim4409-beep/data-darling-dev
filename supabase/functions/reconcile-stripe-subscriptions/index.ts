@@ -58,12 +58,36 @@ Deno.serve(async (req) => {
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-  // Pull all coach profiles with an attached Stripe subscription
-  const { data: rows, error } = await supabase
-    .from("profiles")
-    .select("id, subscription_status, subscription_tier, subscription_current_period_end, subscription_cancel_at_period_end, stripe_subscription_id, stripe_customer_id")
+  // Pull all coach profiles with an attached Stripe subscription. Stripe IDs
+  // now live in the owner-only `profile_secrets` table.
+  const { data: secretRows, error: secretsErr } = await supabase
+    .from("profile_secrets")
+    .select("user_id, stripe_subscription_id, stripe_customer_id")
     .not("stripe_subscription_id", "is", null)
     .limit(2000);
+
+  if (secretsErr) {
+    console.error("Failed to load profile_secrets for reconciliation", secretsErr);
+    return new Response(JSON.stringify({ error: secretsErr.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const coachIds = (secretRows ?? []).map((r: any) => r.user_id as string);
+  const secretsByCoach = new Map<string, { stripe_subscription_id: string; stripe_customer_id: string | null }>();
+  for (const r of (secretRows ?? []) as any[]) {
+    secretsByCoach.set(r.user_id as string, {
+      stripe_subscription_id: r.stripe_subscription_id as string,
+      stripe_customer_id: (r.stripe_customer_id as string) ?? null,
+    });
+  }
+
+  const { data: profileRows, error } = coachIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, subscription_status, subscription_tier, subscription_current_period_end, subscription_cancel_at_period_end")
+        .in("id", coachIds)
+    : { data: [] as any[], error: null };
 
   if (error) {
     console.error("Failed to load profiles for reconciliation", error);
@@ -71,6 +95,15 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  const rows = (profileRows ?? []).map((p: any) => {
+    const s = secretsByCoach.get(p.id as string);
+    return {
+      ...p,
+      stripe_subscription_id: s?.stripe_subscription_id ?? null,
+      stripe_customer_id: s?.stripe_customer_id ?? null,
+    };
+  });
 
   let scanned = 0;
   let corrected = 0;
