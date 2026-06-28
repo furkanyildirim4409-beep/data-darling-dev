@@ -146,8 +146,6 @@ Deno.serve(async (req) => {
 
     const updatePayload: Record<string, unknown> = {
       subscription_status: status,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: sub.id,
       subscription_current_period_end: periodEnd,
       subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
       updated_at: new Date().toISOString(),
@@ -163,6 +161,21 @@ Deno.serve(async (req) => {
     if (error) {
       console.error("Failed to update profile from subscription", coachId, error);
       throw error;
+    }
+
+    // Sensitive Stripe identifiers live in profile_secrets (owner-only RLS).
+    const { error: secretsErr } = await supabase
+      .from("profile_secrets")
+      .upsert(
+        {
+          user_id: coachId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: sub.id,
+        },
+        { onConflict: "user_id" },
+      );
+    if (secretsErr) {
+      console.error("Failed to upsert profile_secrets stripe ids", coachId, secretsErr);
     }
 
     // Drift verification: re-read and reconcile if status mismatch

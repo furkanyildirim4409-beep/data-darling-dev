@@ -37,6 +37,18 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
+    // ── Role gate: only coaches (or super_admins) may send coaching invites ──
+    const adminClientForRole = createClient(supabaseUrl, serviceRoleKey);
+    const [{ data: isCoach }, { data: isAdmin }] = await Promise.all([
+      adminClientForRole.rpc('has_role', { _user_id: userId, _role: 'coach' }),
+      adminClientForRole.rpc('has_role', { _user_id: userId, _role: 'super_admin' }),
+    ]);
+    if (!isCoach && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Only accept lead info from client — identity is server-derived
     const { leadName, leadEmail } = await req.json();
     if (!leadName || !leadEmail) {

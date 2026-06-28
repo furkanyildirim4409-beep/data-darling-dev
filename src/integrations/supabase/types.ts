@@ -2429,6 +2429,65 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_secrets: {
+        Row: {
+          created_at: string
+          iban: string | null
+          phone_number: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          iban?: string | null
+          phone_number?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          iban?: string | null
+          phone_number?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_secrets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_secrets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "leaderboard_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_secrets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_secrets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_coach_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active_program_id: string | null
@@ -2453,7 +2512,6 @@ export type Database = {
           gym_name: string | null
           height_cm: number | null
           hide_from_leaderboard: boolean
-          iban: string | null
           id: string
           instagram_sync_active: boolean
           is_active: boolean
@@ -2463,14 +2521,11 @@ export type Database = {
           notification_preferences: Json | null
           notification_settings: Json | null
           onboarding_completed: boolean | null
-          phone_number: string | null
           profile_private: boolean
           readiness_score: number | null
           role: string | null
           specialty: string | null
           streak: number | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
           subscription_cancel_at_period_end: boolean | null
           subscription_current_period_end: string | null
           subscription_status: string | null
@@ -2505,7 +2560,6 @@ export type Database = {
           gym_name?: string | null
           height_cm?: number | null
           hide_from_leaderboard?: boolean
-          iban?: string | null
           id: string
           instagram_sync_active?: boolean
           is_active?: boolean
@@ -2515,14 +2569,11 @@ export type Database = {
           notification_preferences?: Json | null
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
-          phone_number?: string | null
           profile_private?: boolean
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
           streak?: number | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           subscription_cancel_at_period_end?: boolean | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null
@@ -2557,7 +2608,6 @@ export type Database = {
           gym_name?: string | null
           height_cm?: number | null
           hide_from_leaderboard?: boolean
-          iban?: string | null
           id?: string
           instagram_sync_active?: boolean
           is_active?: boolean
@@ -2567,14 +2617,11 @@ export type Database = {
           notification_preferences?: Json | null
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
-          phone_number?: string | null
           profile_private?: boolean
           readiness_score?: number | null
           role?: string | null
           specialty?: string | null
           streak?: number | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           subscription_cancel_at_period_end?: boolean | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null

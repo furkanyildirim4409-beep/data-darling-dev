@@ -278,9 +278,11 @@ export default function Settings() {
     setIsSavingIban(true);
     try {
       const { error } = await supabase
-        .from("profiles")
-        .update({ iban: stripped || null } as any)
-        .eq("id", user.id);
+        .from("profile_secrets")
+        .upsert(
+          { user_id: user.id, iban: stripped || null },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
       await refreshProfile();
       toast.success("IBAN bilginiz başarıyla güncellendi.");
