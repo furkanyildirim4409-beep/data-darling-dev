@@ -1,5 +1,16 @@
 project_id = "fsbhbfltathfcpvcjfzt"
 
+# Auth rate limits — applied per-hour, per-IP by Supabase hosted auth.
+# Mitigates credential stuffing, OTP spam, and refresh-token brute force.
+[auth.rate_limit]
+token_refresh = 30
+verify = 30
+token_sign_in = 30
+email_sent = 10
+sms_sent = 10
+sign_up_sign_in = 30
+
+
 [functions.fetch-exercises]
 verify_jwt = false
 
