@@ -47,6 +47,18 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
+    // ── Role gate: only coaches (or super_admins) may send custom email ──
+    const adminClientForRole = createClient(supabaseUrl, serviceRoleKey);
+    const [{ data: isCoach }, { data: isAdmin }] = await Promise.all([
+      adminClientForRole.rpc("has_role", { _user_id: userId, _role: "coach" }),
+      adminClientForRole.rpc("has_role", { _user_id: userId, _role: "super_admin" }),
+    ]);
+    if (!isCoach && !isAdmin) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { toEmail, subject } = body;
     const bodyHtml: string | undefined = body.bodyHtml;
