@@ -62,11 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [teamMember, setTeamMember] = useState<any | null>(null);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const [{ data }, { data: secrets }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      // Sensitive PII / billing lives in a separate owner-only table.
+      supabase
+        .from('profile_secrets')
+        .select('iban')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ]);
     if (data) {
       const p = data as any;
       const profileData: Profile = {
@@ -86,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription_cancel_at_period_end: p.subscription_cancel_at_period_end ?? null,
         username: p.username ?? null,
         instagram_sync_active: p.instagram_sync_active ?? true,
-        iban: p.iban ?? null,
+        iban: (secrets as any)?.iban ?? null,
         is_active: p.is_active ?? true,
         whatsapp_notifications_enabled: p.whatsapp_notifications_enabled ?? false,
         notification_preferences: p.notification_preferences ?? null,
