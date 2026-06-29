@@ -42,9 +42,27 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const now = Date.now();
+    if (cooldownUntil > now) {
+      const sec = Math.ceil((cooldownUntil - now) / 1000);
+      toast.error(`Çok fazla hatalı deneme. ${sec} saniye sonra tekrar dene.`);
+      return;
+    }
     setLoading(true);
     const { error } = await signIn(email, password);
-    if (error) { setLoading(false); return; }
+    if (error) {
+      const next = failedAttempts + 1;
+      setFailedAttempts(next);
+      if (next >= 5) {
+        setCooldownUntil(Date.now() + 60_000);
+        setFailedAttempts(0);
+        toast.error('5 başarısız deneme. Hesap güvenliği için 60 saniye beklemen gerekiyor.');
+      }
+      setLoading(false);
+      return;
+    }
+    setFailedAttempts(0);
+
 
     try {
       const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
