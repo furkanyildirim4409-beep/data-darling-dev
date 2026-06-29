@@ -16,6 +16,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingLogin, setPendingLogin] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+
 
   // TOTP MFA challenge
   const [showMfa, setShowMfa] = useState(false);
