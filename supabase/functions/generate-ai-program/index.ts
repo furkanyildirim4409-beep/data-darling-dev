@@ -33,6 +33,36 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // RBAC: only coaches/admins may invoke the AI generator (prevents LLM credit abuse)
+    const callerId = (claimsData.claims as any).sub as string | undefined;
+    if (!callerId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: roleRows, error: roleErr } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    if (roleErr) {
+      return new Response(
+        JSON.stringify({ error: "Role check failed" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const roles = new Set((roleRows ?? []).map((r: any) => r.role));
+    if (!roles.has("coach") && !roles.has("admin") && !roles.has("super_admin")) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: coach role required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
