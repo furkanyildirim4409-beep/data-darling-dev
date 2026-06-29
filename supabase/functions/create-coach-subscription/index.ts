@@ -122,6 +122,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Final defence: even after server-side resolution, the priceId must be in
+    // our authoritative allow-list. Blocks tampered env vars / fallback drift.
+    if (!ALLOWED_PRICE_IDS.has(priceId)) {
+      console.error("create-coach-subscription: resolved priceId not in allow-list", {
+        tierId,
+        priceId,
+      });
+      return json({ error: "Invalid subscription configuration" }, 500);
+    }
+
     const stripe = new Stripe(STRIPE_SECRET_KEY, {
       apiVersion: "2024-06-20",
     });
