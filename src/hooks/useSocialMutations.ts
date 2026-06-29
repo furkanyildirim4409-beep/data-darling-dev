@@ -413,15 +413,14 @@ export function useStoryAnalytics(storyId: string | undefined) {
       if (error) throw error;
       if (!views || views.length === 0) return [];
 
-      // 2) batch-fetch viewer profiles
+      // 2) batch-fetch viewer profiles via safe RPC (no sensitive columns)
       const viewerIds = [...new Set(views.map((v: any) => v.viewer_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .in("id", viewerIds as string[]);
+      const { data: profiles } = await supabase.rpc("get_public_profiles", {
+        _ids: viewerIds as string[],
+      });
 
       const profileMap = new Map(
-        (profiles ?? []).map((p) => [p.id, p])
+        (profiles ?? []).map((p: any) => [p.id, p])
       );
 
       return views.map((v: any) => ({
@@ -444,7 +443,7 @@ export function useCheckViewerStatus() {
         .from("profiles")
         .select("id, coach_id, full_name, avatar_url, email")
         .eq("id", viewerId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

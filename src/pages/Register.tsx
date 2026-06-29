@@ -35,12 +35,9 @@ export default function Register() {
     }
     setUsernameStatus('checking');
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', value)
-        .maybeSingle();
-      setUsernameStatus(data ? 'taken' : 'available');
+      const { data, error } = await supabase.rpc('is_username_available', { _username: value });
+      if (error) { setUsernameStatus('idle'); return; }
+      setUsernameStatus(data ? 'available' : 'taken');
     }, 500);
     return () => clearTimeout(timeout);
   }, []);
