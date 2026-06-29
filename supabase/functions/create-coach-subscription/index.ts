@@ -16,9 +16,13 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// SECURITY: The client may ONLY submit a `tierId`. The Stripe `priceId` is
+// resolved server-side from the TIER_PRICE_MAP below — never trust a client-
+// supplied price. `.strict()` rejects any extra fields (e.g. an attacker trying
+// to inject `priceId`) with a 400.
 const BodySchema = z.object({
   tierId: z.enum(["starter", "pro", "elite"]),
-});
+}).strict();
 
 // NOTE: 'pro' (5000 TL) and 'elite' (3000 TL) swapped — internal id 'pro' now
 // resolves to the formerly-elite Stripe price, and vice versa.
