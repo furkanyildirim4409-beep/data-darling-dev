@@ -49,6 +49,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Rate limit: max 5 invites / hour, 20 / day per coach (anti-spam) ──
+    if (!isAdmin) {
+      const now = new Date();
+      const hourWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours())).toISOString();
+      const dayWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+      const [{ data: hourCount }, { data: dayCount }] = await Promise.all([
+        adminClientForRole.rpc('bump_edge_rate_limit', { _user_id: userId, _bucket: 'invite_hour', _window: hourWindow }),
+        adminClientForRole.rpc('bump_edge_rate_limit', { _user_id: userId, _bucket: 'invite_day', _window: dayWindow }),
+      ]);
+      if ((hourCount ?? 0) > 5 || (dayCount ?? 0) > 20) {
+        const retryAfter = (hourCount ?? 0) > 5 ? 3600 : 86400;
+        return new Response(
+          JSON.stringify({ error: 'Davet gönderim limiti aşıldı. Lütfen daha sonra tekrar deneyin.', retryAfter }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) } },
+        );
+      }
+    }
+
     // Only accept lead info from client — identity is server-derived
     const { leadName, leadEmail } = await req.json();
     if (!leadName || !leadEmail) {
@@ -57,6 +75,7 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
+
 
     // ── Server-side identity lookup ──
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
