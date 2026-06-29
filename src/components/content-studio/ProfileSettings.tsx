@@ -92,6 +92,10 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
       toast.error("Kullanıcı adı 3-30 karakter, sadece a-z 0-9 . _ olabilir");
       return;
     }
+    if (bio && /<[^>]*>/.test(bio)) {
+      toast.error("Bio alanında HTML etiketleri (<...>) kullanılamaz. Lütfen düz metin girin.");
+      return;
+    }
     setIsSaving(true);
     try {
       const params: any = {
@@ -106,6 +110,11 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
       if (error) {
         if ((error as any).code === "23505") {
           toast.error("Bu kullanıcı adı zaten alınmış");
+        } else if (
+          (error as any).code === "23514" ||
+          String((error as any).message || "").includes("bio_no_html")
+        ) {
+          toast.error("Bio alanında HTML etiketleri (<...>) kullanılamaz. Lütfen düz metin girin.");
         } else {
           throw error;
         }
@@ -119,6 +128,7 @@ export function ProfileSettings({ canManage = true }: ProfileSettingsProps) {
       setIsSaving(false);
     }
   };
+
 
   const handleSyncToggle = async (next: boolean) => {
     if (!user) return;
