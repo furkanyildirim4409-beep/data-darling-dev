@@ -32,6 +32,15 @@ const PRICE_ENV_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   elite: "STRIPE_PRICE_PRO",
 };
 
+// Authoritative server-side allow-list of acceptable Stripe Price IDs.
+// Any resolved priceId MUST be a member of this set before being sent to
+// Stripe — this defends against env-var tampering or fallback drift.
+const ALLOWED_PRICE_IDS = new Set<string>([
+  "price_1TiFCwRsNTZwyhMjLpzmuXlt",
+  "price_1TiFCxRsNTZwyhMjFYeJdUlx",
+  "price_1TiFCwRsNTZwyhMjEo4egJ89",
+]);
+
 const FALLBACK_PRICE_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   starter: "price_1TiFCwRsNTZwyhMjLpzmuXlt",
   pro: "price_1TiFCxRsNTZwyhMjFYeJdUlx",
