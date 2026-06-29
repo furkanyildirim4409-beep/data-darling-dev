@@ -450,12 +450,13 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={dailyData}
-                    onClick={(e) => {
+                    onClick={(e: any) => {
                       if (e?.activePayload?.[0]?.payload?.date) {
                         const clickedDate = e.activePayload[0].payload.date;
                         setSelectedDate(selectedDate === clickedDate ? null : clickedDate);
                       }
                     }}
+
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                     <XAxis
