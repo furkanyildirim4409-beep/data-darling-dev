@@ -16,9 +16,13 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// SECURITY: The client may ONLY submit a `tierId`. The Stripe `priceId` is
+// resolved server-side from the TIER_PRICE_MAP below — never trust a client-
+// supplied price. `.strict()` rejects any extra fields (e.g. an attacker trying
+// to inject `priceId`) with a 400.
 const BodySchema = z.object({
   tierId: z.enum(["starter", "pro", "elite"]),
-});
+}).strict();
 
 // NOTE: 'pro' (5000 TL) and 'elite' (3000 TL) swapped — internal id 'pro' now
 // resolves to the formerly-elite Stripe price, and vice versa.
@@ -27,6 +31,15 @@ const PRICE_ENV_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   pro: "STRIPE_PRICE_ELITE",
   elite: "STRIPE_PRICE_PRO",
 };
+
+// Authoritative server-side allow-list of acceptable Stripe Price IDs.
+// Any resolved priceId MUST be a member of this set before being sent to
+// Stripe — this defends against env-var tampering or fallback drift.
+const ALLOWED_PRICE_IDS = new Set<string>([
+  "price_1TiFCwRsNTZwyhMjLpzmuXlt",
+  "price_1TiFCxRsNTZwyhMjFYeJdUlx",
+  "price_1TiFCwRsNTZwyhMjEo4egJ89",
+]);
 
 const FALLBACK_PRICE_BY_TIER: Record<"starter" | "pro" | "elite", string> = {
   starter: "price_1TiFCwRsNTZwyhMjLpzmuXlt",
@@ -107,6 +120,16 @@ Deno.serve(async (req) => {
         },
         500,
       );
+    }
+
+    // Final defence: even after server-side resolution, the priceId must be in
+    // our authoritative allow-list. Blocks tampered env vars / fallback drift.
+    if (!ALLOWED_PRICE_IDS.has(priceId)) {
+      console.error("create-coach-subscription: resolved priceId not in allow-list", {
+        tierId,
+        priceId,
+      });
+      return json({ error: "Invalid subscription configuration" }, 500);
     }
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, {

@@ -58,8 +58,12 @@ Deno.serve(async (req) => {
         adminClientForRole.rpc('bump_edge_rate_limit', { _user_id: userId, _bucket: 'invite_hour', _window: hourWindow }),
         adminClientForRole.rpc('bump_edge_rate_limit', { _user_id: userId, _bucket: 'invite_day', _window: dayWindow }),
       ]);
-      if ((hourCount ?? 0) > 5 || (dayCount ?? 0) > 20) {
-        const retryAfter = (hourCount ?? 0) > 5 ? 3600 : 86400;
+      // Off-by-one fix: bump_edge_rate_limit returns the post-increment count.
+      // To enforce a true "max 5/hour" cap, reject as soon as the count reaches 5
+      // (i.e. the 5th attempt is the last allowed; the 6th is denied). Using `>=`
+      // here aligns with the documented limit and closes the pentest finding.
+      if ((hourCount ?? 0) >= 5 || (dayCount ?? 0) >= 20) {
+        const retryAfter = (hourCount ?? 0) >= 5 ? 3600 : 86400;
         return new Response(
           JSON.stringify({ error: 'Davet gönderim limiti aşıldı. Lütfen daha sonra tekrar deneyin.', retryAfter }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) } },
