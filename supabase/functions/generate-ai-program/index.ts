@@ -63,6 +63,28 @@ serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Rate limit: max 10 generations / hour and 30 / day per caller (prevents LLM credit drain).
+    const isAdmin = roles.has("admin") || roles.has("super_admin");
+    if (!isAdmin) {
+      const now = new Date();
+      const hourWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours())).toISOString();
+      const dayWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+
+      const [{ data: hourCount }, { data: dayCount }] = await Promise.all([
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "ai_program_hour", _window: hourWindow }),
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "ai_program_day", _window: dayWindow }),
+      ]);
+
+      if ((hourCount ?? 0) > 10 || (dayCount ?? 0) > 30) {
+        const retryAfter = (hourCount ?? 0) > 10 ? 3600 : 86400;
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. AI program oluşturma limiti aşıldı.", retryAfter }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+        );
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
