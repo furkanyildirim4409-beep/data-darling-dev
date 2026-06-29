@@ -443,7 +443,7 @@ export function useCheckViewerStatus() {
         .from("profiles")
         .select("id, coach_id, full_name, avatar_url, email")
         .eq("id", viewerId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
