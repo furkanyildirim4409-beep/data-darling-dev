@@ -4,11 +4,12 @@ project_id = "fsbhbfltathfcpvcjfzt"
 # Mitigates credential stuffing, OTP spam, and refresh-token brute force.
 [auth.rate_limit]
 token_refresh = 30
-verify = 30
-token_sign_in = 30
-email_sent = 10
-sms_sent = 10
-sign_up_sign_in = 30
+verify = 15
+token_sign_in = 10
+email_sent = 5
+sms_sent = 5
+sign_up_sign_in = 10
+
 
 
 [functions.fetch-exercises]
