@@ -67,3 +67,32 @@ Or use a web checker:
 ## 6. Related Web Security
 
 Cloudflare-edge HTTP security headers are configured in [`public/_headers`](./public/_headers) and applied automatically on every deploy. Supabase auth rate limiting is configured in [`supabase/config.toml`](./supabase/config.toml) under `[auth.rate_limit]`.
+
+---
+
+## Cloudflare Response Header Transform Rule (REQUIRED)
+
+`public/_headers` only works on Cloudflare Pages. When the site is proxied via a Cloudflare zone (orange cloud), security headers MUST be injected via a **Transform Rule → Modify Response Header**.
+
+Dashboard path: **Rules → Transform Rules → Modify Response Header → Create rule**
+
+Filter expression:
+```
+(http.host eq "app.dynabolic.co")
+```
+
+Set the following headers (Operation = **Set**):
+
+| Header | Value |
+| --- | --- |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` |
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(self)` |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com; frame-src https://js.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` |
+
+After deploying, validate with:
+```bash
+curl -sI https://app.dynabolic.co | grep -iE 'content-security|x-frame|strict-transport|referrer|permissions'
+```
