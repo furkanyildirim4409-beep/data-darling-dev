@@ -1642,6 +1642,27 @@ export type Database = {
           },
         ]
       }
+      edge_rate_limits: {
+        Row: {
+          bucket: string
+          count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       email_templates: {
         Row: {
           body_html: string
@@ -3803,6 +3824,10 @@ export type Database = {
         Returns: string
       }
       award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
+      bump_edge_rate_limit: {
+        Args: { _bucket: string; _user_id: string; _window: string }
+        Returns: number
+      }
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
         Returns: Json
@@ -3829,6 +3854,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      cleanup_edge_rate_limits: { Args: never; Returns: undefined }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
       create_auto_login_token: {
         Args: { _expires_in_days?: number; _user_id: string }
