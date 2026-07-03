@@ -21,6 +21,11 @@ verify_jwt = false
 [functions.proxy-exercise-image]
 verify_jwt = false
 
+[functions.backfill-exercise-images]
+verify_jwt = false
+
+
+
 
 [functions.get-vapid-public-key]
 verify_jwt = false
