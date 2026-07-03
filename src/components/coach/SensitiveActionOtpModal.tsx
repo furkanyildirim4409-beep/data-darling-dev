@@ -41,22 +41,17 @@ export function SensitiveActionOtpModal({
     }
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (code.length < 6) {
-      submittedCodeRef.current = null;
-      return;
-    }
-
-    if (code.length === 6 && !isLoading && submittedCodeRef.current !== code) {
-      submittedCodeRef.current = code;
-      void onVerify(code);
-    }
-  }, [code, isLoading, onVerify]);
-
   const handleManualVerify = async () => {
     if (code.length === 6 && !isLoading && submittedCodeRef.current !== code) {
       submittedCodeRef.current = code;
       await onVerify(code);
+    }
+  };
+
+  const handleCodeChange = (value: string) => {
+    setCode(value);
+    if (value !== submittedCodeRef.current) {
+      submittedCodeRef.current = null;
     }
   };
 
@@ -86,7 +81,7 @@ export function SensitiveActionOtpModal({
           <InputOTP
             maxLength={6}
             value={code}
-            onChange={(value: string) => setCode(value)}
+            onChange={handleCodeChange}
             disabled={isLoading}
           >
             <InputOTPGroup>

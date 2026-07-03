@@ -265,13 +265,19 @@ export default function AthleteDetail() {
   const getOtpErrorMessage = (message?: string) => {
     if (!message) return "Doğrulama kodu gönderilemedi";
     const normalized = message.toLowerCase();
-    if (normalized.includes("60") || normalized.includes("security purposes") || normalized.includes("after") || normalized.includes("rate")) {
+    if (normalized.includes("429") || normalized.includes("60") || normalized.includes("security purposes") || normalized.includes("after") || normalized.includes("rate") || normalized.includes("too many")) {
       return "Tekrar kod göndermek için lütfen 60 saniye bekleyin.";
     }
-    if (normalized.includes("invalid") || normalized.includes("expired")) {
+    if (normalized.includes("invalid") || normalized.includes("expired") || normalized.includes("reauthentication_not_valid")) {
       return "Geçersiz veya süresi dolmuş kod.";
     }
     return message;
+  };
+
+  const closeOtpModal = () => {
+    setOtpModalOpen(false);
+    setPendingAction(null);
+    setOtpLoading(false);
   };
 
   const requestOtpForAction = async (action: 'freeze' | 'terminate' | 'refund') => {
@@ -318,10 +324,11 @@ export default function AthleteDetail() {
     setOtpLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
+        email: user.email,
         token: code,
         type: 'reauthentication',
       } as any);
-      if (error) { toast.error('Geçersiz kod'); return; }
+      if (error) { toast.error(getOtpErrorMessage(error.message)); return; }
       const action = pendingAction;
       setOtpModalOpen(false);
       setPendingAction(null);
@@ -329,7 +336,7 @@ export default function AthleteDetail() {
       else if (action === 'terminate') await executeTerminate();
       else if (action === 'refund') await executeRefund();
     } catch (err: any) {
-      toast.error(err?.message || 'Doğrulama başarısız');
+      toast.error(getOtpErrorMessage(err?.message) || 'Doğrulama başarısız');
     } finally {
       setOtpLoading(false);
     }
@@ -765,7 +772,7 @@ export default function AthleteDetail() {
 
       <SensitiveActionOtpModal
         isOpen={otpModalOpen}
-        onClose={() => { setOtpModalOpen(false); setPendingAction(null); }}
+        onClose={closeOtpModal}
         onVerify={handleOtpVerify}
         isLoading={otpLoading}
         actionName={
