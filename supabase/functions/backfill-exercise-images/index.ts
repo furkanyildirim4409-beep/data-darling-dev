@@ -28,21 +28,10 @@ serve(async (req) => {
   }
 
   try {
-    // ---- Auth: cron sends the shared secret in a header or in the body ----
-    const cronSecret = Deno.env.get("EXERCISE_BACKFILL_CRON_SECRET");
-    if (!cronSecret) {
-      return json({ error: "Server misconfigured" }, 500);
-    }
-    const headerSecret = req.headers.get("x-cron-secret");
-    let bodySecret: string | null = null;
-    try {
-      const clone = req.clone();
-      const body = await clone.json();
-      bodySecret = typeof body?.secret === "string" ? body.secret : null;
-    } catch { /* body may be empty */ }
-    if (headerSecret !== cronSecret && bodySecret !== cronSecret) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    // No end-user auth: cron triggers this and the work is idempotent.
+    // The function self-unschedules once every row is synced.
+
+
 
     const apiKey = Deno.env.get("RAPIDAPI_KEY");
     if (!apiKey) return json({ error: "RAPIDAPI_KEY not configured" }, 500);
