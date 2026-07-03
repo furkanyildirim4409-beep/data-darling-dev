@@ -60,10 +60,6 @@ verify_jwt = false
 [functions.handle-universal-orders]
 verify_jwt = false
 
-[functions.trigger-welcome-email]
-verify_jwt = false
-
-[functions.cron-retention-reminders]
 [functions.cron-retention-reminders]
 verify_jwt = false
 
@@ -71,7 +67,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.radar-worker]
-verify_jwt = false
 verify_jwt = false
 
 [functions.timeline-forecast]
@@ -81,9 +76,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.reconcile-stripe-subscriptions]
-verify_jwt = false
-
-[functions.auth-email-hook]
 verify_jwt = false
 
 [functions.send-email]
