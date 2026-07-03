@@ -1,78 +1,28 @@
 ## Amaç
-`SensitiveActionOtpModal` bileşenini `src/pages/AthleteDetail.tsx` içindeki üç hassas işleme (Dondur / Fesih / İade) mevcut DB mantığını değiştirmeden bir OTP kapısı arkasına almak.
+Hassas işlem (freeze/terminate/refund) onayı için gönderilen e-postayı magic link'ten (`signInWithOtp`) çıkarıp, sadece 6 haneli reauthentication OTP koduna (`supabase.auth.reauthenticate()`) çevirmek ve akışı canlı test etmek.
 
-## Dosya
-Sadece `src/pages/AthleteDetail.tsx` düzenlenecek. Başka dosya oluşturulmaz.
+## Neden
+`signInWithOtp` şu an magic link + OTP içeren standart giriş e-postası yolluyor (kullanıcı yeniden oturum açmış gibi olabiliyor). `reauthenticate()` yalnızca kısa süreli 6 haneli reauth kodu gönderir, aktif oturumu bozmaz — bu tam olarak istenen davranış.
 
 ## Değişiklikler
 
-### 1) Yeni state'ler (mevcutların yanına)
-```ts
-const [otpModalOpen, setOtpModalOpen] = useState(false);
-const [pendingAction, setPendingAction] = useState<'freeze' | 'terminate' | 'refund' | null>(null);
-const [otpLoading, setOtpLoading] = useState(false);
-```
-
-### 2) Mevcut fonksiyonların yeniden adlandırılması
-`submitFreeze` → `executeFreeze`, `submitTerminate` → `executeTerminate`, `submitRefund` → `executeRefund`. **İç DB mantığına dokunulmayacak** (Supabase update / refund_requests insert / toast + navigate akışı aynen kalır). Loading state ve dialog kapanışları içeride korunur.
-
-### 3) Yeni "kapı" fonksiyonları
-`submitFreeze/Terminate/Refund` artık DB'ye yazmayacak, sadece OTP tetikleyecek:
-- İlgili validation'ı (freezeSchema / refund tutarı) burada koruyup önden yapar, hatalıysa çıkar.
-- `setPendingAction('freeze' | 'terminate' | 'refund')`
-- İlgili onay dialog'unu kapatır (`setFreezeOpen(false)` vb.) — form değerleri korunur, çünkü `execute*` fonksiyonları hâlâ mevcut state'leri okuyacak.
-- Koçun e-postasına 6 haneli OTP gönderir:
+### `src/pages/AthleteDetail.tsx`
+- `requestOtpForAction` içindeki `supabase.auth.signInWithOtp({...})` çağrısını `supabase.auth.reauthenticate()` ile değiştir.
+- `handleOtpVerify` içindeki `verifyOtp` çağrısını şu şekilde güncelle:
   ```ts
-  const { error } = await supabase.auth.reauthenticate();
+  supabase.auth.verifyOtp({ type: 'reauthentication', token: code })
   ```
-  Bu, aktif oturumdaki kullanıcıya 6 haneli reauth nonce'ı e-posta ile yollar (Supabase Auth built-in). Hata varsa toast ile bildir, akışı iptal et.
-- Başarılıysa `setOtpModalOpen(true)`.
+  (reauthentication type'ı `email` parametresi almaz, sadece token yeter.)
+- Hata mesajı map'ini (`getOtpErrorMessage`) olduğu gibi bırak; "60 saniye" ve "geçersiz/süresi dolmuş" Türkçe kalıpları korunur.
 
-### 4) OTP doğrulama & çalıştırma
-Modal'a verilecek `onVerify` handler'ı:
-```ts
-const handleOtpVerify = async (code: string) => {
-  if (!user?.email || !pendingAction) return;
-  setOtpLoading(true);
-  try {
-    const { error } = await supabase.auth.verifyOtp({
-      email: user.email,
-      token: code,
-      type: 'reauthentication',
-    });
-    if (error) { toast.error('Geçersiz Kod'); return; }
-    setOtpModalOpen(false);
-    if (pendingAction === 'freeze') await executeFreeze();
-    else if (pendingAction === 'terminate') await executeTerminate();
-    else if (pendingAction === 'refund') await executeRefund();
-  } finally {
-    setOtpLoading(false);
-    setPendingAction(null);
-  }
-};
-```
+### Test (Playwright, headless)
+1. Managed Supabase session'ını sandbox env'inden restore et, `/athletes/6a849b37-...` sayfasına git.
+2. "Aboneliği Dondur" akışını aç, formu doldur, submit et → OTP modalının açıldığını ve toast'un çıktığını screenshot ile doğrula.
+3. Console/network log'larında `reauthenticate` isteğinin 200 döndüğünü ve `verifyOtp` endpoint'inin çağrılmaya hazır olduğunu doğrula.
+4. Gerçek OTP kodunu bilemeyeceğimiz için yanlış bir 6 haneli kod gir → "Geçersiz veya süresi dolmuş kod." Türkçe toast'unun geldiğini ve modal'ın loop'a girmediğini (tek istek atıldığını) doğrula.
+5. Screenshot'ları `code--view` ile kontrol et.
 
-### 5) Modal render
-Sayfanın JSX'inin sonuna (mevcut dialogların yanına):
-```tsx
-<SensitiveActionOtpModal
-  isOpen={otpModalOpen}
-  onClose={() => { setOtpModalOpen(false); setPendingAction(null); }}
-  onVerify={handleOtpVerify}
-  isLoading={otpLoading}
-  actionName={
-    pendingAction === 'freeze' ? 'Üyelik Dondurma'
-    : pendingAction === 'terminate' ? 'Sözleşme Feshi'
-    : pendingAction === 'refund' ? 'İade Talebi'
-    : ''
-  }
-  athleteName={athlete?.full_name ?? 'sporcu'}
-/>
-```
-Import: `import { SensitiveActionOtpModal } from "@/components/coach/SensitiveActionOtpModal";`
-
-## Notlar
-- **DB mantığı değişmiyor** — `execute*` fonksiyonları eskisiyle bit-bit aynı.
-- OTP kanalı olarak Supabase'in kendi `auth.reauthenticate()` + `verifyOtp({ type: 'reauthentication' })` çifti kullanılıyor (istekte belirtilen "mevcut reauthentication OTP metodu"). Bu, giriş yapmış koçun e-postasına 6 haneli nonce yollar ve harici bir edge function veya secret gerektirmez.
-- OTP butonu ilk basıldığında dialog kapanmadan önce validation tekrar çalıştığı için geçersiz form ile OTP gönderilmez.
-- `handleUnfreezeAthlete` (dondurmayı kaldırma) OTP kapısına dahil edilmedi — istek yalnızca freeze/terminate/refund'ı kapsıyor.
+## Kapsam dışı
+- OTP e-posta şablonu (Supabase built-in reauthentication template kullanılacak).
+- Diğer sayfalardaki auth akışları.
+- `SensitiveActionOtpModal.tsx` — mevcut duplicate-submit guard yeterli.
