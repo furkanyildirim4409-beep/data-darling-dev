@@ -341,14 +341,9 @@ export default function AthleteDetail() {
 
   const handleUnfreezeAthlete = async () => {
     if (!id) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        subscription_status: 'active',
-        freeze_until: null,
-        freeze_reason: null,
-      } as any)
-      .eq('id', id);
+    const { error } = await (supabase as any).rpc('coach_unfreeze_athlete', {
+      p_athlete_id: id,
+    });
 
     if (!error) {
       haptic();
@@ -356,9 +351,11 @@ export default function AthleteDetail() {
       queryClient.invalidateQueries({ queryKey: ['athlete', id] });
       fetchAthleteData();
     } else {
-      toast.error("Abonelik aktifleştirilirken veritabanı senkronizasyon hatası oluştu.");
+      const msg = error.message?.includes('Forbidden') ? "Bu sporcu üzerinde yetkiniz yok." : "Abonelik aktifleştirilirken veritabanı senkronizasyon hatası oluştu.";
+      toast.error(msg);
     }
   };
+
 
   const handleRemoveTermination = async () => {
     if (!id) return;
