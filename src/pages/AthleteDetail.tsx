@@ -261,6 +261,71 @@ export default function AthleteDetail() {
     }
   };
 
+  // ---- OTP Gate: intercept sensitive actions ----
+  const requestOtpForAction = async (action: 'freeze' | 'terminate' | 'refund') => {
+    if (!user?.email) { toast.error("Yetki doğrulanamadı"); return; }
+    try {
+      const { error } = await supabase.auth.reauthenticate();
+      if (error) { toast.error(error.message || "Doğrulama kodu gönderilemedi"); return; }
+      setPendingAction(action);
+      if (action === 'freeze') setFreezeOpen(false);
+      if (action === 'terminate') setTerminateOpen(false);
+      if (action === 'refund') setRefundOpen(false);
+      setOtpModalOpen(true);
+      toast.success("Güvenlik kodu e-postanıza gönderildi");
+    } catch (err: any) {
+      toast.error(err?.message || "Doğrulama kodu gönderilemedi");
+    }
+  };
+
+  const submitFreeze = async () => {
+    const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
+    if (!parsed.success) { toast.error("Geçersiz form"); return; }
+    await requestOtpForAction('freeze');
+  };
+
+  const submitTerminate = async () => {
+    await requestOtpForAction('terminate');
+  };
+
+  const submitRefund = async () => {
+    if (!athlete) return;
+    const maxAmount = athlete.latestPaidOrderTotal ?? 0;
+    const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
+    const schema = z.object({
+      amount: z.number().positive().max(maxAmount > 0 ? maxAmount : Number.MAX_SAFE_INTEGER),
+      reason: z.string().trim().max(500).optional(),
+    });
+    const parsed = schema.safeParse({ amount, reason: refundReason });
+    if (!parsed.success) { toast.error("Geçerli bir iade tutarı girin"); return; }
+    await requestOtpForAction('refund');
+  };
+
+  const handleOtpVerify = async (code: string) => {
+    if (!user?.email || !pendingAction) return;
+    setOtpLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: user.email,
+        token: code,
+        type: 'reauthentication',
+      });
+      if (error) { toast.error('Geçersiz Kod'); return; }
+      const action = pendingAction;
+      setOtpModalOpen(false);
+      setPendingAction(null);
+      if (action === 'freeze') await executeFreeze();
+      else if (action === 'terminate') await executeTerminate();
+      else if (action === 'refund') await executeRefund();
+    } catch (err: any) {
+      toast.error(err?.message || 'Doğrulama başarısız');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+
+
   const handleUnfreezeAthlete = async () => {
     if (!id) return;
     const { error } = await supabase
