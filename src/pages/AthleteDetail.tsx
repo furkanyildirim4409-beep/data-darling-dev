@@ -327,7 +327,7 @@ export default function AthleteDetail() {
         _nonce: code.trim(),
       });
       if (error || data !== true) {
-        toast.error(getOtpErrorMessage(error?.message) || "Geçersiz veya süresi dolmuş kod.");
+        toast.error(error ? getOtpErrorMessage(error.message) : "Geçersiz veya süresi dolmuş kod.");
         return;
       }
       const action = pendingAction;
