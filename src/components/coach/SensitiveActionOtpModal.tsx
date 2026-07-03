@@ -54,7 +54,7 @@ export function SensitiveActionOtpModal({
   }, [code, isLoading, onVerify]);
 
   const handleManualVerify = async () => {
-    if (code.length === 6 && !isLoading) {
+    if (code.length === 6 && !isLoading && submittedCodeRef.current !== code) {
       submittedCodeRef.current = code;
       await onVerify(code);
     }
