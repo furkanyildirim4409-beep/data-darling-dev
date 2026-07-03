@@ -179,15 +179,11 @@ export default function AthleteDetail() {
     setFreezeLoading(true);
     try {
       const days = freezeDuration === "1_week" ? 7 : freezeDuration === "2_weeks" ? 14 : 30;
-      const until = new Date(Date.now() + days * 86_400_000).toISOString();
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          subscription_status: "frozen",
-          freeze_until: until,
-          freeze_reason: freezeReason.trim() || null,
-        } as any)
-        .eq("id", id);
+      const { error } = await (supabase as any).rpc('coach_freeze_athlete', {
+        p_athlete_id: id,
+        p_days: days,
+        p_reason: freezeReason.trim() || null,
+      });
       if (error) throw error;
       haptic();
       const label = freezeDuration === "1_week" ? "1 Hafta" : freezeDuration === "2_weeks" ? "2 Hafta" : "1 Ay";
@@ -196,7 +192,8 @@ export default function AthleteDetail() {
       setFreezeReason("");
       fetchAthleteData();
     } catch (err: any) {
-      toast.error(err?.message || "Dondurma başarısız oldu");
+      const msg = err?.message?.includes('Forbidden') ? "Bu sporcu üzerinde yetkiniz yok." : (err?.message || "Dondurma başarısız oldu");
+      toast.error(msg);
     } finally {
       setFreezeLoading(false);
     }
@@ -206,25 +203,22 @@ export default function AthleteDetail() {
     if (!id) return;
     setTerminateLoading(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          coach_id: null,
-          subscription_status: "terminated",
-          active_program_id: null,
-        } as any)
-        .eq("id", id);
+      const { error } = await (supabase as any).rpc('coach_terminate_athlete', {
+        p_athlete_id: id,
+      });
       if (error) throw error;
       haptic();
       toast.success("Sözleşme feshedildi");
       setTerminateOpen(false);
       navigate("/athletes");
     } catch (err: any) {
-      toast.error(err?.message || "Fesih işlemi başarısız oldu");
+      const msg = err?.message?.includes('Forbidden') ? "Bu sporcu üzerinde yetkiniz yok." : (err?.message || "Fesih işlemi başarısız oldu");
+      toast.error(msg);
     } finally {
       setTerminateLoading(false);
     }
   };
+
 
   const executeRefund = async () => {
     if (!id || !athlete) return;
