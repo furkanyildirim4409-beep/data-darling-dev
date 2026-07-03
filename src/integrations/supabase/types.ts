@@ -1773,21 +1773,30 @@ export type Database = {
         Row: {
           category: string | null
           id: string
+          image_sync_error: string | null
+          image_synced_at: string | null
           name: string
+          storage_path: string | null
           target_muscle: string | null
           video_url: string | null
         }
         Insert: {
           category?: string | null
           id?: string
+          image_sync_error?: string | null
+          image_synced_at?: string | null
           name: string
+          storage_path?: string | null
           target_muscle?: string | null
           video_url?: string | null
         }
         Update: {
           category?: string | null
           id?: string
+          image_sync_error?: string | null
+          image_synced_at?: string | null
           name?: string
+          storage_path?: string | null
           target_muscle?: string | null
           video_url?: string | null
         }
@@ -4014,6 +4023,7 @@ export type Database = {
         Args: { _is_active: boolean; _team_member_id: string }
         Returns: undefined
       }
+      unschedule_backfill_exercise_images: { Args: never; Returns: undefined }
       update_own_profile: {
         Args: {
           _activity_level?: string
