@@ -2771,6 +2771,27 @@ export type Database = {
         }
         Relationships: []
       }
+      reauthentication_nonce_uses: {
+        Row: {
+          id: string
+          token_hash: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          token_hash: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          token_hash?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       refund_requests: {
         Row: {
           athlete_id: string
@@ -4050,6 +4071,10 @@ export type Database = {
           _whatsapp_notifications_enabled?: boolean
         }
         Returns: undefined
+      }
+      verify_reauthentication_nonce: {
+        Args: { _nonce: string }
+        Returns: boolean
       }
     }
     Enums: {
