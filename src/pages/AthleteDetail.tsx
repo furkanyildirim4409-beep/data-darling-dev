@@ -751,7 +751,22 @@ export default function AthleteDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SensitiveActionOtpModal
+        isOpen={otpModalOpen}
+        onClose={() => { setOtpModalOpen(false); setPendingAction(null); }}
+        onVerify={handleOtpVerify}
+        isLoading={otpLoading}
+        actionName={
+          pendingAction === 'freeze' ? 'Üyelik Dondurma'
+          : pendingAction === 'terminate' ? 'Sözleşme Feshi'
+          : pendingAction === 'refund' ? 'İade Talebi'
+          : ''
+        }
+        athleteName={athlete?.full_name ?? 'sporcu'}
+      />
     </div>
+
 
   );
 }
