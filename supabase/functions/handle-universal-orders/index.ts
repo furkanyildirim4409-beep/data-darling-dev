@@ -313,39 +313,73 @@ async function handleEmailWebhook(payload: any) {
   }
 
   const userName = profile.full_name || "Kullanıcı";
-  const fromEmail = "logistics@dynabolic.co";
-  let templateName: string;
-  let replacements: Record<string, string>;
 
+  // ---- PAID: send branded order-receipt via send-email ----
   if (shouldSendPaid) {
-    templateName = "Sipariş Onayı";
-
-    let packageName = "Dynabolic Sipariş";
+    const items: Array<{ title: string; quantity: number; lineTotal?: string }> = [];
     try {
-      const items = typeof record.items === "string" ? JSON.parse(record.items) : record.items;
-      if (Array.isArray(items) && items.length > 0) {
-        packageName = items.map((i: any) => i.title || i.name || "Ürün").join(", ");
+      const raw = typeof record.items === "string" ? JSON.parse(record.items) : record.items;
+      if (Array.isArray(raw)) {
+        for (const i of raw) {
+          items.push({
+            title: String(i.title || i.name || "Ürün"),
+            quantity: Number(i.quantity ?? 1),
+            lineTotal: i.line_total != null ? String(i.line_total) : (i.price != null ? String(i.price) : undefined),
+          });
+        }
       }
-    } catch { /* use default */ }
+    } catch { /* fall through with empty items */ }
+
+    if (items.length === 0) {
+      items.push({ title: "Dynabolic Sipariş", quantity: 1 });
+    }
 
     const orderRef = record.external_reference_id || record.id?.substring(0, 8)?.toUpperCase() || "N/A";
-    const totalAmount = record.total_price != null ? `${record.total_price} ₺` : "—";
+    const totalStr = record.total_price != null ? `${record.total_price} ₺` : "—";
 
-    replacements = {
-      "{{isim}}": userName,
-      "{{siparis_no}}": orderRef,
-      "{{paket_adi}}": packageName,
-      "{{tutar}}": totalAmount,
-    };
-  } else {
-    templateName = "Kargon Yola Çıktı";
-    replacements = {
-      "{{isim}}": userName,
-      "{{kargo_firmasi}}": record.carrier_name || "Belirtilmedi",
-      "{{takip_no}}": record.tracking_number || "—",
-      "{{takip_linki}}": record.tracking_url || "#",
-    };
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "X-Webhook-Secret": cronSecret,
+        apikey: anonKey,
+      },
+      body: JSON.stringify({
+        type: "order_receipt",
+        to: profile.email,
+        data: {
+          recipientName: userName,
+          orderRef,
+          items,
+          total: totalStr,
+          shippingAddress: record.shipping_address ?? undefined,
+          owner_id: record.user_id,
+        },
+      }),
+    });
+
+    if (!sendRes.ok) {
+      const errBody = await sendRes.text();
+      console.error("handle-universal-orders: send-email order_receipt failed", errBody);
+      return jsonResponse({ error: "send_failed" });
+    }
+
+    console.log("handle-universal-orders: order_receipt dispatched for order", record.id);
+    return jsonResponse({ success: true });
   }
+
+  // ---- SHIPPED: keep legacy DB-template branch ----
+  const fromEmail = "logistics@dynabolic.co";
+  const templateName = "Kargon Yola Çıktı";
+  const replacements: Record<string, string> = {
+    "{{isim}}": userName,
+    "{{kargo_firmasi}}": record.carrier_name || "Belirtilmedi",
+    "{{takip_no}}": record.tracking_number || "—",
+    "{{takip_linki}}": record.tracking_url || "#",
+  };
 
   const { data: template } = await admin
     .from("email_templates")
