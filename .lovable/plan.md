@@ -1,34 +1,54 @@
-Sorunun ana kaynağı iki nokta:
+## Plan: Hassas Abonelik İşlemleri için Güvenli RPC Fonksiyonları
 
-1. Supabase logundaki `Only an email address or phone number should be provided on verify` hatası, reauthenticate doğrulamasında `/verify` çağrısına yanlış parametre seti gittiğini gösteriyor. Mevcut kod sadece `token + type` gönderiyor; Supabase reauthentication verify için email bilgisini de bekliyor ve aynı anda başka kimlik alanları karışırsa 400 döndürüyor.
-2. Modal şu anda 6 hane tamamlanınca otomatik doğruluyor. Kullanıcı kodu düzeltirken veya aynı kod tekrar render tetiklerken gereksiz verify çağrıları oluşabiliyor. Bu da Supabase tarafında rate limit/429 riskini artırıyor.
+Koçların `profiles` tablosuna doğrudan `UPDATE` atamasını engelleyen `enforce_coach_profile_write_whitelist` trigger'ı, dondurma/fesih işlemlerini de bloke ediyor. Çözüm: bu değişiklikleri `SECURITY DEFINER` RPC'ler üzerinden, koç kimliği doğrulanarak yapmak.
 
-Uygulama planı:
+### 1. Migration (yeni dosya)
 
-1. `AthleteDetail.tsx` içinde reauthenticate akışını magic link kullanmadan koruyacağım:
-   - `requestOtpForAction` sadece `supabase.auth.reauthenticate()` kullanacak.
-   - `signInWithOtp` veya magic link akışı kesinlikle kullanılmayacak.
+Üç fonksiyon oluşturulacak. Her biri:
+- `auth.uid()` NULL değilse doğrular
+- Hedef sporcunun `profiles.coach_id` değerinin çağıran koça ait olduğunu ya da çağıranın aktif team member olduğunu (`is_coach_of(p_athlete_id)`) doğrular
+- Değilse `RAISE EXCEPTION 'Forbidden: not your athlete'`
+- `SECURITY DEFINER`, `SET search_path = public`
+- Trigger'lar `current_user IN ('postgres','service_role','supabase_admin')` bypass'ına sahip olmadığından, `SECURITY DEFINER` fonksiyonu **fonksiyon sahibi (postgres)** olarak çalışacak ve whitelist trigger'ını bypass edecek.
 
-2. `handleOtpVerify` çağrısını reauthentication için doğru parametrelerle düzenleyeceğim:
-   - `supabase.auth.verifyOtp({ email: user.email, token: code, type: 'reauthentication' })`
-   - Hataları `getOtpErrorMessage` ile Türkçeleştireceğim.
-   - 429/rate limit durumunda kullanıcıya “Tekrar denemek için lütfen 60 saniye bekleyin.” mesajı gösterilecek.
+#### a) `coach_freeze_athlete(p_athlete_id uuid, p_days int, p_reason text)`
+- `p_days` 1–365 aralığında olmalı, yoksa exception
+- Update: `subscription_status='frozen'`, `freeze_until = now() + make_interval(days => p_days)`, `freeze_reason = p_reason`, `updated_at = now()`
 
-3. Modal tarafında otomatik doğrulamayı kaldıracağım:
-   - Kod 6 haneye ulaşınca otomatik `onVerify` çağrısı yapılmayacak.
-   - Kullanıcı yalnızca “Doğrula” butonuna basınca tek istek atılacak.
-   - Bu, loop ve 429 üreten gereksiz tekrarları engelleyecek.
+#### b) `coach_unfreeze_athlete(p_athlete_id uuid)`
+- Update: `subscription_status='active'`, `freeze_until=null`, `freeze_reason=null`, `updated_at=now()`
 
-4. Başarısız kod denemesinde yeniden denemeyi mümkün yapacağım:
-   - Yanlış kodda modal açık kalacak.
-   - Aynı input kilitlenmeyecek; kullanıcı kodu silip tekrar girebilecek.
-   - Aynı kodu butona basarak spamlemeyi engelleyen küçük bir guard kalacak.
+#### c) `coach_terminate_athlete(p_athlete_id uuid)`
+- Update: `subscription_status='terminated'`, `coach_id=null`, `active_program_id=null`, `updated_at=now()`
+- Not: `coach_id` NULL'a çekildiği için trigger tetiklenmeden önce yetki kontrolü fonksiyon içinde manuel yapılıyor (RLS/trigger'a güvenilmiyor).
 
-5. İptal/kapatma durumunda pending state temizlenecek:
-   - `otpModalOpen`, `pendingAction`, `otpLoading` güvenli şekilde resetlenecek.
+#### İzinler
+```sql
+REVOKE ALL ON FUNCTION public.coach_freeze_athlete(uuid,int,text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.coach_freeze_athlete(uuid,int,text) TO authenticated;
+-- unfreeze ve terminate için aynısı
+```
 
-6. Test/validasyon:
-   - Kodda `signInWithOtp` kalmadığını kontrol edeceğim.
-   - `verifyOtp` çağrısının `email + token + type: 'reauthentication'` gönderdiğini doğrulayacağım.
-   - UI’da yanlış kod denemesinde tek toast/tek request mantığını kontrol edeceğim.
-   - Auth e2e bu proje `external_unmanaged` olduğu için canlı oturumla otomatik doğrulanamazsa bunu açıkça belirteceğim; ancak statik ve tarayıcı davranış testini yapacağım.
+#### Denetim (opsiyonel ama önerilen)
+Her fonksiyon, mevcut `coach_action_ledger` tablosuna bir kayıt düşer (action: 'freeze' / 'unfreeze' / 'terminate', target_athlete_id, meta jsonb). Böylece hangi koç ne zaman hangi sporcuyu dondurdu izlenir.
+
+### 2. Frontend (`src/pages/AthleteDetail.tsx`)
+
+Mevcut dondurma/fesih akışları (`supabase.from('profiles').update(...)`) yerine RPC çağrılarına geçirilecek:
+
+```ts
+await supabase.rpc('coach_freeze_athlete', { p_athlete_id, p_days, p_reason })
+await supabase.rpc('coach_unfreeze_athlete', { p_athlete_id })
+await supabase.rpc('coach_terminate_athlete', { p_athlete_id })
+```
+
+OTP reauth akışı olduğu gibi kalır — reauth başarılı olduktan sonra ilgili RPC çağrılır. Hata mesajlarında `Forbidden` yakalanırsa Türkçe "Bu sporcu üzerinde yetkiniz yok." toast'u gösterilir.
+
+### 3. Doğrulama
+- Migration sonrası `supabase--read_query` ile 3 fonksiyonun ve grantlarının varlığını doğrula
+- Preview'da bir sporcuda Dondur → Kaldır → Feshet akışını çalıştırıp toast + DB state kontrol et
+- Başka koçun sporcusunda çağrı denenirse "Forbidden" alındığı doğrulanır
+
+### Teknik Notlar
+- Fonksiyonlar `postgres` rolüne ait olacağı için `enforce_coach_profile_write_whitelist` trigger'ının `auth.uid() IS NULL OR auth.uid() = NEW.id` shortcut'ı devreye girmez — bunun yerine trigger içindeki `current_user` bypass yolu kullanılamaz (trigger böyle bir bypass'a sahip değil). Bu yüzden trigger `SECURITY DEFINER` fonksiyon içinden çağrıldığında da whitelist mantığını çalıştırır ve `subscription_status`/`coach_id` değişikliklerini reddeder.
+- **Çözüm:** trigger'a `enforce_coach_profile_write_guards`'daki gibi `IF current_user IN ('postgres','service_role','supabase_admin') THEN RETURN NEW; END IF;` bypass'ı eklenecek. Böylece RPC fonksiyonu (postgres olarak çalışırken) trigger'ı geçer; normal client update'leri hâlâ bloke edilir.

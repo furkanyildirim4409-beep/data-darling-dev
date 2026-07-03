@@ -3898,6 +3898,18 @@ export type Database = {
       }
       cleanup_edge_rate_limits: { Args: never; Returns: undefined }
       cleanup_expired_auto_login_tokens: { Args: never; Returns: undefined }
+      coach_freeze_athlete: {
+        Args: { p_athlete_id: string; p_days: number; p_reason?: string }
+        Returns: undefined
+      }
+      coach_terminate_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: undefined
+      }
+      coach_unfreeze_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: undefined
+      }
       create_auto_login_token: {
         Args: { _expires_in_days?: number; _user_id: string }
         Returns: string
