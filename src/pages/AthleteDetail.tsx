@@ -202,7 +202,7 @@ export default function AthleteDetail() {
     }
   };
 
-  const submitTerminate = async () => {
+  const executeTerminate = async () => {
     if (!id) return;
     setTerminateLoading(true);
     try {
