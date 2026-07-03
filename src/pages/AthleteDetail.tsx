@@ -277,7 +277,10 @@ export default function AthleteDetail() {
   const requestOtpForAction = async (action: 'freeze' | 'terminate' | 'refund') => {
     if (!user?.email) { toast.error("Yetki doğrulanamadı"); return; }
     try {
-      const { error } = await supabase.auth.reauthenticate();
+      const { error } = await supabase.auth.signInWithOtp({
+        email: user.email,
+        options: { shouldCreateUser: false },
+      });
       if (error) { toast.error(getOtpErrorMessage(error.message)); return; }
       setPendingAction(action);
       if (action === 'freeze') setFreezeOpen(false);
@@ -320,7 +323,7 @@ export default function AthleteDetail() {
       const { error } = await supabase.auth.verifyOtp({
         email: user.email,
         token: code,
-        type: 'reauthentication',
+        type: 'email',
       });
       if (error) { toast.error('Geçersiz kod'); return; }
       const action = pendingAction;
