@@ -172,7 +172,7 @@ export default function AthleteDetail() {
     reason: z.string().trim().max(500).optional(),
   });
 
-  const submitFreeze = async () => {
+  const executeFreeze = async () => {
     if (!id) return;
     const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
     if (!parsed.success) { toast.error("Geçersiz form"); return; }
