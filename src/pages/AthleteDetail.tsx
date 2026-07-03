@@ -268,7 +268,7 @@ export default function AthleteDetail() {
     if (normalized.includes("429") || normalized.includes("60") || normalized.includes("security purposes") || normalized.includes("after") || normalized.includes("rate") || normalized.includes("too many")) {
       return "Tekrar kod göndermek için lütfen 60 saniye bekleyin.";
     }
-    if (normalized.includes("invalid") || normalized.includes("expired") || normalized.includes("reauthentication_not_valid")) {
+    if (normalized.includes("invalid") || normalized.includes("expired") || normalized.includes("nonce") || normalized.includes("reauthentication_not_valid")) {
       return "Geçersiz veya süresi dolmuş kod.";
     }
     return message;
@@ -323,12 +323,13 @@ export default function AthleteDetail() {
     if (!user?.email || !pendingAction) return;
     setOtpLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: user.email,
-        token: code,
-        type: 'reauthentication',
-      } as any);
-      if (error) { toast.error(getOtpErrorMessage(error.message)); return; }
+      const { data, error } = await (supabase as any).rpc('verify_reauthentication_nonce', {
+        _nonce: code.trim(),
+      });
+      if (error || data !== true) {
+        toast.error(error ? getOtpErrorMessage(error.message) : "Geçersiz veya süresi dolmuş kod.");
+        return;
+      }
       const action = pendingAction;
       setOtpModalOpen(false);
       setPendingAction(null);
