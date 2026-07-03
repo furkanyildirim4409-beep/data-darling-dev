@@ -139,6 +139,13 @@ export default function AthleteDetail() {
   const [refundReason, setRefundReason] = useState("");
   const [refundLoading, setRefundLoading] = useState(false);
 
+  // OTP gate for sensitive actions
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'freeze' | 'terminate' | 'refund' | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+
+
 
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
