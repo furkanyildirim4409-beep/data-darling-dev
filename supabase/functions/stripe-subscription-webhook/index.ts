@@ -255,6 +255,69 @@ Deno.serve(async (req) => {
         }
         break;
       }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        try {
+          const customerEmail = invoice.customer_email
+            ?? (typeof invoice.customer === "string"
+              ? (await stripe.customers.retrieve(invoice.customer)).email
+              : (invoice.customer as Stripe.Customer)?.email)
+            ?? null;
+          if (!customerEmail) break;
+
+          const items = (invoice.lines?.data ?? []).map((line) => ({
+            title: line.description || line.price?.nickname || "Dynabolic Abonelik",
+            quantity: line.quantity ?? 1,
+            lineTotal: line.amount != null
+              ? `${(line.amount / 100).toFixed(2)} ${(invoice.currency || "usd").toUpperCase()}`
+              : undefined,
+          }));
+
+          const totalStr = invoice.amount_paid != null
+            ? `${(invoice.amount_paid / 100).toFixed(2)} ${(invoice.currency || "usd").toUpperCase()}`
+            : "—";
+
+          const orderRef = invoice.number || invoice.id;
+
+          // Look up owner_id via profiles by email
+          let ownerId: string | undefined;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .eq("email", customerEmail.toLowerCase())
+            .maybeSingle();
+          if (profile?.id) ownerId = profile.id;
+
+          const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+          const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SERVICE_ROLE}`,
+              "X-Webhook-Secret": cronSecret,
+              apikey: anonKey,
+            },
+            body: JSON.stringify({
+              type: "order_receipt",
+              to: customerEmail,
+              data: {
+                recipientName: profile?.full_name ?? undefined,
+                orderRef,
+                items: items.length ? items : [{ title: "Dynabolic Abonelik", quantity: 1 }],
+                total: totalStr,
+                owner_id: ownerId,
+              },
+            }),
+          });
+          if (!sendRes.ok) {
+            console.error("stripe-webhook: send-email receipt failed", await sendRes.text());
+          }
+        } catch (mailErr) {
+          console.error("stripe-webhook: invoice receipt error", mailErr);
+        }
+        break;
+      }
       default:
         // ignore other events
         break;
