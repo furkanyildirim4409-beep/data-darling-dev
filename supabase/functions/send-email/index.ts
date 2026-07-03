@@ -8,7 +8,6 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { WelcomeEmail } from '../_shared/email-templates/welcome.tsx'
 import { NotificationEmail } from '../_shared/email-templates/notification.tsx'
 import { OrderReceiptEmail, type OrderReceiptItem } from '../_shared/email-templates/order-receipt.tsx'
-import { MagicLinkEmail } from '../_shared/email-templates/magic-link.tsx'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,16 +52,10 @@ const OrderReceiptData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
-const MagicLinkData = z.object({
-  confirmationUrl: z.string().url(),
-  siteName: z.string().default('Dynabolic'),
-})
-
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
-  z.object({ type: z.literal('magic_link'), to: z.string().email(), data: MagicLinkData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
@@ -97,10 +90,6 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       subject = `Sipariş #${req.data.orderRef} onaylandı — ${req.data.total}`
       ownerId = req.data.owner_id
       from = 'Dynabolic <orders@dynabolic.co>'
-      break
-    case 'magic_link':
-      element = React.createElement(MagicLinkEmail, req.data)
-      subject = 'Dynabolic giriş bağlantınız'
       break
   }
 
