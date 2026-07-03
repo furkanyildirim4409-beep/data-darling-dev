@@ -52,16 +52,10 @@ const OrderReceiptData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
-const MagicLinkData = z.object({
-  confirmationUrl: z.string().url(),
-  siteName: z.string().default('Dynabolic'),
-})
-
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
-  z.object({ type: z.literal('magic_link'), to: z.string().email(), data: MagicLinkData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
