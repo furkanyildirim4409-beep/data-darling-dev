@@ -262,19 +262,31 @@ export default function AthleteDetail() {
   };
 
   // ---- OTP Gate: intercept sensitive actions ----
+  const getOtpErrorMessage = (message?: string) => {
+    if (!message) return "Doğrulama kodu gönderilemedi";
+    const normalized = message.toLowerCase();
+    if (normalized.includes("60") || normalized.includes("security purposes") || normalized.includes("after") || normalized.includes("rate")) {
+      return "Tekrar kod göndermek için lütfen 60 saniye bekleyin.";
+    }
+    if (normalized.includes("invalid") || normalized.includes("expired")) {
+      return "Geçersiz veya süresi dolmuş kod.";
+    }
+    return message;
+  };
+
   const requestOtpForAction = async (action: 'freeze' | 'terminate' | 'refund') => {
     if (!user?.email) { toast.error("Yetki doğrulanamadı"); return; }
     try {
       const { error } = await supabase.auth.reauthenticate();
-      if (error) { toast.error(error.message || "Doğrulama kodu gönderilemedi"); return; }
+      if (error) { toast.error(getOtpErrorMessage(error.message)); return; }
       setPendingAction(action);
       if (action === 'freeze') setFreezeOpen(false);
       if (action === 'terminate') setTerminateOpen(false);
       if (action === 'refund') setRefundOpen(false);
       setOtpModalOpen(true);
-      toast.success("Güvenlik kodu e-postanıza gönderildi");
+      toast.success("Güvenlik kodu e-postanıza gönderildi. Tekrar kod göndermek için 60 saniye bekleyin.");
     } catch (err: any) {
-      toast.error(err?.message || "Doğrulama kodu gönderilemedi");
+      toast.error(getOtpErrorMessage(err?.message));
     }
   };
 
@@ -310,7 +322,7 @@ export default function AthleteDetail() {
         token: code,
         type: 'reauthentication',
       });
-      if (error) { toast.error('Geçersiz Kod'); return; }
+      if (error) { toast.error('Geçersiz kod'); return; }
       const action = pendingAction;
       setOtpModalOpen(false);
       setPendingAction(null);

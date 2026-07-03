@@ -32,21 +32,30 @@ export function SensitiveActionOtpModal({
   isLoading,
 }: SensitiveActionOtpModalProps) {
   const [code, setCode] = React.useState("");
+  const submittedCodeRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!isOpen) {
       setCode("");
+      submittedCodeRef.current = null;
     }
   }, [isOpen]);
 
   React.useEffect(() => {
-    if (code.length === 6 && !isLoading) {
-      onVerify(code);
+    if (code.length < 6) {
+      submittedCodeRef.current = null;
+      return;
+    }
+
+    if (code.length === 6 && !isLoading && submittedCodeRef.current !== code) {
+      submittedCodeRef.current = code;
+      void onVerify(code);
     }
   }, [code, isLoading, onVerify]);
 
   const handleManualVerify = async () => {
     if (code.length === 6 && !isLoading) {
+      submittedCodeRef.current = code;
       await onVerify(code);
     }
   };
