@@ -60,6 +60,8 @@ import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
+import { SensitiveActionOtpModal } from "@/components/coach/SensitiveActionOtpModal";
+
 
 
 interface AthleteProfile {
@@ -137,6 +139,13 @@ export default function AthleteDetail() {
   const [refundReason, setRefundReason] = useState("");
   const [refundLoading, setRefundLoading] = useState(false);
 
+  // OTP gate for sensitive actions
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'freeze' | 'terminate' | 'refund' | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+
+
 
   const runAiScan = useCallback(async () => {
     if (!id || aiScanning) return;
@@ -163,7 +172,7 @@ export default function AthleteDetail() {
     reason: z.string().trim().max(500).optional(),
   });
 
-  const submitFreeze = async () => {
+  const executeFreeze = async () => {
     if (!id) return;
     const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
     if (!parsed.success) { toast.error("Geçersiz form"); return; }
@@ -193,7 +202,7 @@ export default function AthleteDetail() {
     }
   };
 
-  const submitTerminate = async () => {
+  const executeTerminate = async () => {
     if (!id) return;
     setTerminateLoading(true);
     try {
@@ -217,7 +226,7 @@ export default function AthleteDetail() {
     }
   };
 
-  const submitRefund = async () => {
+  const executeRefund = async () => {
     if (!id || !athlete) return;
     const maxAmount = athlete.latestPaidOrderTotal ?? 0;
     const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
@@ -251,6 +260,71 @@ export default function AthleteDetail() {
       setRefundLoading(false);
     }
   };
+
+  // ---- OTP Gate: intercept sensitive actions ----
+  const requestOtpForAction = async (action: 'freeze' | 'terminate' | 'refund') => {
+    if (!user?.email) { toast.error("Yetki doğrulanamadı"); return; }
+    try {
+      const { error } = await supabase.auth.reauthenticate();
+      if (error) { toast.error(error.message || "Doğrulama kodu gönderilemedi"); return; }
+      setPendingAction(action);
+      if (action === 'freeze') setFreezeOpen(false);
+      if (action === 'terminate') setTerminateOpen(false);
+      if (action === 'refund') setRefundOpen(false);
+      setOtpModalOpen(true);
+      toast.success("Güvenlik kodu e-postanıza gönderildi");
+    } catch (err: any) {
+      toast.error(err?.message || "Doğrulama kodu gönderilemedi");
+    }
+  };
+
+  const submitFreeze = async () => {
+    const parsed = freezeSchema.safeParse({ duration: freezeDuration, reason: freezeReason });
+    if (!parsed.success) { toast.error("Geçersiz form"); return; }
+    await requestOtpForAction('freeze');
+  };
+
+  const submitTerminate = async () => {
+    await requestOtpForAction('terminate');
+  };
+
+  const submitRefund = async () => {
+    if (!athlete) return;
+    const maxAmount = athlete.latestPaidOrderTotal ?? 0;
+    const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
+    const schema = z.object({
+      amount: z.number().positive().max(maxAmount > 0 ? maxAmount : Number.MAX_SAFE_INTEGER),
+      reason: z.string().trim().max(500).optional(),
+    });
+    const parsed = schema.safeParse({ amount, reason: refundReason });
+    if (!parsed.success) { toast.error("Geçerli bir iade tutarı girin"); return; }
+    await requestOtpForAction('refund');
+  };
+
+  const handleOtpVerify = async (code: string) => {
+    if (!user?.email || !pendingAction) return;
+    setOtpLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: user.email,
+        token: code,
+        type: 'reauthentication',
+      });
+      if (error) { toast.error('Geçersiz Kod'); return; }
+      const action = pendingAction;
+      setOtpModalOpen(false);
+      setPendingAction(null);
+      if (action === 'freeze') await executeFreeze();
+      else if (action === 'terminate') await executeTerminate();
+      else if (action === 'refund') await executeRefund();
+    } catch (err: any) {
+      toast.error(err?.message || 'Doğrulama başarısız');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+
 
   const handleUnfreezeAthlete = async () => {
     if (!id) return;
@@ -677,7 +751,22 @@ export default function AthleteDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SensitiveActionOtpModal
+        isOpen={otpModalOpen}
+        onClose={() => { setOtpModalOpen(false); setPendingAction(null); }}
+        onVerify={handleOtpVerify}
+        isLoading={otpLoading}
+        actionName={
+          pendingAction === 'freeze' ? 'Üyelik Dondurma'
+          : pendingAction === 'terminate' ? 'Sözleşme Feshi'
+          : pendingAction === 'refund' ? 'İade Talebi'
+          : ''
+        }
+        athleteName={athlete?.full_name ?? 'sporcu'}
+      />
     </div>
+
 
   );
 }
