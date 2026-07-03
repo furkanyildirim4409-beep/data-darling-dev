@@ -91,10 +91,6 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       ownerId = req.data.owner_id
       from = 'Dynabolic <orders@dynabolic.co>'
       break
-    case 'magic_link':
-      element = React.createElement(MagicLinkEmail, req.data)
-      subject = 'Dynabolic giriş bağlantınız'
-      break
   }
 
   const [html, text] = await Promise.all([
