@@ -60,6 +60,8 @@ import { ProgramTab } from "@/components/athlete-detail/ProgramTab";
 import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
+import { SensitiveActionOtpModal } from "@/components/coach/SensitiveActionOtpModal";
+
 
 
 interface AthleteProfile {
