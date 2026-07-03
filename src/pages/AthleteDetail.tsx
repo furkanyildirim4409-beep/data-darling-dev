@@ -226,7 +226,7 @@ export default function AthleteDetail() {
     }
   };
 
-  const submitRefund = async () => {
+  const executeRefund = async () => {
     if (!id || !athlete) return;
     const maxAmount = athlete.latestPaidOrderTotal ?? 0;
     const amount = refundKind === "full" ? maxAmount : Number(refundAmount);
