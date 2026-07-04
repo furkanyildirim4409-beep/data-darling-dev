@@ -124,7 +124,7 @@ export default function PackingSlipPrintView({ order, coachName }: Props) {
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 700 }}>{shortId(order.id)}</div>
+          <div style={{ fontWeight: 700 }}>{shortId(order.id, order.shopify_order_number)}</div>
           <div style={{ fontSize: 10 }}>
             {new Date(order.created_at).toLocaleDateString("tr-TR")}
           </div>
