@@ -7,8 +7,15 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 
 import { WelcomeEmail } from '../_shared/email-templates/welcome.tsx'
 import { NotificationEmail } from '../_shared/email-templates/notification.tsx'
-import { OrderReceiptEmail, type OrderReceiptItem } from '../_shared/email-templates/order-receipt.tsx'
-import { ShippingNotificationEmail } from '../_shared/email-templates/shipping-notification.tsx'
+import {
+  renderOrderReceiptHtml,
+  renderOrderReceiptText,
+  type OrderReceiptItem,
+} from '../_shared/email-templates/order-receipt.ts'
+import {
+  renderShippingNotificationHtml,
+  renderShippingNotificationText,
+} from '../_shared/email-templates/shipping-notification.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,50 +80,54 @@ const RequestSchema = z.discriminatedUnion('type', [
 type ParsedRequest = z.infer<typeof RequestSchema>
 
 // ---------- Rendering ----------
+
 async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html: string; text: string; ownerId?: string; from: string }> {
-  let element: React.ReactElement
-  let subject: string
   let from = 'Dynabolic <noreply@dynabolic.co>'
   let ownerId: string | undefined
 
   switch (req.type) {
-    case 'welcome':
-      element = React.createElement(WelcomeEmail, {
+    case 'welcome': {
+      const element = React.createElement(WelcomeEmail, {
         name: req.data.name,
         ctaUrl: req.data.ctaUrl,
       })
-      subject = 'Dynabolic ailesine hoş geldin ⚡'
+      const subject = 'Dynabolic ailesine hoş geldin ⚡'
       ownerId = req.data.owner_id
-      break
-    case 'notification':
-      element = React.createElement(NotificationEmail, req.data)
-      subject = req.data.title
+      const [html, text] = await Promise.all([
+        renderAsync(element),
+        renderAsync(element, { plainText: true }),
+      ])
+      return { subject, html, text, ownerId, from }
+    }
+    case 'notification': {
+      const element = React.createElement(NotificationEmail, req.data)
+      const subject = req.data.title
       ownerId = req.data.owner_id
       from = 'Dynabolic <notify@dynabolic.co>'
-      break
-    case 'order_receipt':
-      element = React.createElement(OrderReceiptEmail, {
-        ...req.data,
-        items: req.data.items as OrderReceiptItem[],
-      })
-      subject = `Sipariş #${req.data.orderRef} onaylandı — ${req.data.total}`
-      ownerId = req.data.owner_id
+      const [html, text] = await Promise.all([
+        renderAsync(element),
+        renderAsync(element, { plainText: true }),
+      ])
+      return { subject, html, text, ownerId, from }
+    }
+    case 'order_receipt': {
+      const data = { ...req.data, items: req.data.items as OrderReceiptItem[] }
+      const html = renderOrderReceiptHtml(data)
+      const text = renderOrderReceiptText(data)
+      const subject = `Sipariş #${data.orderRef} onaylandı — ${data.total}`
+      ownerId = data.owner_id
       from = 'Dynabolic <orders@dynabolic.co>'
-      break
-    case 'shipping_notification':
-      element = React.createElement(ShippingNotificationEmail, req.data)
-      subject = `Siparişin yola çıktı — Takip #${req.data.trackingNumber}`
+      return { subject, html, text, ownerId, from }
+    }
+    case 'shipping_notification': {
+      const html = renderShippingNotificationHtml(req.data)
+      const text = renderShippingNotificationText(req.data)
+      const subject = `Siparişin yola çıktı — Takip #${req.data.trackingNumber}`
       ownerId = req.data.owner_id
       from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
-      break
+      return { subject, html, text, ownerId, from }
+    }
   }
-
-  const [html, text] = await Promise.all([
-    renderAsync(element),
-    renderAsync(element, { plainText: true }),
-  ])
-
-  return { subject, html, text, ownerId, from }
 }
 
 // ---------- Auth ----------
