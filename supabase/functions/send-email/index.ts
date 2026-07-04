@@ -46,6 +46,8 @@ const OrderReceiptItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.union([z.number(), z.string()]).optional(),
   lineTotal: z.union([z.number(), z.string()]).optional(),
+  image: z.string().url().optional(),
+  description: z.string().max(4000).optional(),
 })
 
 const OrderReceiptData = z.object({
