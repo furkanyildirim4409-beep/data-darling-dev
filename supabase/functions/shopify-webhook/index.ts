@@ -214,6 +214,53 @@ async function handleOrder(payload: any, admin: ReturnType<typeof createClient>)
 
 async function handleFulfillment(payload: any, admin: ReturnType<typeof createClient>) {
   const status = String(payload?.status ?? "").toLowerCase();
+  const shipmentStatus = String(payload?.shipment_status ?? "").toLowerCase();
+
+  const order = await resolveOrderForFulfillment(payload, admin);
+  const orderRef =
+    order?.shopify_order_number ||
+    payload?.order?.name?.replace?.(/^#/, "") ||
+    String(payload?.order_number ?? payload?.order_id ?? payload?.order?.id ?? "");
+
+  const to =
+    payload?.email ||
+    payload?.destination?.email ||
+    payload?.order?.email ||
+    payload?.order?.customer?.email;
+
+  if (!to) {
+    console.log("shopify-webhook: fulfillment has no recipient email, order_ref=", orderRef);
+    return { skipped: true, reason: "no_email" };
+  }
+
+  const orderUrl = order?.shopify_order_status_url ?? payload?.order?.order_status_url ?? undefined;
+  const recipientName =
+    payload?.destination?.first_name || payload?.order?.customer?.first_name || undefined;
+
+  // ---- DELIVERED branch ----
+  if (shipmentStatus === "delivered") {
+    const deliveryDate = new Date(
+      payload?.updated_at || payload?.delivered_at || Date.now(),
+    ).toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" });
+
+    const subject = `Siparişin teslim edildi — #${orderRef}`;
+    if (await alreadySent(admin, to, subject)) return { skipped: true, reason: "already_sent" };
+
+    const ok = await callSendEmail({
+      type: "order_delivered",
+      to,
+      data: {
+        recipientName,
+        orderId: orderRef,
+        deliveryDate,
+        orderUrl,
+        owner_id: order?.user_id ?? undefined,
+      },
+    });
+    return { success: ok, kind: "delivered" };
+  }
+
+  // ---- SHIPPED branch ----
   if (status && status !== "success") {
     return { skipped: true, reason: `status_${status}` };
   }
@@ -225,41 +272,76 @@ async function handleFulfillment(payload: any, admin: ReturnType<typeof createCl
   const trackingUrl =
     payload?.tracking_url || (Array.isArray(payload?.tracking_urls) ? payload.tracking_urls[0] : undefined);
   const shippingCompany = payload?.tracking_company || "Kargo";
-  const order = await resolveOrderForFulfillment(payload, admin);
-  const orderRef =
-    order?.shopify_order_number ||
-    payload?.order?.name?.replace?.(/^#/, "") ||
-    String(payload?.order_number ?? payload?.order_id ?? payload?.order?.id ?? "");
-
-  // Recipient: fulfillment payload doesn't always include email; look it up on the order via Shopify Admin if needed.
-  // Prefer email from destination/order.customer if present in webhook.
-  const to =
-    payload?.email ||
-    payload?.destination?.email ||
-    payload?.order?.email ||
-    payload?.order?.customer?.email;
-
-  if (!to) {
-    console.log("shopify-webhook: fulfillment has no recipient email, order_id=", orderId);
-    return { skipped: true, reason: "no_email" };
-  }
 
   const subject = `Siparişin yola çıktı — Takip #${trackingNumber}`;
-  if (await alreadySent(admin, to, subject)) {
-    return { skipped: true, reason: "already_sent" };
-  }
+  if (await alreadySent(admin, to, subject)) return { skipped: true, reason: "already_sent" };
 
   const ok = await callSendEmail({
     type: "shipping_notification",
     to,
     data: {
-      recipientName: payload?.destination?.first_name || payload?.order?.customer?.first_name || undefined,
+      recipientName,
       orderId: orderRef,
       shippingCompany,
       trackingNumber,
       trackingUrl,
-      orderUrl: order?.shopify_order_status_url ?? payload?.order?.order_status_url ?? undefined,
+      orderUrl,
       owner_id: order?.user_id ?? undefined,
+    },
+  });
+
+  return { success: ok, kind: "shipped" };
+}
+
+async function handleOrderCancelled(payload: any, admin: ReturnType<typeof createClient>) {
+  const to = payload?.email || payload?.contact_email || payload?.customer?.email;
+  if (!to) return { skipped: true, reason: "no_email" };
+
+  const orderNumber = payload?.order_number != null ? String(payload.order_number) : null;
+  const orderName = payload?.name ? String(payload.name).replace(/^#/, "") : null;
+  const orderRef = orderNumber ?? orderName ?? String(payload?.id ?? "");
+  const currency = payload?.currency;
+
+  // Total refunded across all refunds on the order, fallback to total_price.
+  let refundNumeric = 0;
+  const refunds = Array.isArray(payload?.refunds) ? payload.refunds : [];
+  for (const r of refunds) {
+    const txs = Array.isArray(r?.transactions) ? r.transactions : [];
+    for (const t of txs) {
+      const amt = parseFloat(String(t?.amount ?? "0"));
+      if (isFinite(amt)) refundNumeric += amt;
+    }
+  }
+  if (refundNumeric <= 0) {
+    const totalPrice = parseFloat(String(payload?.total_price ?? "0"));
+    if (isFinite(totalPrice)) refundNumeric = totalPrice;
+  }
+  const refundAmount = formatMoney(refundNumeric, currency) ?? String(refundNumeric.toFixed(2));
+
+  const reason = payload?.cancel_reason ? String(payload.cancel_reason) : undefined;
+  const orderUrl = payload?.order_status_url ?? undefined;
+
+  // Resolve owner_id via DB.
+  const shopifyOrderGid = payload?.admin_graphql_api_id ?? `gid://shopify/Order/${payload?.id}`;
+  const { data: orderRow } = await admin
+    .from("orders")
+    .select("user_id, shopify_order_number, shopify_order_status_url")
+    .eq("external_reference_id", shopifyOrderGid)
+    .maybeSingle();
+
+  const subject = `Sipariş #${orderRef} iptal edildi — İade ${refundAmount}`;
+  if (await alreadySent(admin, to, subject)) return { skipped: true, reason: "already_sent" };
+
+  const ok = await callSendEmail({
+    type: "order_cancelled",
+    to,
+    data: {
+      recipientName: payload?.customer?.first_name || payload?.billing_address?.first_name || undefined,
+      orderId: orderRow?.shopify_order_number ?? orderRef,
+      refundAmount,
+      reason,
+      orderUrl: orderRow?.shopify_order_status_url ?? orderUrl,
+      owner_id: orderRow?.user_id ?? undefined,
     },
   });
 
