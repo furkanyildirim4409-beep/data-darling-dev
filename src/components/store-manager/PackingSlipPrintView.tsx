@@ -5,6 +5,7 @@ interface OrderItem {
   created_at: string;
   shipping_address: any;
   tracking_number: string | null;
+  shopify_order_number?: string | null;
 }
 
 interface Props {
@@ -12,8 +13,10 @@ interface Props {
   coachName?: string;
 }
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 /** Deterministic pseudo-barcode generated from the order ID hash. */
 function Barcode({ value }: { value: string }) {
