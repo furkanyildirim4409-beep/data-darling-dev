@@ -188,12 +188,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string, platform: AuthPlatform = 'coach') => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: getAuthRedirectUrl(platform, '/reset-password'),
+    });
+    if (error) toast.error(error.message);
+    return { error };
+  };
+
   const isSubCoach = !!teamMember;
   const activeCoachId = teamMember ? teamMember.head_coach_id : user?.id ?? null;
   const teamMemberPermissions = teamMember?.permissions ?? null;
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, resetPassword, refreshProfile }}>
+
       {children}
     </AuthContext.Provider>
   );
