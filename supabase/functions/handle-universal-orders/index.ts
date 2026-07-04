@@ -326,32 +326,6 @@ async function handleDirectFulfillment(req: Request, payload: unknown) {
     .single();
   if (updateErr) return jsonResponse({ error: `DB update failed: ${updateErr.message}` }, 500);
 
-  const emailResult: Record<string, unknown> = {};
-  if (action.action === "ship" && updatedOrder?.user_id) {
-    const { data: profile } = await supaAdmin
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", updatedOrder.user_id)
-      .maybeSingle();
-
-    if (profile?.email) {
-      emailResult.shippingEmail = await dispatchShippingNotification({
-        supabaseUrl: SUPABASE_URL,
-        serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
-        admin: supaAdmin,
-        to: profile.email,
-        recipientName: profile.full_name || "Kullanıcı",
-        ownerId: updatedOrder.user_id,
-        order: updatedOrder,
-        trackingNumber: action.trackingNumber.trim(),
-        trackingUrl: action.trackingUrl?.trim() || null,
-        shippingCompany: action.carrierName.trim() || "Kargo",
-      });
-    } else {
-      emailResult.shippingEmail = { skipped: true, reason: "no_profile_email" };
-    }
-  }
-
   console.log(`handle-universal-orders: ${action.action} synced`, {
     orderId: action.orderId,
     externalReferenceId: externalRef,
@@ -362,7 +336,6 @@ async function handleDirectFulfillment(req: Request, payload: unknown) {
     success: true,
     order: updatedOrder,
     ...(Object.keys(warnings).length ? { warnings } : {}),
-    ...(Object.keys(emailResult).length ? { email: emailResult } : {}),
   });
 }
 
