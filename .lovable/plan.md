@@ -1,26 +1,59 @@
-## Sorun
-`Register.tsx` formu telefon numarasını topluyor ve `AuthContext.signUp` bunu `raw_user_meta_data.pending_phone` olarak Supabase'e yolluyor. Ancak `handle_new_user` trigger'ı bu değeri hiçbir tabloya yazmıyor → telefon kayboluyor.
+# Shopify → Dynabolic Custom Email Pipeline
 
-## Mimari Notu
-Projede `profiles` tablosunda `phone` sütunu **yok** (ve olmamalı). Hassas PII (telefon, IBAN vb.) güvenlik gereği ayrı bir owner-only tabloda tutuluyor:
+## Amaç
+Shopify'ın varsayılan mail sistemi devre dışı bırakılıp; `orders/create`, `orders/paid`, `fulfillments/create`, `fulfillments/update` webhook'ları Supabase Edge Function'a düşecek. Marka temalı HTML mailler Resend üzerinden gönderilecek.
 
-- `public.profile_secrets (user_id uuid PK, phone_number text, iban text, ...)`
-- `AuthContext.fetchProfile` zaten telefon/iban için buradan okuyor.
-- `PhoneVerification.tsx` telefon güncellemesini burada yapıyor.
+## Mevcut Durum (keşif)
+- `supabase/functions/send-email` zaten `order_receipt` tipini destekliyor (React Email + Resend). Ancak `_shared/email-templates/order-receipt.tsx` **placeholder** — HTML tasarımı henüz gelmedi.
+- Kargo maili için ne template ne de tip mevcut.
+- `handle-universal-orders` maili **iç `orders` tablosu** status değişimlerinden tetikliyor — Shopify webhook değil. Shopify webhook uç noktası projede yok.
 
-Bu yüzden telefonu `profiles`'a değil `profile_secrets`'a yazmak doğru mimari.
+## Yapılacaklar
 
-## Çözüm
-Tek bir migration ile `handle_new_user()` fonksiyonunu genişletmek:
+### 1. Yeni React Email şablonları (placeholder olarak eklenecek, HTML'i sen yapıştıracaksın)
+- `supabase/functions/_shared/email-templates/order-receipt.tsx` — mevcut placeholder korunur; yeni gelen HTML buraya işlenir. Propları: `recipientName, orderRef (orderId), itemsDescription, items[], subtotal, shipping, totalAmount, orderUrl`.
+- `supabase/functions/_shared/email-templates/shipping-notification.tsx` — **yeni**. Propları: `recipientName, orderId, shippingCompany, trackingNumber, trackingUrl, orderUrl`.
 
-1. `raw_user_meta_data->>'pending_phone'` değerini oku.
-2. Basit doğrulama (E.164 benzeri: `^\+?[0-9]{10,20}$`, aksi halde yok say).
-3. Geçerli ise `INSERT INTO public.profile_secrets (user_id, phone_number) VALUES (new.id, v_phone) ON CONFLICT (user_id) DO UPDATE SET phone_number = EXCLUDED.phone_number WHERE public.profile_secrets.phone_number IS NULL;` (mevcut telefonu ezmez).
+### 2. `send-email` fonksiyonuna `shipping_notification` tipi
+- Zod şeması + `renderEmail` switch dalı eklenir.
+- `from`: `Dynabolic Lojistik <logistics@dynabolic.co>` (mevcut konvansiyonla uyumlu). Sipariş için `orders@dynabolic.co` mevcut kalır. `info@dynabolic.co` istersen bunu tek adres olarak da ayarlayabiliriz — aşağıda not.
+- Subject şablonları:
+  - Sipariş: `Sipariş #{orderId} onaylandı`
+  - Kargo: `Siparişin yola çıktı — Takip #{trackingNumber}`
 
-## Frontend
-Değişiklik gerekmez — `Register.tsx` zaten telefonu normalize edip `signUp(...phone)` ile yolluyor ve `AuthContext` `pending_phone` metadata'sına ekliyor.
+### 3. Yeni edge function: `shopify-webhook`
+`supabase/functions/shopify-webhook/index.ts`
 
-## Doğrulanmayan telefon uyarısı
-`PhoneVerification.tsx` akışı telefon **doğrulama** için Twilio OTP kullanıyor. Bu değişiklikte kayıt anındaki telefon `is_verified=false` mantığıyla saklanır (profile_secrets'ta doğrulama alanı yoksa dokunmuyoruz; kullanıcı Ayarlar → Güvenlik'ten SMS doğrulaması yapmaya devam edebilir — mevcut UX korunuyor).
+Sorumluluklar:
+- HMAC doğrulaması: `X-Shopify-Hmac-Sha256` header'ı `SHOPIFY_WEBHOOK_SECRET` ile HMAC-SHA256 base64 üzerinden karşılaştırılır (raw body ile). Geçersizse `401`.
+- Topic ayrımı: `X-Shopify-Topic` header'ı ile:
+  - `orders/create` **veya** `orders/paid` → `order_receipt` maili
+    - Payload'dan: `id → orderId`, `email → to`, `customer.first_name → recipientName`, `line_items[] → items[] + itemsDescription`, `subtotal_price, total_shipping_price_set, total_price → tutarlar`, `order_status_url → orderUrl`.
+    - Idempotency: aynı `orderId` için iki maili engellemek üzere `emails` tablosunda `subject` + `to_email` üzerinden son 24 saatlik kayıt kontrolü.
+  - `fulfillments/create` **veya** `fulfillments/update` → `shipping_notification` maili
+    - Payload'dan: `order_id → orderId`, `tracking_company → shippingCompany`, `tracking_number → trackingNumber`, `tracking_url (veya tracking_urls[0]) → trackingUrl`. Alıcı e-posta ayrı sorguyla veya `email` alanından.
+    - `status === 'success'` olan fulfillment'lar için gönderim yapılır. `update` çağrıldığında yalnızca yeni takip numarası varsa yeniden gönder.
+- Gönderim: dahili `fetch` ile aynı Supabase projesindeki `send-email` fonksiyonuna `Authorization: Bearer SUPABASE_SERVICE_ROLE_KEY` + `X-Webhook-Secret: CRON_SECRET` ile POST.
+- `supabase/config.toml` içine `[functions.shopify-webhook] verify_jwt = false` eklenir (Shopify JWT göndermez).
 
-Onaylarsan migration'ı gönderirim.
+### 4. Secrets
+Aşağıdaki secret'lar eklenecek (senden isteyeceğim):
+- `SHOPIFY_WEBHOOK_SECRET` — Shopify Admin → Notifications → Webhooks sayfasında görünen "Signing secret".
+
+Zaten mevcut: `RESEND_DIRECT_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
+
+### 5. Shopify tarafı (senin yapman gereken)
+- Admin → Settings → Notifications: Order confirmation, Order paid, Shipping confirmation, Shipping update mail şablonlarının içeriğini boşalt (veya minimalize et) — çift mail gitmesin.
+- Admin → Settings → Notifications → Webhooks: 4 webhook oluştur, hedef URL:
+  `https://fsbhbfltathfcpvcjfzt.supabase.co/functions/v1/shopify-webhook`
+  Topics: `orders/create`, `orders/paid`, `fulfillments/create`, `fulfillments/update`. Format: JSON.
+
+## Netleştirilmesi gereken tek konu
+**Gönderici adresi:** Mesajda "info@dynabolic.co (veya sistem mailimiz)" dedin. Mevcut proje sipariş için `orders@dynabolic.co`, kargo için `logistics@dynabolic.co` kullanıyor ve `dynabolic.co` domain'i Resend'de doğrulanmış. Planı **mevcut ayrık adreslerle** ilerleteceğim; onaydan sonra farklı istersen tek satır değişiklik.
+
+## Değişecek Dosyalar
+- `supabase/functions/_shared/email-templates/order-receipt.tsx` (HTML yapıştırma bekliyor)
+- `supabase/functions/_shared/email-templates/shipping-notification.tsx` (yeni)
+- `supabase/functions/send-email/index.ts` (yeni tip)
+- `supabase/functions/shopify-webhook/index.ts` (yeni)
+- `supabase/config.toml` (yeni fonksiyon kaydı)
