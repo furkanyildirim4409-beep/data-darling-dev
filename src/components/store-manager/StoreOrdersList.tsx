@@ -21,6 +21,8 @@ interface OrderItem {
   carrier_name: string | null;
   updated_at: string;
   expires_at: string | null;
+  shopify_order_number?: string | null;
+  shopify_order_status_url?: string | null;
 }
 
 interface Props {
@@ -57,8 +59,10 @@ const formatPrice = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<
@@ -224,7 +228,7 @@ export default function StoreOrdersList({ orders, isLoading }: Props) {
                   {/* Left: Order ID + Date */}
                   <div className="flex flex-col gap-1.5">
                     <span className="font-mono text-sm font-bold text-primary tracking-wider">
-                      {shortId(order.id)}
+                      {shortId(order.id, order.shopify_order_number)}
                     </span>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Calendar className="w-3.5 h-3.5" />

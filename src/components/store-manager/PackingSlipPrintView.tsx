@@ -5,6 +5,7 @@ interface OrderItem {
   created_at: string;
   shipping_address: any;
   tracking_number: string | null;
+  shopify_order_number?: string | null;
 }
 
 interface Props {
@@ -12,8 +13,10 @@ interface Props {
   coachName?: string;
 }
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 /** Deterministic pseudo-barcode generated from the order ID hash. */
 function Barcode({ value }: { value: string }) {
@@ -121,7 +124,7 @@ export default function PackingSlipPrintView({ order, coachName }: Props) {
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 700 }}>{shortId(order.id)}</div>
+          <div style={{ fontWeight: 700 }}>{shortId(order.id, order.shopify_order_number)}</div>
           <div style={{ fontSize: 10 }}>
             {new Date(order.created_at).toLocaleDateString("tr-TR")}
           </div>

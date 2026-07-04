@@ -52,6 +52,8 @@ interface OrderItem {
   carrier_name: string | null;
   updated_at: string;
   expires_at: string | null;
+  shopify_order_number?: string | null;
+  shopify_order_status_url?: string | null;
 }
 
 interface Props {
@@ -99,8 +101,10 @@ const extractVariantLabel = (it: any): string | null => {
   return cleaned.length ? cleaned.join(", ") : null;
 };
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 const formatPrice = (n: number) =>
   `₺${Number(n ?? 0).toLocaleString("tr-TR", {
@@ -274,7 +278,7 @@ export default function OrderFulfillmentSheet({
         <SheetHeader className="space-y-2 text-left">
           <div className="flex items-center justify-between gap-3">
             <SheetTitle className="font-mono text-primary tracking-wider">
-              {shortId(order.id)}
+              {shortId(order.id, order.shopify_order_number)}
             </SheetTitle>
             <Badge
               variant="outline"
