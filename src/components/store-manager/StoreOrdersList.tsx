@@ -21,6 +21,8 @@ interface OrderItem {
   carrier_name: string | null;
   updated_at: string;
   expires_at: string | null;
+  shopify_order_number?: string | null;
+  shopify_order_status_url?: string | null;
 }
 
 interface Props {
