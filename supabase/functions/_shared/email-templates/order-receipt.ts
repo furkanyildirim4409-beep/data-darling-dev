@@ -140,13 +140,41 @@ function escapeHtml(v: string): string {
     .replace(/'/g, "&#39;")
 }
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function truncate(s: string, n = 180): string {
+  if (s.length <= n) return s
+  return s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'
+}
+
 function buildItemsDescription(items: OrderReceiptItem[]): string {
   return items
     .map((i) => {
-      const line = i.lineTotal != null ? ` — ${escapeHtml(String(i.lineTotal))}` : ''
-      return `${escapeHtml(i.title)} × ${i.quantity}${line}`
+      const img = i.image
+        ? `<img src="${escapeHtml(i.image)}" alt="${escapeHtml(i.title)}" width="72" height="72" style="display:block;width:72px;height:72px;border-radius:10px;background:#0b0b0e;object-fit:cover;border:1px solid #27272a;">`
+        : `<div style="width:72px;height:72px;border-radius:10px;background:#0b0b0e;border:1px solid #27272a;"></div>`
+      const desc = i.description
+        ? `<p style="margin:6px 0 0 0;font-family:'Inter',sans-serif;font-size:12px;color:#71717a;line-height:18px;">${escapeHtml(truncate(stripHtml(i.description)))}</p>`
+        : ''
+      const lineTotal = i.lineTotal != null
+        ? `<p style="margin:0;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:#D4FF00;white-space:nowrap;">${escapeHtml(String(i.lineTotal))}</p>`
+        : ''
+      return `
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 12px 0;">
+          <tr>
+            <td width="72" valign="top" style="padding-right:14px;">${img}</td>
+            <td valign="top">
+              <p style="margin:0;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:#fafafa;line-height:20px;">${escapeHtml(i.title)}</p>
+              <p style="margin:2px 0 0 0;font-family:'Inter',sans-serif;font-size:12px;color:#a1a1aa;">Adet: ${i.quantity}${i.unitPrice != null ? ` · Birim: ${escapeHtml(String(i.unitPrice))}` : ''}</p>
+              ${desc}
+            </td>
+            <td valign="top" align="right" style="padding-left:12px;">${lineTotal}</td>
+          </tr>
+        </table>`
     })
-    .join('<br>')
+    .join('')
 }
 
 export function renderOrderReceiptHtml(data: OrderReceiptData): string {
