@@ -1,94 +1,59 @@
-# Dinamik `emailRedirectTo` Mimarisi
+## Sorun
+`Register.tsx` sayfasında koç kayıt olurken `signUp` metadata'ya `role: 'coach'` gönderiyor, ancak veritabanındaki `public.handle_new_user()` trigger fonksiyonu (son güvenlik/pentest migrasyonlarından sonra) metadata'yı yok sayıp **her yeni kullanıcıyı sabit olarak `athlete`** kaydediyor:
 
-## Amaç
-Supabase auth mailleri (signup doğrulama, magic link, şifre sıfırlama) tetiklendiğinde link, isteği yapan platforma göre doğru domaine yönlensin:
-- Koç → `https://app.dynabolic.co/auth/callback`
-- Öğrenci → `https://dynabolic.co/auth/callback`
-- Localhost / preview → `window.location.origin/auth/callback` (geliştirme kolaylığı)
-
-## Bu Repo (Koç Paneli) İçindeki Durum Tespiti
-Kod taramasında bulunan tek e-posta bazlı auth çağrısı:
-
-- `src/contexts/AuthContext.tsx` → `supabase.auth.signUp(...)` içinde sabit `emailRedirectTo: \`${window.location.origin}/auth/callback\``.
-
-Diğerleri e-posta akışı değil, dolayısıyla `emailRedirectTo` gerektirmiyor:
-- `src/pages/Login.tsx` ve `src/components/settings/TwilioSmsTest.tsx` içindeki `signInWithOtp` çağrıları **SMS** (`phone` + `channel: 'sms'`).
-- `resetPasswordForEmail` çağrısı repoda **yok** (şu an şifre sıfırlama akışı yalnızca zorunlu reset sonrası `updateUser` ile yürüyor).
-
-Not: Öğrenci uygulaması ayrı bir Lovable projesi (`81cfe6d0-...`). Aynı değişiklik orada da uygulanmalı; bu plan bu repoya (koç paneli) odaklanır. Değişiklik sonrası öğrenci projesi için de eşdeğer talebi verirsen aynı yardımcıyı orada da kuracağım.
-
-## Değişiklikler
-
-### 1. Yeni yardımcı: `src/lib/authRedirect.ts`
-Tek doğru kaynak. Rol/context alır, doğru URL üretir.
-
-```ts
-export type AuthPlatform = 'coach' | 'athlete';
-
-const COACH_URL = 'https://app.dynabolic.co';
-const ATHLETE_URL = 'https://dynabolic.co';
-
-export function getAuthRedirectUrl(
-  platform: AuthPlatform,
-  path: string = '/auth/callback'
-): string {
-  // Localhost + Lovable preview → mevcut origin'de kal (dev DX)
-  const host = window.location.hostname;
-  const isDev =
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host.endsWith('.lovable.app') ||
-    host.endsWith('.lovableproject.com');
-
-  if (isDev) return `${window.location.origin}${path}`;
-
-  const base = platform === 'athlete' ? ATHLETE_URL : COACH_URL;
-  return `${base}${path}`;
-}
+```sql
+INSERT INTO public.profiles (..., role, ...) VALUES (..., 'athlete', ...);
+INSERT INTO public.user_roles (user_id, role) VALUES (new.id, 'athlete') ...
 ```
 
-### 2. `src/contexts/AuthContext.tsx`
-`signUp` içinde `selectedRole`'e göre redirect seç:
+Bu yüzden koç panelinden `Kayıt Ol` diyen kullanıcı `profiles.role = 'athlete'` oluyor, `ProtectedRoute` `allowedRoles=['coach']` kontrolüne takılıp **"Yetkisiz Erişim"** hatası alıyor.
 
-```ts
-import { getAuthRedirectUrl } from '@/lib/authRedirect';
+## Çözüm
+Tek bir migration ile `handle_new_user()` fonksiyonunu düzeltmek:
 
-// ...
-const { error } = await supabase.auth.signUp({
-  email,
-  password,
-  options: {
-    data: metadata,
-    emailRedirectTo: getAuthRedirectUrl(
-      selectedRole === 'athlete' ? 'athlete' : 'coach'
-    ),
-  },
-});
+1. `raw_user_meta_data->>'role'` değerini oku, sadece `'coach'` veya `'athlete'` olarak whitelist et; yoksa `'athlete'` fallback.
+2. Eğer `raw_user_meta_data->>'invite_token'` varsa (sporcu daveti akışı) → zorla `athlete`.
+3. `profiles.role` ve `user_roles.role` bu doğru değerle yazılsın.
+4. Koç ise `handle_coach_signup` benzeri mevcut mantık bozulmasın — sadece rol atanışını düzeltiyoruz, başka alanlara dokunmuyoruz.
+
+## Etkilenmeyen alanlar
+- `Register.tsx`, `AuthContext.tsx`, edge functions — değişiklik yok, halihazırda doğru metadata gönderiyorlar.
+- RLS policy'leri — dokunulmayacak; sadece trigger düzeltilecek.
+- Zaten yanlış kaydolmuş kullanıcılar için: onaylarsan ayrı bir data-fix (`UPDATE profiles SET role='coach' WHERE id IN (...)`) çalıştırılabilir; hangi kullanıcıları düzelteceğimizi söylersen listeyi ID/email üzerinden güncelleriz.
+
+## Teknik detay (migration özeti)
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='public' AS $$
+DECLARE
+  v_username text;
+  v_role text;
+BEGIN
+  v_username := lower(trim(new.raw_user_meta_data->>'username'));
+  IF v_username IS NULL OR v_username !~ '^[a-z0-9_]{3,20}$' THEN v_username := NULL; END IF;
+
+  v_role := lower(coalesce(new.raw_user_meta_data->>'role',''));
+  IF NULLIF(new.raw_user_meta_data->>'invite_token','') IS NOT NULL THEN
+    v_role := 'athlete';
+  ELSIF v_role NOT IN ('coach','athlete') THEN
+    v_role := 'athlete';
+  END IF;
+
+  INSERT INTO public.profiles (id, full_name, avatar_url, role, email, username)
+  VALUES (new.id,
+          coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)),
+          new.raw_user_meta_data->>'avatar_url',
+          v_role, new.email, v_username)
+  ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email,
+        username = CASE WHEN public.profiles.username IS NULL THEN EXCLUDED.username ELSE public.profiles.username END;
+
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (new.id, v_role::app_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  RETURN new;
+END; $$;
 ```
 
-Ayrıca `AuthContext`e ileride kullanılmak üzere ince bir sarmalayıcı ekleyeceğim (opsiyonel, aynı PR'da):
-
-```ts
-const resetPassword = (email: string, platform: AuthPlatform = 'coach') =>
-  supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: getAuthRedirectUrl(platform, '/reset-password'),
-  });
-```
-
-Context'e `resetPassword` olarak eklenecek; şu an çağıran yok, kullanıma hazır.
-
-### 3. Değişmeyecek dosyalar
-- `TwilioSmsTest.tsx`, `Login.tsx`: SMS OTP, `emailRedirectTo` uygulanmaz.
-- `supabase/functions/_shared/email-templates/*`: link Supabase tarafından `{{ .ConfirmationURL }}` olarak enjekte ediliyor; `emailRedirectTo` zaten bu URL'nin origin'ini belirler, template değişikliği gerekmez.
-
-## Supabase Dashboard Notu (kullanıcı aksiyonu)
-`emailRedirectTo`'nun kabul edilmesi için Supabase Auth → URL Configuration → **Redirect URLs** listesine şunlar eklenmiş olmalı (yoksa Supabase URL'yi Site URL'ye düşürür):
-
-- `https://app.dynabolic.co/auth/callback`
-- `https://app.dynabolic.co/reset-password`
-- `https://dynabolic.co/auth/callback`
-- `https://dynabolic.co/reset-password`
-- `http://localhost:8080/**` (dev)
-- `https://*.lovable.app/**` (preview)
-
-Onay verirsen plan mode'dan çıkıp uygularım.
+Onay verirsen migration'ı gönderirim; ayrıca yanlış kaydolmuş mevcut koçları düzeltmemi istiyorsan email/ID listesini paylaş.
