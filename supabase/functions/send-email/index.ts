@@ -16,6 +16,14 @@ import {
   renderShippingNotificationHtml,
   renderShippingNotificationText,
 } from '../_shared/email-templates/shipping-notification.ts'
+import {
+  renderOrderDeliveredHtml,
+  renderOrderDeliveredText,
+} from '../_shared/email-templates/order-delivered.ts'
+import {
+  renderOrderCancelledHtml,
+  renderOrderCancelledText,
+} from '../_shared/email-templates/order-cancelled.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,11 +80,30 @@ const ShippingNotificationData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
+const OrderDeliveredData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  deliveryDate: z.string().min(1).max(80),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
+const OrderCancelledData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  refundAmount: z.string().min(1).max(80),
+  reason: z.string().max(500).optional(),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
   z.object({ type: z.literal('shipping_notification'), to: z.string().email(), data: ShippingNotificationData }),
+  z.object({ type: z.literal('order_delivered'), to: z.string().email(), data: OrderDeliveredData }),
+  z.object({ type: z.literal('order_cancelled'), to: z.string().email(), data: OrderCancelledData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
@@ -127,6 +154,22 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       const subject = `Siparişin yola çıktı — Takip #${req.data.trackingNumber}`
       ownerId = req.data.owner_id
       from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
+      return { subject, html, text, ownerId, from }
+    }
+    case 'order_delivered': {
+      const html = renderOrderDeliveredHtml(req.data)
+      const text = renderOrderDeliveredText(req.data)
+      const subject = `Siparişin teslim edildi — #${req.data.orderId}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
+      return { subject, html, text, ownerId, from }
+    }
+    case 'order_cancelled': {
+      const html = renderOrderCancelledHtml(req.data)
+      const text = renderOrderCancelledText(req.data)
+      const subject = `Sipariş #${req.data.orderId} iptal edildi — İade ${req.data.refundAmount}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic <orders@dynabolic.co>'
       return { subject, html, text, ownerId, from }
     }
   }
