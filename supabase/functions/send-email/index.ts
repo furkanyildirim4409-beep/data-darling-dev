@@ -103,6 +103,12 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       ownerId = req.data.owner_id
       from = 'Dynabolic <orders@dynabolic.co>'
       break
+    case 'shipping_notification':
+      element = React.createElement(ShippingNotificationEmail, req.data)
+      subject = `Siparişin yola çıktı — Takip #${req.data.trackingNumber}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
+      break
   }
 
   const [html, text] = await Promise.all([
