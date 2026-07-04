@@ -8,6 +8,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { WelcomeEmail } from '../_shared/email-templates/welcome.tsx'
 import { NotificationEmail } from '../_shared/email-templates/notification.tsx'
 import { OrderReceiptEmail, type OrderReceiptItem } from '../_shared/email-templates/order-receipt.tsx'
+import { ShippingNotificationEmail } from '../_shared/email-templates/shipping-notification.tsx'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
