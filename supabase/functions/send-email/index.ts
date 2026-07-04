@@ -53,10 +53,21 @@ const OrderReceiptData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
+const ShippingNotificationData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  shippingCompany: z.string().min(1).max(120),
+  trackingNumber: z.string().min(1).max(120),
+  trackingUrl: z.string().url().optional(),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
+  z.object({ type: z.literal('shipping_notification'), to: z.string().email(), data: ShippingNotificationData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
