@@ -59,8 +59,10 @@ const formatPrice = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<
