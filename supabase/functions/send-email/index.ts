@@ -156,6 +156,22 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
       return { subject, html, text, ownerId, from }
     }
+    case 'order_delivered': {
+      const html = renderOrderDeliveredHtml(req.data)
+      const text = renderOrderDeliveredText(req.data)
+      const subject = `Siparişin teslim edildi — #${req.data.orderId}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
+      return { subject, html, text, ownerId, from }
+    }
+    case 'order_cancelled': {
+      const html = renderOrderCancelledHtml(req.data)
+      const text = renderOrderCancelledText(req.data)
+      const subject = `Sipariş #${req.data.orderId} iptal edildi — İade ${req.data.refundAmount}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic <orders@dynabolic.co>'
+      return { subject, html, text, ownerId, from }
+    }
   }
 }
 
