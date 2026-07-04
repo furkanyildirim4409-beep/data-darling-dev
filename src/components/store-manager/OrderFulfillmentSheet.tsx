@@ -278,7 +278,7 @@ export default function OrderFulfillmentSheet({
         <SheetHeader className="space-y-2 text-left">
           <div className="flex items-center justify-between gap-3">
             <SheetTitle className="font-mono text-primary tracking-wider">
-              {shortId(order.id)}
+              {shortId(order.id, order.shopify_order_number)}
             </SheetTitle>
             <Badge
               variant="outline"
