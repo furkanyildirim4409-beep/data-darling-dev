@@ -228,7 +228,7 @@ export default function StoreOrdersList({ orders, isLoading }: Props) {
                   {/* Left: Order ID + Date */}
                   <div className="flex flex-col gap-1.5">
                     <span className="font-mono text-sm font-bold text-primary tracking-wider">
-                      {shortId(order.id)}
+                      {shortId(order.id, order.shopify_order_number)}
                     </span>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Calendar className="w-3.5 h-3.5" />
