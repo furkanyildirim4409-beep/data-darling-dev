@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.shopify-webhook]
 verify_jwt = false
+
+[functions.dev-trigger-email]
+verify_jwt = false
