@@ -1,7 +1,7 @@
 // Dev/test trigger for the order_receipt email.
 // Two modes:
 //   1) Passthrough: { type, to, data }  → forwards straight to send-email
-//   2) Order-by-id: { orderId, to? }     → loads orders row, enriches from Shopify
+//   2) Order-by-id: { orderId, to?, type? } → loads orders row, enriches from Shopify
 //      (fetches shopify_order_number, order_status_url, product images + descriptions),
 //      persists them to the DB, then invokes send-email.
 
@@ -92,8 +92,8 @@ Deno.serve(async (req) => {
 
     const payload = await req.json();
 
-    // Mode 1: passthrough
-    if (payload?.type && payload?.to) {
+    // Mode 1: passthrough without an order. Never invent tracking/order data here.
+    if (payload?.type && payload?.to && !payload?.orderId) {
       const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
@@ -164,6 +164,39 @@ Deno.serve(async (req) => {
       enrichment.orderStatusUrl ??
       order.shopify_order_status_url ??
       `https://app.dynabolic.co/orders/${order.id}`;
+
+    if (payload?.type === "shipping_notification") {
+      const trackingNumber = String(payload?.trackingNumber ?? order.tracking_number ?? "").trim();
+      if (!trackingNumber) return json({ error: "tracking number missing on order" }, 400);
+
+      const trackingUrl = payload?.trackingUrl ?? order.tracking_url ?? undefined;
+      const shippingCompany = payload?.shippingCompany ?? order.carrier_name ?? "Kargo";
+      const recipientName = payload?.recipientName;
+      const emailPayload = {
+        type: "shipping_notification",
+        to,
+        data: {
+          recipientName,
+          orderId: orderRef,
+          shippingCompany,
+          trackingNumber,
+          ...(trackingUrl ? { trackingUrl } : {}),
+          ...(ctaUrl ? { orderUrl: ctaUrl } : {}),
+          ...(order.user_id ? { owner_id: order.user_id } : {}),
+        },
+      };
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+        body: JSON.stringify(emailPayload),
+      });
+      const body = await res.text();
+      return new Response(body, {
+        status: res.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const emailPayload = {
       type: "order_receipt",

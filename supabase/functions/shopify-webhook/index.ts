@@ -41,16 +41,12 @@ async function verifyHmac(rawBody: string, signature: string, secret: string): P
 async function callSendEmail(payload: Record<string, unknown>) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
   const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${svcKey}`,
-      "X-Webhook-Secret": cronSecret,
-      apikey: anon,
     },
     body: JSON.stringify(payload),
   });
@@ -84,6 +80,23 @@ function formatMoney(amount: unknown, currency?: string) {
   const cur = currency || "TRY";
   const symbol = cur === "TRY" ? "₺" : cur;
   return `${n.toFixed(2)} ${symbol}`;
+}
+
+function shopifyGidFromNumericId(id: unknown) {
+  const raw = String(id ?? "").trim();
+  return raw ? `gid://shopify/Order/${raw}` : null;
+}
+
+async function resolveOrderForFulfillment(payload: any, admin: ReturnType<typeof createClient>) {
+  const orderGid = payload?.order?.admin_graphql_api_id ?? shopifyGidFromNumericId(payload?.order_id ?? payload?.order?.id);
+  if (!orderGid) return null;
+
+  const { data } = await admin
+    .from("orders")
+    .select("id, user_id, shopify_order_number, shopify_order_status_url, external_reference_id")
+    .eq("external_reference_id", orderGid)
+    .maybeSingle();
+  return data ?? { external_reference_id: orderGid };
 }
 
 async function handleOrder(payload: any, admin: ReturnType<typeof createClient>) {
@@ -212,7 +225,11 @@ async function handleFulfillment(payload: any, admin: ReturnType<typeof createCl
   const trackingUrl =
     payload?.tracking_url || (Array.isArray(payload?.tracking_urls) ? payload.tracking_urls[0] : undefined);
   const shippingCompany = payload?.tracking_company || "Kargo";
-  const orderId = String(payload?.order_id ?? payload?.order?.id ?? "");
+  const order = await resolveOrderForFulfillment(payload, admin);
+  const orderRef =
+    order?.shopify_order_number ||
+    payload?.order?.name?.replace?.(/^#/, "") ||
+    String(payload?.order_number ?? payload?.order_id ?? payload?.order?.id ?? "");
 
   // Recipient: fulfillment payload doesn't always include email; look it up on the order via Shopify Admin if needed.
   // Prefer email from destination/order.customer if present in webhook.
@@ -237,10 +254,12 @@ async function handleFulfillment(payload: any, admin: ReturnType<typeof createCl
     to,
     data: {
       recipientName: payload?.destination?.first_name || payload?.order?.customer?.first_name || undefined,
-      orderId,
+      orderId: orderRef,
       shippingCompany,
       trackingNumber,
       trackingUrl,
+      orderUrl: order?.shopify_order_status_url ?? payload?.order?.order_status_url ?? undefined,
+      owner_id: order?.user_id ?? undefined,
     },
   });
 
