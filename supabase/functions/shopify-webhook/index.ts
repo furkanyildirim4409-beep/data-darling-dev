@@ -316,7 +316,7 @@ async function handleOrderCancelled(payload: any, admin: ReturnType<typeof creat
     const totalPrice = parseFloat(String(payload?.total_price ?? "0"));
     if (isFinite(totalPrice)) refundNumeric = totalPrice;
   }
-  const refundAmount = formatMoney(refundNumeric, currency) ?? String(refundNumeric.toFixed(2));
+  const refundAmount = refundNumeric.toFixed(2);
 
   const reason = payload?.cancel_reason ? String(payload.cancel_reason) : undefined;
   const orderUrl = payload?.order_status_url ?? undefined;
