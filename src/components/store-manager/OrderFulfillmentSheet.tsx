@@ -101,8 +101,10 @@ const extractVariantLabel = (it: any): string | null => {
   return cleaned.length ? cleaned.join(", ") : null;
 };
 
-const shortId = (id: string) =>
-  `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const shortId = (id: string, shopifyOrderNumber?: string | null) =>
+  shopifyOrderNumber
+    ? `#${String(shopifyOrderNumber).replace(/^#/, "")}`
+    : `#ORD-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 const formatPrice = (n: number) =>
   `₺${Number(n ?? 0).toLocaleString("tr-TR", {
