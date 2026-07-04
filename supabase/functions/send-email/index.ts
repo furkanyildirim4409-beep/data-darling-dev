@@ -8,6 +8,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { WelcomeEmail } from '../_shared/email-templates/welcome.tsx'
 import { NotificationEmail } from '../_shared/email-templates/notification.tsx'
 import { OrderReceiptEmail, type OrderReceiptItem } from '../_shared/email-templates/order-receipt.tsx'
+import { ShippingNotificationEmail } from '../_shared/email-templates/shipping-notification.tsx'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,10 +53,21 @@ const OrderReceiptData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
+const ShippingNotificationData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  shippingCompany: z.string().min(1).max(120),
+  trackingNumber: z.string().min(1).max(120),
+  trackingUrl: z.string().url().optional(),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
+  z.object({ type: z.literal('shipping_notification'), to: z.string().email(), data: ShippingNotificationData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
@@ -90,6 +102,12 @@ async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html:
       subject = `Sipariş #${req.data.orderRef} onaylandı — ${req.data.total}`
       ownerId = req.data.owner_id
       from = 'Dynabolic <orders@dynabolic.co>'
+      break
+    case 'shipping_notification':
+      element = React.createElement(ShippingNotificationEmail, req.data)
+      subject = `Siparişin yola çıktı — Takip #${req.data.trackingNumber}`
+      ownerId = req.data.owner_id
+      from = 'Dynabolic Lojistik <logistics@dynabolic.co>'
       break
   }
 
