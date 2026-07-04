@@ -65,9 +65,7 @@ const HTML = `<!DOCTYPE html>
                   <td style="padding: 24px;">
                     <p style="margin: 0 0 12px 0; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; color: #fafafa; border-bottom: 1px solid #27272a; padding-bottom: 12px;">Sipariş Özeti</p>
                     
-                    <p style="margin: 0 0 8px 0; font-family: 'Inter', sans-serif; font-size: 14px; color: #a1a1aa; display: flex; justify-content: space-between;">
-                      <span>{{ items_description }}</span>
-                    </p>
+                    <div style="margin: 0 0 8px 0;">{{ items_description }}</div>
                     
                     <p style="margin: 16px 0 0 0; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 800; color: #D4FF00; border-top: 1px solid #27272a; padding-top: 16px;">
                       TOPLAM: {{ totalAmount }} ₺
