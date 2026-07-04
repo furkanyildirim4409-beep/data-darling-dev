@@ -2078,6 +2078,8 @@ export type Database = {
           items: Json
           order_type: string
           shipping_address: Json | null
+          shopify_order_number: string | null
+          shopify_order_status_url: string | null
           status: string | null
           total_coins_used: number | null
           total_price: number
@@ -2096,6 +2098,8 @@ export type Database = {
           items: Json
           order_type?: string
           shipping_address?: Json | null
+          shopify_order_number?: string | null
+          shopify_order_status_url?: string | null
           status?: string | null
           total_coins_used?: number | null
           total_price: number
@@ -2114,6 +2118,8 @@ export type Database = {
           items?: Json
           order_type?: string
           shipping_address?: Json | null
+          shopify_order_number?: string | null
+          shopify_order_status_url?: string | null
           status?: string | null
           total_coins_used?: number | null
           total_price?: number
