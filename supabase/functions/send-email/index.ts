@@ -80,11 +80,30 @@ const ShippingNotificationData = z.object({
   owner_id: z.string().uuid().optional(),
 })
 
+const OrderDeliveredData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  deliveryDate: z.string().min(1).max(80),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
+const OrderCancelledData = z.object({
+  recipientName: z.string().max(200).optional(),
+  orderId: z.string().min(1).max(80),
+  refundAmount: z.string().min(1).max(80),
+  reason: z.string().max(500).optional(),
+  orderUrl: z.string().url().optional(),
+  owner_id: z.string().uuid().optional(),
+})
+
 const RequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('welcome'), to: z.string().email(), data: WelcomeData.default({}) }),
   z.object({ type: z.literal('notification'), to: z.string().email(), data: NotificationData }),
   z.object({ type: z.literal('order_receipt'), to: z.string().email(), data: OrderReceiptData }),
   z.object({ type: z.literal('shipping_notification'), to: z.string().email(), data: ShippingNotificationData }),
+  z.object({ type: z.literal('order_delivered'), to: z.string().email(), data: OrderDeliveredData }),
+  z.object({ type: z.literal('order_cancelled'), to: z.string().email(), data: OrderCancelledData }),
 ])
 
 type ParsedRequest = z.infer<typeof RequestSchema>
