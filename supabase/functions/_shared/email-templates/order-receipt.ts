@@ -7,6 +7,8 @@ export interface OrderReceiptItem {
   quantity: number
   unitPrice?: number | string
   lineTotal?: number | string
+  image?: string
+  description?: string
 }
 
 export interface OrderReceiptData {
