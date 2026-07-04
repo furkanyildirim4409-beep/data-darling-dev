@@ -80,11 +80,6 @@ const RequestSchema = z.discriminatedUnion('type', [
 type ParsedRequest = z.infer<typeof RequestSchema>
 
 // ---------- Rendering ----------
-async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html: string; text: string; ownerId?: string; from: string }> {
-  let element: React.ReactElement
-  let subject: string
-  let from = 'Dynabolic <noreply@dynabolic.co>'
-  let ownerId: string | undefined
 
 async function renderEmail(req: ParsedRequest): Promise<{ subject: string; html: string; text: string; ownerId?: string; from: string }> {
   let from = 'Dynabolic <noreply@dynabolic.co>'
