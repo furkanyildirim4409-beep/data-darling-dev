@@ -390,6 +390,10 @@ Deno.serve(async (req) => {
       case "fulfillments/update":
         result = await handleFulfillment(payload, admin);
         break;
+      case "orders/cancelled":
+      case "refunds/create":
+        result = await handleOrderCancelled(payload, admin);
+        break;
       default:
         console.log("shopify-webhook: ignoring topic", topic);
     }
