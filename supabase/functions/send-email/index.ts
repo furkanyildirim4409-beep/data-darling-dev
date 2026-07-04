@@ -139,26 +139,14 @@ async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; 
   const auth = req.headers.get('authorization') || ''
   const webhookHeader = req.headers.get('x-webhook-secret') || ''
 
-  console.log('send-email authorize: hasAuth=', !!auth, 'hasWebhookSecret=', !!webhookHeader, 'hasCronSecret=', !!cronSecret, 'hasSvcKey=', !!svcKey)
-
   if (cronSecret && webhookHeader === cronSecret) return { ok: true, isServer: true }
   if (svcKey && auth === `Bearer ${svcKey}`) return { ok: true, isServer: true }
 
-  if (!auth.startsWith('Bearer ')) {
-    return { ok: false }
-  }
-
-  if (!auth.startsWith('Bearer ')) {
-    console.log('send-email authorize: no bearer prefix, auth header value length=', auth.length)
-    return { ok: false }
-  }
+  if (!auth.startsWith('Bearer ')) return { ok: false }
 
   const supaUrl = Deno.env.get('SUPABASE_URL')
   const anon = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!supaUrl || !anon) {
-    console.log('send-email authorize: missing supaUrl or anon')
-    return { ok: false }
-  }
+  if (!supaUrl || !anon) return { ok: false }
 
   const supa = createClient(supaUrl, anon, { global: { headers: { Authorization: auth } } })
   const token = auth.replace('Bearer ', '')
