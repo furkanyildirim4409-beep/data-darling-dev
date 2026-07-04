@@ -145,6 +145,10 @@ async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; 
   if (svcKey && auth === `Bearer ${svcKey}`) return { ok: true, isServer: true }
 
   if (!auth.startsWith('Bearer ')) {
+    return { ok: false }
+  }
+
+  if (!auth.startsWith('Bearer ')) {
     console.log('send-email authorize: no bearer prefix, auth header value length=', auth.length)
     return { ok: false }
   }
