@@ -49,6 +49,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string, phone?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string, platform?: AuthPlatform) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
 }
 
