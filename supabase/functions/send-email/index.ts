@@ -16,6 +16,14 @@ import {
   renderShippingNotificationHtml,
   renderShippingNotificationText,
 } from '../_shared/email-templates/shipping-notification.ts'
+import {
+  renderOrderDeliveredHtml,
+  renderOrderDeliveredText,
+} from '../_shared/email-templates/order-delivered.ts'
+import {
+  renderOrderCancelledHtml,
+  renderOrderCancelledText,
+} from '../_shared/email-templates/order-cancelled.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
