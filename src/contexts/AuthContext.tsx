@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getAuthRedirectUrl, type AuthPlatform } from '@/lib/authRedirect';
 import type { User, Session } from '@supabase/supabase-js';
 
 export interface Profile {
@@ -155,12 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (username) metadata.username = username;
     if (phone) metadata.pending_phone = phone;
 
+    const platform: AuthPlatform = selectedRole === 'athlete' ? 'athlete' : 'coach';
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: metadata,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: getAuthRedirectUrl(platform),
       },
     });
     if (error) {
