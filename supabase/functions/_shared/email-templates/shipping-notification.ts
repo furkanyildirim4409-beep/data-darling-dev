@@ -123,13 +123,31 @@ function escapeHtml(v: string): string {
 }
 
 export function renderShippingNotificationHtml(data: ShippingNotificationData): string {
+  const trackingUrl = data.trackingUrl || data.orderUrl || ''
+  const ctaHtml = trackingUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background-color: #D4FF00; border-radius: 8px; text-align: center; box-shadow: 0 0 20px rgba(212, 255, 0, 0.15);">
+                    <a href="${escapeHtml(trackingUrl)}" style="display: inline-block; padding: 16px 32px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: #09090b; text-decoration: none; text-transform: uppercase; letter-spacing: 1px;">Kargoyu Takip Et</a>
+                  </td>
+                </tr>
+              </table>`
+    : ''
   const map: Record<string, string> = {
     orderId: escapeHtml(data.orderId),
     shippingCompany: escapeHtml(data.shippingCompany),
     trackingNumber: escapeHtml(data.trackingNumber),
-    trackingUrl: escapeHtml(data.trackingUrl || data.orderUrl || 'https://app.dynabolic.co'),
+    trackingCta: ctaHtml,
   }
-  return HTML.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => (k in map ? map[k] : ''))
+  return HTML
+    .replace(`<table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background-color: #D4FF00; border-radius: 8px; text-align: center; box-shadow: 0 0 20px rgba(212, 255, 0, 0.15);">
+                    <a href="{{ trackingUrl }}" style="display: inline-block; padding: 16px 32px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: #09090b; text-decoration: none; text-transform: uppercase; letter-spacing: 1px;">Kargoyu Takip Et</a>
+                  </td>
+                </tr>
+              </table>`, '{{ trackingCta }}')
+    .replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => (k in map ? map[k] : ''))
 }
 
 export function renderShippingNotificationText(data: ShippingNotificationData): string {
@@ -138,6 +156,6 @@ export function renderShippingNotificationText(data: ShippingNotificationData): 
     `Sipariş No: ${data.orderId}`,
     `Kargo Firması: ${data.shippingCompany}`,
     `Takip No: ${data.trackingNumber}`,
-    data.trackingUrl ? `\nTakip Linki: ${data.trackingUrl}` : '',
+    data.trackingUrl || data.orderUrl ? `\nTakip Linki: ${data.trackingUrl || data.orderUrl}` : '',
   ].filter(Boolean).join('\n')
 }
