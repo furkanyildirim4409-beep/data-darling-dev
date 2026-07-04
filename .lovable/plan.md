@@ -1,59 +1,26 @@
 ## Sorun
-`Register.tsx` sayfasında koç kayıt olurken `signUp` metadata'ya `role: 'coach'` gönderiyor, ancak veritabanındaki `public.handle_new_user()` trigger fonksiyonu (son güvenlik/pentest migrasyonlarından sonra) metadata'yı yok sayıp **her yeni kullanıcıyı sabit olarak `athlete`** kaydediyor:
+`Register.tsx` formu telefon numarasını topluyor ve `AuthContext.signUp` bunu `raw_user_meta_data.pending_phone` olarak Supabase'e yolluyor. Ancak `handle_new_user` trigger'ı bu değeri hiçbir tabloya yazmıyor → telefon kayboluyor.
 
-```sql
-INSERT INTO public.profiles (..., role, ...) VALUES (..., 'athlete', ...);
-INSERT INTO public.user_roles (user_id, role) VALUES (new.id, 'athlete') ...
-```
+## Mimari Notu
+Projede `profiles` tablosunda `phone` sütunu **yok** (ve olmamalı). Hassas PII (telefon, IBAN vb.) güvenlik gereği ayrı bir owner-only tabloda tutuluyor:
 
-Bu yüzden koç panelinden `Kayıt Ol` diyen kullanıcı `profiles.role = 'athlete'` oluyor, `ProtectedRoute` `allowedRoles=['coach']` kontrolüne takılıp **"Yetkisiz Erişim"** hatası alıyor.
+- `public.profile_secrets (user_id uuid PK, phone_number text, iban text, ...)`
+- `AuthContext.fetchProfile` zaten telefon/iban için buradan okuyor.
+- `PhoneVerification.tsx` telefon güncellemesini burada yapıyor.
+
+Bu yüzden telefonu `profiles`'a değil `profile_secrets`'a yazmak doğru mimari.
 
 ## Çözüm
-Tek bir migration ile `handle_new_user()` fonksiyonunu düzeltmek:
+Tek bir migration ile `handle_new_user()` fonksiyonunu genişletmek:
 
-1. `raw_user_meta_data->>'role'` değerini oku, sadece `'coach'` veya `'athlete'` olarak whitelist et; yoksa `'athlete'` fallback.
-2. Eğer `raw_user_meta_data->>'invite_token'` varsa (sporcu daveti akışı) → zorla `athlete`.
-3. `profiles.role` ve `user_roles.role` bu doğru değerle yazılsın.
-4. Koç ise `handle_coach_signup` benzeri mevcut mantık bozulmasın — sadece rol atanışını düzeltiyoruz, başka alanlara dokunmuyoruz.
+1. `raw_user_meta_data->>'pending_phone'` değerini oku.
+2. Basit doğrulama (E.164 benzeri: `^\+?[0-9]{10,20}$`, aksi halde yok say).
+3. Geçerli ise `INSERT INTO public.profile_secrets (user_id, phone_number) VALUES (new.id, v_phone) ON CONFLICT (user_id) DO UPDATE SET phone_number = EXCLUDED.phone_number WHERE public.profile_secrets.phone_number IS NULL;` (mevcut telefonu ezmez).
 
-## Etkilenmeyen alanlar
-- `Register.tsx`, `AuthContext.tsx`, edge functions — değişiklik yok, halihazırda doğru metadata gönderiyorlar.
-- RLS policy'leri — dokunulmayacak; sadece trigger düzeltilecek.
-- Zaten yanlış kaydolmuş kullanıcılar için: onaylarsan ayrı bir data-fix (`UPDATE profiles SET role='coach' WHERE id IN (...)`) çalıştırılabilir; hangi kullanıcıları düzelteceğimizi söylersen listeyi ID/email üzerinden güncelleriz.
+## Frontend
+Değişiklik gerekmez — `Register.tsx` zaten telefonu normalize edip `signUp(...phone)` ile yolluyor ve `AuthContext` `pending_phone` metadata'sına ekliyor.
 
-## Teknik detay (migration özeti)
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='public' AS $$
-DECLARE
-  v_username text;
-  v_role text;
-BEGIN
-  v_username := lower(trim(new.raw_user_meta_data->>'username'));
-  IF v_username IS NULL OR v_username !~ '^[a-z0-9_]{3,20}$' THEN v_username := NULL; END IF;
+## Doğrulanmayan telefon uyarısı
+`PhoneVerification.tsx` akışı telefon **doğrulama** için Twilio OTP kullanıyor. Bu değişiklikte kayıt anındaki telefon `is_verified=false` mantığıyla saklanır (profile_secrets'ta doğrulama alanı yoksa dokunmuyoruz; kullanıcı Ayarlar → Güvenlik'ten SMS doğrulaması yapmaya devam edebilir — mevcut UX korunuyor).
 
-  v_role := lower(coalesce(new.raw_user_meta_data->>'role',''));
-  IF NULLIF(new.raw_user_meta_data->>'invite_token','') IS NOT NULL THEN
-    v_role := 'athlete';
-  ELSIF v_role NOT IN ('coach','athlete') THEN
-    v_role := 'athlete';
-  END IF;
-
-  INSERT INTO public.profiles (id, full_name, avatar_url, role, email, username)
-  VALUES (new.id,
-          coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)),
-          new.raw_user_meta_data->>'avatar_url',
-          v_role, new.email, v_username)
-  ON CONFLICT (id) DO UPDATE
-    SET email = EXCLUDED.email,
-        username = CASE WHEN public.profiles.username IS NULL THEN EXCLUDED.username ELSE public.profiles.username END;
-
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (new.id, v_role::app_role)
-  ON CONFLICT (user_id, role) DO NOTHING;
-
-  RETURN new;
-END; $$;
-```
-
-Onay verirsen migration'ı gönderirim; ayrıca yanlış kaydolmuş mevcut koçları düzeltmemi istiyorsan email/ID listesini paylaş.
+Onaylarsan migration'ı gönderirim.
