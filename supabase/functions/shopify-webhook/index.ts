@@ -93,8 +93,13 @@ async function handleOrder(payload: any, admin: ReturnType<typeof createClient>)
     return { skipped: true, reason: "no_email" };
   }
 
-  const orderRef = String(payload?.order_number ?? payload?.name ?? payload?.id ?? "");
+  const orderNumber = payload?.order_number != null ? String(payload.order_number) : null;
+  const orderName = payload?.name ? String(payload.name).replace(/^#/, "") : null;
+  const orderRef = orderNumber ?? orderName ?? String(payload?.id ?? "");
   const currency = payload?.currency;
+  const orderStatusUrl = payload?.order_status_url ?? null;
+  const shopifyOrderGid = payload?.admin_graphql_api_id ?? `gid://shopify/Order/${payload?.id}`;
+
   const items = Array.isArray(payload?.line_items)
     ? payload.line_items.map((li: any) => ({
         title: String(li?.title ?? li?.name ?? "Ürün"),
@@ -104,10 +109,38 @@ async function handleOrder(payload: any, admin: ReturnType<typeof createClient>)
           li?.price != null && li?.quantity != null
             ? formatMoney(Number(li.price) * Number(li.quantity), currency)
             : undefined,
+        image: li?.image?.src ?? li?.image_url ?? li?.product?.image?.src ?? undefined,
+        description: li?.product?.body_html ?? li?.body_html ?? undefined,
+        product_id: li?.product_id,
       }))
     : [];
 
-  if (items.length === 0) items.push({ title: "Dynabolic Sipariş", quantity: 1 });
+  // Enrich missing image/description via Shopify Admin API (best effort, non-blocking on failure).
+  try {
+    const needsLookup = items.filter((i) => (!i.image || !i.description) && i.product_id);
+    if (needsLookup.length > 0) {
+      const { shopifyAdminGraphQL } = await import("../_shared/shopify-admin.ts");
+      const uniqueIds = [...new Set(needsLookup.map((i) => `gid://shopify/Product/${i.product_id}`))];
+      const query = `query($ids:[ID!]!){ nodes(ids:$ids){ ... on Product { id descriptionHtml featuredImage { url } } } }`;
+      const data: any = await shopifyAdminGraphQL(query, { ids: uniqueIds });
+      const byId: Record<string, { image?: string; description?: string }> = {};
+      for (const n of data?.nodes ?? []) {
+        if (!n?.id) continue;
+        byId[n.id] = { image: n.featuredImage?.url, description: n.descriptionHtml };
+      }
+      for (const it of items) {
+        const gid = `gid://shopify/Product/${it.product_id}`;
+        if (!it.image && byId[gid]?.image) it.image = byId[gid].image;
+        if (!it.description && byId[gid]?.description) it.description = byId[gid].description;
+      }
+    }
+  } catch (e) {
+    console.warn("shopify-webhook: product enrichment failed", (e as Error)?.message);
+  }
+
+  // Drop product_id (internal-only) before sending to email.
+  const emailItems = items.map(({ product_id: _p, ...rest }) => rest);
+  if (emailItems.length === 0) emailItems.push({ title: "Dynabolic Sipariş", quantity: 1 });
 
   const total = formatMoney(payload?.total_price, currency) ?? "—";
   const subtotal = formatMoney(payload?.subtotal_price, currency);
@@ -127,6 +160,22 @@ async function handleOrder(payload: any, admin: ReturnType<typeof createClient>)
         .join("\n")
     : undefined;
 
+  // Persist Shopify order number + status URL to DB (upsert by external_reference_id).
+  try {
+    const patch: Record<string, unknown> = {};
+    if (orderNumber) patch.shopify_order_number = orderNumber;
+    if (orderStatusUrl) patch.shopify_order_status_url = orderStatusUrl;
+    if (Object.keys(patch).length > 0) {
+      const { error: upErr } = await admin
+        .from("orders")
+        .update(patch)
+        .eq("external_reference_id", shopifyOrderGid);
+      if (upErr) console.warn("shopify-webhook: order db update warn", upErr.message);
+    }
+  } catch (e) {
+    console.warn("shopify-webhook: order db update threw", (e as Error)?.message);
+  }
+
   const subject = `Sipariş #${orderRef} onaylandı — ${total}`;
   if (await alreadySent(admin, to, subject)) {
     return { skipped: true, reason: "already_sent" };
@@ -138,12 +187,12 @@ async function handleOrder(payload: any, admin: ReturnType<typeof createClient>)
     data: {
       recipientName: payload?.customer?.first_name || payload?.billing_address?.first_name || undefined,
       orderRef,
-      items,
+      items: emailItems,
       subtotal,
       shipping,
       total,
       shippingAddress,
-      ctaUrl: payload?.order_status_url,
+      ctaUrl: orderStatusUrl ?? undefined,
     },
   });
 
