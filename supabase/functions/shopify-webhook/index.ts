@@ -41,16 +41,12 @@ async function verifyHmac(rawBody: string, signature: string, secret: string): P
 async function callSendEmail(payload: Record<string, unknown>) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
   const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${svcKey}`,
-      "X-Webhook-Secret": cronSecret,
-      apikey: anon,
     },
     body: JSON.stringify(payload),
   });
