@@ -334,7 +334,9 @@ async function handleEmailWebhook(payload: any) {
       items.push({ title: "Dynabolic Sipariş", quantity: 1 });
     }
 
-    const orderRef = record.external_reference_id || record.id?.substring(0, 8)?.toUpperCase() || "N/A";
+    const orderRef =
+      (record as any).shopify_order_number ||
+      `ORD-${String(record.id || "").replace(/-/g, "").slice(0, 4).toUpperCase()}`;
     const totalStr = record.total_price != null ? `${record.total_price} ₺` : "—";
 
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
