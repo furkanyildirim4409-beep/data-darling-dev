@@ -1,0 +1,252 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-shopify-hmac-sha256, x-shopify-topic, x-shopify-shop-domain",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ---- HMAC verification ----
+async function verifyHmac(rawBody: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
+    // constant-time compare
+    if (expected.length !== signature.length) return false;
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+    return diff === 0;
+  } catch (e) {
+    console.error("shopify-webhook: HMAC error", e);
+    return false;
+  }
+}
+
+// ---- send-email invocation ----
+async function callSendEmail(payload: Record<string, unknown>) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${svcKey}`,
+      "X-Webhook-Secret": cronSecret,
+      apikey: anon,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    console.error("shopify-webhook: send-email failed", res.status, t);
+    return false;
+  }
+  return true;
+}
+
+// ---- idempotency: skip if same subject/to already logged recently ----
+async function alreadySent(admin: ReturnType<typeof createClient>, to: string, subject: string, hours = 24) {
+  const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+  const { data } = await admin
+    .from("emails")
+    .select("id")
+    .eq("to_email", to)
+    .eq("subject", subject)
+    .gte("created_at", since)
+    .limit(1);
+  return !!(data && data.length > 0);
+}
+
+// ---- payload handlers ----
+function formatMoney(amount: unknown, currency?: string) {
+  if (amount == null) return undefined;
+  const n = typeof amount === "number" ? amount : parseFloat(String(amount));
+  if (!isFinite(n)) return String(amount);
+  const cur = currency || "TRY";
+  const symbol = cur === "TRY" ? "₺" : cur;
+  return `${n.toFixed(2)} ${symbol}`;
+}
+
+async function handleOrder(payload: any, admin: ReturnType<typeof createClient>) {
+  const to = payload?.email || payload?.contact_email || payload?.customer?.email;
+  if (!to) {
+    console.log("shopify-webhook: no customer email on order", payload?.id);
+    return { skipped: true, reason: "no_email" };
+  }
+
+  const orderRef = String(payload?.order_number ?? payload?.name ?? payload?.id ?? "");
+  const currency = payload?.currency;
+  const items = Array.isArray(payload?.line_items)
+    ? payload.line_items.map((li: any) => ({
+        title: String(li?.title ?? li?.name ?? "Ürün"),
+        quantity: Number(li?.quantity ?? 1),
+        unitPrice: formatMoney(li?.price, currency),
+        lineTotal:
+          li?.price != null && li?.quantity != null
+            ? formatMoney(Number(li.price) * Number(li.quantity), currency)
+            : undefined,
+      }))
+    : [];
+
+  if (items.length === 0) items.push({ title: "Dynabolic Sipariş", quantity: 1 });
+
+  const total = formatMoney(payload?.total_price, currency) ?? "—";
+  const subtotal = formatMoney(payload?.subtotal_price, currency);
+  const shipping = formatMoney(
+    payload?.total_shipping_price_set?.shop_money?.amount ?? payload?.shipping_lines?.[0]?.price,
+    currency,
+  );
+  const shippingAddress = payload?.shipping_address
+    ? [
+        payload.shipping_address.name,
+        payload.shipping_address.address1,
+        payload.shipping_address.address2,
+        [payload.shipping_address.zip, payload.shipping_address.city].filter(Boolean).join(" "),
+        payload.shipping_address.country,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : undefined;
+
+  const subject = `Sipariş #${orderRef} onaylandı — ${total}`;
+  if (await alreadySent(admin, to, subject)) {
+    return { skipped: true, reason: "already_sent" };
+  }
+
+  const ok = await callSendEmail({
+    type: "order_receipt",
+    to,
+    data: {
+      recipientName: payload?.customer?.first_name || payload?.billing_address?.first_name || undefined,
+      orderRef,
+      items,
+      subtotal,
+      shipping,
+      total,
+      shippingAddress,
+      ctaUrl: payload?.order_status_url,
+    },
+  });
+
+  return { success: ok };
+}
+
+async function handleFulfillment(payload: any, admin: ReturnType<typeof createClient>) {
+  const status = String(payload?.status ?? "").toLowerCase();
+  if (status && status !== "success") {
+    return { skipped: true, reason: `status_${status}` };
+  }
+
+  const trackingNumber =
+    payload?.tracking_number || (Array.isArray(payload?.tracking_numbers) ? payload.tracking_numbers[0] : null);
+  if (!trackingNumber) return { skipped: true, reason: "no_tracking_number" };
+
+  const trackingUrl =
+    payload?.tracking_url || (Array.isArray(payload?.tracking_urls) ? payload.tracking_urls[0] : undefined);
+  const shippingCompany = payload?.tracking_company || "Kargo";
+  const orderId = String(payload?.order_id ?? payload?.order?.id ?? "");
+
+  // Recipient: fulfillment payload doesn't always include email; look it up on the order via Shopify Admin if needed.
+  // Prefer email from destination/order.customer if present in webhook.
+  const to =
+    payload?.email ||
+    payload?.destination?.email ||
+    payload?.order?.email ||
+    payload?.order?.customer?.email;
+
+  if (!to) {
+    console.log("shopify-webhook: fulfillment has no recipient email, order_id=", orderId);
+    return { skipped: true, reason: "no_email" };
+  }
+
+  const subject = `Siparişin yola çıktı — Takip #${trackingNumber}`;
+  if (await alreadySent(admin, to, subject)) {
+    return { skipped: true, reason: "already_sent" };
+  }
+
+  const ok = await callSendEmail({
+    type: "shipping_notification",
+    to,
+    data: {
+      recipientName: payload?.destination?.first_name || payload?.order?.customer?.first_name || undefined,
+      orderId,
+      shippingCompany,
+      trackingNumber,
+      trackingUrl,
+    },
+  });
+
+  return { success: ok };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  try {
+    const secret = Deno.env.get("SHOPIFY_WEBHOOK_SECRET");
+    if (!secret) {
+      console.error("shopify-webhook: SHOPIFY_WEBHOOK_SECRET missing");
+      return json({ error: "Server not configured" }, 500);
+    }
+
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-shopify-hmac-sha256") || "";
+    const topic = req.headers.get("x-shopify-topic") || "";
+
+    const verified = await verifyHmac(rawBody, signature, secret);
+    if (!verified) {
+      console.warn("shopify-webhook: HMAC verification failed for topic", topic);
+      return json({ error: "Invalid signature" }, 401);
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, svcKey);
+
+    let result: unknown = { skipped: true, reason: "unhandled_topic" };
+    switch (topic) {
+      case "orders/create":
+      case "orders/paid":
+        result = await handleOrder(payload, admin);
+        break;
+      case "fulfillments/create":
+      case "fulfillments/update":
+        result = await handleFulfillment(payload, admin);
+        break;
+      default:
+        console.log("shopify-webhook: ignoring topic", topic);
+    }
+
+    return json({ ok: true, topic, result });
+  } catch (err) {
+    console.error("shopify-webhook error:", err);
+    return json({ error: err instanceof Error ? err.message : "internal_error" }, 500);
+  }
+});
