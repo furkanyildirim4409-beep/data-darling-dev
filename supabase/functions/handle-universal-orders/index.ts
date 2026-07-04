@@ -96,6 +96,72 @@ const FULFILLMENT_EVENT_CREATE = `
     }
   }`;
 
+function getOrderRef(record: any) {
+  return (
+    record?.shopify_order_number ||
+    `ORD-${String(record?.id || "").replace(/-/g, "").slice(0, 4).toUpperCase()}`
+  );
+}
+
+async function alreadySent(admin: ReturnType<typeof createClient>, to: string, subject: string, hours = 24) {
+  const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+  const { data } = await admin
+    .from("emails")
+    .select("id")
+    .eq("to_email", to)
+    .eq("subject", subject)
+    .gte("created_at", since)
+    .limit(1);
+  return !!(data && data.length > 0);
+}
+
+async function dispatchShippingNotification(params: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  admin: ReturnType<typeof createClient>;
+  to: string;
+  recipientName: string;
+  ownerId?: string | null;
+  order: any;
+  trackingNumber: string;
+  trackingUrl?: string | null;
+  shippingCompany: string;
+}) {
+  const subject = `Siparişin yola çıktı — Takip #${params.trackingNumber}`;
+  if (await alreadySent(params.admin, params.to, subject)) {
+    return { skipped: true, reason: "already_sent" };
+  }
+
+  const sendRes = await fetch(`${params.supabaseUrl}/functions/v1/send-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.serviceRoleKey}`,
+    },
+    body: JSON.stringify({
+      type: "shipping_notification",
+      to: params.to,
+      data: {
+        recipientName: params.recipientName,
+        orderId: getOrderRef(params.order),
+        shippingCompany: params.shippingCompany,
+        trackingNumber: params.trackingNumber,
+        ...(params.trackingUrl ? { trackingUrl: params.trackingUrl } : {}),
+        ...(params.order?.shopify_order_status_url ? { orderUrl: params.order.shopify_order_status_url } : {}),
+        ...(params.ownerId ? { owner_id: params.ownerId } : {}),
+      },
+    }),
+  });
+
+  if (!sendRes.ok) {
+    const errBody = await sendRes.text();
+    console.error("handle-universal-orders: send-email shipping_notification failed", errBody);
+    return { error: "send_failed", detail: errBody };
+  }
+
+  return { success: true };
+}
+
 async function syncShopifyShipped(orderGid: string, trackingNumber: string, trackingUrl: string | null, carrierName: string) {
   const data = await shopifyAdminGraphQL<any>(ORDER_FULFILLMENT_QUERY, { id: orderGid });
   const order = data?.order;
@@ -208,7 +274,7 @@ async function handleDirectFulfillment(req: Request, payload: unknown) {
 
   const { data: order, error: orderErr } = await supaAdmin
     .from("orders")
-    .select("id, user_id, status, external_reference_id, tracking_number, tracking_url, carrier_name")
+    .select("id, user_id, status, external_reference_id, tracking_number, tracking_url, carrier_name, shopify_order_number, shopify_order_status_url")
     .eq("id", action.orderId)
     .maybeSingle();
   if (orderErr) return jsonResponse({ error: orderErr.message }, 500);
@@ -260,13 +326,44 @@ async function handleDirectFulfillment(req: Request, payload: unknown) {
     .single();
   if (updateErr) return jsonResponse({ error: `DB update failed: ${updateErr.message}` }, 500);
 
+  const emailResult: Record<string, unknown> = {};
+  if (action.action === "ship" && updatedOrder?.user_id) {
+    const { data: profile } = await supaAdmin
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", updatedOrder.user_id)
+      .maybeSingle();
+
+    if (profile?.email) {
+      emailResult.shippingEmail = await dispatchShippingNotification({
+        supabaseUrl: SUPABASE_URL,
+        serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+        admin: supaAdmin,
+        to: profile.email,
+        recipientName: profile.full_name || "Kullanıcı",
+        ownerId: updatedOrder.user_id,
+        order: updatedOrder,
+        trackingNumber: action.trackingNumber.trim(),
+        trackingUrl: action.trackingUrl?.trim() || null,
+        shippingCompany: action.carrierName.trim() || "Kargo",
+      });
+    } else {
+      emailResult.shippingEmail = { skipped: true, reason: "no_profile_email" };
+    }
+  }
+
   console.log(`handle-universal-orders: ${action.action} synced`, {
     orderId: action.orderId,
     externalReferenceId: externalRef,
     warnings,
   });
 
-  return jsonResponse({ success: true, order: updatedOrder, ...(Object.keys(warnings).length ? { warnings } : {}) });
+  return jsonResponse({
+    success: true,
+    order: updatedOrder,
+    ...(Object.keys(warnings).length ? { warnings } : {}),
+    ...(Object.keys(emailResult).length ? { email: emailResult } : {}),
+  });
 }
 
 async function handleEmailWebhook(payload: any) {
@@ -293,8 +390,7 @@ async function handleEmailWebhook(payload: any) {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const resendKey = Deno.env.get("RESEND_DIRECT_API_KEY");
-  if (!supabaseUrl || !serviceRoleKey || !resendKey) {
+  if (!supabaseUrl || !serviceRoleKey) {
     console.error("handle-universal-orders: missing email webhook environment variables");
     return jsonResponse({ error: "Server configuration error" }, 500);
   }
@@ -334,20 +430,14 @@ async function handleEmailWebhook(payload: any) {
       items.push({ title: "Dynabolic Sipariş", quantity: 1 });
     }
 
-    const orderRef =
-      (record as any).shopify_order_number ||
-      `ORD-${String(record.id || "").replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+    const orderRef = getOrderRef(record);
     const totalStr = record.total_price != null ? `${record.total_price} ₺` : "—";
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
     const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${serviceRoleKey}`,
-        "X-Webhook-Secret": cronSecret,
-        apikey: anonKey,
       },
       body: JSON.stringify({
         type: "order_receipt",
@@ -374,40 +464,27 @@ async function handleEmailWebhook(payload: any) {
   }
 
   // ---- SHIPPED: dispatch branded Dynabolic Elite shipping_notification via send-email ----
-  const shippedOrderRef =
-    (record as any).shopify_order_number ||
-    `ORD-${String(record.id || "").replace(/-/g, "").slice(0, 4).toUpperCase()}`;
-  const trackingNumber = record.tracking_number || "—";
+  const trackingNumber = record.tracking_number;
+  if (!trackingNumber) {
+    return jsonResponse({ skipped: true, reason: "no_tracking_number" });
+  }
   const shippingCompany = record.carrier_name || "Kargo";
   const trackingUrl = record.tracking_url || undefined;
 
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-  const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${serviceRoleKey}`,
-      "X-Webhook-Secret": cronSecret,
-      apikey: anonKey,
-    },
-    body: JSON.stringify({
-      type: "shipping_notification",
-      to: profile.email,
-      data: {
-        recipientName: userName,
-        orderId: shippedOrderRef,
-        shippingCompany,
-        trackingNumber,
-        trackingUrl,
-        owner_id: record.user_id,
-      },
-    }),
+  const result = await dispatchShippingNotification({
+    supabaseUrl,
+    serviceRoleKey,
+    admin,
+    to: profile.email,
+    recipientName: userName,
+    ownerId: record.user_id,
+    order: record,
+    trackingNumber,
+    trackingUrl,
+    shippingCompany,
   });
 
-  if (!sendRes.ok) {
-    const errBody = await sendRes.text();
-    console.error("handle-universal-orders: send-email shipping_notification failed", errBody);
+  if ((result as any).error) {
     return jsonResponse({ error: "send_failed" });
   }
 
