@@ -373,68 +373,45 @@ async function handleEmailWebhook(payload: any) {
     return jsonResponse({ success: true });
   }
 
-  // ---- SHIPPED: keep legacy DB-template branch ----
-  const fromEmail = "logistics@dynabolic.co";
-  const templateName = "Kargon Yola Çıktı";
-  const replacements: Record<string, string> = {
-    "{{isim}}": userName,
-    "{{kargo_firmasi}}": record.carrier_name || "Belirtilmedi",
-    "{{takip_no}}": record.tracking_number || "—",
-    "{{takip_linki}}": record.tracking_url || "#",
-  };
+  // ---- SHIPPED: dispatch branded Dynabolic Elite shipping_notification via send-email ----
+  const shippedOrderRef =
+    (record as any).shopify_order_number ||
+    `ORD-${String(record.id || "").replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+  const trackingNumber = record.tracking_number || "—";
+  const shippingCompany = record.carrier_name || "Kargo";
+  const trackingUrl = record.tracking_url || undefined;
 
-  const { data: template } = await admin
-    .from("email_templates")
-    .select("subject, body_html")
-    .eq("name", templateName)
-    .eq("is_system", true)
-    .limit(1)
-    .single();
-
-  if (!template) {
-    console.warn("handle-universal-orders: template not found:", templateName);
-    return jsonResponse({ skipped: true, reason: "no_template" });
-  }
-
-  let subject = template.subject;
-  let bodyHtml = template.body_html;
-  for (const [key, value] of Object.entries(replacements)) {
-    const regex = new RegExp(key.replace(/[{}]/g, "\\$&"), "g");
-    subject = subject.replace(regex, value);
-    bodyHtml = bodyHtml.replace(regex, value);
-  }
-
-  const resendRes = await fetch("https://api.resend.com/emails", {
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+  const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${resendKey}`,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      "X-Webhook-Secret": cronSecret,
+      apikey: anonKey,
     },
     body: JSON.stringify({
-      from: `Dynabolic Lojistik <${fromEmail}>`,
-      to: [profile.email],
-      subject,
-      html: bodyHtml,
+      type: "shipping_notification",
+      to: profile.email,
+      data: {
+        recipientName: userName,
+        orderId: shippedOrderRef,
+        shippingCompany,
+        trackingNumber,
+        trackingUrl,
+        owner_id: record.user_id,
+      },
     }),
   });
 
-  if (!resendRes.ok) {
-    const errBody = await resendRes.text();
-    console.error("handle-universal-orders: Resend error", errBody);
-    return jsonResponse({ error: "resend_failed" });
+  if (!sendRes.ok) {
+    const errBody = await sendRes.text();
+    console.error("handle-universal-orders: send-email shipping_notification failed", errBody);
+    return jsonResponse({ error: "send_failed" });
   }
 
-  await admin.from("emails").insert({
-    owner_id: record.user_id,
-    direction: "outbound",
-    from_email: fromEmail,
-    to_email: profile.email,
-    subject,
-    body_html: bodyHtml,
-    is_read: true,
-  });
-
-  console.log(`handle-universal-orders: ${templateName} sent to`, profile.email);
+  console.log("handle-universal-orders: shipping_notification dispatched for order", record.id);
   return jsonResponse({ success: true });
 }
 
