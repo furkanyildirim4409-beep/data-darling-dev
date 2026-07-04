@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getAuthRedirectUrl, type AuthPlatform } from '@/lib/authRedirect';
 import type { User, Session } from '@supabase/supabase-js';
 
 export interface Profile {
@@ -48,6 +49,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, role: 'coach' | 'athlete', fullName: string, inviteToken?: string, username?: string, phone?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string, platform?: AuthPlatform) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -155,12 +157,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (username) metadata.username = username;
     if (phone) metadata.pending_phone = phone;
 
+    const platform: AuthPlatform = selectedRole === 'athlete' ? 'athlete' : 'coach';
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: metadata,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: getAuthRedirectUrl(platform),
       },
     });
     if (error) {
@@ -185,12 +188,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string, platform: AuthPlatform = 'coach') => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: getAuthRedirectUrl(platform, '/reset-password'),
+    });
+    if (error) toast.error(error.message);
+    return { error };
+  };
+
   const isSubCoach = !!teamMember;
   const activeCoachId = teamMember ? teamMember.head_coach_id : user?.id ?? null;
   const teamMemberPermissions = teamMember?.permissions ?? null;
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isLoading, teamMember, isSubCoach, activeCoachId, teamMemberPermissions, signIn, signUp, signOut, resetPassword, refreshProfile }}>
+
       {children}
     </AuthContext.Provider>
   );
