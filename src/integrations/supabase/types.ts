@@ -1183,6 +1183,52 @@ export type Database = {
           },
         ]
       }
+      coach_contracts: {
+        Row: {
+          coach_id: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_contracts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_contracts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_contracts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "public_coach_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_highlight_metadata: {
         Row: {
           category_name: string
