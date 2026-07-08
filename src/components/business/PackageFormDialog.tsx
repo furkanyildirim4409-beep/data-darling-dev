@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2 } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useCoachContract } from "@/hooks/useCoachContract";
 
 import { Progress } from "@/components/ui/progress";
 import {
