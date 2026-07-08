@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Mail, Calendar, Edit, MoreVertical, User, Dumbbell, Apple, History, Brain, Loader2, Snowflake, Zap, Wallet, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, Edit, MoreVertical, User, Dumbbell, Apple, History, Brain, Loader2, Snowflake, Zap, Wallet, CheckCircle2, HeartPulse } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
