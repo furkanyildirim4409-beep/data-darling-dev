@@ -82,6 +82,7 @@ function mapProfileToAthlete(
     lastActive: formatTs(lastActivityIso ?? row.updated_at),
     lastCheckinAt: lastCheckinIso,
     packageTitle,
+    packageLevel: row.active_package_level ?? null,
   };
 }
 

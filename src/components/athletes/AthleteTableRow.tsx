@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, User, ChevronRight } from "lucide-react";
 import { Athlete } from "@/types/shared-models";
+import { PackageTierBadge } from "@/components/athletes/PackageTierBadge";
 
 interface AthleteTableRowProps {
   athlete: Athlete;
@@ -71,6 +72,7 @@ export function AthleteTableRow({ athlete, onMessage, hasUnanswered }: AthleteTa
               <span className="font-medium text-foreground whitespace-nowrap truncate max-w-[180px]">
                 {athlete.name}
               </span>
+              <PackageTierBadge level={athlete.packageLevel} />
               <span
                 className="border border-primary/20 bg-primary/10 text-primary uppercase text-[10px] tracking-wider rounded-md font-bold px-2 py-0.5 whitespace-nowrap truncate max-w-[160px]"
                 title={packageLabel}
