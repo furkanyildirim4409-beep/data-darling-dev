@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Plus, Check, Trash2, Edit, Coins } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Plus, Check, Trash2, Edit, Coins, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,11 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCoachPackages, type CoachingPackage } from "@/hooks/useCoachPackages";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCoachContract } from "@/hooks/useCoachContract";
 import { PackageFormDialog } from "./PackageFormDialog";
 
 export function CoachingPackagesManager() {
   const { packages, isLoading, createPackage, updatePackage, deletePackage } = useCoachPackages();
   const { canManageFinances } = usePermissions();
+  const { hasContract, isLoading: contractLoading } = useCoachContract();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CoachingPackage | null>(null);
