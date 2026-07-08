@@ -19,6 +19,7 @@ const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
   { id: "branding", label: "Marka Kimliği", icon: Building },
   { id: "subscription", label: "Abonelik & Ödeme Bilgisi", icon: CreditCard },
+  { id: "contract", label: "Koçluk Sözleşmesi", icon: FileText },
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "security", label: "Güvenlik", icon: Lock },
   { id: "appearance", label: "Görünüm", icon: Palette },
