@@ -2492,6 +2492,8 @@ export type Database = {
           bio_coins: number | null
           birth_date: string | null
           coach_id: string | null
+          contract_template: string | null
+          contract_updated_at: string | null
           created_at: string | null
           current_weight: number | null
           daily_calorie_target: number | null
@@ -2542,6 +2544,8 @@ export type Database = {
           bio_coins?: number | null
           birth_date?: string | null
           coach_id?: string | null
+          contract_template?: string | null
+          contract_updated_at?: string | null
           created_at?: string | null
           current_weight?: number | null
           daily_calorie_target?: number | null
@@ -2592,6 +2596,8 @@ export type Database = {
           bio_coins?: number | null
           birth_date?: string | null
           coach_id?: string | null
+          contract_template?: string | null
+          contract_updated_at?: string | null
           created_at?: string | null
           current_weight?: number | null
           daily_calorie_target?: number | null
