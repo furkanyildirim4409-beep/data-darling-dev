@@ -126,6 +126,7 @@ export interface Athlete extends UserProfile {
   riskType?: "injury" | "nutrition" | "compliance" | "general";
   lastCheckinAt?: string | null;
   packageTitle?: string | null;
+  packageLevel?: string | null;
 }
 
 // Extended Invoice interface for Admin Panel
