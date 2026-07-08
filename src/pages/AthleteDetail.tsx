@@ -61,6 +61,8 @@ import { NutritionTab } from "@/components/athlete-detail/NutritionTab";
 import { WorkoutHistoryTab } from "@/components/athlete-detail/WorkoutHistoryTab";
 import { AiHistoryWidget } from "@/components/athlete-detail/AiHistoryWidget";
 import { SensitiveActionOtpModal } from "@/components/coach/SensitiveActionOtpModal";
+import { IntakeFormTab } from "@/components/athlete-detail/IntakeFormTab";
+import { PackageTierBadge } from "@/components/athletes/PackageTierBadge";
 
 
 
@@ -80,6 +82,7 @@ interface AthleteProfile {
   subscription_status: string | null;
   latestPaidOrderId: string | null;
   latestPaidOrderTotal: number | null;
+  packageLevel: string | null;
 
 }
 
@@ -433,6 +436,7 @@ export default function AthleteDetail() {
         subscription_status: p.subscription_status ?? null,
         latestPaidOrderId,
         latestPaidOrderTotal,
+        packageLevel: p.active_package_level ?? null,
       });
     }
 
@@ -560,8 +564,9 @@ export default function AthleteDetail() {
               <AvatarFallback className="bg-primary/20 text-primary text-2xl font-bold">{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="flex items-center gap-3 mb-1">
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground">{name}</h1>
+                <PackageTierBadge level={athlete.packageLevel} />
                 <Badge className="bg-gradient-to-r from-amber-500/15 to-purple-500/15 border border-amber-400/30 text-amber-300 backdrop-blur-md shadow-[0_0_12px_hsl(45_100%_60%_/_0.2)] font-semibold">
                   👑 {athlete.packageTitle ?? "Standart Üyelik"}
                 </Badge>
@@ -613,6 +618,7 @@ export default function AthleteDetail() {
           <TabsTrigger value="program" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Dumbbell className="w-4 h-4" />Antrenman Programı</TabsTrigger>
           <TabsTrigger value="nutrition" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-success data-[state=active]:text-success-foreground"><Apple className="w-4 h-4" />Beslenme Planı</TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><History className="w-4 h-4" />Antrenman Geçmişi</TabsTrigger>
+          <TabsTrigger value="intake" className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><HeartPulse className="w-4 h-4" />Sağlık &amp; İletişim Formu</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
@@ -642,6 +648,10 @@ export default function AthleteDetail() {
 
         <TabsContent value="history" className="mt-6">
           <WorkoutHistoryTab athleteId={athlete.id} />
+        </TabsContent>
+
+        <TabsContent value="intake" className="mt-6">
+          <IntakeFormTab athleteId={athlete.id} />
         </TabsContent>
       </Tabs>
 
