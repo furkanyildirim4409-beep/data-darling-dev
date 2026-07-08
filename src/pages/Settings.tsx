@@ -754,6 +754,9 @@ export default function Settings() {
             </div>
           )}
 
+          {/* Coaching Contract Section */}
+          {activeSection === "contract" && <CoachingContractSettings />}
+
           {/* Notifications Section */}
           {activeSection === "notifications" && (
             <div className="glass rounded-xl border border-border p-6">
