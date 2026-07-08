@@ -230,6 +230,25 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
         </DialogHeader>
 
         <div className="space-y-6 py-2">
+          {!contractLoading && !hasContract && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Koçluk Sözleşmesi eksik</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Paket satışı yapabilmek için Ayarlar'dan Koçluk Sözleşmesi şablonunuzu oluşturup
+                  onaylamanız gerekmektedir.
+                </p>
+                <RouterLink
+                  to="/settings"
+                  className="inline-flex text-xs underline underline-offset-2 text-destructive-foreground hover:opacity-80"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Ayarlar → Koçluk Sözleşmesi'ne git
+                </RouterLink>
+              </AlertDescription>
+            </Alert>
+          )}
           {/* TOP CORE */}
           <div className="space-y-4">
             <div className="space-y-1.5">
