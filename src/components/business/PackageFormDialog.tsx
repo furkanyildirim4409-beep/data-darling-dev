@@ -40,6 +40,7 @@ const DURATION_OPTIONS = [1, 3, 6, 12];
 const MAX_GALLERY = 4;
 
 export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit }: Props) {
+  const { hasContract, isLoading: contractLoading } = useCoachContract();
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<number>(1);
