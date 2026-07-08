@@ -568,9 +568,18 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSubmit}
-            disabled={saving || anyUploading}
+            disabled={saving || anyUploading || !hasContract}
+            title={!hasContract ? "Önce Ayarlar'dan Koçluk Sözleşmesi şablonunuzu kaydedin" : undefined}
           >
-            {anyUploading ? "Medya yükleniyor..." : saving ? "Kaydediliyor..." : initialPackage ? "Güncelle" : "Oluştur"}
+            {anyUploading
+              ? "Medya yükleniyor..."
+              : !hasContract
+              ? "Sözleşme gerekli"
+              : saving
+              ? "Kaydediliyor..."
+              : initialPackage
+              ? "Güncelle"
+              : "Oluştur"}
           </Button>
         </DialogFooter>
       </DialogContent>
