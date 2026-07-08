@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle } from "lucide-react";
+import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle, FileText } from "lucide-react";
+import { CoachingContractSettings } from "@/components/settings/CoachingContractSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
