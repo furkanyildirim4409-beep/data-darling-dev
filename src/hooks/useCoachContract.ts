@@ -24,17 +24,17 @@ export function useCoachContract() {
     if (!targetCoachId) return;
     setIsLoading(true);
     const { data, error } = await supabase
-      .from("profiles")
-      .select("contract_template, contract_updated_at")
-      .eq("id", targetCoachId)
+      .from("coach_contracts")
+      .select("content, updated_at")
+      .eq("coach_id", targetCoachId)
       .maybeSingle();
 
     if (error) {
       console.error("Contract fetch error:", error);
       toast.error("Sözleşme şablonu yüklenemedi");
     } else {
-      setContract(((data as any)?.contract_template as string | null) ?? null);
-      setUpdatedAt(((data as any)?.contract_updated_at as string | null) ?? null);
+      setContract(((data as any)?.content as string | null) ?? null);
+      setUpdatedAt(((data as any)?.updated_at as string | null) ?? null);
     }
     setIsLoading(false);
   }, [targetCoachId]);
@@ -51,12 +51,11 @@ export function useCoachContract() {
       }
       setIsSaving(true);
       const { error } = await supabase
-        .from("profiles")
-        .update({
-          contract_template: html,
-          contract_updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", targetCoachId);
+        .from("coach_contracts")
+        .upsert(
+          { coach_id: targetCoachId, content: html } as any,
+          { onConflict: "coach_id" }
+        );
       setIsSaving(false);
       if (error) {
         toast.error("Sözleşme kaydedilemedi: " + error.message);

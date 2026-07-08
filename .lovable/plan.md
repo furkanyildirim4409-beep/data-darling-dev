@@ -1,71 +1,80 @@
 ## Amaç
-Phase 4: Satın alma öncesi Athlete Intake Form verilerini güvenli şekilde göstermek ve paket seviyesini (tier) sporcu satırlarında/detayında görsel rozetle işaretlemek.
+`coach_contracts` tablosunu oluştur, Faz 3'te `profiles.contract_template` üzerinde tutulan sözleşme verisini bu tabloya taşı ve `useCoachContract` hook'unu yeni kaynağa yönlendir. `athlete_intake_forms` ve `coach_athletes` tabloları için ek migration yok.
 
-## 1. Yeni Component – `src/components/athlete-detail/IntakeFormTab.tsx`
-- Props: `athleteId: string`
-- `useAuth()` ile `user.id` (aktif koç kimliği için `activeCoachId ?? user.id`) alınır.
-- Sorgu:
-  ```ts
-  supabase.from('athlete_intake_forms')
-    .select('email, phone, medical_conditions, medications, created_at, agreement_accepted, kvkk_accepted')
-    .eq('athlete_id', athleteId)
-    .eq('coach_id', activeCoachId)   // RLS'i client tarafında da zorla
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  ```
-- Durumlar:
-  - Loading → Skeleton kartlar
-  - Kayıt yok → boş-state kart ("Sporcu satın alma öncesi form doldurmamış")
-  - Kayıt var → iki `<Card>`:
-    - **İletişim Kartı**: email + phone (kopyala butonu opsiyonel, `Mail`/`Phone` icon).
-    - **Sağlık Kartı**: medical_conditions, medications (whitespace-preserve, boşsa "Belirtilmemiş").
-  - Alt satırda küçük meta: form gönderim tarihi, KVKK ✔, Sözleşme ✔ rozetleri.
-- Tümüyle read-only; edit butonu yok. Salt bilgi.
+## Neden bu kapsam
+- `athlete_intake_forms` zaten spec ile uyumlu (`kvkk_accepted`+`agreement_accepted` kolonları, athlete self-insert & coach read RLS'i mevcut). Ek DDL gereksiz.
+- `coach_athletes` mimaride yok; koç-sporcu bağı `profiles.coach_id` + `profiles.active_package_level` ile yürüyor ve Faz 4 UI bu alanları kullanıyor. Yeni bir mapping tablosu paralel gerçek kaynak yaratır — kapsam dışı.
 
-## 2. `src/pages/AthleteDetail.tsx`
-- Import: `HeartPulse` iconu ve `IntakeFormTab`.
-- `TabsList`e yeni trigger:
-  ```
-  <TabsTrigger value="intake">Sağlık & İletişim Formu</TabsTrigger>
-  ```
-- Yeni `<TabsContent value="intake">` içinde `<IntakeFormTab athleteId={athlete.id} />`.
-- Aynı sayfada başlığın (isim) yanına Paket Tier Rozeti yerleştirilir (bkz. §3).
+## 1. Migration — `coach_contracts` tablosu
 
-## 3. Paket Tier Rozeti
-Not: Kod tabanında `coach_athletes` tablosu yok; `profiles.active_package_level` alanı (`'elite' | 'pro' | 'standard'`) bu iş için kullanılır (Faz 2'de handle_coaching_order_paid tarafından set ediliyor). Rozet bu alandan türetilir. Eğer alan boşsa hiçbir şey render edilmez (empty state gizlenir, dolgu göstermeyiz).
+```sql
+CREATE TABLE public.coach_contracts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  coach_id uuid NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
+  content text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-Yeni yardımcı: `src/components/athletes/PackageTierBadge.tsx`
-- Props: `level?: string | null`
-- Mapping:
-  - `elite` → amber/gold (`bg-amber-500/15 text-amber-400 border-amber-500/40`) + Crown icon
-  - `pro` → silver/gray (`bg-slate-400/15 text-slate-200 border-slate-400/40`) + Star icon
-  - `standard` → muted (`bg-muted text-muted-foreground border-border`) + Circle icon
-  - Diğer/null → null döner
-- Küçük `Badge` (shadcn) tabanlı, `text-[10px] uppercase tracking-widest`.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.coach_contracts TO authenticated;
+GRANT ALL ON public.coach_contracts TO service_role;
 
-Kullanım noktaları:
-- `src/components/athletes/AthleteTableRow.tsx` — sporcu adının hemen yanına eklenir. `athlete` prop'una `package_level` alanı geçilmesi gerektiğinden `useAthletes` hook'unda alan seçilmiş olmalı (kontrol edilecek; yoksa select listesine `active_package_level` eklenir ve `Athlete` tipine `packageLevel?: string` alanı düşer).
-- `src/pages/AthleteDetail.tsx` — üst başlıkta ad + mevcut tier badge'inin yanına eklenir (mevcut `Tier` gösterimini bozmadan).
+ALTER TABLE public.coach_contracts ENABLE ROW LEVEL SECURITY;
 
-## 4. Güvenlik
-- Tüm `athlete_intake_forms` sorguları `.eq('coach_id', activeCoachId)` filtresi taşır. Bu, RLS'in yanında client-side savunmadır; yanlış coach'un DevTools ile başka athleteId'yi denemesini önler.
-- Yalnızca listede belirtilen alanlar `select` edilir (agreement/kvkk rozet için gerekli; email/phone hassas kabul edilir ama zaten koçun görmesi gereken bilgidir).
-- Sub-coach senaryosu: `activeCoachId` head coach id'sine döner (memory kuralı), böylece ajans altındaki sub-coach da erişebilir.
+-- Coach + head-coach team üyeleri: kendi/patron kayıtlarını yönet
+CREATE POLICY "coach_manage_own_contract"
+  ON public.coach_contracts FOR ALL
+  TO authenticated
+  USING (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id))
+  WITH CHECK (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id));
 
-## 5. Data akışı için gerekli küçük değişiklikler
-- `src/hooks/useAthletes.ts` (kontrol edilecek): select listesine `active_package_level` eklenir; dönen sporcu nesnesine `packageLevel: p.active_package_level ?? null` eşlenir.
-- `src/types/shared-models.ts` içindeki `Athlete` interface'ine `packageLevel?: string | null` eklenir.
+-- Sporcu: KENDİ koçunun sözleşmesini okuyabilir (paket satın alma / görüntüleme akışı için)
+CREATE POLICY "athlete_read_own_coach_contract"
+  ON public.coach_contracts FOR SELECT
+  TO authenticated
+  USING (
+    coach_id IN (
+      SELECT p.coach_id FROM public.profiles p
+      WHERE p.id = auth.uid() AND p.coach_id IS NOT NULL
+    )
+  );
+
+-- updated_at trigger
+CREATE TRIGGER coach_contracts_touch_updated_at
+  BEFORE UPDATE ON public.coach_contracts
+  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+-- Faz 3 verisini taşı
+INSERT INTO public.coach_contracts (coach_id, content, created_at, updated_at)
+SELECT id, contract_template,
+       COALESCE(contract_updated_at, now()),
+       COALESCE(contract_updated_at, now())
+FROM public.profiles
+WHERE role = 'coach'
+  AND contract_template IS NOT NULL
+  AND btrim(contract_template) <> ''
+ON CONFLICT (coach_id) DO NOTHING;
+```
+
+Not: `profiles.contract_template` ve `contract_updated_at` kolonlarına şimdilik dokunulmuyor (deprecated). İleride ayrı bir temizlik migration'ı ile drop edilebilir.
+
+## 2. Kod güncellemesi — `src/hooks/useCoachContract.ts`
+- `profiles` yerine `coach_contracts` sorgulanır.
+- `activeCoachId` üzerinden `.eq('coach_id', activeCoachId)` + `.maybeSingle()`.
+- Save akışı `upsert({ coach_id: activeCoachId, content }, { onConflict: 'coach_id' })` olur.
+- `updated_at` alanı DB tarafından set edilir (trigger). Hook UI için `contract_updated_at` yerine `updated_at` alanını döner; kullanan bileşen (`CoachingContractSettings.tsx`) buna göre isim güncellenir.
+
+## 3. Tip senkronu — `src/integrations/supabase/types.ts`
+- Migration çalıştıktan sonra Supabase tarafından otomatik üretilir. Elle düzenlenmez.
+- Migration onaylanıp uygulandıktan sonra kodu regeneration ile paralel tutmak yeterli; ek dosya yazımı gerekmez.
 
 ## Dokunulan dosyalar
-- `src/components/athlete-detail/IntakeFormTab.tsx` (yeni)
-- `src/components/athletes/PackageTierBadge.tsx` (yeni)
-- `src/pages/AthleteDetail.tsx` (tab + badge)
-- `src/components/athletes/AthleteTableRow.tsx` (badge)
-- `src/hooks/useAthletes.ts` (packageLevel alanı — gerekiyorsa)
-- `src/types/shared-models.ts` (Athlete interface alanı)
+- `supabase/migrations/<timestamp>_create_coach_contracts.sql` (yeni)
+- `src/hooks/useCoachContract.ts` (kaynak tablo değişikliği)
+- `src/components/settings/CoachingContractSettings.tsx` (alan adı: `updated_at`)
 
 ## Kapsam dışı
-- Intake form düzenleme akışı (sporcu doldurur, koç düzenlemez)
-- Form geçmişi listesi (yalnızca en son kayıt gösterilir)
-- Paket tier yükseltme/düşürme aksiyonları
+- `coach_athletes` tablosu (kullanıcı onayıyla atlandı)
+- `athlete_intake_forms` DDL (mevcut ve uyumlu)
+- `profiles.contract_template` sütununu drop etmek (ayrı bir cleanup için)
+- Athlete-side sözleşme onay akışı (Faz 4/5)
