@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Plus, Check, Trash2, Edit, Coins } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Plus, Check, Trash2, Edit, Coins, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,11 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCoachPackages, type CoachingPackage } from "@/hooks/useCoachPackages";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCoachContract } from "@/hooks/useCoachContract";
 import { PackageFormDialog } from "./PackageFormDialog";
 
 export function CoachingPackagesManager() {
   const { packages, isLoading, createPackage, updatePackage, deletePackage } = useCoachPackages();
   const { canManageFinances } = usePermissions();
+  const { hasContract, isLoading: contractLoading } = useCoachContract();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CoachingPackage | null>(null);
@@ -56,14 +60,35 @@ export function CoachingPackagesManager() {
         </div>
         {canManageFinances && (
           <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 glow-lime disabled:opacity-60"
             onClick={openCreate}
+            disabled={contractLoading || !hasContract}
+            title={!hasContract ? "Önce Ayarlar'dan Koçluk Sözleşmesi şablonunuzu kaydedin" : undefined}
           >
             <Plus className="w-4 h-4 mr-2" />
             Yeni Paket Ekle
           </Button>
         )}
       </div>
+
+      {!contractLoading && !hasContract && (
+        <div className="px-4 pt-4">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Paket yayınlamak için sözleşme gerekli</AlertTitle>
+            <AlertDescription>
+              Paket satışı yapabilmek için Ayarlar'dan Koçluk Sözleşmesi şablonunuzu oluşturup
+              onaylamanız gerekmektedir.{" "}
+              <RouterLink
+                to="/settings"
+                className="underline underline-offset-2 font-medium hover:opacity-80"
+              >
+                Ayarlar → Koçluk Sözleşmesi
+              </RouterLink>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <div className="p-4">
         {isLoading ? (

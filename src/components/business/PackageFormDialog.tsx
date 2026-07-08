@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2 } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useCoachContract } from "@/hooks/useCoachContract";
 
 import { Progress } from "@/components/ui/progress";
 import {
@@ -37,6 +40,7 @@ const DURATION_OPTIONS = [1, 3, 6, 12];
 const MAX_GALLERY = 4;
 
 export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit }: Props) {
+  const { hasContract, isLoading: contractLoading } = useCoachContract();
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<number>(1);
@@ -226,6 +230,25 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
         </DialogHeader>
 
         <div className="space-y-6 py-2">
+          {!contractLoading && !hasContract && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Koçluk Sözleşmesi eksik</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Paket satışı yapabilmek için Ayarlar'dan Koçluk Sözleşmesi şablonunuzu oluşturup
+                  onaylamanız gerekmektedir.
+                </p>
+                <RouterLink
+                  to="/settings"
+                  className="inline-flex text-xs underline underline-offset-2 text-destructive-foreground hover:opacity-80"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Ayarlar → Koçluk Sözleşmesi'ne git
+                </RouterLink>
+              </AlertDescription>
+            </Alert>
+          )}
           {/* TOP CORE */}
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -545,9 +568,18 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSubmit}
-            disabled={saving || anyUploading}
+            disabled={saving || anyUploading || !hasContract}
+            title={!hasContract ? "Önce Ayarlar'dan Koçluk Sözleşmesi şablonunuzu kaydedin" : undefined}
           >
-            {anyUploading ? "Medya yükleniyor..." : saving ? "Kaydediliyor..." : initialPackage ? "Güncelle" : "Oluştur"}
+            {anyUploading
+              ? "Medya yükleniyor..."
+              : !hasContract
+              ? "Sözleşme gerekli"
+              : saving
+              ? "Kaydediliyor..."
+              : initialPackage
+              ? "Güncelle"
+              : "Oluştur"}
           </Button>
         </DialogFooter>
       </DialogContent>

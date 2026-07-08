@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle } from "lucide-react";
+import { User, Bell, Lock, Palette, Check, Moon, Sun, Camera, Building, Star, CreditCard, Loader2, Mail, Landmark, MessageCircle, FileText } from "lucide-react";
+import { CoachingContractSettings } from "@/components/settings/CoachingContractSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
   { id: "branding", label: "Marka Kimliği", icon: Building },
   { id: "subscription", label: "Abonelik & Ödeme Bilgisi", icon: CreditCard },
+  { id: "contract", label: "Koçluk Sözleşmesi", icon: FileText },
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "security", label: "Güvenlik", icon: Lock },
   { id: "appearance", label: "Görünüm", icon: Palette },
@@ -751,6 +753,9 @@ export default function Settings() {
               </div>
             </div>
           )}
+
+          {/* Coaching Contract Section */}
+          {activeSection === "contract" && <CoachingContractSettings />}
 
           {/* Notifications Section */}
           {activeSection === "notifications" && (
