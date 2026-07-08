@@ -549,6 +549,77 @@ export type Database = {
           },
         ]
       }
+      athlete_intake_forms: {
+        Row: {
+          agreement_accepted: boolean
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          email: string
+          id: string
+          kvkk_accepted: boolean
+          medical_conditions: string | null
+          medications: string | null
+          package_id: string | null
+          phone: string
+        }
+        Insert: {
+          agreement_accepted?: boolean
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          email: string
+          id?: string
+          kvkk_accepted?: boolean
+          medical_conditions?: string | null
+          medications?: string | null
+          package_id?: string | null
+          phone: string
+        }
+        Update: {
+          agreement_accepted?: boolean
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          kvkk_accepted?: boolean
+          medical_conditions?: string | null
+          medications?: string | null
+          package_id?: string | null
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_intake_forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coach_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_intake_forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_intake_forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "public_coach_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_intake_forms_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "coaching_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_notifications: {
         Row: {
           action_url: string | null
@@ -1359,6 +1430,7 @@ export type Database = {
           gallery_urls: string[] | null
           id: string
           is_active: boolean
+          package_level: string
           price: number
           rich_description: string | null
           title: string
@@ -1375,6 +1447,7 @@ export type Database = {
           gallery_urls?: string[] | null
           id?: string
           is_active?: boolean
+          package_level?: string
           price: number
           rich_description?: string | null
           title: string
@@ -1391,6 +1464,7 @@ export type Database = {
           gallery_urls?: string[] | null
           id?: string
           is_active?: boolean
+          package_level?: string
           price?: number
           rich_description?: string | null
           title?: string
@@ -2077,10 +2151,12 @@ export type Database = {
           id: string
           items: Json
           order_type: string
+          privacy_accepted_at: string | null
           shipping_address: Json | null
           shopify_order_number: string | null
           shopify_order_status_url: string | null
           status: string | null
+          terms_accepted_at: string | null
           total_coins_used: number | null
           total_price: number
           tracking_number: string | null
@@ -2097,10 +2173,12 @@ export type Database = {
           id?: string
           items: Json
           order_type?: string
+          privacy_accepted_at?: string | null
           shipping_address?: Json | null
           shopify_order_number?: string | null
           shopify_order_status_url?: string | null
           status?: string | null
+          terms_accepted_at?: string | null
           total_coins_used?: number | null
           total_price: number
           tracking_number?: string | null
@@ -2117,10 +2195,12 @@ export type Database = {
           id?: string
           items?: Json
           order_type?: string
+          privacy_accepted_at?: string | null
           shipping_address?: Json | null
           shopify_order_number?: string | null
           shopify_order_status_url?: string | null
           status?: string | null
+          terms_accepted_at?: string | null
           total_coins_used?: number | null
           total_price?: number
           tracking_number?: string | null
@@ -2403,6 +2483,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_coaching_package_id: string | null
+          active_package_level: string | null
           active_program_id: string | null
           activity_level: string | null
           avatar_url: string | null
@@ -2451,6 +2533,8 @@ export type Database = {
           xp: number | null
         }
         Insert: {
+          active_coaching_package_id?: string | null
+          active_package_level?: string | null
           active_program_id?: string | null
           activity_level?: string | null
           avatar_url?: string | null
@@ -2499,6 +2583,8 @@ export type Database = {
           xp?: number | null
         }
         Update: {
+          active_coaching_package_id?: string | null
+          active_package_level?: string | null
           active_program_id?: string | null
           activity_level?: string | null
           avatar_url?: string | null
