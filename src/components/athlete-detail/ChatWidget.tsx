@@ -9,6 +9,7 @@ import { CustomAudioPlayer } from "@/components/ui/CustomAudioPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ChatMessage } from "@/hooks/useCoachChat";
+import { resolveMediaUrl, resolveChatMessagesMedia } from "@/lib/mediaUrl";
 import { format, isToday, isYesterday } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -49,7 +50,7 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
         .order("created_at", { ascending: false })
         .limit(MSG_LIMIT);
 
-      const fetched = ((data as ChatMessage[]) || []).reverse();
+      const fetched = await resolveChatMessagesMedia(((data as ChatMessage[]) || []).reverse());
       setMessages(fetched);
       setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoading(false);
@@ -82,24 +83,31 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
             (msg.sender_id === athleteId && msg.receiver_id === coachId) ||
             (msg.sender_id === coachId && msg.receiver_id === athleteId)
           ) {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === msg.id)) return prev;
-              // Replace optimistic echo from this coach with same content
-              const optimisticIdx = prev.findIndex(
-                (m) =>
-                  m.sender_id === msg.sender_id &&
-                  m.receiver_id === msg.receiver_id &&
-                  m.content === msg.content &&
-                  !m.media_url &&
-                  Math.abs(new Date(m.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000
-              );
-              if (optimisticIdx !== -1) {
-                const next = [...prev];
-                next[optimisticIdx] = msg;
-                return next;
-              }
-              return [...prev, msg];
-            });
+            const applyMsg = (m: ChatMessage) => {
+              setMessages((prev) => {
+                if (prev.some((x) => x.id === m.id)) return prev;
+                // Replace optimistic echo from this coach with same content
+                const optimisticIdx = prev.findIndex(
+                  (x) =>
+                    x.sender_id === m.sender_id &&
+                    x.receiver_id === m.receiver_id &&
+                    x.content === m.content &&
+                    !x.media_url &&
+                    Math.abs(new Date(x.created_at).getTime() - new Date(m.created_at).getTime()) < 60000
+                );
+                if (optimisticIdx !== -1) {
+                  const next = [...prev];
+                  next[optimisticIdx] = m;
+                  return next;
+                }
+                return [...prev, m];
+              });
+            };
+            if (msg.media_url) {
+              resolveMediaUrl(msg.media_url).then((signed) => applyMsg({ ...msg, media_url: signed }));
+            } else {
+              applyMsg(msg);
+            }
 
             // Auto-mark as read if from athlete
             if (msg.sender_id === athleteId) {

@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutedChats } from "@/hooks/useMutedChats";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import type { ChatMessage } from "@/hooks/useCoachChat";
+import { resolveMediaUrl, resolveChatMessagesMedia } from "@/lib/mediaUrl";
 
 interface QuickChatPopoverProps {
   athlete: { id: string; name: string; avatar?: string; sport?: string };
@@ -34,9 +35,10 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
   const initialScrollDoneRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleMediaSent = useCallback((mediaUrl: string, mediaType: 'image' | 'audio') => {
+  const handleMediaSent = useCallback(async (mediaUrl: string, mediaType: 'image' | 'audio') => {
     if (!coachId) return;
     const content = mediaType === 'image' ? '📷 Fotoğraf' : '🎤 Ses kaydı';
+    const signed = await resolveMediaUrl(mediaUrl);
     const optimistic: ChatMessage = {
       id: crypto.randomUUID(),
       sender_id: coachId,
@@ -44,7 +46,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
       content,
       created_at: new Date().toISOString(),
       is_read: false,
-      media_url: mediaUrl,
+      media_url: signed,
       media_type: mediaType,
     };
     setMessages(prev => [...prev, optimistic]);
@@ -82,7 +84,7 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
         console.error('QuickChat fetch error:', error);
       }
 
-      const fetched = ((data as ChatMessage[]) || []).reverse();
+      const fetched = await resolveChatMessagesMedia(((data as ChatMessage[]) || []).reverse());
       setMessages(fetched);
       setHasMore(fetched.length >= MSG_LIMIT);
       setIsLoadingMessages(false);
@@ -115,10 +117,17 @@ export function QuickChatPopover({ athlete, onClose }: QuickChatPopoverProps) {
             (msg.sender_id === athlete.id && msg.receiver_id === coachId) ||
             (msg.sender_id === coachId && msg.receiver_id === athlete.id)
           ) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
+            const applyMsg = (m: ChatMessage) => {
+              setMessages(prev => {
+                if (prev.some(x => x.id === m.id)) return prev;
+                return [...prev, m];
+              });
+            };
+            if (msg.media_url) {
+              resolveMediaUrl(msg.media_url).then((signed) => applyMsg({ ...msg, media_url: signed }));
+            } else {
+              applyMsg(msg);
+            }
 
             // Auto-mark as read if from athlete
             if (msg.sender_id === athlete.id) {
