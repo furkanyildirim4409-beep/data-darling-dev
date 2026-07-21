@@ -445,8 +445,15 @@ function useCoachChatStateInternal(): CoachChatValue {
 
           const onMessagesRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/messages');
           if (senderId === selectedAthleteIdRef.current && onMessagesRoute) {
-            // Dedupe by id when appending to active thread
-            setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            // Dedupe by id when appending to active thread; resolve media path -> signed URL first.
+            if (newMsg.media_url) {
+              resolveMediaUrl(newMsg.media_url).then((signed) => {
+                const withUrl = { ...newMsg, media_url: signed };
+                setMessages(prev => (prev.some(m => m.id === withUrl.id) ? prev : [...prev, withUrl]));
+              });
+            } else {
+              setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            }
             // We're auto-marking read locally; pre-record id so our own UPDATE event can't double-decrement
             readProcessedIdsRef.current.add(newMsg.id);
             supabase
