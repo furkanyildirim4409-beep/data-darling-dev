@@ -624,9 +624,12 @@ export type Database = {
         Row: {
           action_url: string | null
           athlete_id: string
+          category: string | null
           coach_id: string | null
           created_at: string
+          dedupe_key: string | null
           id: string
+          image_url: string | null
           is_read: boolean
           message: string
           metadata: Json | null
@@ -637,9 +640,12 @@ export type Database = {
         Insert: {
           action_url?: string | null
           athlete_id: string
+          category?: string | null
           coach_id?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message: string
           metadata?: Json | null
@@ -650,9 +656,12 @@ export type Database = {
         Update: {
           action_url?: string | null
           athlete_id?: string
+          category?: string | null
           coach_id?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message?: string
           metadata?: Json | null
@@ -1299,33 +1308,48 @@ export type Database = {
         Row: {
           action_url: string | null
           athlete_id: string | null
+          category: string | null
           coach_id: string
           created_at: string
+          dedupe_key: string | null
           id: string
+          image_url: string | null
           is_read: boolean
           message: string
+          metadata: Json | null
+          source_id: string | null
           title: string
           type: string
         }
         Insert: {
           action_url?: string | null
           athlete_id?: string | null
+          category?: string | null
           coach_id: string
           created_at?: string
+          dedupe_key?: string | null
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message: string
+          metadata?: Json | null
+          source_id?: string | null
           title: string
           type: string
         }
         Update: {
           action_url?: string | null
           athlete_id?: string | null
+          category?: string | null
           coach_id?: string
           created_at?: string
+          dedupe_key?: string | null
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message?: string
+          metadata?: Json | null
+          source_id?: string | null
           title?: string
           type?: string
         }
@@ -1471,6 +1495,7 @@ export type Database = {
           created_at: string
           description: string | null
           duration_months: number
+          duration_unit: string
           features: Json
           features_list: string[] | null
           gallery_urls: string[] | null
@@ -1488,6 +1513,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           duration_months: number
+          duration_unit?: string
           features?: Json
           features_list?: string[] | null
           gallery_urls?: string[] | null
@@ -1505,6 +1531,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           duration_months?: number
+          duration_unit?: string
           features?: Json
           features_list?: string[] | null
           gallery_urls?: string[] | null
@@ -2023,6 +2050,36 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_documents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          slug: string
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          slug: string
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          slug?: string
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -2095,6 +2152,42 @@ export type Database = {
           message?: string
           metadata?: Json | null
           module_type?: string
+        }
+        Relationships: []
+      }
+      notification_templates: {
+        Row: {
+          audience: string
+          body_tr: string
+          category: string
+          created_at: string
+          default_action_url: string | null
+          is_active: boolean
+          name: string
+          title_tr: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body_tr: string
+          category: string
+          created_at?: string
+          default_action_url?: string | null
+          is_active?: boolean
+          name: string
+          title_tr: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body_tr?: string
+          category?: string
+          created_at?: string
+          default_action_url?: string | null
+          is_active?: boolean
+          name?: string
+          title_tr?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2194,8 +2287,10 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           external_reference_id: string | null
+          fulfillment_status: string | null
           id: string
           items: Json
+          order_number: string | null
           order_type: string
           privacy_accepted_at: string | null
           shipping_address: Json | null
@@ -2216,8 +2311,10 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           external_reference_id?: string | null
+          fulfillment_status?: string | null
           id?: string
           items: Json
+          order_number?: string | null
           order_type?: string
           privacy_accepted_at?: string | null
           shipping_address?: Json | null
@@ -2238,8 +2335,10 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           external_reference_id?: string | null
+          fulfillment_status?: string | null
           id?: string
           items?: Json
+          order_number?: string | null
           order_type?: string
           privacy_accepted_at?: string | null
           shipping_address?: Json | null
@@ -2534,10 +2633,13 @@ export type Database = {
           active_program_id: string | null
           activity_level: string | null
           avatar_url: string | null
+          awaiting_program_assignment: boolean
           bio: string | null
           bio_coins: number | null
           birth_date: string | null
           coach_id: string | null
+          coaching_expires_at: string | null
+          coaching_started_at: string | null
           contract_template: string | null
           contract_updated_at: string | null
           created_at: string | null
@@ -2586,10 +2688,13 @@ export type Database = {
           active_program_id?: string | null
           activity_level?: string | null
           avatar_url?: string | null
+          awaiting_program_assignment?: boolean
           bio?: string | null
           bio_coins?: number | null
           birth_date?: string | null
           coach_id?: string | null
+          coaching_expires_at?: string | null
+          coaching_started_at?: string | null
           contract_template?: string | null
           contract_updated_at?: string | null
           created_at?: string | null
@@ -2638,10 +2743,13 @@ export type Database = {
           active_program_id?: string | null
           activity_level?: string | null
           avatar_url?: string | null
+          awaiting_program_assignment?: boolean
           bio?: string | null
           bio_coins?: number | null
           birth_date?: string | null
           coach_id?: string | null
+          coaching_expires_at?: string | null
+          coaching_started_at?: string | null
           contract_template?: string | null
           contract_updated_at?: string | null
           created_at?: string | null
@@ -2868,6 +2976,7 @@ export type Database = {
           endpoint: string
           id: string
           p256dh: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -2876,6 +2985,7 @@ export type Database = {
           endpoint: string
           id?: string
           p256dh: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -2884,6 +2994,7 @@ export type Database = {
           endpoint?: string
           id?: string
           p256dh?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -3926,6 +4037,30 @@ export type Database = {
         }
         Relationships: []
       }
+      xp_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       coach_public_profiles: {
@@ -4010,9 +4145,17 @@ export type Database = {
         Returns: string
       }
       award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
+      award_xp_secure: {
+        Args: { _amount: number; _reason?: string }
+        Returns: number
+      }
       bump_edge_rate_limit: {
         Args: { _bucket: string; _user_id: string; _window: string }
         Returns: number
+      }
+      cancel_payment_return_order: {
+        Args: { _order_id: string }
+        Returns: boolean
       }
       claim_invite: {
         Args: { _athlete_id: string; _token: string }
@@ -4054,6 +4197,10 @@ export type Database = {
         Args: { p_athlete_id: string }
         Returns: undefined
       }
+      compute_order_timeline_stage: {
+        Args: { _fulfillment_status: string; _status: string }
+        Returns: number
+      }
       create_auto_login_token: {
         Args: { _expires_in_days?: number; _user_id: string }
         Returns: string
@@ -4092,8 +4239,21 @@ export type Database = {
           xp: number
         }[]
       }
+      get_my_active_coaching_status: {
+        Args: never
+        Returns: {
+          coach_id: string
+          coaching_expires_at: string
+          has_active: boolean
+          package_id: string
+        }[]
+      }
       get_my_coach_id: { Args: never; Returns: string }
       get_my_head_coach_id: { Args: never; Returns: string }
+      get_order_id_for_stripe_session: {
+        Args: { _session_id: string }
+        Returns: string
+      }
       get_own_contact_info: {
         Args: never
         Returns: {
@@ -4159,6 +4319,7 @@ export type Database = {
         }
         Returns: string
       }
+      has_active_coaching: { Args: { _user_id: string }; Returns: boolean }
       has_mail_delegation: { Args: { _owner_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -4178,6 +4339,10 @@ export type Database = {
         Args: { _athlete_email: string; _coach_id: string }
         Returns: Json
       }
+      order_contains_coaching_item: {
+        Args: { _items: Json; _order_type: string }
+        Returns: boolean
+      }
       process_challenge_resolution: {
         Args: {
           _challenge_id: string
@@ -4188,6 +4353,15 @@ export type Database = {
         Returns: undefined
       }
       publish_due_social_posts: { Args: never; Returns: number }
+      resolve_active_coaching_status_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          coach_id: string
+          coaching_expires_at: string
+          has_active: boolean
+          package_id: string
+        }[]
+      }
       resolve_dispute: {
         Args: {
           p_challenge_id: string
@@ -4195,6 +4369,29 @@ export type Database = {
           p_winner_id?: string
         }
         Returns: boolean
+      }
+      resolve_payment_return_status: {
+        Args: { _order_id?: string; _session_id?: string }
+        Returns: {
+          coach_id: string
+          is_paid: boolean
+          order_id: string
+          order_type: string
+          status: string
+          total_price: number
+          user_id: string
+        }[]
+      }
+      search_athletes_by_username: {
+        Args: { _limit?: number; _query: string }
+        Returns: {
+          avatar_url: string
+          bio_coins: number
+          full_name: string
+          id: string
+          streak: number
+          username: string
+        }[]
       }
       set_team_member_active: {
         Args: { _is_active: boolean; _team_member_id: string }
@@ -4228,6 +4425,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_streak_secure: { Args: never; Returns: undefined }
       verify_reauthentication_nonce: {
         Args: { _nonce: string }
         Returns: boolean
