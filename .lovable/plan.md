@@ -1,80 +1,56 @@
-## Amaç
-`coach_contracts` tablosunu oluştur, Faz 3'te `profiles.contract_template` üzerinde tutulan sözleşme verisini bu tabloya taşı ve `useCoachContract` hook'unu yeni kaynağa yönlendir. `athlete_intake_forms` ve `coach_athletes` tabloları için ek migration yok.
+# Plan
 
-## Neden bu kapsam
-- `athlete_intake_forms` zaten spec ile uyumlu (`kvkk_accepted`+`agreement_accepted` kolonları, athlete self-insert & coach read RLS'i mevcut). Ek DDL gereksiz.
-- `coach_athletes` mimaride yok; koç-sporcu bağı `profiles.coach_id` + `profiles.active_package_level` ile yürüyor ve Faz 4 UI bu alanları kullanıyor. Yeni bir mapping tablosu paralel gerçek kaynak yaratır — kapsam dışı.
+## 1. Chat media path → signed URL resolver
 
-## 1. Migration — `coach_contracts` tablosu
+### New helper: `src/lib/mediaUrl.ts`
+- `isHttpUrl(v?: string | null): boolean` — true if value starts with `http://` / `https://`.
+- `resolveMediaUrl(value?: string | null, bucket = 'chat-media', ttl = 3600): Promise<string | null>` — null-safe; passes through http URLs; else calls `supabase.storage.from(bucket).createSignedUrl(value, ttl)` and returns `signedUrl` (or null on error).
+- `resolveChatMessagesMedia<T extends { media_url?: string | null }>(messages: T[]): Promise<T[]>` — collects rows whose `media_url` is a bare path, calls `createSignedUrls(paths, 3600)` in one batch, maps results back preserving order; leaves http rows untouched. Handles empty input.
 
-```sql
-CREATE TABLE public.coach_contracts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  coach_id uuid NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
-  content text NOT NULL DEFAULT '',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+### Wire the resolver into every read path
+For each of the following, resolve `media_url` **before** committing to state (initial fetch, load-older, realtime INSERT, optimistic self-echo of a just-uploaded file):
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.coach_contracts TO authenticated;
-GRANT ALL ON public.coach_contracts TO service_role;
+- `src/hooks/useCoachChat.ts`
+  - `fetchMessages` — `setMessages(await resolveChatMessagesMedia(fetched))`
+  - `loadOlderMessages` — resolve `older` batch before prepending
+  - realtime INSERT branch (line ~447) — resolve the single `newMsg` via `resolveMediaUrl` before pushing
+  - `sendMessage` optimistic branch — if `mediaUrl` is provided (bare path), resolve it for the optimistic bubble; still write the bare path to DB
+- `src/components/athletes/QuickChatPopover.tsx` — same three branches (initial load, realtime insert, optimistic send)
+- `src/components/athlete-detail/ChatWidget.tsx` — same
+- `src/components/chat/ActiveChat.tsx` — only renders `msg.media_url`, so no extra fetch work here; it relies on the hook. However the story-reply meta path (`meta.media_url`) is unrelated (stories are public) — leave it alone.
 
-ALTER TABLE public.coach_contracts ENABLE ROW LEVEL SECURITY;
+### Upload path: `src/hooks/useMediaUpload.ts`
+- Remove the `createSignedUrl(1 year)` call.
+- After a successful `.upload(fileName, ...)`, call `onUploadComplete(fileName, type)` with the **bare storage path**.
+- Callers already pass this value into `sendMessage`, which writes it into `messages.media_url`. The optimistic bubble is signed on the fly via the resolver above.
 
--- Coach + head-coach team üyeleri: kendi/patron kayıtlarını yönet
-CREATE POLICY "coach_manage_own_contract"
-  ON public.coach_contracts FOR ALL
-  TO authenticated
-  USING (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id))
-  WITH CHECK (auth.uid() = coach_id OR public.is_active_team_member_of(coach_id));
+### Challenge messages
+- `challenge_messages.media_url` is also now a path. Grep confirms it isn't rendered in the coach panel today (no matches under `src/`). No changes; the helper is reusable if a surface appears later.
 
--- Sporcu: KENDİ koçunun sözleşmesini okuyabilir (paket satın alma / görüntüleme akışı için)
-CREATE POLICY "athlete_read_own_coach_contract"
-  ON public.coach_contracts FOR SELECT
-  TO authenticated
-  USING (
-    coach_id IN (
-      SELECT p.coach_id FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.coach_id IS NOT NULL
-    )
-  );
+## 2. Review moderation queue in Store Manager
 
--- updated_at trigger
-CREATE TRIGGER coach_contracts_touch_updated_at
-  BEFORE UPDATE ON public.coach_contracts
-  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+### New component: `src/components/store-manager/ReviewModerationQueue.tsx`
+- Query: `product_reviews` where `is_approved = false`, order by `created_at desc`. RLS scopes to the coach's products.
+- Enrich in two parallel queries:
+  1. `coach_products` — select `shopify_product_id, title, image_url` for the distinct `product_id`s from the reviews (join key: `coach_products.shopify_product_id = product_reviews.product_id`).
+  2. `get_public_profiles(_ids := [...userIds])` RPC — for the reviewer `user_id`s (reviewers may not be the coach's athletes, so `profiles` is unreadable directly).
+- Card layout: product title + thumbnail, reviewer avatar + name, star rating, comment text, optional review `image_url`, timestamp, and two buttons:
+  - **Onayla** → `update({ is_approved: true }).eq('id', id)`
+  - **Reddet/Sil** → `delete().eq('id', id)`
+- Both actions invalidate the queue query on success (React Query) and toast the result.
+- Empty state: "Bekleyen yorum yok."
 
--- Faz 3 verisini taşı
-INSERT INTO public.coach_contracts (coach_id, content, created_at, updated_at)
-SELECT id, contract_template,
-       COALESCE(contract_updated_at, now()),
-       COALESCE(contract_updated_at, now())
-FROM public.profiles
-WHERE role = 'coach'
-  AND contract_template IS NOT NULL
-  AND btrim(contract_template) <> ''
-ON CONFLICT (coach_id) DO NOTHING;
-```
+### Mount point: `src/pages/StoreManager.tsx`
+- Add a new section (tab or panel, matching existing layout conventions) titled "Yorum Onayları" that renders `<ReviewModerationQueue />`. A small unread-count badge on the tab if `count > 0`.
 
-Not: `profiles.contract_template` ve `contract_updated_at` kolonlarına şimdilik dokunulmuyor (deprecated). İleride ayrı bir temizlik migration'ı ile drop edilebilir.
+## 3. Regenerate Supabase types
 
-## 2. Kod güncellemesi — `src/hooks/useCoachContract.ts`
-- `profiles` yerine `coach_contracts` sorgulanır.
-- `activeCoachId` üzerinden `.eq('coach_id', activeCoachId)` + `.maybeSingle()`.
-- Save akışı `upsert({ coach_id: activeCoachId, content }, { onConflict: 'coach_id' })` olur.
-- `updated_at` alanı DB tarafından set edilir (trigger). Hook UI için `contract_updated_at` yerine `updated_at` alanını döner; kullanan bileşen (`CoachingContractSettings.tsx`) buna göre isim güncellenir.
+After the migration-side changes (already applied server-side), refresh `src/integrations/supabase/types.ts` so `get_public_profiles` and the new defaults are reflected. This is handled by the standard type regen step — no manual edit.
 
-## 3. Tip senkronu — `src/integrations/supabase/types.ts`
-- Migration çalıştıktan sonra Supabase tarafından otomatik üretilir. Elle düzenlenmez.
-- Migration onaylanıp uygulandıktan sonra kodu regeneration ile paralel tutmak yeterli; ek dosya yazımı gerekmez.
+## Out of scope (confirmed)
+- Disputes UI — unchanged per user note.
+- Stories / social posts / highlights media — those buckets/columns remain public URLs; the resolver is a no-op on http values if ever reused there.
 
-## Dokunulan dosyalar
-- `supabase/migrations/<timestamp>_create_coach_contracts.sql` (yeni)
-- `src/hooks/useCoachContract.ts` (kaynak tablo değişikliği)
-- `src/components/settings/CoachingContractSettings.tsx` (alan adı: `updated_at`)
-
-## Kapsam dışı
-- `coach_athletes` tablosu (kullanıcı onayıyla atlandı)
-- `athlete_intake_forms` DDL (mevcut ve uyumlu)
-- `profiles.contract_template` sütununu drop etmek (ayrı bir cleanup için)
-- Athlete-side sözleşme onay akışı (Faz 4/5)
+## Files touched
+- Add: `src/lib/mediaUrl.ts`, `src/components/store-manager/ReviewModerationQueue.tsx`
+- Edit: `src/hooks/useCoachChat.ts`, `src/hooks/useMediaUpload.ts`, `src/components/athletes/QuickChatPopover.tsx`, `src/components/athlete-detail/ChatWidget.tsx`, `src/pages/StoreManager.tsx`
