@@ -62,6 +62,7 @@ import {
 } from "@/hooks/useStoreMutations";
 import { useStoreOrders } from "@/hooks/useStoreOrders";
 import StoreOrdersList from "@/components/store-manager/StoreOrdersList";
+import { ReviewModerationQueue } from "@/components/store-manager/ReviewModerationQueue";
 import { CoachingPackagesManager } from "@/components/business/CoachingPackagesManager";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -353,6 +354,7 @@ export default function StoreManager() {
         <TabsList className="glass border border-border">
           <TabsTrigger value="orders">Sipariş & Lojistik</TabsTrigger>
           <TabsTrigger value="products">Ürün Yönetimi</TabsTrigger>
+          <TabsTrigger value="reviews">⭐ Yorum Onayları</TabsTrigger>
           <TabsTrigger value="coaching_packages">📦 Paketler & Abonelikler</TabsTrigger>
         </TabsList>
 
@@ -838,6 +840,10 @@ export default function StoreManager() {
 
         <TabsContent value="orders" className="space-y-6 mt-0">
           <StoreOrdersList orders={orders} isLoading={isOrdersLoading} />
+        </TabsContent>
+
+        <TabsContent value="reviews" className="space-y-6 mt-0">
+          <ReviewModerationQueue />
         </TabsContent>
 
         <TabsContent value="coaching_packages" className="space-y-6 mt-0 animate-in fade-in duration-200">

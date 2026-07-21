@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode, createElement } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { resolveMediaUrl, resolveChatMessagesMedia } from '@/lib/mediaUrl';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type ChatRoomType = 'assigned' | 'direct';
@@ -247,7 +248,7 @@ function useCoachChatStateInternal(): CoachChatValue {
       .order('created_at', { ascending: false })
       .limit(MSG_PAGE_SIZE);
 
-    const fetched = ((data as ChatMessage[]) || []).reverse();
+    const fetched = await resolveChatMessagesMedia(((data as ChatMessage[]) || []).reverse());
     setMessages(fetched);
     setHasMoreMessages(fetched.length >= MSG_PAGE_SIZE);
     setIsLoadingMessages(false);
@@ -292,7 +293,7 @@ function useCoachChatStateInternal(): CoachChatValue {
       .order('created_at', { ascending: false })
       .limit(MSG_PAGE_SIZE);
 
-    const older = ((data as ChatMessage[]) || []).reverse();
+    const older = await resolveChatMessagesMedia(((data as ChatMessage[]) || []).reverse());
     if (older.length > 0) {
       setMessages(prev => [...older, ...prev]);
     }
@@ -314,6 +315,7 @@ function useCoachChatStateInternal(): CoachChatValue {
     if (!coachId || !selectedAthleteId) return;
     if (!content.trim() && !mediaUrl) return;
 
+    const optimisticPreview = mediaUrl ? await resolveMediaUrl(mediaUrl) : null;
     const optimistic: ChatMessage = {
       id: crypto.randomUUID(),
       sender_id: coachId,
@@ -321,7 +323,7 @@ function useCoachChatStateInternal(): CoachChatValue {
       content: content.trim() || (mediaType === 'image' ? '📷 Fotoğraf' : '🎤 Ses kaydı'),
       created_at: new Date().toISOString(),
       is_read: false,
-      media_url: mediaUrl || null,
+      media_url: optimisticPreview,
       media_type: mediaType || null,
     };
 
@@ -443,8 +445,15 @@ function useCoachChatStateInternal(): CoachChatValue {
 
           const onMessagesRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/messages');
           if (senderId === selectedAthleteIdRef.current && onMessagesRoute) {
-            // Dedupe by id when appending to active thread
-            setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            // Dedupe by id when appending to active thread; resolve media path -> signed URL first.
+            if (newMsg.media_url) {
+              resolveMediaUrl(newMsg.media_url).then((signed) => {
+                const withUrl = { ...newMsg, media_url: signed };
+                setMessages(prev => (prev.some(m => m.id === withUrl.id) ? prev : [...prev, withUrl]));
+              });
+            } else {
+              setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+            }
             // We're auto-marking read locally; pre-record id so our own UPDATE event can't double-decrement
             readProcessedIdsRef.current.add(newMsg.id);
             supabase
