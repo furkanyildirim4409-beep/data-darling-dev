@@ -175,7 +175,7 @@ export function ChatWidget({ athleteName, athleteInitials, athleteId }: ChatWidg
       .order("created_at", { ascending: false })
       .limit(MSG_LIMIT);
 
-    const older = ((data as ChatMessage[]) || []).reverse();
+    const older = await resolveChatMessagesMedia(((data as ChatMessage[]) || []).reverse());
     if (older.length > 0) {
       setMessages(prev => [...older, ...prev]);
     }
