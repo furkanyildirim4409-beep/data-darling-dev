@@ -66,7 +66,13 @@ export default function Alerts() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
-  const [dismissedIds, setDismissedIds] = useState<Set<string | number>>(new Set());
+  const { dismissedKeys, dismissAsync } = useDismissedAlerts();
+  const [localDismissedIds, setLocalDismissedIds] = useState<Set<string | number>>(new Set());
+  const dismissedIds = useMemo(() => {
+    const merged = new Set<string | number>(localDismissedIds);
+    dismissedKeys.forEach((k) => merged.add(k));
+    return merged;
+  }, [localDismissedIds, dismissedKeys]);
 
   const [aiInterventions, setAiInterventions] = useState<AiIntervention[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
