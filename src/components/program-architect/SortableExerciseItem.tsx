@@ -141,8 +141,9 @@ export function SortableExerciseItem({
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground mb-0.5 block">Tekrar</label>
-              <Input type="number" min={1} max={50} value={exercise.reps}
-                onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "reps", parseInt(e.target.value) || 1)}
+              <Input type="text" inputMode="text" value={String(exercise.reps ?? "")}
+                placeholder="10 veya 8-12"
+                onChange={(e) => onUpdateExercise(dayIndex, exercise.id, "reps", e.target.value)}
                 className="h-8 text-xs text-center bg-background/50" />
             </div>
             <div>
