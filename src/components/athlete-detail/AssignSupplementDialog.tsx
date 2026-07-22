@@ -37,7 +37,7 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
     setName("");
     setDosage("");
     setTiming("Sabah");
-    setTotalServings(30);
+    setTotalServings("30");
     setIcon("💊");
   };
 
