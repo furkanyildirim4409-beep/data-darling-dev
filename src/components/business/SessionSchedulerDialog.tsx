@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -17,18 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Clock, Plus, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  useCoachSessionsWeek,
+  useCreateCoachSession,
+  useDeleteCoachSession,
+  type CoachSession,
+} from "@/hooks/useCoachSessions";
+import { addDays, format, startOfWeek } from "date-fns";
 
-const clients = [
-  { id: "1", name: "Ahmet Yılmaz" },
-  { id: "2", name: "Zeynep Kaya" },
-  { id: "3", name: "Mehmet Demir" },
-  { id: "4", name: "Elif Öztürk" },
-  { id: "5", name: "Can Arslan" },
-  { id: "6", name: "Grup Antrenmanı" },
-];
+const GROUP_OPTION_ID = "__group__";
 
 const sessionTypes = [
   { value: "pt", label: "Personal Training" },
@@ -48,95 +50,73 @@ const turkishDays = [
 ];
 
 const timeSlots = [
-  "08:00", "09:00", "10:00", "11:00", "12:00", 
-  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"
+  "08:00", "09:00", "10:00", "11:00", "12:00",
+  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00",
 ];
-
-interface ScheduledSession {
-  id: string;
-  dayIndex: number;
-  time: string;
-  client: string;
-  type: string;
-  duration: string;
-}
 
 interface SessionSchedulerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSessionCreated: (session: { 
-    athlete: string; 
-    type: string; 
-    time: string; 
-    duration: string;
-  }) => void;
 }
 
-export function SessionSchedulerDialog({ 
-  open, 
-  onOpenChange, 
-  onSessionCreated 
-}: SessionSchedulerDialogProps) {
-  const { toast } = useToast();
-  const [sessions, setSessions] = useState<ScheduledSession[]>([
-    { id: "s1", dayIndex: 0, time: "09:00", client: "Ahmet Yılmaz", type: "PT", duration: "60 dk" },
-    { id: "s2", dayIndex: 0, time: "14:00", client: "Zeynep Kaya", type: "Check-in", duration: "30 dk" },
-    { id: "s3", dayIndex: 2, time: "10:00", client: "Grup Antrenmanı", type: "Grup", duration: "90 dk" },
-    { id: "s4", dayIndex: 4, time: "16:00", client: "Elif Öztürk", type: "PT", duration: "60 dk" },
-  ]);
+function toTimeCell(t: string) {
+  // DB returns HH:mm:ss — normalize to HH:mm
+  return t?.slice(0, 5);
+}
 
-  // New session form state
+export function SessionSchedulerDialog({ open, onOpenChange }: SessionSchedulerDialogProps) {
+  const { toast } = useToast();
+  const { activeCoachId } = useAuth();
+
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  const today = new Date();
+  const todayIdx = (() => {
+    const d = today.getDay(); // 0=Sun..6=Sat
+    return d === 0 ? 6 : d - 1;
+  })();
+  const isCurrentWeek =
+    format(weekStart, "yyyy-MM-dd") === format(startOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+  const { data: sessions = [], isLoading } = useCoachSessionsWeek(activeCoachId, weekStart);
+  const createSession = useCreateCoachSession();
+  const deleteSession = useDeleteCoachSession();
+
+  const { data: athletes = [] } = useQuery({
+    queryKey: ["scheduler-athletes", activeCoachId],
+    enabled: !!activeCoachId && open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "athlete")
+        .eq("coach_id", activeCoachId as string)
+        .order("full_name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; full_name: string | null }[];
+    },
+  });
+
   const [showNewSessionForm, setShowNewSessionForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ dayIndex: number; time: string } | null>(null);
   const [newClientId, setNewClientId] = useState("");
   const [newSessionType, setNewSessionType] = useState("");
   const [newDuration, setNewDuration] = useState("60");
 
-  const getSessionForSlot = (dayIndex: number, time: string) => {
-    return sessions.find((s) => s.dayIndex === dayIndex && s.time === time);
-  };
-
-  const handleSlotClick = (dayIndex: number, time: string) => {
-    const existingSession = getSessionForSlot(dayIndex, time);
-    if (existingSession) return; // Don't allow clicking occupied slots
-
-    setSelectedSlot({ dayIndex, time });
-    setShowNewSessionForm(true);
-  };
-
-  const handleCreateSession = () => {
-    if (!selectedSlot || !newClientId || !newSessionType) return;
-
-    const client = clients.find((c) => c.id === newClientId);
-    const sessionType = sessionTypes.find((t) => t.value === newSessionType);
-
-    const newSession: ScheduledSession = {
-      id: `s-${Date.now()}`,
-      dayIndex: selectedSlot.dayIndex,
-      time: selectedSlot.time,
-      client: client?.name || "",
-      type: sessionType?.label || "",
-      duration: `${newDuration} dk`,
-    };
-
-    setSessions((prev) => [...prev, newSession]);
-
-    // If it's today (Monday = index 0 for demo), add to today's program
-    if (selectedSlot.dayIndex === 0) {
-      onSessionCreated({
-        athlete: client?.name || "",
-        type: sessionType?.label || "",
-        time: selectedSlot.time,
-        duration: `${newDuration} dk`,
-      });
-    }
-
-    toast({
-      title: "Seans Planlandı",
-      description: `${turkishDays[selectedSlot.dayIndex].full} ${selectedSlot.time} - ${client?.name}`,
+  const sessionsByCell = useMemo(() => {
+    const map = new Map<string, CoachSession>();
+    sessions.forEach((s) => {
+      const dayIndex = (() => {
+        const d = new Date(s.scheduled_date + "T00:00:00").getDay();
+        return d === 0 ? 6 : d - 1;
+      })();
+      map.set(`${dayIndex}|${toTimeCell(s.scheduled_time)}`, s);
     });
+    return map;
+  }, [sessions]);
 
-    // Reset form
+  const resetForm = () => {
     setShowNewSessionForm(false);
     setSelectedSlot(null);
     setNewClientId("");
@@ -144,12 +124,61 @@ export function SessionSchedulerDialog({
     setNewDuration("60");
   };
 
-  const handleRemoveSession = (sessionId: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+  const handleSlotClick = (dayIndex: number, time: string) => {
+    if (sessionsByCell.has(`${dayIndex}|${time}`)) return;
+    setSelectedSlot({ dayIndex, time });
+    setShowNewSessionForm(true);
+  };
+
+  const handleCreateSession = async () => {
+    if (!selectedSlot || !newClientId || !newSessionType || !activeCoachId) return;
+
+    const isGroup = newClientId === GROUP_OPTION_ID;
+    const athlete = athletes.find((a) => a.id === newClientId);
+    const sessionType = sessionTypes.find((t) => t.value === newSessionType);
+    const targetDate = addDays(weekStart, selectedSlot.dayIndex);
+
+    try {
+      await createSession.mutateAsync({
+        coach_id: activeCoachId,
+        athlete_id: isGroup ? null : newClientId,
+        athlete_label: isGroup ? "Grup Antrenmanı" : athlete?.full_name || "İsimsiz",
+        session_type: newSessionType,
+        scheduled_date: format(targetDate, "yyyy-MM-dd"),
+        scheduled_time: `${selectedSlot.time}:00`,
+        duration_minutes: Number(newDuration),
+      });
+
+      toast({
+        title: "Seans Planlandı",
+        description: `${turkishDays[selectedSlot.dayIndex].full} ${selectedSlot.time} - ${
+          isGroup ? "Grup Antrenmanı" : athlete?.full_name
+        } (${sessionType?.label})`,
+      });
+      resetForm();
+    } catch (err: any) {
+      toast({
+        title: "Seans oluşturulamadı",
+        description: err?.message ?? "Bilinmeyen hata",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveSession = async (id: string) => {
+    try {
+      await deleteSession.mutateAsync(id);
+    } catch (err: any) {
+      toast({
+        title: "Seans silinemedi",
+        description: err?.message ?? "Bilinmeyen hata",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
       <DialogContent className="bg-card border-border sm:max-w-[900px] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -161,11 +190,22 @@ export function SessionSchedulerDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Week nav */}
+        <div className="flex items-center justify-between px-1">
+          <Button variant="ghost" size="sm" onClick={() => setWeekStart((w) => addDays(w, -7))}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="text-xs text-muted-foreground font-mono">
+            {format(weekStart, "dd MMM")} – {format(addDays(weekStart, 6), "dd MMM yyyy")}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setWeekStart((w) => addDays(w, 7))}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+
         <div className="flex gap-4 overflow-hidden">
-          {/* Weekly Grid */}
           <div className="flex-1 overflow-auto">
             <div className="min-w-[600px]">
-              {/* Day Headers */}
               <div className="grid grid-cols-8 gap-1 mb-2">
                 <div className="p-2 text-xs text-muted-foreground">Saat</div>
                 {turkishDays.map((day, i) => (
@@ -173,7 +213,9 @@ export function SessionSchedulerDialog({
                     key={i}
                     className={cn(
                       "p-2 text-center rounded-lg",
-                      i === 0 ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                      isCurrentWeek && i === todayIdx
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground"
                     )}
                   >
                     <p className="text-xs font-medium">{day.short}</p>
@@ -181,73 +223,76 @@ export function SessionSchedulerDialog({
                 ))}
               </div>
 
-              {/* Time Slots Grid */}
               <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
-                {timeSlots.map((time) => (
-                  <div key={time} className="grid grid-cols-8 gap-1">
-                    {/* Time Label */}
-                    <div className="p-2 text-xs text-muted-foreground font-mono flex items-center">
-                      {time}
-                    </div>
-
-                    {/* Day Cells */}
-                    {turkishDays.map((_, dayIndex) => {
-                      const session = getSessionForSlot(dayIndex, time);
-                      const isSelected = selectedSlot?.dayIndex === dayIndex && selectedSlot?.time === time;
-
-                      return (
-                        <button
-                          key={dayIndex}
-                          onClick={() => handleSlotClick(dayIndex, time)}
-                          disabled={!!session}
-                          className={cn(
-                            "min-h-[40px] rounded-lg border transition-all text-left p-1.5",
-                            session
-                              ? "bg-primary/20 border-primary/30 cursor-default"
-                              : isSelected
-                                ? "border-primary bg-primary/10 ring-1 ring-primary"
-                                : "border-border hover:border-primary/50 hover:bg-muted/30"
-                          )}
-                        >
-                          {session ? (
-                            <div className="relative group">
-                              <p className="text-[10px] font-medium text-primary truncate">
-                                {session.client}
-                              </p>
-                              <p className="text-[9px] text-muted-foreground truncate">
-                                {session.type}
-                              </p>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveSession(session.id);
-                                }}
-                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
-                              <Plus className="w-3 h-3 text-muted-foreground" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
+                {isLoading ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
-                ))}
+                ) : (
+                  timeSlots.map((time) => (
+                    <div key={time} className="grid grid-cols-8 gap-1">
+                      <div className="p-2 text-xs text-muted-foreground font-mono flex items-center">
+                        {time}
+                      </div>
+                      {turkishDays.map((_, dayIndex) => {
+                        const session = sessionsByCell.get(`${dayIndex}|${time}`);
+                        const isSelected =
+                          selectedSlot?.dayIndex === dayIndex && selectedSlot?.time === time;
+
+                        return (
+                          <button
+                            key={dayIndex}
+                            onClick={() => handleSlotClick(dayIndex, time)}
+                            disabled={!!session}
+                            className={cn(
+                              "min-h-[40px] rounded-lg border transition-all text-left p-1.5",
+                              session
+                                ? "bg-primary/20 border-primary/30 cursor-default"
+                                : isSelected
+                                  ? "border-primary bg-primary/10 ring-1 ring-primary"
+                                  : "border-border hover:border-primary/50 hover:bg-muted/30"
+                            )}
+                          >
+                            {session ? (
+                              <div className="relative group">
+                                <p className="text-[10px] font-medium text-primary truncate">
+                                  {session.athlete_label}
+                                </p>
+                                <p className="text-[9px] text-muted-foreground truncate">
+                                  {sessionTypes.find((t) => t.value === session.session_type)?.label ??
+                                    session.session_type}
+                                </p>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveSession(session.id);
+                                  }}
+                                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
+                                <Plus className="w-3 h-3 text-muted-foreground" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
 
-          {/* New Session Form (Side Panel) */}
           {showNewSessionForm && selectedSlot && (
             <div className="w-64 border-l border-border pl-4 space-y-4">
               <div>
                 <h3 className="font-semibold text-foreground mb-1">Yeni Seans</h3>
                 <p className="text-xs text-muted-foreground">
-                  {turkishDays[selectedSlot.dayIndex].full} - {selectedSlot.time}
+                  {format(addDays(weekStart, selectedSlot.dayIndex), "dd MMM")} - {selectedSlot.time}
                 </p>
               </div>
 
@@ -259,9 +304,12 @@ export function SessionSchedulerDialog({
                       <SelectValue placeholder="Seçin..." />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id} className="text-xs">
-                          {client.name}
+                      <SelectItem value={GROUP_OPTION_ID} className="text-xs">
+                        Grup Antrenmanı
+                      </SelectItem>
+                      {athletes.map((a) => (
+                        <SelectItem key={a.id} value={a.id} className="text-xs">
+                          {a.full_name || "İsimsiz"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -301,23 +349,16 @@ export function SessionSchedulerDialog({
               </div>
 
               <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowNewSessionForm(false);
-                    setSelectedSlot(null);
-                  }}
-                >
+                <Button variant="outline" size="sm" className="flex-1" onClick={resetForm}>
                   İptal
                 </Button>
                 <Button
                   size="sm"
                   className="flex-1 bg-primary text-primary-foreground"
                   onClick={handleCreateSession}
-                  disabled={!newClientId || !newSessionType}
+                  disabled={!newClientId || !newSessionType || createSession.isPending}
                 >
+                  {createSession.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                   Kaydet
                 </Button>
               </div>

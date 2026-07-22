@@ -1434,6 +1434,48 @@ export type Database = {
           },
         ]
       }
+      coach_sessions: {
+        Row: {
+          athlete_id: string | null
+          athlete_label: string
+          coach_id: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string
+          session_type: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id?: string | null
+          athlete_label: string
+          coach_id: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time: string
+          session_type: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string | null
+          athlete_label?: string
+          coach_id?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string
+          session_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coach_stories: {
         Row: {
           category: string | null

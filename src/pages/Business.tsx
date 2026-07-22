@@ -49,16 +49,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface Session {
-  athlete: string;
-  type: string;
-  time: string;
-  duration: string;
-}
+import { useCoachSessions, useDeleteCoachSession } from "@/hooks/useCoachSessions";
 
-const initialSessions: Session[] = [
-  { athlete: "Grup Antrenmanı", type: "Sınıf", time: "11:00", duration: "90 dk" },
-];
 
 const statusLabels: Record<string, string> = {
   paid: "Ödendi",
@@ -77,14 +69,12 @@ export default function Business() {
   const { data: metrics, isLoading: metricsLoading } = useBusinessMetrics(activeCoachId ?? undefined);
   const { data: customInvoices, isLoading: invoicesLoading } = useAssignedPayments(activeCoachId ?? undefined);
 
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
+  const { data: todaysSessions = [], isLoading: sessionsLoading } = useCoachSessions(activeCoachId ?? undefined);
+  const deleteSession = useDeleteCoachSession();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleSessionCreated = (session: Session) => {
-    setSessions((prev) => [...prev, session].sort((a, b) => a.time.localeCompare(b.time)));
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
@@ -326,26 +316,42 @@ export default function Business() {
         <div className="glass rounded-xl border border-border">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Bugünün Programı</h2>
-            <span className="text-sm font-mono text-muted-foreground">{sessions.length} seans</span>
+            <span className="text-sm font-mono text-muted-foreground">{todaysSessions.length} seans</span>
           </div>
           <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-            {sessions.map((session, idx) => (
-              <div key={idx} className="p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-primary" />
+            {sessionsLoading ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">Yükleniyor…</div>
+            ) : todaysSessions.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">Bugün planlı seans yok.</div>
+            ) : (
+              todaysSessions.map((session) => (
+                <div key={session.id} className="p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{session.athlete_label}</p>
+                      <p className="text-sm text-muted-foreground">{session.session_type}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">{session.athlete}</p>
-                    <p className="text-sm text-muted-foreground">{session.type}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="font-mono text-foreground">{session.scheduled_time.slice(0, 5)}</p>
+                      <p className="text-sm text-muted-foreground">{session.duration_minutes} dk</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                      onClick={() => deleteSession.mutate(session.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-foreground">{session.time}</p>
-                  <p className="text-sm text-muted-foreground">{session.duration}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -364,8 +370,8 @@ export default function Business() {
       <SessionSchedulerDialog
         open={schedulerDialogOpen}
         onOpenChange={setSchedulerDialogOpen}
-        onSessionCreated={handleSessionCreated}
       />
+
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
