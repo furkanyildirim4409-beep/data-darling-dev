@@ -121,10 +121,7 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(file);
-      });
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
