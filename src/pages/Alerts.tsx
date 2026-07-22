@@ -27,6 +27,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAlerts } from "@/hooks/useAlerts";
+import { useDismissedAlerts } from "@/hooks/useDismissedAlerts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -65,7 +66,13 @@ export default function Alerts() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [quickMessage, setQuickMessage] = useState("");
-  const [dismissedIds, setDismissedIds] = useState<Set<string | number>>(new Set());
+  const { dismissedKeys, dismissAsync } = useDismissedAlerts();
+  const [localDismissedIds, setLocalDismissedIds] = useState<Set<string | number>>(new Set());
+  const dismissedIds = useMemo(() => {
+    const merged = new Set<string | number>(localDismissedIds);
+    dismissedKeys.forEach((k) => merged.add(k));
+    return merged;
+  }, [localDismissedIds, dismissedKeys]);
 
   const [aiInterventions, setAiInterventions] = useState<AiIntervention[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
@@ -252,12 +259,27 @@ export default function Alerts() {
   );
 
   const handleDismiss = (id: number) => {
-    setDismissedIds((prev) => new Set(prev).add(id));
+    setLocalDismissedIds((prev) => new Set(prev).add(id));
   };
 
-  const handleMarkAllRead = () => {
-    setDismissedIds(new Set(allAlerts.map((a) => a.id)));
-    toast({ title: "Tümü Okundu", description: "Tüm uyarılar okundu olarak işaretlendi." });
+  const handleResolve = async (alertKey: string) => {
+    await dismissAsync(alertKey);
+  };
+
+  const handleMarkAllRead = async () => {
+    const ids = allAlerts.map((a) => a.id);
+    setLocalDismissedIds(new Set(ids));
+    try {
+      await Promise.all(ids.map((id) => dismissAsync(String(id))));
+      toast({ title: "Tümü Okundu", description: "Tüm uyarılar arşive taşındı." });
+    } catch (e) {
+      console.error("[Alerts] mark-all-read failed", e);
+      toast({
+        title: "Hata",
+        description: "Bazı uyarılar arşivlenemedi.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendBroadcast = async () => {
@@ -635,7 +657,7 @@ export default function Alerts() {
               </div>
             ) : (
               filteredAlerts.map((alert) => (
-                <AlertActionCard key={alert.id} alert={alert} onDismiss={handleDismiss} />
+                <AlertActionCard key={alert.id} alert={alert} onDismiss={handleDismiss} onResolve={handleResolve} />
               ))
             )}
           </div>
