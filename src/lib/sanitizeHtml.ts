@@ -17,5 +17,5 @@ export function sanitizeRichHtml(html: string | null | undefined): string {
   if (!html) return "";
   const trimmed = String(html).trim();
   if (!trimmed) return "";
-  return DOMPurify.sanitize(trimmed, RICH_HTML_CONFIG as any);
+  return DOMPurify.sanitize(trimmed, { ...RICH_HTML_CONFIG, RETURN_TRUSTED_TYPE: false } as any) as string;
 }
