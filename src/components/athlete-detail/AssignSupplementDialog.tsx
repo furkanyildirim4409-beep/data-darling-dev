@@ -115,10 +115,10 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Kutu İçeriği (Servis)</Label>
             <Input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
               value={totalServings}
-              onChange={(e) => setTotalServings(Number(e.target.value) || 1)}
+              onChange={(e) => setTotalServings(e.target.value.replace(/[^\d]/g, ""))}
               className="bg-background/50 border-border"
             />
           </div>
