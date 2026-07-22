@@ -226,6 +226,37 @@ export function SupplementsPanel({ athleteId }: Props) {
         athleteId={athleteId}
         onAssigned={fetchSupplements}
       />
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Takviyeyi sil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name_and_dosage
+                ? `"${deleteTarget.name_and_dosage}" kalıcı olarak silinecek. Bu işlem geri alınamaz.`
+                : "Bu takviye kalıcı olarak silinecek. Bu işlem geri alınamaz."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) handleDelete(deleteTarget.id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Siliniyor..." : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
