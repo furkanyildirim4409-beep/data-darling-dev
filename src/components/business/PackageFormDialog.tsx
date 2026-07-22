@@ -208,7 +208,7 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
       duration_months: duration,
       features: featuresList,
       features_list: featuresList,
-      rich_description: richDescription.trim() || null,
+      rich_description: sanitizeRichHtml(richDescription) || null,
       video_url: videoUrl.trim() || null,
       gallery_urls: cleanedGallery,
       is_active: initialPackage?.is_active ?? true,
