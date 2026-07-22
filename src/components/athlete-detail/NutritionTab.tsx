@@ -202,10 +202,22 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
       .eq("coach_id", activeCoachId);
     if (error) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Başarılı", description: "Beslenme programı kaldırıldı." });
-      await fetchTargets();
+      setRemovingTemplate(false);
+      return;
     }
+    const today = format(new Date(), "yyyy-MM-dd");
+    const { error: daysErr } = await supabase
+      .from("assigned_diet_days")
+      .delete()
+      .eq("athlete_id", athleteId)
+      .gte("target_date", today);
+    if (daysErr) {
+      toast({ title: "Hata", description: daysErr.message, variant: "destructive" });
+      setRemovingTemplate(false);
+      return;
+    }
+    toast({ title: "Başarılı", description: "Beslenme programı kaldırıldı." });
+    await fetchTargets();
     setRemovingTemplate(false);
   };
 
