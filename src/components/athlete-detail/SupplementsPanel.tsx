@@ -8,6 +8,16 @@ import { Progress } from "@/components/ui/progress";
 import { Pill, Power, PowerOff, Sparkles, Plus, Trash2 } from "lucide-react";
 import { useSupplementMutations } from "@/hooks/useSupplementMutations";
 import { AssignSupplementDialog } from "./AssignSupplementDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Supplement {
   id: string;
