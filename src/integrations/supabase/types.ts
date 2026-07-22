@@ -1834,6 +1834,30 @@ export type Database = {
           },
         ]
       }
+      dismissed_alerts: {
+        Row: {
+          alert_key: string
+          coach_id: string
+          created_at: string
+          id: string
+          resolved_at: string
+        }
+        Insert: {
+          alert_key: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          resolved_at?: string
+        }
+        Update: {
+          alert_key?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          resolved_at?: string
+        }
+        Relationships: []
+      }
       edge_rate_limits: {
         Row: {
           bucket: string
