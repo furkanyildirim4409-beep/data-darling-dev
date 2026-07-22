@@ -30,7 +30,7 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
   const [timing, setTiming] = useState("Sabah");
-  const [totalServings, setTotalServings] = useState(30);
+  const [totalServings, setTotalServings] = useState<string>("30");
   const [icon, setIcon] = useState("💊");
 
   const resetForm = () => {
