@@ -4144,6 +4144,16 @@ export type Database = {
         Args: { _amount: number; _description?: string; _type: string }
         Returns: string
       }
+      assign_diet_template: {
+        Args: {
+          _athlete_id: string
+          _coach_id: string
+          _duration_weeks: number
+          _start_date: string
+          _template_id: string
+        }
+        Returns: undefined
+      }
       award_badge_if_earned: { Args: { _badge_id: string }; Returns: boolean }
       award_xp_secure: {
         Args: { _amount: number; _reason?: string }
