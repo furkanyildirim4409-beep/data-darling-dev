@@ -159,10 +159,23 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
           <div>
             <Label className="text-xs text-muted-foreground">Fiyat (₺)</Label>
             <Input
-              type="number"
-              value={formData.price}
-              onChange={(e) => updateField("price", Number(e.target.value))}
-              onBlur={handleBlur}
+              type="text"
+              inputMode="decimal"
+              value={priceInput}
+              onChange={(e) => {
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
+                  setPriceInput(raw);
+                }
+              }}
+              onBlur={() => {
+                const n = Number(priceInput);
+                const safe = Number.isFinite(n) && n >= 0 ? n : 0;
+                setPriceInput(String(safe));
+                const next = { ...formData, price: safe };
+                setFormData(next);
+                onProductChange(next);
+              }}
               className="mt-1 bg-background/50"
             />
           </div>
