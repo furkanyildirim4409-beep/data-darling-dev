@@ -1,12 +1,12 @@
 ## Amaç
-`public.link_athlete_to_coach` RPC'sini, çağıranın gerçekten `_coach_id` sahibi (veya admin) olduğundan emin olacak şekilde sertleştir. Meşru davet/bağlama akışı bozulmaz çünkü `Athletes.tsx` zaten `_coach_id: user.id` geçiyor.
+Kimliksiz erişilebilen dev/test endpoint'i `dev-trigger-email`'i tamamen kaldırarak spam ve sipariş veri sızıntısı riskini kapat. Prod e-posta akışı (`handle-universal-orders` + `send-email` + `shopify-webhook`) etkilenmez çünkü UI hiçbir yerden bu fonksiyonu çağırmıyor.
 
-## Adım
-1. Migration: `CREATE OR REPLACE FUNCTION public.link_athlete_to_coach(...)` — mevcut imza, dönüş tipi, SECURITY DEFINER ayarları ve gövdenin geri kalanı AYNI kalır. Sadece gövdenin en başına şu iki guard eklenir:
-   - `IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;`
-   - `IF auth.uid() <> _coach_id AND NOT public.has_role(auth.uid(),'admin'::app_role) THEN RAISE EXCEPTION 'A coach can only link athletes to themselves'; END IF;`
-2. Kod değişikliği yok (frontend zaten uyumlu). Test: koç kendi id'siyle çağırınca eskisi gibi `ok / already_yours / already_linked / not_found` döner; farklı `_coach_id` verildiğinde exception.
+## Adımlar
+1. `supabase/functions/dev-trigger-email/` klasörünü (içindeki `index.ts` ile birlikte) sil.
+2. `supabase/config.toml` içinden `[functions.dev-trigger-email] verify_jwt = false` bloğunu (satır 87-88) kaldır.
+3. Deploy edilmiş fonksiyonu Supabase'ten sil (`supabase--delete_edge_functions` ile `dev-trigger-email`) — böylece canlı endpoint de kapanır.
+4. Güvenlik bulgusunu `mark_as_fixed` olarak işaretle.
 
 ## Teknik notlar
-- Fonksiyonun mevcut tanımını migration içinde tekrar yazmam gerekiyor (Postgres, CREATE OR REPLACE ile imza + gövdeyi tümüyle ister). Bunu yapmadan önce mevcut tanımı `supabase--read_query` ile `pg_get_functiondef` üzerinden çekip birebir koruyacağım; sadece gövdenin başına iki guard bloğu eklenecek.
-- `search_path`, `LANGUAGE`, `VOLATILITY`, `SECURITY DEFINER` bayrakları korunur.
+- `rg` ile doğrulandı: `dev-trigger-email` referansı yalnız kendi klasöründe ve `config.toml`'da. Frontend/başka edge function çağırmıyor.
+- Prod sipariş e-postaları: `shopify-webhook` → `handle-universal-orders` → `send-email` zinciri; bu değişiklikten bağımsız.
