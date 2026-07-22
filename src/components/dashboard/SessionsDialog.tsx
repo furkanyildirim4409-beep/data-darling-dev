@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
 
 interface SessionsDialogProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
 
     const fetchSessions = async () => {
       setIsLoading(true);
-      const today = new Date().toISOString().split("T")[0];
+      const today = format(new Date(), "yyyy-MM-dd");
 
       const { data: workouts } = await supabase
         .from("assigned_workouts")
@@ -91,7 +92,7 @@ export function SessionsDialog({ open, onOpenChange }: SessionsDialogProps) {
     };
 
     fetchSessions();
-  }, [open, user]);
+  }, [open, user, activeCoachId]);
 
   const completedCount = sessions.filter((s) => s.status === "completed").length;
 
