@@ -62,7 +62,7 @@ import { SortableExerciseItem } from "./SortableExerciseItem";
 
 export interface BuilderExercise extends LibraryItem {
   sets: number;
-  reps: number;
+  reps: number | string;
   rpe: number;
   rir: number;
   rirPerSet?: number[];
