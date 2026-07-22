@@ -54,6 +54,9 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState<string>(
+    initialData?.price != null ? String(initialData.price) : "",
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [initialized, setInitialized] = useState(false);
@@ -61,9 +64,16 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      setPriceInput(initialData.price != null ? String(initialData.price) : "");
       setInitialized(true);
     }
   }, [initialData?.name, initialData?.price, initialData?.description]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleBlur = useCallback(() => {
     onProductChange(formData);
