@@ -86,6 +86,89 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Rate limiting (per effective sender: sendAsUserId) ──
+    // Two windows: 10/min, 100/hour. Counter bumps on every request (including
+    // rejects) so abuse can't be masked by failing recipient checks.
+    const nowDate = new Date();
+    const minuteWindow = new Date(Math.floor(nowDate.getTime() / 60000) * 60000).toISOString();
+    const hourWindow = new Date(Math.floor(nowDate.getTime() / 3600000) * 3600000).toISOString();
+
+    const [{ data: perMin }, { data: perHour }] = await Promise.all([
+      adminClient.rpc("bump_edge_rate_limit", {
+        _user_id: sendAsUserId,
+        _bucket: "send-custom-email:minute",
+        _window: minuteWindow,
+      }),
+      adminClient.rpc("bump_edge_rate_limit", {
+        _user_id: sendAsUserId,
+        _bucket: "send-custom-email:hour",
+        _window: hourWindow,
+      }),
+    ]);
+
+    const minCount = typeof perMin === "number" ? perMin : 0;
+    const hourCount = typeof perHour === "number" ? perHour : 0;
+    const MIN_LIMIT = 10;
+    const HOUR_LIMIT = 100;
+
+    if (minCount > MIN_LIMIT || hourCount > HOUR_LIMIT) {
+      const retryAfter = minCount > MIN_LIMIT ? 60 : 3600;
+      console.warn(`send-custom-email rate-limit hit for ${sendAsUserId}: min=${minCount} hour=${hourCount}`);
+      return new Response(
+        JSON.stringify({
+          error: "Too many emails. Please slow down.",
+          limit: minCount > MIN_LIMIT ? MIN_LIMIT : HOUR_LIMIT,
+          window: minCount > MIN_LIMIT ? "minute" : "hour",
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfter),
+          },
+        },
+      );
+    }
+
+    // ── Recipient allowlist: athlete of this coach, waitlist lead, or self ──
+    const toEmailNorm = String(toEmail).trim().toLowerCase();
+    if (!toEmailNorm || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmailNorm)) {
+      return new Response(JSON.stringify({ error: "Invalid recipient email" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const [{ data: athleteMatch }, { data: leadMatch }, { data: senderProfile }] = await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("id")
+        .eq("coach_id", sendAsUserId)
+        .ilike("email", toEmailNorm)
+        .maybeSingle(),
+      adminClient
+        .from("waitlist")
+        .select("id")
+        .ilike("email", toEmailNorm)
+        .maybeSingle(),
+      adminClient
+        .from("profiles")
+        .select("email")
+        .eq("id", sendAsUserId)
+        .maybeSingle(),
+    ]);
+
+    const isSelf = (senderProfile?.email ?? "").toLowerCase() === toEmailNorm;
+
+    if (!athleteMatch && !leadMatch && !isSelf) {
+      console.warn(`send-custom-email recipient blocked: sender=${sendAsUserId} to=${toEmailNorm}`);
+      return new Response(
+        JSON.stringify({ error: "Recipient not in your roster" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { data: profile, error: profileErr } = await adminClient
       .from("profiles")
       .select("full_name, username")
