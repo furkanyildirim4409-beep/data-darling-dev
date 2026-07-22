@@ -48,12 +48,13 @@ const alertConfig: Record<
   },
 };
 
-export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
+export function AlertActionCard({ alert, onDismiss, onResolve }: AlertActionCardProps) {
   const navigate = useNavigate();
   const { activeCoachId } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
 
   const level = alert.level || "info";
   const config = alertConfig[level];
@@ -91,20 +92,50 @@ export function AlertActionCard({ alert, onDismiss }: AlertActionCardProps) {
     }
   };
 
-  const handleDismiss = () => {
+  const finishDismiss = () => {
     setIsDismissed(true);
     setTimeout(() => {
       onDismiss?.(typeof alert.id === 'number' ? alert.id : parseInt(alert.id as string, 10));
     }, 300);
   };
 
-  const handleMarkResolved = () => {
+  const persistResolve = async (): Promise<boolean> => {
+    if (!onResolve) return true;
+    try {
+      await onResolve(String(alert.id));
+      return true;
+    } catch (e) {
+      console.error("[AlertActionCard] resolve failed", e);
+      toast({
+        title: "Kaydedilemedi",
+        description: "Uyarı arşive taşınamadı. Lütfen tekrar deneyin.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (isResolving) return;
+    setIsResolving(true);
+    const ok = await persistResolve();
+    setIsResolving(false);
+    if (ok) finishDismiss();
+  };
+
+  const handleMarkResolved = async () => {
+    if (isResolving) return;
+    setIsResolving(true);
+    const ok = await persistResolve();
+    setIsResolving(false);
+    if (!ok) return;
     toast({
       title: "Çözüldü İşaretlendi",
       description: "Uyarı arşive taşındı.",
     });
-    handleDismiss();
+    finishDismiss();
   };
+
 
   // Get action buttons based on type (category)
   const getActionButtons = () => {
