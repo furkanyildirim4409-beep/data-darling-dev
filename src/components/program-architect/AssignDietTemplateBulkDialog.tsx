@@ -92,33 +92,35 @@ export function AssignDietTemplateBulkDialog({ open, onOpenChange, templateId, t
     if (!user || !activeCoachId || selectedIds.size === 0) return;
     setSubmitting(true);
 
-    const rows = Array.from(selectedIds).map((id) => ({
-      athlete_id: id,
-      coach_id: activeCoachId,
-      active_diet_template_id: templateId,
-      diet_start_date: format(startDate, "yyyy-MM-dd"),
-      diet_duration_weeks: Number(durationWeeks),
-      updated_at: new Date().toISOString(),
-    }));
+    const ids = Array.from(selectedIds);
+    const results = await Promise.all(
+      ids.map((id) =>
+        supabase.rpc("assign_diet_template" as any, {
+          _athlete_id: id,
+          _coach_id: activeCoachId,
+          _template_id: templateId,
+          _start_date: format(startDate, "yyyy-MM-dd"),
+          _duration_weeks: Number(durationWeeks),
+        })
+      )
+    );
 
-    const { error } = await supabase
-      .from("nutrition_targets")
-      .upsert(rows as any, { onConflict: "athlete_id" });
+    const failed = results.filter((r) => r.error);
+    setSubmitting(false);
 
-    if (error) {
-      setSubmitting(false);
+    if (failed.length === ids.length) {
       toast.error("Atama başarısız oldu");
       return;
     }
 
-    // Generate assigned_diet_days for each athlete
-    const daysPromises = Array.from(selectedIds).map((id) =>
-      generateAssignedDietDays(id, activeCoachId, templateId, startDate, Number(durationWeeks))
-    );
-    await Promise.all(daysPromises);
+    if (failed.length > 0) {
+      toast.error(
+        `${ids.length - failed.length} sporcuya atandı, ${failed.length} sporcuda hata oluştu`
+      );
+      return;
+    }
 
-    setSubmitting(false);
-    toast.success(`"${templateName}" ${selectedIds.size} sporcuya atandı!`);
+    toast.success(`"${templateName}" ${ids.length} sporcuya atandı!`);
     onOpenChange(false);
   };
 
