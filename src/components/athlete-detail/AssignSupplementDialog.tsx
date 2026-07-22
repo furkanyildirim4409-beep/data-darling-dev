@@ -30,26 +30,29 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
   const [timing, setTiming] = useState("Sabah");
-  const [totalServings, setTotalServings] = useState(30);
+  const [totalServings, setTotalServings] = useState<string>("30");
   const [icon, setIcon] = useState("💊");
 
   const resetForm = () => {
     setName("");
     setDosage("");
     setTiming("Sabah");
-    setTotalServings(30);
+    setTotalServings("30");
     setIcon("💊");
   };
 
   const handleSubmit = async () => {
     if (!name.trim() || !dosage.trim()) return;
 
+    const parsed = parseInt(totalServings, 10);
+    const total = Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+
     const success = await assignSupplement({
       athleteId,
       name: name.trim(),
       dosage: dosage.trim(),
       timing,
-      totalServings,
+      totalServings: total,
       icon,
     });
 
@@ -112,10 +115,10 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Kutu İçeriği (Servis)</Label>
             <Input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
               value={totalServings}
-              onChange={(e) => setTotalServings(Number(e.target.value) || 1)}
+              onChange={(e) => setTotalServings(e.target.value.replace(/[^\d]/g, ""))}
               className="bg-background/50 border-border"
             />
           </div>

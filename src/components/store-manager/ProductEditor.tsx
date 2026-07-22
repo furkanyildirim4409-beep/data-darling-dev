@@ -54,6 +54,9 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState<string>(
+    initialData?.price != null ? String(initialData.price) : "",
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [initialized, setInitialized] = useState(false);
@@ -61,9 +64,16 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      setPriceInput(initialData.price != null ? String(initialData.price) : "");
       setInitialized(true);
     }
   }, [initialData?.name, initialData?.price, initialData?.description]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleBlur = useCallback(() => {
     onProductChange(formData);
@@ -111,8 +121,7 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
@@ -149,10 +158,23 @@ export function ProductEditor({ productType, onProductChange, initialData, onSav
           <div>
             <Label className="text-xs text-muted-foreground">Fiyat (₺)</Label>
             <Input
-              type="number"
-              value={formData.price}
-              onChange={(e) => updateField("price", Number(e.target.value))}
-              onBlur={handleBlur}
+              type="text"
+              inputMode="decimal"
+              value={priceInput}
+              onChange={(e) => {
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
+                  setPriceInput(raw);
+                }
+              }}
+              onBlur={() => {
+                const n = Number(priceInput);
+                const safe = Number.isFinite(n) && n >= 0 ? n : 0;
+                setPriceInput(String(safe));
+                const next = { ...formData, price: safe };
+                setFormData(next);
+                onProductChange(next);
+              }}
               className="mt-1 bg-background/50"
             />
           </div>

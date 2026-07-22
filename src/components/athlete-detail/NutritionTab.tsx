@@ -356,10 +356,21 @@ export function NutritionTab({ athleteId }: NutritionTabProps) {
                   {field.label}
                 </Label>
                 <Input
-                  type="number"
-                  min={0}
-                  value={formValues[field.key]}
-                  onChange={(e) => setFormValues((prev) => ({ ...prev, [field.key]: parseInt(e.target.value) || 0 }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={formValues[field.key] === 0 ? "" : String(formValues[field.key])}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setFormValues((prev) => ({ ...prev, [field.key]: 0 }));
+                      return;
+                    }
+                    if (!/^\d+$/.test(raw)) return;
+                    const n = parseInt(raw, 10);
+                    if (!Number.isNaN(n) && n >= 0) {
+                      setFormValues((prev) => ({ ...prev, [field.key]: n }));
+                    }
+                  }}
                   className="bg-background"
                 />
               </div>

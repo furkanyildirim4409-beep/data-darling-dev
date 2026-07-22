@@ -8,6 +8,16 @@ import { Progress } from "@/components/ui/progress";
 import { Pill, Power, PowerOff, Sparkles, Plus, Trash2 } from "lucide-react";
 import { useSupplementMutations } from "@/hooks/useSupplementMutations";
 import { AssignSupplementDialog } from "./AssignSupplementDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Supplement {
   id: string;
@@ -38,6 +48,8 @@ export function SupplementsPanel({ athleteId }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Supplement | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { deleteSupplement, toggleSupplement } = useSupplementMutations();
 
   const fetchSupplements = useCallback(async () => {
@@ -67,10 +79,13 @@ export function SupplementsPanel({ athleteId }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    setIsDeleting(true);
     const success = await deleteSupplement(id);
     if (success) {
       setSupplements((prev) => prev.filter((s) => s.id !== id));
     }
+    setIsDeleting(false);
+    setDeleteTarget(null);
   };
 
   if (isLoading) {
@@ -191,7 +206,7 @@ export function SupplementsPanel({ athleteId }: Props) {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive/60 hover:text-destructive"
-                          onClick={() => handleDelete(sup.id)}
+                          onClick={() => setDeleteTarget(sup)}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
@@ -211,6 +226,37 @@ export function SupplementsPanel({ athleteId }: Props) {
         athleteId={athleteId}
         onAssigned={fetchSupplements}
       />
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Takviyeyi sil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name_and_dosage
+                ? `"${deleteTarget.name_and_dosage}" kalıcı olarak silinecek. Bu işlem geri alınamaz.`
+                : "Bu takviye kalıcı olarak silinecek. Bu işlem geri alınamaz."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) handleDelete(deleteTarget.id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Siliniyor..." : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
