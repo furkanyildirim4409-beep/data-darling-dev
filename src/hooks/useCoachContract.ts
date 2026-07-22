@@ -54,7 +54,7 @@ export function useCoachContract() {
       const { error } = await supabase
         .from("coach_contracts")
         .upsert(
-          { coach_id: targetCoachId, content: html } as any,
+          { coach_id: targetCoachId, content: sanitizeRichHtml(html) } as any,
           { onConflict: "coach_id" }
         );
       setIsSaving(false);
