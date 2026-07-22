@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 
 /** Strip HTML tags and whitespace to determine if there is any meaningful content. */
 function isNonEmptyContract(value: string | null | undefined): boolean {
@@ -53,7 +54,7 @@ export function useCoachContract() {
       const { error } = await supabase
         .from("coach_contracts")
         .upsert(
-          { coach_id: targetCoachId, content: html } as any,
+          { coach_id: targetCoachId, content: sanitizeRichHtml(html) } as any,
           { onConflict: "coach_id" }
         );
       setIsSaving(false);

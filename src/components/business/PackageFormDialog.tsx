@@ -3,6 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Plus, Pill, X, Eye, Pencil, Bold, Italic, Heading2, List, CornerDownLeft, Image as ImageIcon, Trash2, Sparkles, Video, Upload, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useCoachContract } from "@/hooks/useCoachContract";
 
@@ -207,7 +208,7 @@ export function PackageFormDialog({ open, onOpenChange, initialPackage, onSubmit
       duration_months: duration,
       features: featuresList,
       features_list: featuresList,
-      rich_description: richDescription.trim() || null,
+      rich_description: sanitizeRichHtml(richDescription) || null,
       video_url: videoUrl.trim() || null,
       gallery_urls: cleanedGallery,
       is_active: initialPackage?.is_active ?? true,
