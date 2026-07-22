@@ -1,56 +1,34 @@
-# Plan
+## Amaç
+Diyet şablonu atamada kısmi başarısızlık durumunda sporcunun boş bir diyet göstergesiyle kalmasını önle. Hata net şekilde bildirilsin ve tüm işlem atomik olsun.
 
-## 1. Chat media path → signed URL resolver
+## Değişiklikler
 
-### New helper: `src/lib/mediaUrl.ts`
-- `isHttpUrl(v?: string | null): boolean` — true if value starts with `http://` / `https://`.
-- `resolveMediaUrl(value?: string | null, bucket = 'chat-media', ttl = 3600): Promise<string | null>` — null-safe; passes through http URLs; else calls `supabase.storage.from(bucket).createSignedUrl(value, ttl)` and returns `signedUrl` (or null on error).
-- `resolveChatMessagesMedia<T extends { media_url?: string | null }>(messages: T[]): Promise<T[]>` — collects rows whose `media_url` is a bare path, calls `createSignedUrls(paths, 3600)` in one batch, maps results back preserving order; leaves http rows untouched. Handles empty input.
+### 1) DB — Yeni RPC: `public.assign_diet_template`
+Tek transaction içinde:
+1. Verilen `athlete_id` için `startDate`'den itibaren tüm `assigned_diet_days` satırlarını siler.
+2. Template'in dolu günlerine göre yeni `assigned_diet_days` satırlarını üretir ve `INSERT` eder (generate_series ile).
+3. `nutrition_targets` upsert (active_diet_template_id, diet_start_date, diet_duration_weeks).
+4. Yetki kontrolü: caller `auth.uid()` = coach_id veya `is_active_team_member_of(coach_id)` — yoksa `RAISE EXCEPTION`.
+5. Herhangi bir adım hata verirse tüm transaction ROLLBACK olur; eski `assigned_diet_days` korunur.
 
-### Wire the resolver into every read path
-For each of the following, resolve `media_url` **before** committing to state (initial fetch, load-older, realtime INSERT, optimistic self-echo of a just-uploaded file):
+Parametreler: `_athlete_id uuid, _coach_id uuid, _template_id uuid, _start_date date, _duration_weeks int`.
 
-- `src/hooks/useCoachChat.ts`
-  - `fetchMessages` — `setMessages(await resolveChatMessagesMedia(fetched))`
-  - `loadOlderMessages` — resolve `older` batch before prepending
-  - realtime INSERT branch (line ~447) — resolve the single `newMsg` via `resolveMediaUrl` before pushing
-  - `sendMessage` optimistic branch — if `mediaUrl` is provided (bare path), resolve it for the optimistic bubble; still write the bare path to DB
-- `src/components/athletes/QuickChatPopover.tsx` — same three branches (initial load, realtime insert, optimistic send)
-- `src/components/athlete-detail/ChatWidget.tsx` — same
-- `src/components/chat/ActiveChat.tsx` — only renders `msg.media_url`, so no extra fetch work here; it relies on the hook. However the story-reply meta path (`meta.media_url`) is unrelated (stories are public) — leave it alone.
+Migration ayrıca RPC'ye `GRANT EXECUTE ... TO authenticated` verir.
 
-### Upload path: `src/hooks/useMediaUpload.ts`
-- Remove the `createSignedUrl(1 year)` call.
-- After a successful `.upload(fileName, ...)`, call `onUploadComplete(fileName, type)` with the **bare storage path**.
-- Callers already pass this value into `sendMessage`, which writes it into `messages.media_url`. The optimistic bubble is signed on the fly via the resolver above.
+### 2) `src/components/athlete-detail/AssignDietTemplateDialog.tsx` — `handleAssign`
+- Mevcut `nutrition_targets` upsert + `generateAssignedDietDays` iki adımını kaldır.
+- Yerine tek `supabase.rpc('assign_diet_template', {...})` çağrısı.
+- Hata dönerse: `toast({ title: "Atama başarısız", description: error.message, variant: "destructive" })`, `setAssigning(null)` ve **dialog kapanmaz**, başarı toast'u gösterilmez.
+- Başarılı olursa mevcut başarı akışı (toast + `onAssigned()` + `onOpenChange(false)`).
 
-### Challenge messages
-- `challenge_messages.media_url` is also now a path. Grep confirms it isn't rendered in the coach panel today (no matches under `src/`). No changes; the helper is reusable if a surface appears later.
+### 3) `src/components/program-architect/AssignDietTemplateBulkDialog.tsx`
+Aynı RPC'yi her seçili sporcu için çağır. Herhangi biri hata verirse:
+- Başarılı/başarısız sayaçları toparlansın.
+- Hata varsa `destructive` toast; hepsi başarılıysa dialog kapanır.
 
-## 2. Review moderation queue in Store Manager
+### 4) `src/utils/dietAssignment.ts`
+Artık kullanılmıyorsa kaldır; başka yerlerde çağrılıyorsa RPC'yi saran ince bir wrapper haline getir (delete+insert yok).
 
-### New component: `src/components/store-manager/ReviewModerationQueue.tsx`
-- Query: `product_reviews` where `is_approved = false`, order by `created_at desc`. RLS scopes to the coach's products.
-- Enrich in two parallel queries:
-  1. `coach_products` — select `shopify_product_id, title, image_url` for the distinct `product_id`s from the reviews (join key: `coach_products.shopify_product_id = product_reviews.product_id`).
-  2. `get_public_profiles(_ids := [...userIds])` RPC — for the reviewer `user_id`s (reviewers may not be the coach's athletes, so `profiles` is unreadable directly).
-- Card layout: product title + thumbnail, reviewer avatar + name, star rating, comment text, optional review `image_url`, timestamp, and two buttons:
-  - **Onayla** → `update({ is_approved: true }).eq('id', id)`
-  - **Reddet/Sil** → `delete().eq('id', id)`
-- Both actions invalidate the queue query on success (React Query) and toast the result.
-- Empty state: "Bekleyen yorum yok."
-
-### Mount point: `src/pages/StoreManager.tsx`
-- Add a new section (tab or panel, matching existing layout conventions) titled "Yorum Onayları" that renders `<ReviewModerationQueue />`. A small unread-count badge on the tab if `count > 0`.
-
-## 3. Regenerate Supabase types
-
-After the migration-side changes (already applied server-side), refresh `src/integrations/supabase/types.ts` so `get_public_profiles` and the new defaults are reflected. This is handled by the standard type regen step — no manual edit.
-
-## Out of scope (confirmed)
-- Disputes UI — unchanged per user note.
-- Stories / social posts / highlights media — those buckets/columns remain public URLs; the resolver is a no-op on http values if ever reused there.
-
-## Files touched
-- Add: `src/lib/mediaUrl.ts`, `src/components/store-manager/ReviewModerationQueue.tsx`
-- Edit: `src/hooks/useCoachChat.ts`, `src/hooks/useMediaUpload.ts`, `src/components/athletes/QuickChatPopover.tsx`, `src/components/athlete-detail/ChatWidget.tsx`, `src/pages/StoreManager.tsx`
+## Teknik notlar
+- RPC `SECURITY DEFINER` + `SET search_path = public`.
+- `assigned_diet_days` üretimi SQL tarafında yapılırken template'in dolu günleri `SELECT DISTINCT day_number FROM diet_template_foods WHERE template_id = _template_id` ile alınır; hedef tarihler `generate_series(_start_date, _start_date + (_duration_weeks*7 - 1), interval '1 day')` üzerinden gün numarasına göre filtrelenir.
