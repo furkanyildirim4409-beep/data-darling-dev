@@ -79,10 +79,13 @@ export function SupplementsPanel({ athleteId }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    setIsDeleting(true);
     const success = await deleteSupplement(id);
     if (success) {
       setSupplements((prev) => prev.filter((s) => s.id !== id));
     }
+    setIsDeleting(false);
+    setDeleteTarget(null);
   };
 
   if (isLoading) {
