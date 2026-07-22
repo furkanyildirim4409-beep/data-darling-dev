@@ -69,14 +69,12 @@ export default function Business() {
   const { data: metrics, isLoading: metricsLoading } = useBusinessMetrics(activeCoachId ?? undefined);
   const { data: customInvoices, isLoading: invoicesLoading } = useAssignedPayments(activeCoachId ?? undefined);
 
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
+  const { data: todaysSessions = [], isLoading: sessionsLoading } = useCoachSessions(activeCoachId ?? undefined);
+  const deleteSession = useDeleteCoachSession();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleSessionCreated = (session: Session) => {
-    setSessions((prev) => [...prev, session].sort((a, b) => a.time.localeCompare(b.time)));
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
