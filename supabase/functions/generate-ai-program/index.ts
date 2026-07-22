@@ -64,26 +64,36 @@ serve(async (req) => {
       );
     }
 
-    // Rate limit: max 10 generations / hour and 30 / day per caller (prevents LLM credit drain).
+    // Rate limit: 5/min + 30/hour per caller (prevents LLM credit drain). Admins bypass.
     const isAdmin = roles.has("admin") || roles.has("super_admin");
     if (!isAdmin) {
-      const now = new Date();
-      const hourWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours())).toISOString();
-      const dayWindow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+      const nowDate = new Date();
+      const minuteWindow = new Date(Math.floor(nowDate.getTime() / 60000) * 60000).toISOString();
+      const hourWindow = new Date(Math.floor(nowDate.getTime() / 3600000) * 3600000).toISOString();
 
-      const [{ data: hourCount }, { data: dayCount }] = await Promise.all([
-        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "ai_program_hour", _window: hourWindow }),
-        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "ai_program_day", _window: dayWindow }),
+      const [{ data: perMin }, { data: perHour }] = await Promise.all([
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "generate-ai-program:minute", _window: minuteWindow }),
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: callerId, _bucket: "generate-ai-program:hour", _window: hourWindow }),
       ]);
+      const minCount = typeof perMin === "number" ? perMin : 0;
+      const hourCount = typeof perHour === "number" ? perHour : 0;
+      const MIN_LIMIT = 5;
+      const HOUR_LIMIT = 30;
 
-      if ((hourCount ?? 0) > 10 || (dayCount ?? 0) > 30) {
-        const retryAfter = (hourCount ?? 0) > 10 ? 3600 : 86400;
+      if (minCount > MIN_LIMIT || hourCount > HOUR_LIMIT) {
+        const retryAfter = minCount > MIN_LIMIT ? 60 : 3600;
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. AI program oluşturma limiti aşıldı.", retryAfter }),
+          JSON.stringify({
+            error: "AI program oluşturma limiti aşıldı.",
+            limit: minCount > MIN_LIMIT ? MIN_LIMIT : HOUR_LIMIT,
+            window: minCount > MIN_LIMIT ? "minute" : "hour",
+            retryAfter,
+          }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
         );
       }
     }
+
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
