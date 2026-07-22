@@ -19,7 +19,6 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
 interface TemplateWithMacros {
   id: string;

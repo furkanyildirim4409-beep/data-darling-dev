@@ -13,7 +13,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { format, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import { generateAssignedDietDays } from "@/utils/dietAssignment";
 
 interface AssignDietTemplateBulkDialogProps {
   open: boolean;
