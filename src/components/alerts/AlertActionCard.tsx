@@ -21,6 +21,7 @@ import { sendCheckinReminder } from "@/utils/checkinReminder";
 interface AlertActionCardProps {
   alert: Notification;
   onDismiss?: (id: number) => void;
+  onResolve?: (alertKey: string) => Promise<void>;
 }
 
 type AlertLevel = "critical" | "warning" | "info";
