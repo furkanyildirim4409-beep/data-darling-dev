@@ -48,6 +48,8 @@ export function SupplementsPanel({ athleteId }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Supplement | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { deleteSupplement, toggleSupplement } = useSupplementMutations();
 
   const fetchSupplements = useCallback(async () => {
