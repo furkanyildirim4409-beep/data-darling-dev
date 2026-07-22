@@ -17,7 +17,7 @@ import { Loader2, Dumbbell, Check, CalendarIcon, X, Clock, Eye } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -189,6 +189,21 @@ export function AssignTrainingDialog({ open, onOpenChange, athleteId, onAssigned
           spotify_url: prog.spotifyUrl ?? null,
         });
       });
+    }
+
+    // Delete existing assignments in the target window to avoid duplicates
+    const startStr = format(start, "yyyy-MM-dd");
+    const endStr = format(addDays(start, weeks * 7 - 1), "yyyy-MM-dd");
+    const { error: delError } = await supabase
+      .from("assigned_workouts")
+      .delete()
+      .eq("athlete_id", athleteId)
+      .gte("scheduled_date", startStr)
+      .lte("scheduled_date", endStr);
+    if (delError) {
+      toast({ title: "Hata", description: delError.message, variant: "destructive" });
+      setAssigning(null);
+      return;
     }
 
     const { error } = await supabase.from("assigned_workouts").insert(rows);
