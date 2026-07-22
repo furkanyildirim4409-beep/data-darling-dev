@@ -131,37 +131,22 @@ export function AssignDietTemplateDialog({
     if (!user || !activeCoachId) return;
     setAssigning(tpl.id);
 
-    const { error } = await supabase
-      .from("nutrition_targets")
-      .upsert(
-        {
-          athlete_id: athleteId,
-          coach_id: activeCoachId,
-          active_diet_template_id: tpl.id,
-          diet_start_date: format(startDate, "yyyy-MM-dd"),
-          diet_duration_weeks: Number(durationWeeks),
-          updated_at: new Date().toISOString(),
-        } as any,
-        { onConflict: "athlete_id" }
-      );
+    const { error } = await supabase.rpc("assign_diet_template" as any, {
+      _athlete_id: athleteId,
+      _coach_id: activeCoachId,
+      _template_id: tpl.id,
+      _start_date: format(startDate, "yyyy-MM-dd"),
+      _duration_weeks: Number(durationWeeks),
+    });
 
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      toast({
+        title: "Atama başarısız",
+        description: error.message,
+        variant: "destructive",
+      });
       setAssigning(null);
       return;
-    }
-
-    // Generate concrete assigned_diet_days rows
-    const { error: daysError } = await generateAssignedDietDays(
-      athleteId,
-      activeCoachId,
-      tpl.id,
-      startDate,
-      Number(durationWeeks)
-    );
-
-    if (daysError) {
-      console.error("assigned_diet_days error:", daysError);
     }
 
     toast({ title: "Başarılı", description: "Beslenme programı sporcuya atandı!" });
