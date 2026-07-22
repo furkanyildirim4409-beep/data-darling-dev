@@ -259,12 +259,27 @@ export default function Alerts() {
   );
 
   const handleDismiss = (id: number) => {
-    setDismissedIds((prev) => new Set(prev).add(id));
+    setLocalDismissedIds((prev) => new Set(prev).add(id));
   };
 
-  const handleMarkAllRead = () => {
-    setDismissedIds(new Set(allAlerts.map((a) => a.id)));
-    toast({ title: "Tümü Okundu", description: "Tüm uyarılar okundu olarak işaretlendi." });
+  const handleResolve = async (alertKey: string) => {
+    await dismissAsync(alertKey);
+  };
+
+  const handleMarkAllRead = async () => {
+    const ids = allAlerts.map((a) => a.id);
+    setLocalDismissedIds(new Set(ids));
+    try {
+      await Promise.all(ids.map((id) => dismissAsync(String(id))));
+      toast({ title: "Tümü Okundu", description: "Tüm uyarılar arşive taşındı." });
+    } catch (e) {
+      console.error("[Alerts] mark-all-read failed", e);
+      toast({
+        title: "Hata",
+        description: "Bazı uyarılar arşivlenemedi.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendBroadcast = async () => {
