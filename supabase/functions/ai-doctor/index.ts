@@ -67,6 +67,33 @@ serve(async (req) => {
 
     const athleteName = athleteProfile.full_name || "İsimsiz";
 
+    // ── 3b. RATE LIMIT (per coach: 5/min, 30/hour) ──
+    {
+      const nowDate = new Date();
+      const minuteWindow = new Date(Math.floor(nowDate.getTime() / 60000) * 60000).toISOString();
+      const hourWindow = new Date(Math.floor(nowDate.getTime() / 3600000) * 3600000).toISOString();
+      const [{ data: perMin }, { data: perHour }] = await Promise.all([
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: coachId, _bucket: "ai-doctor:minute", _window: minuteWindow }),
+        adminClient.rpc("bump_edge_rate_limit", { _user_id: coachId, _bucket: "ai-doctor:hour", _window: hourWindow }),
+      ]);
+      const minCount = typeof perMin === "number" ? perMin : 0;
+      const hourCount = typeof perHour === "number" ? perHour : 0;
+      const MIN_LIMIT = 5;
+      const HOUR_LIMIT = 30;
+      if (minCount > MIN_LIMIT || hourCount > HOUR_LIMIT) {
+        const retryAfter = minCount > MIN_LIMIT ? 60 : 3600;
+        return new Response(
+          JSON.stringify({
+            error: "AI Doctor analiz limiti aşıldı. Lütfen biraz sonra tekrar deneyin.",
+            limit: minCount > MIN_LIMIT ? MIN_LIMIT : HOUR_LIMIT,
+            window: minCount > MIN_LIMIT ? "minute" : "hour",
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+        );
+      }
+    }
+
+
     // ── 4. Aggregate 7-day holistic data ──
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
