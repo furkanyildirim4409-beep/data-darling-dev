@@ -1,45 +1,19 @@
-## 1) `AssignTrainingDialog.tsx` — delete-then-insert
-`handleAssign` içinde, `insert`'ten hemen önce, atanacak aralık için mevcut satırları temizle:
+## 1) `MetabolicFlux.tsx` — yerel gün anahtarı
+- `date-fns`'ten `format` import et.
+- `dayKey`'i şu şekilde değiştir:
+  ```ts
+  function dayKey(d: Date) {
+    return format(d, "yyyy-MM-dd");
+  }
+  ```
+Diğer akış aynı kalır (satır 100 ve 114 zaten `dayKey(...)` çağırıyor).
 
-```ts
-const startStr = format(start, "yyyy-MM-dd");
-const endStr = format(addDays(start, weeks * 7 - 1), "yyyy-MM-dd");
+## 2) `SessionsDialog.tsx` — yerel bugün + effect deps
+- `date-fns`'ten `format` import et.
+- Satır 48:
+  ```ts
+  const today = format(new Date(), "yyyy-MM-dd");
+  ```
+- Satır 94: effect deps'i `[open, user, activeCoachId]` yap.
 
-const { error: delError } = await supabase
-  .from("assigned_workouts")
-  .delete()
-  .eq("athlete_id", athleteId)
-  .gte("scheduled_date", startStr)
-  .lte("scheduled_date", endStr);
-if (delError) { toast destructive; setAssigning(null); return; }
-```
-
-Sonra mevcut insert akışı çalışır. `addDays` import edilir. Hata durumunda toast + erken çıkış.
-
-## 2) `ReplaceProgramDialog.tsx` — Pazartesi snap
-Takvim `onSelect` çağrısı `startOfWeek(d, { weekStartsOn: 1 })` uygulanarak yazılır:
-
-```tsx
-onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}
-```
-
-`startOfWeek` zaten import edilmiş.
-
-## 3) `NutritionTab.tsx` — gelecekteki `assigned_diet_days` temizliği
-`handleRemoveTemplate` içinde `nutrition_targets` güncellemesi başarılı olduktan sonra bugünden itibaren atanan diyet günlerini de sil:
-
-```ts
-const today = format(new Date(), "yyyy-MM-dd");
-const { error: daysErr } = await supabase
-  .from("assigned_diet_days")
-  .delete()
-  .eq("athlete_id", athleteId)
-  .gte("target_date", today);
-if (daysErr) { toast destructive; return; }
-```
-
-Hem başarı toast'u hem `fetchTargets()` bu adım başarılıysa çağrılır; herhangi biri hata verirse destructive toast ile durur ve `setRemovingTemplate(false)` çağrılır.
-
-## Notlar
-- Hiçbir DB şeması değişikliği yok.
-- `AssignTrainingDialog` toplu silme aralığı yalnızca atama penceresi (weeks*7 gün) ile sınırlıdır; önceki başka programlara ait geçmiş satırlara dokunmaz.
+Hiç şema/UI değişikliği yok.

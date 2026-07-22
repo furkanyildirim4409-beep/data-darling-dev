@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Flame, Utensils } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface Props {
   athleteId: string;
@@ -37,7 +38,7 @@ interface NutritionLog {
 const DAYS = 7;
 
 function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return format(d, "yyyy-MM-dd");
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
