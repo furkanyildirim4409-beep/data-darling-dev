@@ -1,56 +1,43 @@
 ## Sorun
 
-`AlertActionCard.handleMarkResolved` yalnızca yerel `isDismissed` state'ini set edip başarı toast'u gösteriyor. `Alerts.tsx`'teki `dismissedIds` de sadece bileşen state'i — sayfa yenilenince set boşalıyor ve tüm uyarılar geri geliyor.
-
-Ek olarak: uyarılar (`useAlerts`) sentetiktir — `health-crit-<athleteId>`, `pay-<id>`, `checkin-<id>` gibi string anahtarlardan üretilir; DB'de doğrudan güncellenecek tek bir "notifications" satırı yoktur. Bu yüzden kalıcı çözüm için ayrı bir "kapatıldı" tablosu gerekir.
+`send-custom-email` şu an sadece rol kontrolü yapıyor: herhangi bir koç, `@dynabolic.co` aliası ile **rastgele** bir adrese HTML e-posta gönderebiliyor. Ayrıca hız sınırı yok — tek bir koç dakikada yüzlerce çağrı yapabilir. Bu, phishing/spam ve alan itibarı riski.
 
 ## Çözüm
 
-### 1. Yeni tablo: `dismissed_alerts`
-- Kolonlar: `id`, `coach_id` (auth.uid), `alert_key` (text — `alert.id` string hali), `resolved_at`, `created_at`.
-- `UNIQUE(coach_id, alert_key)` — aynı uyarıyı iki kez yazmayı engeller.
-- RLS: koç yalnızca kendi satırlarını okur/yazar/siler. Standard GRANT bloğu (authenticated + service_role, anon YOK).
+Fonksiyona iki savunma katmanı ekle:
 
-### 2. Yeni hook: `useDismissedAlerts`
-- `list()`: coach için tüm `alert_key` set'ini React Query ile çeker.
-- `dismiss(alertKey)`: upsert (`resolved_at = now()`).
-- `undismiss(alertKey)`: satırı siler (opsiyonel geri alma; şu an UI'da yok, sadece API'de bırakılır).
-- Realtime kanalı ile başka sekmelerde de senkronize olur.
+### 1. Alıcı doğrulaması (allowlist)
 
-### 3. `AlertActionCard.tsx`
-- Prop olarak `onResolve: (alertKey: string) => Promise<void>` ekle (veya hook'u doğrudan içeride kullan; parent akışına uyalım — parent'tan callback).
-- `handleMarkResolved` artık `async`:
-  1. `await onResolve(String(alert.id))`
-  2. Başarı → `toast("Uyarı arşive taşındı")` + `handleDismiss()` (fade animasyonu).
-  3. Hata → `toast({ variant: "destructive", ... })`, `isDismissed` set edilmez, kart görünür kalır.
-- Buton yükleme durumu için `isResolving` state'i, çift tıklamayı engeller.
+`toEmail`, `sendAsUserId` (delegasyon sonrası efektif koç) için aşağıdakilerden birine ait olmalı:
 
-### 4. `Alerts.tsx`
-- `useDismissedAlerts()` çağır; `dismissedIds` başlangıç değeri DB'den gelen set olsun (sunucu state'i canonical).
-- `handleDismiss(id)` sadece optimistic local set; kalıcı yazma `onResolve` içinde.
-- `handleMarkAllRead` → tüm görünür `alert.id`'leri `dismiss` mutation'ına bulk yazacak (Promise.all).
-- Sayfa yenilendiğinde arşivlenmiş uyarılar filtrelenmiş kalır.
+1. **Sporcu** — `profiles` satırı, `coach_id = sendAsUserId` ve `email = toEmail` (case-insensitive).
+2. **Lead** — `waitlist.email = toEmail` (waitlist'te `coach_id` yok, ancak proje boyunca tek global lead kanalı; bu tabloyu "lead" kaynağı olarak kabul ediyoruz — [bkz. teknik notlar]).
+3. **Kendi adresi** — `auth.users.email = toEmail` (koçun kendi adresine test maili atabilmesi için).
 
-### 5. Kapsam dışı
-- Diğer bildirim yüzeyleri (`coach_notifications`, `messages`) değişmez.
-- UI davranışı (fade animasyonu, layout) aynen korunur; sadece yazma tarafı DB'ye bağlanır.
+Hiçbiri değilse `403 Forbidden` + `{ error: "Recipient not in your roster" }` ve `emails` tablosuna satır yazma.
 
-## Teknik detaylar
+Karşılaştırmalar `lower(email) = lower(toEmail)` ile yapılır. Sorgular admin (service role) client ile atılır ki RLS engel olmasın.
 
-Migration (özet):
-```sql
-CREATE TABLE public.dismissed_alerts (
-  id uuid PK default gen_random_uuid(),
-  coach_id uuid NOT NULL,
-  alert_key text NOT NULL,
-  resolved_at timestamptz NOT NULL default now(),
-  created_at timestamptz NOT NULL default now(),
-  UNIQUE(coach_id, alert_key)
-);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.dismissed_alerts TO authenticated;
-GRANT ALL ON public.dismissed_alerts TO service_role;
-ALTER TABLE ... ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "coach manages own" ... USING (auth.uid() = coach_id) WITH CHECK (auth.uid() = coach_id);
-```
+### 2. Rate limiting (`edge_rate_limits`)
 
-`alert_key` neden text? Çünkü `Notification.id: string | number` ve sentetik uyarılar string prefix taşıyor; olduğu gibi saklamak en güvenli yoldur.
+Var olan `public.bump_edge_rate_limit(_user_id, _bucket, _window)` RPC'si kullanılır.
+
+- **Bucket**: `"send-custom-email"` — pencere: dakikalık ve saatlik iki katmanlı.
+  - **Per-minute**: `window_start = date_trunc('minute', now())`, limit **10**.
+  - **Per-hour**: `window_start = date_trunc('hour', now())`, limit **100**.
+- Sayaç `sendAsUserId` üzerinden takip edilir (sub-coach delegasyonu sonrası; head coach'un kotası ortak).
+- Limit aşılırsa `429 Too Many Requests` + `Retry-After` başlığı + JSON `{ error, limit, window }`.
+- Rate limit kontrolü **alıcı doğrulamasından ÖNCE** yapılır (aksi hâlde başarısız çağrılar limiti sayamaz — istismarı önlemek için sayım her istekte artar).
+
+### 3. Kapsam dışı
+
+- Public UI/hook (`useEmails`, `ComposeMailDialog`) değişmiyor; sunucu tarafı zaten hatayı yayıyor.
+- Yeni tablo/migration yok — mevcut `edge_rate_limits` altyapısı kullanılıyor.
+- Şablon içeriği, from-alias, delegasyon mantığı ve `emails` tablo yazımı aynen korunur.
+
+## Teknik notlar
+
+- **"Lead" kaynağı belirsizliği**: kodbaz `profiles`'ta `email` var, `waitlist`'te `email` var (koç bağlantısız), `coach_invites`'te ise `email` yok. Bu projede koç-bağlı bir "lead" tablosu bulunmuyor. Waitlist'i lead kaynağı kabul etmek pratik ama global — eğer istenen davranış farklıysa (ör. sadece koçun kendi sporcuları + self), bu adım daralttırılabilir. Varsayılan planım: **profiles-of-coach + waitlist + self**.
+- Rate limit RPC'si atomik `INSERT ... ON CONFLICT ... DO UPDATE RETURNING count` yapıyor; race condition yok.
+- Loglama: reddedilen alıcı ve rate-limit aşımı için `console.warn` — Edge Function logs üzerinden izleme için.
+- Fonksiyon deploy edilecek; migration/secret gerekmiyor.
