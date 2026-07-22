@@ -44,12 +44,15 @@ export function AssignSupplementDialog({ open, onOpenChange, athleteId, onAssign
   const handleSubmit = async () => {
     if (!name.trim() || !dosage.trim()) return;
 
+    const parsed = parseInt(totalServings, 10);
+    const total = Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+
     const success = await assignSupplement({
       athleteId,
       name: name.trim(),
       dosage: dosage.trim(),
       timing,
-      totalServings,
+      totalServings: total,
       icon,
     });
 
