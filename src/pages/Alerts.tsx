@@ -657,7 +657,7 @@ export default function Alerts() {
               </div>
             ) : (
               filteredAlerts.map((alert) => (
-                <AlertActionCard key={alert.id} alert={alert} onDismiss={handleDismiss} />
+                <AlertActionCard key={alert.id} alert={alert} onDismiss={handleDismiss} onResolve={handleResolve} />
               ))
             )}
           </div>
