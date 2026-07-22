@@ -1,46 +1,45 @@
-## Amaç
-Business.tsx > "Bugünün Programı" ve `SessionSchedulerDialog` gerçek DB verisiyle çalışsın. Hardcoded seed'ler kalksın; scheduler'da eklenen seanslar `coach_sessions` tablosuna kalıcı yazılsın, silme de DB'ye işlensin.
+## 1) `AssignTrainingDialog.tsx` — delete-then-insert
+`handleAssign` içinde, `insert`'ten hemen önce, atanacak aralık için mevcut satırları temizle:
 
-## 1) DB — Yeni tablo `coach_sessions`
-Migration, standart 4-adım kalıp:
+```ts
+const startStr = format(start, "yyyy-MM-dd");
+const endStr = format(addDays(start, weeks * 7 - 1), "yyyy-MM-dd");
 
-Sütunlar (domain):
-- `coach_id uuid` (owner)
-- `athlete_id uuid null` (grup seansları için null olabilir)
-- `athlete_label text` (grup / manuel isim için)
-- `session_type text` (pt | consultation | group | checkin)
-- `scheduled_date date`
-- `scheduled_time time`
-- `duration_minutes int` (30/45/60/90)
-- `notes text null`
-- standart `id`, `created_at`, `updated_at` + trigger
+const { error: delError } = await supabase
+  .from("assigned_workouts")
+  .delete()
+  .eq("athlete_id", athleteId)
+  .gte("scheduled_date", startStr)
+  .lte("scheduled_date", endStr);
+if (delError) { toast destructive; setAssigning(null); return; }
+```
 
-GRANT'lar: `authenticated` full CRUD, `service_role` ALL.
+Sonra mevcut insert akışı çalışır. `addDays` import edilir. Hata durumunda toast + erken çıkış.
 
-RLS:
-- Coach kendi satırlarını yönetir: `coach_id = auth.uid()` veya `is_active_team_member_of(coach_id)` (mevcut agency modeli).
-- Athlete kendi seansını okuyabilir: `athlete_id = auth.uid()` (SELECT).
+## 2) `ReplaceProgramDialog.tsx` — Pazartesi snap
+Takvim `onSelect` çağrısı `startOfWeek(d, { weekStartsOn: 1 })` uygulanarak yazılır:
 
-Realtime gerekmez.
+```tsx
+onSelect={(d) => d && setStartDate(startOfWeek(d, { weekStartsOn: 1 }))}
+```
 
-## 2) Hook — `src/hooks/useCoachSessions.ts`
-- `useCoachSessions(coachId, date?)` → o tarihe ait seansları çeker (default: bugün).
-- `useCoachSessionsWeek(coachId, weekStartDate)` → hafta grid'i için 7 günlük fetch.
-- Mutations: `createSession`, `deleteSession`. React Query cache invalidation.
+`startOfWeek` zaten import edilmiş.
 
-## 3) `SessionSchedulerDialog.tsx` — tamamen DB destekli
-- Hardcoded `clients` ve seed `sessions` array'i kaldırılır.
-- Sporcu listesi `profiles`'tan `role='athlete' AND coach_id = activeCoachId` ile çekilir + sabit "Grup Antrenmanı" seçeneği (athlete_id null, athlete_label="Grup Antrenmanı").
-- Grid, `weekStartDate` state'i üzerinden `useCoachSessionsWeek` ile beslenir. Bugün için hafta içi doğru gün indeksi hesaplanır (Pazartesi=0).
-- `handleCreateSession` → `createSession` mutation (destructive toast on error, dialog form reset on success).
-- `handleRemoveSession` → `deleteSession` mutation.
-- Prop `onSessionCreated` kaldırılır (parent artık DB'den yeniler).
+## 3) `NutritionTab.tsx` — gelecekteki `assigned_diet_days` temizliği
+`handleRemoveTemplate` içinde `nutrition_targets` güncellemesi başarılı olduktan sonra bugünden itibaren atanan diyet günlerini de sil:
 
-## 4) `Business.tsx` — hardcoded seed kaldırılır
-- `initialSessions`, `Session` interface, `sessions` state ve `handleSessionCreated` silinir.
-- Bugünün programı bölümü `useCoachSessions(activeCoachId, today)` sonucuyla render edilir. Time'a göre sıralı gösterim; loading state; boş durumda "Bugün seans yok" satırı.
-- `<SessionSchedulerDialog>` yalnızca `open`/`onOpenChange` alır.
+```ts
+const today = format(new Date(), "yyyy-MM-dd");
+const { error: daysErr } = await supabase
+  .from("assigned_diet_days")
+  .delete()
+  .eq("athlete_id", athleteId)
+  .gte("target_date", today);
+if (daysErr) { toast destructive; return; }
+```
+
+Hem başarı toast'u hem `fetchTargets()` bu adım başarılıysa çağrılır; herhangi biri hata verirse destructive toast ile durur ve `setRemovingTemplate(false)` çağrılır.
 
 ## Notlar
-- Sporcu isimleri profiles'tan alındığı için `athlete_label` sadece grup/serbest metin için yedek; UI'da `athlete_id` varsa join'lenmiş `full_name`, yoksa `athlete_label` gösterilir.
-- Tarih/saat gösterimlerinde `date-fns` formatlaması korunur; `time` alanı `HH:mm`.
+- Hiçbir DB şeması değişikliği yok.
+- `AssignTrainingDialog` toplu silme aralığı yalnızca atama penceresi (weeks*7 gün) ile sınırlıdır; önceki başka programlara ait geçmiş satırlara dokunmaz.
