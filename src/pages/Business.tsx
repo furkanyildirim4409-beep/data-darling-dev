@@ -49,16 +49,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface Session {
-  athlete: string;
-  type: string;
-  time: string;
-  duration: string;
-}
+import { useCoachSessions, useDeleteCoachSession } from "@/hooks/useCoachSessions";
 
-const initialSessions: Session[] = [
-  { athlete: "Grup Antrenmanı", type: "Sınıf", time: "11:00", duration: "90 dk" },
-];
 
 const statusLabels: Record<string, string> = {
   paid: "Ödendi",
