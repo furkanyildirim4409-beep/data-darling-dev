@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { PushPermissionBanner } from "./PushPermissionBanner";
+import { MaintenanceBanner } from "./MaintenanceBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useForegroundPush } from "@/hooks/useForegroundPush";
@@ -48,7 +49,9 @@ export function MainLayout() {
   return (
     <CoachChatProvider>
       <TeamChatProvider>
-        <div className="flex w-full h-screen overflow-hidden bg-background">
+        <div className="flex flex-col w-full h-screen overflow-hidden bg-background">
+          <MaintenanceBanner />
+          <div className="flex flex-1 w-full overflow-hidden">
           {!isMobile && (
             <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
           )}
@@ -61,6 +64,7 @@ export function MainLayout() {
             )}>
               {isFullBleed ? <Outlet /> : <div className="p-4 md:p-6"><Outlet /></div>}
             </main>
+          </div>
           </div>
         </div>
       </TeamChatProvider>

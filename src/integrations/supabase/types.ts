@@ -62,6 +62,105 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
+      admin_campaigns: {
+        Row: {
+          action_url: string | null
+          audience: string
+          body: string
+          created_at: string
+          id: string
+          in_app_sent: number
+          push_sent: number
+          recipient_count: number
+          result: Json | null
+          segment: string
+          sent_by: string
+          skip_push: boolean
+          title: string
+        }
+        Insert: {
+          action_url?: string | null
+          audience: string
+          body: string
+          created_at?: string
+          id?: string
+          in_app_sent?: number
+          push_sent?: number
+          recipient_count?: number
+          result?: Json | null
+          segment: string
+          sent_by: string
+          skip_push?: boolean
+          title: string
+        }
+        Update: {
+          action_url?: string | null
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          in_app_sent?: number
+          push_sent?: number
+          recipient_count?: number
+          result?: Json | null
+          segment?: string
+          sent_by?: string
+          skip_push?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
+      admin_permissions: {
+        Row: {
+          created_at: string
+          permissions: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          permissions?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          permissions?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_radar_agent_queue: {
         Row: {
           agent_assigned_id: string
@@ -733,6 +832,27 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_runs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: string
+          rule: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          rule: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          rule?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           category: string | null
@@ -1355,6 +1475,66 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_payouts: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          coach_id: string
+          commission_lira: number
+          commission_percent: number
+          created_at: string
+          gross_lira: number
+          id: string
+          net_lira: number
+          notes: string | null
+          order_count: number
+          paid_at: string | null
+          payment_reference: string | null
+          period_end: string
+          period_start: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          coach_id: string
+          commission_lira?: number
+          commission_percent?: number
+          created_at?: string
+          gross_lira?: number
+          id?: string
+          net_lira?: number
+          notes?: string | null
+          order_count?: number
+          paid_at?: string | null
+          payment_reference?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          coach_id?: string
+          commission_lira?: number
+          commission_percent?: number
+          created_at?: string
+          gross_lira?: number
+          id?: string
+          net_lira?: number
+          notes?: string | null
+          order_count?: number
+          paid_at?: string | null
+          payment_reference?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coach_products: {
         Row: {
           category: string | null
@@ -1531,6 +1711,48 @@ export type Database = {
           },
         ]
       }
+      coach_verifications: {
+        Row: {
+          certificate_verified: boolean
+          coach_id: string
+          created_at: string
+          iban_verified: boolean
+          id: string
+          identity_verified: boolean
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          certificate_verified?: boolean
+          coach_id: string
+          created_at?: string
+          iban_verified?: boolean
+          id?: string
+          identity_verified?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          certificate_verified?: boolean
+          coach_id?: string
+          created_at?: string
+          iban_verified?: boolean
+          id?: string
+          identity_verified?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coaching_packages: {
         Row: {
           coach_id: string
@@ -1680,6 +1902,80 @@ export type Database = {
           reported_item_id?: string
           reporter_id?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      coupon_redemptions: {
+        Row: {
+          coupon_id: string
+          created_at: string
+          id: string
+          order_id: string | null
+          user_id: string
+        }
+        Insert: {
+          coupon_id: string
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          user_id: string
+        }
+        Update: {
+          coupon_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          coach_id: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          used_count: number
+        }
+        Insert: {
+          coach_id?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          used_count?: number
+        }
+        Update: {
+          coach_id?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          used_count?: number
         }
         Relationships: []
       }
@@ -2074,6 +2370,27 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       food_items: {
         Row: {
           api_food_id: string | null
@@ -2443,6 +2760,87 @@ export type Database = {
           },
         ]
       }
+      payment_events: {
+        Row: {
+          actor_id: string | null
+          amount_lira: number | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          from_status: string | null
+          id: string
+          metadata: Json | null
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          amount_lira?: number | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          amount_lira?: number | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          to_status?: string | null
+        }
+        Relationships: []
+      }
+      payment_holds: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          held_at: string
+          held_by: string
+          hold_until: string | null
+          id: string
+          reason: string
+          release_note: string | null
+          released_at: string | null
+          released_by: string | null
+          status: string
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          held_at?: string
+          held_by: string
+          hold_until?: string | null
+          id?: string
+          reason: string
+          release_note?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          held_at?: string
+          held_by?: string
+          hold_until?: string | null
+          id?: string
+          reason?: string
+          release_note?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -2524,6 +2922,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
       }
       post_comments: {
         Row: {
@@ -3110,6 +3529,39 @@ export type Database = {
           token_hash?: string
           used_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          code: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          referred_id: string | null
+          referrer_id: string
+          reward_coins: number
+          status: string
+        }
+        Insert: {
+          code: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referred_id?: string | null
+          referrer_id: string
+          reward_coins?: number
+          status?: string
+        }
+        Update: {
+          code?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referred_id?: string | null
+          referrer_id?: string
+          reward_coins?: number
+          status?: string
         }
         Relationships: []
       }
@@ -4206,8 +4658,167 @@ export type Database = {
       }
     }
     Functions: {
+      _log_payment_event: {
+        Args: {
+          _amount: number
+          _entity_id: string
+          _entity_type: string
+          _event_type: string
+          _from: string
+          _meta: Json
+          _to: string
+        }
+        Returns: undefined
+      }
       add_bio_coin_transaction: {
         Args: { _amount: number; _description?: string; _type: string }
+        Returns: string
+      }
+      admin_assign_order_coach: {
+        Args: { _coach_id: string; _order_id: string }
+        Returns: undefined
+      }
+      admin_create_invoice: {
+        Args: {
+          _amount: number
+          _athlete_id: string
+          _coach_id: string
+          _description: string
+          _due_date: string
+        }
+        Returns: string
+      }
+      admin_create_refund: {
+        Args: {
+          _amount: number
+          _athlete_id: string
+          _coach_id: string
+          _reason: string
+        }
+        Returns: string
+      }
+      admin_freeze_user: {
+        Args: { _days: number; _reason: string; _user_id: string }
+        Returns: undefined
+      }
+      admin_generate_coach_payouts: {
+        Args: {
+          _commission_percent: number
+          _period_end: string
+          _period_start: string
+        }
+        Returns: number
+      }
+      admin_get_churn_radar: { Args: never; Returns: Json }
+      admin_get_cohorts: { Args: never; Returns: Json }
+      admin_get_fraud_signals: { Args: never; Returns: Json }
+      admin_get_funnel: { Args: never; Returns: Json }
+      admin_get_payout_bank_info: { Args: { _coach_id: string }; Returns: Json }
+      admin_get_platform_stats: { Args: never; Returns: Json }
+      admin_get_referral_stats: { Args: never; Returns: Json }
+      admin_get_revenue_analytics: { Args: never; Returns: Json }
+      admin_get_system_health: { Args: never; Returns: Json }
+      admin_get_user_overview: { Args: { _user_id: string }; Returns: Json }
+      admin_hold_entity: {
+        Args: {
+          _entity_id: string
+          _entity_type: string
+          _hold_until?: string
+          _reason: string
+        }
+        Returns: string
+      }
+      admin_log_campaign: {
+        Args: {
+          _action_url: string
+          _audience: string
+          _body: string
+          _recipient_count: number
+          _result: Json
+          _segment: string
+          _skip_push: boolean
+          _title: string
+        }
+        Returns: string
+      }
+      admin_release_hold: {
+        Args: { _hold_id: string; _new_status: string; _note?: string }
+        Returns: undefined
+      }
+      admin_resolve_segment: {
+        Args: { _coach_id?: string; _segment: string }
+        Returns: string[]
+      }
+      admin_set_admin_permissions: {
+        Args: { _permissions: Json; _user_id: string }
+        Returns: undefined
+      }
+      admin_set_coach_verification: {
+        Args: {
+          _certificate: boolean
+          _coach_id: string
+          _iban: boolean
+          _identity: boolean
+          _notes?: string
+          _status: string
+        }
+        Returns: undefined
+      }
+      admin_set_flag: {
+        Args: { _description?: string; _enabled: boolean; _key: string }
+        Returns: undefined
+      }
+      admin_set_invoice_status: {
+        Args: { _invoice_id: string; _status: string }
+        Returns: undefined
+      }
+      admin_set_payout_status: {
+        Args: {
+          _notes?: string
+          _payment_reference?: string
+          _payout_id: string
+          _status: string
+        }
+        Returns: undefined
+      }
+      admin_set_setting: {
+        Args: { _description?: string; _key: string; _value: Json }
+        Returns: undefined
+      }
+      admin_set_user_active: {
+        Args: { _active: boolean; _user_id: string }
+        Returns: undefined
+      }
+      admin_set_user_role: {
+        Args: {
+          _grant: boolean
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_unfreeze_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_update_order_fulfillment: {
+        Args: {
+          _carrier_name?: string
+          _fulfillment_status?: string
+          _order_id: string
+          _status?: string
+          _tracking_number?: string
+          _tracking_url?: string
+        }
+        Returns: undefined
+      }
+      admin_upsert_coupon: {
+        Args: {
+          _coach_id?: string
+          _code: string
+          _discount_type: string
+          _discount_value: number
+          _expires_at?: string
+          _is_active?: boolean
+          _max_uses?: number
+        }
         Returns: string
       }
       assign_diet_template: {
@@ -4396,6 +5007,7 @@ export type Database = {
         Returns: string
       }
       has_active_coaching: { Args: { _user_id: string }; Returns: boolean }
+      has_admin_permission: { Args: { _perm: string }; Returns: boolean }
       has_mail_delegation: { Args: { _owner_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -4404,16 +5016,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_team_permission: {
+        Args: { _head_coach_id: string; _permission: string }
+        Returns: boolean
+      }
+      increment_coupon_use: { Args: { _coupon_id: string }; Returns: undefined }
       increment_total_volume: { Args: { _kg: number }; Returns: number }
       is_active_team_member_of: {
         Args: { _head_coach_id: string }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       is_coach_of: { Args: { _athlete_id: string }; Returns: boolean }
       is_username_available: { Args: { _username: string }; Returns: boolean }
       link_athlete_to_coach: {
         Args: { _athlete_email: string; _coach_id: string }
         Returns: Json
+      }
+      log_admin_action: {
+        Args: {
+          _action: string
+          _details?: Json
+          _target_id?: string
+          _target_type?: string
+        }
+        Returns: string
       }
       order_contains_coaching_item: {
         Args: { _items: Json; _order_type: string }
@@ -4458,6 +5085,8 @@ export type Database = {
           user_id: string
         }[]
       }
+      run_churn_nudge: { Args: never; Returns: undefined }
+      run_weekly_auto_payouts: { Args: never; Returns: undefined }
       search_athletes_by_username: {
         Args: { _limit?: number; _query: string }
         Returns: {
@@ -4502,6 +5131,7 @@ export type Database = {
         Returns: undefined
       }
       update_streak_secure: { Args: never; Returns: undefined }
+      validate_coupon: { Args: { _code: string }; Returns: Json }
       verify_reauthentication_nonce: {
         Args: { _nonce: string }
         Returns: boolean
