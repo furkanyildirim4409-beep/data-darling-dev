@@ -65,6 +65,7 @@ export function MainLayout() {
               {isFullBleed ? <Outlet /> : <div className="p-4 md:p-6"><Outlet /></div>}
             </main>
           </div>
+          </div>
         </div>
       </TeamChatProvider>
     </CoachChatProvider>
